@@ -197,20 +197,20 @@ if st.session_state.get('_boot_fix_version') != BOOT_FIX_VERSION:
     st.session_state['_boot_fix_version'] = BOOT_FIX_VERSION
     # Sayfa artık 0px yükseklik hatasından bağımsız biçimde açılıyor.
     # Kullanıcıyı düğmeye bastırmamak için veri merkezlerini yeniden otomatik aç.
-    # Bulut sunucusunda ilk ekrani hizli ac; agir uzak verileri kullanici isteyince yukle.
-    st.session_state['home_data_requested'] = False
-    st.session_state['telemetry_schedule_requested'] = False
-    st.session_state['news_requested'] = False
+    # Ana sayfa açılır açılmaz güncel yarış merkezi ve haberler yüklensin.
+    st.session_state['home_data_requested'] = True
+    st.session_state['telemetry_schedule_requested'] = True
+    st.session_state['news_requested'] = True
 
 # Açılış emniyeti: Streamlit tüm dosyayı baştan çalıştırır. Bu nedenle uzak
 # FastF1/RSS çağrılarını ilk karede yapmak boş ekrana ve "sonsuz yükleniyor"
 # hissine yol açar. Veri yalnızca kullanıcı istediğinde yüklenir.
 if 'home_data_requested' not in st.session_state:
-    st.session_state['home_data_requested'] = False
+    st.session_state['home_data_requested'] = True
 if 'telemetry_schedule_requested' not in st.session_state:
-    st.session_state['telemetry_schedule_requested'] = False
+    st.session_state['telemetry_schedule_requested'] = True
 if 'news_requested' not in st.session_state:
-    st.session_state['news_requested'] = False
+    st.session_state['news_requested'] = True
 
 # 1. AKILLI GELECEK/ŞİMDİKİ SEANS TESPİT MOTORU
 @st.cache_data(ttl=60)
