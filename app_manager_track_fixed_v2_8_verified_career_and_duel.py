@@ -6338,9 +6338,9 @@ st.markdown("""
     <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap">
         <div class="paddock-topline">
             <img src="https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg" alt="Formula Paddock">
-            <div><div class="hud-label">FORMULA PADDOCK</div><h1 style="margin:3px 0 0">DATA // STRATEGY // RACE</h1><p>Dogurlanmis seans sonuclari, telemetri ve oyun merkezi</p></div>
+            <div><div class="hud-label">FORMULA PADDOCK</div><h1 style="margin:3px 0 0">RACE INTELLIGENCE</h1><p>F1 yarışları, şampiyona verileri, pilot analizleri ve tarihî oyunlar</p></div>
         </div>
-        <div style="text-align:right"><div class="hud-label">BETA 1.8 // PADDOCK EDITION</div><div style="color:#6ee7b7;font-size:.8rem;font-weight:850;margin-top:5px">● FASTF1 HAZIR · VERI ODAKLI</div></div>
+        <div style="text-align:right"><div class="hud-label">PADDOCK EDITION</div><div style="color:#6ee7b7;font-size:.8rem;font-weight:850;margin-top:5px">● 2026 SEZONU · CANLI MERKEZ</div></div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -6352,10 +6352,17 @@ st.markdown("""
 st.sidebar.markdown("""
 <div class="paddock-side-brand">
     <img src="https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg" alt="Formula Paddock">
-    <div class="brand-title">PADDOCK CONTROL</div>
-    <div class="brand-sub">DATA · STRATEGY · PLAY</div>
+    <div class="brand-title">FORMULA PADDOCK</div>
+    <div class="brand-sub">RACE INTELLIGENCE</div>
 </div>
+<style>
+.nav-section-v29{margin:15px 2px 7px;padding:7px 10px;border-left:3px solid #e10600;color:#9bb0c7;font-size:.66rem;font-weight:900;letter-spacing:1.25px;background:linear-gradient(90deg,rgba(225,6,0,.12),transparent);border-radius:3px}
+section[data-testid="stSidebar"] div[data-testid="stButton"]>button{border:1px solid #263b53!important;background:linear-gradient(135deg,#111d2d,#0d1724)!important;color:#eaf2fb!important;box-shadow:0 5px 12px rgba(0,0,0,.14)!important;transition:border-color .16s ease,transform .16s ease!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{border-color:#e10600!important;transform:translateX(2px)!important;background:linear-gradient(135deg,#18283d,#101b2a)!important}
+</style>
 """, unsafe_allow_html=True)
+
+st.sidebar.markdown("<div class='nav-section-v29'>GENEL</div>", unsafe_allow_html=True)
 
 # 1. ANA SAYFA VE HABERLER BUTONU
 if st.sidebar.button("🏠 Ana Sayfa & Haberler", use_container_width=True):
@@ -6366,6 +6373,7 @@ if st.sidebar.button('📰 Haberler // 30 Haber', use_container_width=True):
     st.session_state['page'] = 'news'
 
 # 2. TELEMETRİ SEANS AYARLARI
+st.sidebar.markdown("<div class='nav-section-v29'>VERİ & ANALİZ</div>", unsafe_allow_html=True)
 with st.sidebar.expander("📊 TELEMETRİ SEANS AYARLARI", expanded=(st.session_state['page'] == 'telemetry')):
     year = st.number_input("Sezon Yılı", min_value=2018, max_value=2026, value=2026)
 
@@ -6426,6 +6434,7 @@ with st.sidebar.expander("📊 TELEMETRİ SEANS AYARLARI", expanded=(st.session_
         st.session_state['page'] = 'telemetry'
 
 # 3. SEANS TAKİBİ VE YENİ MERKEZLER
+st.sidebar.markdown("<div class='nav-section-v29'>CANLI & YARIŞ</div>", unsafe_allow_html=True)
 if st.sidebar.button("📡 Seans Takibi", use_container_width=True):
     st.session_state['page'] = 'live'
 
@@ -6441,12 +6450,14 @@ if st.sidebar.button("📖 Yaris Hikayesi", use_container_width=True):
 if st.sidebar.button("⚔️ Pilot Karsilastirma", use_container_width=True):
     st.session_state['page'] = 'compare'
 
+st.sidebar.markdown("<div class='nav-section-v29'>PADDOCK</div>", unsafe_allow_html=True)
 if st.sidebar.button("🎓 F1 Baslangic Garaji", use_container_width=True):
     st.session_state['page'] = 'learn'
 
 if st.sidebar.button("⭐ Favori Paddock", use_container_width=True):
     st.session_state['page'] = 'favourites'
 
+st.sidebar.markdown("<div class='nav-section-v29'>ŞAMPİYONALAR</div>", unsafe_allow_html=True)
 if st.sidebar.button("👥 2026 Takımlar & Pilotlar", use_container_width=True):
     st.session_state['page'] = 'teams'
 
@@ -6462,6 +6473,7 @@ if st.sidebar.button("❓ F1 Sözlüğü", use_container_width=True):
 if st.sidebar.button("🧠 Paddock Asistanı", use_container_width=True):
     st.session_state['page'] = 'assistant'
 
+st.sidebar.markdown("<div class='nav-section-v29'>OYUNLAR</div>", unsafe_allow_html=True)
 if st.sidebar.button("🎮 Oyun Merkezi", use_container_width=True):
     st.session_state['page'] = 'games'
 
@@ -6471,12 +6483,7 @@ with st.sidebar.expander("⭐ Hızlı Favori", expanded=False):
     favourite_driver = st.selectbox("Pilot", [driver[0] for driver in favourite_drivers], key="favourite_driver")
     st.caption(f"Favorin: {favourite_team} — {favourite_driver}")
 
-st.sidebar.markdown("""
-<div style="background: #181820; border: 1px solid #2A2A36; border-radius: 10px; padding: 10px; margin-top: 15px; text-align: center;">
-    <div style="font-size: 0.7rem; color: #8E8E9F; font-weight: 600;">SİSTEM DURUMU</div>
-    <div style="font-size: 0.8rem; color: #00FF66; font-weight: 700;">🟢 FastF1 Engine Active</div>
-</div>
-""", unsafe_allow_html=True)
+st.sidebar.caption("Formula Paddock · Bağımsız F1 veri ve oyun merkezi")
 
 # ==========================================
 # SAYFA 1: ANA SAYFA & DİNAMİK RACECENTER
@@ -7833,12 +7840,11 @@ def render_stewarlde_v24():
         return
 
     target = drivers[stewarlde_target_index_v23(len(drivers), mode, game['round'])]
-    cards = st.columns(4)
+    cards = st.columns(3)
     values = [
         ('TEKİL PİLOT HAVUZU', f"{len(drivers)} pilot", 'Aynı kişi yalnızca bir kez listelenir'),
         ('OYUN MODU', mode, 'Günlük hedef veya sınırsız tur'),
         ('TAHMİN HAKKI', f"{max(0, 6-len(game['guesses']))} / 6", f"Tur {game['round']}"),
-        ('VERİ MOTORU', 'Kaynak doğrulamalı', 'Uydurma galibiyet veya start yok'),
     ]
     for col, (label, value, note) in zip(cards, values):
         with col:
@@ -8050,20 +8056,19 @@ def render_stewarlde_v25():
         return
 
     target = drivers[stewarlde_target_index_v23(len(drivers), mode, game['round'])]
-    cards = st.columns(4)
+    cards = st.columns(3)
     values = [
         ('TEKİL PİLOT HAVUZU', f"{len(drivers)} pilot", 'Aynı kişi yalnızca bir kez listelenir'),
         ('OYUN MODU', mode, 'Günlük hedef veya sınırsız tur'),
         ('TAHMİN HAKKI', f"{max(0, 6-len(game['guesses']))} / 6", f"Tur {game['round']}"),
-        ('VERİ MOTORU', 'Kaynak doğrulamalı', 'Uydurma galibiyet, start veya giriş yılı yok'),
     ]
     for col, (label, value, note) in zip(cards, values):
         with col:
             st.markdown(f"<div class='hud-card game-stat-v24'><div class='hud-label'>{label}</div><div class='hud-value'>{html_lib.escape(value)}</div><div class='driver-meta'>{html_lib.escape(note)}</div></div>", unsafe_allow_html=True)
 
     st.markdown(
-        "<div class='hud-card game-brief-v24'><div class='hud-label'>STEWARDLE // GERÇEK KARİYER VERİSİ</div>"
-        "<div class='history-copy' style='margin-top:7px'>Pilot menüsünde 2010–2026 boyunca yarışmış tüm tekil isimler bulunur. Yeşil doğru; sarı sayısal yön ipucu; gri eşleşme yok demektir. Galibiyet, şampiyonluk, GP startı ve ilk GP yılı tarihî kaynaktan gelir.</div></div>",
+        "<div class='hud-card game-brief-v24'><div class='hud-label'>STEWARDLE // F1 KARİYER BULMACASI</div>"
+        "<div class='history-copy' style='margin-top:7px'>2010–2026 döneminde yarışmış pilotu altı tahminde bul. Yeşil doğru cevabı, sarı hedefin daha yüksek veya düşük olduğunu, gri ise eşleşme olmadığını gösterir.</div></div>",
         unsafe_allow_html=True,
     )
 
@@ -8121,6 +8126,33 @@ def render_stewarlde_v25():
 
 
 render_stewarlde = render_stewarlde_v25
+
+
+@st.cache_data(show_spinner=False)
+def _load_stewarlde_database_v29():
+    """Load the complete bundled game database; Cloud never needs one request per driver."""
+    data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'stewardle_drivers.json')
+    with open(data_path, 'r', encoding='utf-8') as source:
+        rows = json.load(source)
+    required = {'identity', 'api_code', 'name', 'team', 'nation', 'latest_season',
+                'titles', 'wins', 'starts', 'first_gp_date'}
+    clean = [row for row in rows if required.issubset(row) and row.get('identity') and row.get('name')]
+    if len(clean) < 80:
+        raise ValueError('Stewardle database is incomplete')
+    return sorted(clean, key=lambda item: str(item['name']).casefold())
+
+
+def fetch_stewarlde_universe_v24():
+    return _load_stewarlde_database_v29()
+
+
+def stewarlde_stats_v25(driver):
+    return {
+        'wins': driver.get('wins'),
+        'titles': int(driver.get('titles', 0)),
+        'starts': driver.get('starts'),
+        'first_gp_date': driver.get('first_gp_date'),
+    }
 
 
 st.markdown(r"""
@@ -9098,8 +9130,7 @@ elif st.session_state['page'] == 'live':
                 "Yarış Takrarı sekmesi ve diğer sayfalar normal şekilde açık kalır."
             )
         else:
-            if st.button("🔄 Dereceleri yükle / yenile", key=timing_load_key, use_container_width=True):
-                st.session_state[timing_load_key] = True
+            st.session_state[timing_load_key] = True
 
             if st.session_state.get(timing_load_key, False):
                 try:
@@ -9821,9 +9852,7 @@ elif st.session_state['page'] == 'standings':
     load_key = 'championship_data_ready_2026'
     if not st.session_state.get(load_key, False):
         st.session_state[load_key] = True
-    if st.button("🔄 2026 puan verisini yenile", key='refresh_championship_2026', use_container_width=True):
-        get_championship_data_v19.clear()
-        st.session_state[load_key] = True
+    st.caption("Puan tablosu saatlik önbellekten otomatik güncellenir; elle yenileme gerekmez.")
 
     driver_standings = pd.DataFrame()
     constructor_standings = pd.DataFrame()
