@@ -8832,6 +8832,346 @@ st.markdown(r"""
 </style>
 """, unsafe_allow_html=True)
 
+# =========================================================
+# 3.0 OFFICIAL PIT WALL + LOCAL GAME ENGINE
+# Stewardle keeps its verified historical engine. The other games use this
+# zero-network layer so Community Cloud never waits for an API to draw them.
+# =========================================================
+
+PIT_WALL_PERSONNEL_2026 = {
+    "Mercedes": {
+        "principal": "Toto Wolff",
+        "strategy": "Rosie Wait",
+        "chief": "James Allison",
+        "engineers": [("George Russell", "Marcus Dudley"), ("Kimi Antonelli", "Peter Bonnington")],
+        "source": "https://www.mercedesamgf1.com/team",
+    },
+    "Ferrari": {
+        "principal": "Fred Vasseur",
+        "strategy": "Ravin Jain",
+        "chief": "Loïc Serra",
+        "engineers": [("Charles Leclerc", "Bryan Bozzi"), ("Lewis Hamilton", "Riccardo Adami")],
+        "source": "https://www.ferrari.com/en-EN/formula1/team",
+    },
+    "McLaren": {
+        "principal": "Andrea Stella",
+        "strategy": "Randeep Singh",
+        "chief": "Rob Marshall",
+        "engineers": [("Lando Norris", "Will Joseph"), ("Oscar Piastri", "Tom Stallard")],
+        "source": "https://www.mclaren.com/racing/formula-1/2026/who-sits-on-mclarens-pit-wall/",
+    },
+    "Red Bull Racing": {
+        "principal": "Laurent Mekies",
+        "strategy": "Hannah Schmitz",
+        "chief": "Pierre Waché",
+        "engineers": [("Max Verstappen", "Gianpiero Lambiase"), ("Isack Hadjar", "Richard Wood")],
+        "source": "https://www.redbullracing.com/int-en/projects/bulls-guide-to-the-pit-wall/bulls-guide-to-the-pit-wall-hot-seats",
+    },
+    "Alpine": {
+        "principal": "Steve Nielsen",
+        "strategy": "Kamuya açık değil",
+        "chief": "David Sanchez",
+        "engineers": [("Pierre Gasly", "John Howard"), ("Franco Colapinto", "Stuart Barlow")],
+        "source": "https://www.alpinef1.com/team",
+    },
+    "Racing Bulls": {
+        "principal": "Alan Permane",
+        "strategy": "Kamuya açık değil",
+        "chief": "Guillaume Cattelani",
+        "engineers": [("Liam Lawson", "Mattia Spini"), ("Arvid Lindblad", "Pierre Hamelin")],
+        "source": "https://www.visacashapprb.com/en/team",
+    },
+    "Haas F1 Team": {
+        "principal": "Ayao Komatsu",
+        "strategy": "Mike Caulfield",
+        "chief": "Andrea De Zordo",
+        "engineers": [("Esteban Ocon", "Francesco Nenci"), ("Oliver Bearman", "Ronan O'Hare")],
+        "source": "https://www.haasf1team.com/our-team",
+    },
+    "Williams": {
+        "principal": "James Vowles",
+        "strategy": "Kamuya açık değil",
+        "chief": "Pat Fry",
+        "engineers": [("Carlos Sainz", "Gaëtan Jego"), ("Alexander Albon", "James Urwin")],
+        "source": "https://www.williamsf1.com/team",
+    },
+    "Audi": {
+        "principal": "Jonathan Wheatley",
+        "strategy": "Kamuya açık değil",
+        "chief": "Mattia Binotto",
+        "engineers": [("Nico Hülkenberg", "Steven Petrik"), ("Gabriel Bortoleto", "José Manuel López")],
+        "source": "https://www.audi.com/en/sport/motorsport/formula-1/",
+    },
+    "Aston Martin": {
+        "principal": "Adrian Newey",
+        "strategy": "Andy Cowell",
+        "chief": "Enrico Cardile",
+        "engineers": [("Fernando Alonso", "Chris Cronin"), ("Lance Stroll", "Andrew Vizard")],
+        "source": "https://www.astonmartinf1.com/en-GB/news/announcement/aston-martin-aramco-announces-changes-to-leadership-structure",
+    },
+    "Cadillac": {
+        "principal": "Graeme Lowdon",
+        "strategy": "Kamuya açık değil",
+        "chief": "Pat Symonds",
+        "engineers": [("Sergio Perez", "Kamuya açık değil"), ("Valtteri Bottas", "Kamuya açık değil")],
+        "source": "https://www.cadillacf1team.com/",
+    },
+}
+
+
+def _pit_wall_card_v30(label, name, colour, detail=""):
+    safe_label = html_lib.escape(str(label))
+    safe_name = html_lib.escape(str(name or "Kamuya açık değil"))
+    safe_detail = html_lib.escape(str(detail))
+    return (
+        f"<div class='hud-card pit-person-v30' style='border-top:4px solid {colour}'>"
+        f"<div class='hud-label'>{safe_label}</div><div class='pit-name-v30'>{safe_name}</div>"
+        f"<div class='driver-meta'>{safe_detail}</div></div>"
+    )
+
+
+def render_pit_wall_v30(team_name=None, compact=False):
+    """Publicly named team personnel; this is an editorial directory, not a game."""
+    chosen = team_name if team_name in TEAM_DIRECTORY_2026 else list(TEAM_DIRECTORY_2026)[0]
+    if team_name is None:
+        chosen = st.selectbox("Takım", list(TEAM_DIRECTORY_2026), key="pit_wall_team_v30")
+    team = TEAM_DIRECTORY_2026[chosen]
+    people = PIT_WALL_PERSONNEL_2026.get(chosen, {})
+    st.markdown("### Pit Duvarı")
+    st.caption("Takımın kamuya açıkladığı 2026 yönetim, strateji ve yarış mühendisliği kadrosu. Açıklanmayan görevlerde isim uydurulmaz.")
+    top = st.columns(3)
+    with top[0]:
+        st.markdown(_pit_wall_card_v30("TAKIM PATRONU", people.get("principal"), team["color"], chosen), unsafe_allow_html=True)
+    with top[1]:
+        st.markdown(_pit_wall_card_v30("STRATEJİ ŞEFİ", people.get("strategy"), team["color"], "Yarış stratejisi"), unsafe_allow_html=True)
+    with top[2]:
+        st.markdown(_pit_wall_card_v30("TAKIM BAŞ MÜHENDİSİ", people.get("chief"), team["color"], "Teknik liderlik"), unsafe_allow_html=True)
+    engineers = people.get("engineers", [])
+    engineer_columns = st.columns(2)
+    for column, pair in zip(engineer_columns, engineers):
+        with column:
+            st.markdown(_pit_wall_card_v30("PİLOT MÜHENDİSİ", pair[1], team["color"], pair[0]), unsafe_allow_html=True)
+    source = safe_external_url(people.get("source", ""))
+    if source and not compact:
+        st.link_button("Takım kaynağını aç ↗", source, use_container_width=True)
+
+
+def render_team_personnel_hud(team_name, section='all'):
+    """Official team leadership and Pit Wall directory, replacing game roles."""
+    team = TEAM_DIRECTORY_2026[team_name]
+    people = PIT_WALL_PERSONNEL_2026.get(team_name, {})
+    leader = TEAM_LEADERSHIP_2026.get(team_name, {})
+    if section in {'all', 'leader'}:
+        st.markdown("### Takım yönetimi")
+        st.markdown(
+            f"<div class='hud-card' style='border-left:4px solid {team['color']};margin:8px 0 18px'>"
+            f"<div class='hud-label'>2026 TAKIM PATRONU</div><div class='pit-name-v30'>{html_lib.escape(people.get('principal', leader.get('name', 'Kamuya açık değil')))}</div>"
+            f"<div class='history-copy' style='margin-top:7px'>Takımın sportif ve operasyonel liderliği. Bu kart oyun puanı veya hayalî personel içermez.</div></div>",
+            unsafe_allow_html=True,
+        )
+    if section in {'all', 'engineers'}:
+        render_pit_wall_v30(team_name, compact=False)
+
+
+def _rotate_options_v30(values, answer, seed):
+    unique = []
+    for value in values:
+        text = str(value)
+        if text not in unique:
+            unique.append(text)
+    correct = str(answer)
+    alternatives = [item for item in unique if item != correct]
+    if alternatives:
+        shift = seed % len(alternatives)
+        alternatives = alternatives[shift:] + alternatives[:shift]
+    picks = [correct] + alternatives[:3]
+    if len(picks) > 1:
+        shift = seed % len(picks)
+        picks = picks[shift:] + picks[:shift]
+    return picks
+
+
+def gridmaster_questions_v30(difficulty="Zor"):
+    drivers = stewarlde_drivers()
+    day = datetime.date.today().toordinal()
+    driver_by_code = {item['code']: item for item in drivers}
+    teammate = {}
+    for team in TEAM_DIRECTORY_2026.values():
+        first, second = team['drivers'][0][1], team['drivers'][1][1]
+        teammate[first], teammate[second] = second, first
+    names = [item['name'] for item in drivers]
+    teams = list(TEAM_DIRECTORY_2026)
+    numbers = ['#' + item['number'] for item in drivers]
+    nations = [item['nation'] for item in drivers]
+    debuts = [item['debut'] for item in drivers]
+    questions = []
+    for turn in range(10):
+        driver = drivers[(day * 5 + turn * 7) % len(drivers)]
+        mate = driver_by_code[teammate[driver['code']]]
+        kind = (day + turn) % 10
+        base = {'id': f"v30_{day}_{turn}_{driver['code']}", 'driver': driver, 'points': 140 if difficulty == 'Zor' else 200}
+        if kind == 0:
+            base.update(prompt="Bu üç ipucunun anlattığı pilot kim?", clue=f"{driver['nation']} · F1 başlangıcı {driver['debut']} · Araç #{driver['number']}", answer=driver['name'], options=_rotate_options_v30(names, driver['name'], day + turn))
+        elif kind == 1:
+            base.update(prompt=f"{driver['name']} ile aynı takımda yarışan pilot kim?", clue=f"Takım adı gizli · Kod {driver['code']}", answer=mate['name'], options=_rotate_options_v30(names, mate['name'], day + turn * 2))
+        elif kind == 2:
+            answer = driver['name'] if driver['age'] > mate['age'] else mate['name']
+            base.update(prompt="Bu takım arkadaşlarından hangisi daha yaşlı?", clue=f"{driver['name']} / {mate['name']}", answer=answer, options=[driver['name'], mate['name']])
+        elif kind == 3:
+            base.update(prompt="Bu pilot ikilisinin 2026 takımı hangisi?", clue=f"{driver['name']} + {mate['name']}", answer=driver['team'], options=_rotate_options_v30(teams, driver['team'], day + turn))
+        elif kind == 4:
+            base.update(prompt=f"{driver['name']} F1'e hangi sezonda başladı?", clue="Çaylak yılı bilgisi", answer=str(driver['debut']), options=_rotate_options_v30(debuts, driver['debut'], day + turn))
+        elif kind == 5:
+            base.update(prompt="Pilot kimliğini araç numarasından bul.", clue=f"2026 araç numarası #{driver['number']} · Ülke {driver['nation']}", answer=driver['name'], options=_rotate_options_v30(names, driver['name'], day + turn))
+        elif kind == 6:
+            base.update(prompt=f"{driver['name']} hangi ülke koduyla yarışıyor?", clue=f"{driver['team']} · #{driver['number']}", answer=driver['nation'], options=_rotate_options_v30(nations, driver['nation'], day + turn))
+        elif kind == 7:
+            base.update(prompt=f"{driver['name']} için doğru araç numarası hangisi?", clue=f"{driver['team']} · F1 başlangıcı {driver['debut']}", answer='#' + driver['number'], options=_rotate_options_v30(numbers, '#' + driver['number'], day + turn))
+        elif kind == 8:
+            base.update(prompt="Bu kariyer ipuçları hangi pilota ait?", clue=f"{driver['titles']} dünya şampiyonluğu · başlangıç {driver['debut']} · ülke {driver['nation']}", answer=driver['name'], options=_rotate_options_v30(names, driver['name'], day + turn * 3))
+        else:
+            answer = driver['name'] if driver['debut'] < mate['debut'] else mate['name']
+            base.update(prompt="Hangisi Formula 1'e daha önce başladı?", clue=f"{driver['name']} / {mate['name']}", answer=answer, options=[driver['name'], mate['name']])
+        questions.append(base)
+    return questions
+
+
+def render_game_engine_banner_v30(title, colour):
+    profile = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
+    st.markdown(
+        f"<div class='hud-card engine-banner-v30' style='border-left:5px solid {colour}'><div class='hud-label'>PADDOCK OYUN MOTORU 3.0</div>"
+        f"<div class='engine-title-v30'>{html_lib.escape(title)}</div><div class='driver-meta'>XP {profile['xp']} · Tamamlanan oyun {profile['played']} · En iyi seri {profile['best_streak']}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_gridmaster_v30():
+    st.markdown("## ⚡ GridMaster")
+    difficulty = st.segmented_control("Seviye", ["Zor", "Uzman"], default="Zor", key="gridmaster_level_v30") if hasattr(st, 'segmented_control') else st.radio("Seviye", ["Zor", "Uzman"], horizontal=True, key="gridmaster_level_v30")
+    questions = gridmaster_questions_v30(difficulty)
+    today = datetime.date.today().isoformat()
+    state_key = 'gridmaster_state_v30'
+    state = st.session_state.get(state_key)
+    if not state or state.get('day') != today or state.get('difficulty') != difficulty:
+        state = {'day': today, 'difficulty': difficulty, 'index': 0, 'score': 0, 'streak': 0, 'best': 0, 'answers': [], 'feedback': None, 'radio_used': False, 'finished': False}
+        st.session_state[state_key] = state
+    render_game_engine_banner_v30("10 Soruluk F1 Bilgi Mücadelesi", "#f7c948")
+    st.caption("Sorular pilotun cevabını ele vermez. Seri yaptıkça puan çarpanın yükselir; bir kez telsiz ipucu kullanabilirsin.")
+    if not state['finished']:
+        question = questions[state['index']]
+        progress = (state['index'] / 10) * 100
+        multiplier = min(3.0, 1.0 + state['streak'] * .25)
+        st.markdown(
+            f"<div class='hud-card grid-question-v30'><div class='hud-label'>SORU {state['index'] + 1}/10 · {state['score']} PUAN · x{multiplier:.2f} SERİ</div>"
+            f"<div class='grid-prompt-v30'>{html_lib.escape(question['prompt'])}</div><div class='grid-clue-v30'>{html_lib.escape(question['clue'])}</div>"
+            f"<div class='grid-progress-v30'><i style='width:{progress}%'></i></div></div>", unsafe_allow_html=True)
+        if not state['radio_used']:
+            if st.button("📻 Telsiz ipucu", key=f"grid_radio_v30_{state['index']}"):
+                state['radio_used'] = True
+                st.session_state[state_key] = state
+                st.rerun()
+        else:
+            answer_text = str(question['answer'])
+            st.info(f"Telsiz: Doğru cevap {len(answer_text)} karakterden oluşuyor ve '{answer_text[0]}' ile başlıyor.")
+        selected = st.radio("Cevabın", question['options'], index=None, key=f"grid_pick_v30_{today}_{difficulty}_{state['index']}", disabled=state['feedback'] is not None)
+        if state['feedback'] is None:
+            if st.button("Cevabı kilitle", type="primary", use_container_width=True, disabled=selected is None, key=f"grid_lock_v30_{state['index']}"):
+                correct = str(selected) == str(question['answer'])
+                gained = int(question['points'] * min(3.0, 1.0 + state['streak'] * .25)) if correct else 0
+                state['streak'] = state['streak'] + 1 if correct else 0
+                state['best'] = max(state['best'], state['streak'])
+                state['score'] += gained
+                state['feedback'] = {'correct': correct, 'selected': selected, 'gained': gained}
+                state['answers'].append({'Soru': state['index'] + 1, 'Cevabın': selected, 'Doğru cevap': question['answer'], 'Puan': gained})
+                st.session_state[state_key] = state
+                st.rerun()
+        else:
+            feedback = state['feedback']
+            if feedback['correct']:
+                st.success(f"Doğru! +{feedback['gained']} puan. Seri devam ediyor.")
+            else:
+                st.error(f"Yanlış. Doğru cevap: {question['answer']}")
+            if st.button("Sonraki soru →" if state['index'] < 9 else "Sonucu gör →", type="primary", use_container_width=True, key=f"grid_next_v30_{state['index']}"):
+                state['index'] += 1
+                state['feedback'] = None
+                state['radio_used'] = False
+                state['finished'] = state['index'] >= 10
+                if state['finished']:
+                    profile = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
+                    profile['xp'] += state['score']
+                    profile['played'] += 1
+                    profile['best_streak'] = max(profile['best_streak'], state['best'])
+                st.session_state[state_key] = state
+                st.rerun()
+    else:
+        rank = "PIT WALL ELİT" if state['score'] >= 2400 else "BAŞ MÜHENDİS" if state['score'] >= 1600 else "YARIŞ MÜHENDİSİ" if state['score'] >= 900 else "ÇAYLAK ANALİST"
+        st.success(f"10 soru tamamlandı · {state['score']} puan · En iyi seri {state['best']} · Rütbe: {rank}")
+        st.dataframe(pd.DataFrame(state['answers']), use_container_width=True, hide_index=True)
+        if st.button("Yeni 10 soruluk mücadele", use_container_width=True, key="grid_reset_v30"):
+            st.session_state.pop(state_key, None)
+            st.rerun()
+
+
+_render_team_manager_before_v30 = render_team_manager_game
+_render_predictor_before_v30 = render_paddock_predictor
+_render_draft_before_v30 = render_paddock_draft_game_v19
+
+
+def render_team_manager_game_v30():
+    render_game_engine_banner_v30("Takım Patronu Kariyeri", "#2ee6c9")
+    st.caption("Kararlar anında yerel simülasyonda işlenir; sayfanın açılması için dış veri beklenmez.")
+    _render_team_manager_before_v30()
+
+
+def render_paddock_predictor_v30():
+    render_game_engine_banner_v30("Paddock Tahmin", "#7dd3fc")
+    st.caption("Pole ve podyum tahminini kaydet; tamamlanan yarış geldiğinde doğrulanmış sonuçla puanlanır.")
+    _render_predictor_before_v30()
+
+
+def render_paddock_draft_game_v30():
+    render_game_engine_banner_v30("Paddock Draft Kariyeri", "#a78bfa")
+    st.caption("Tüm aktif grid yerel pazardan anında açılır; bütçe, uyum ve sponsor bonusu sonraki sezona taşınır.")
+    _render_draft_before_v30()
+
+
+def render_games_hub_v30():
+    st.markdown("## 🎮 Oyun Merkezi")
+    st.caption("Stewardle doğrulanmış tarihsel motorunda kalır. Diğer oyunlar hızlı Paddock Oyun Motoru 3.0 üzerinde çalışır.")
+    games = [
+        ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu bul.", "#ff385c", "Stewardle aç", "stewarlde"),
+        ("10 SORULUK MÜCADELE", "GridMaster", "Zor sorular, seri çarpanı, telsiz jokeri ve rütbe sistemi.", "#f7c948", "Mücadeleyi aç", "gridmaster"),
+        ("KARİYER", "Takım Patronu", "Pilot, lastik, tempo ve bütçe kararlarıyla sezon yönet.", "#2ee6c9", "Kariyeri aç", "team_manager"),
+        ("KADRO PAZARI", "Paddock Draft", "İki pilot seç, uyum kur ve sponsor bütçeni büyüt.", "#a78bfa", "Draftı aç", "draft"),
+        ("YARIŞ TAHMİNİ", "Paddock Tahmin", "Pole ve podyum tahminini gerçek sonuçla karşılaştır.", "#7dd3fc", "Tahmini aç", "predictor"),
+    ]
+    for start in range(0, len(games), 2):
+        columns = st.columns(2)
+        for column, game in zip(columns, games[start:start + 2]):
+            label, title, description, colour, button_text, page = game
+            with column:
+                st.markdown(f"<div class='hud-card game-card-v24' style='border-top:5px solid {colour}'><div class='hud-label'>{label}</div><div class='game-card-title-v24'>{title}</div><div class='history-copy' style='margin-top:8px'>{description}</div></div>", unsafe_allow_html=True)
+                if st.button(button_text, key=f"games_v30_{page}", use_container_width=True):
+                    st.session_state['page'] = page
+                    st.rerun()
+    st.markdown("---")
+    render_pit_wall_v30()
+
+
+render_gridmaster = render_gridmaster_v30
+render_team_manager_game = render_team_manager_game_v30
+render_paddock_predictor = render_paddock_predictor_v30
+render_paddock_draft_game_v19 = render_paddock_draft_game_v30
+render_games_hub = render_games_hub_v30
+
+st.markdown(r"""
+<style>
+.pit-person-v30{min-height:120px!important;margin-top:8px!important}.pit-name-v30{font-size:1.18rem;font-weight:950;color:var(--fp-text);margin:8px 0 5px}.engine-banner-v30{margin-bottom:14px!important}.engine-title-v30{font-size:1.35rem;font-weight:950;color:var(--fp-text);margin:5px 0}.grid-question-v30{border-left:5px solid #f7c948!important;margin-top:14px!important}.grid-prompt-v30{font-size:1.25rem;font-weight:950;margin-top:12px}.grid-clue-v30{font-size:.94rem;color:var(--fp-muted);margin-top:9px;padding:10px;border-radius:9px;background:color-mix(in srgb,var(--fp-panel2) 75%,#f7c948 8%)}.grid-progress-v30{height:7px;background:var(--fp-panel2);border-radius:99px;margin-top:15px;overflow:hidden}.grid-progress-v30 i{display:block;height:100%;background:linear-gradient(90deg,#f7c948,#ff385c);border-radius:99px}.game-card-v24{transition:transform .15s ease,border-color .15s ease}.game-card-v24:hover{transform:translateY(-2px)}
+@media(max-width:800px){.pit-person-v30{min-height:98px!important}.grid-prompt-v30{font-size:1.08rem}}
+</style>
+""", unsafe_allow_html=True)
+
+
 # Final authoritative theme layer. This comes after legacy visual patches so
 # light/dark mode cannot be overwritten by an older hard-coded dark selector.
 st.markdown(f"""
