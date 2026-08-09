@@ -62,12 +62,17 @@ def hud_theme_override_css():
     """Propagate the selected theme into isolated Streamlit HUD iframes."""
     if current_paddock_theme() == 'Açık':
         return (
-            "html{color-scheme:light}body{background:#eef4fb!important;color:#10233b!important}"
-            ".hud,.r,.panel,.summary,.card,.f1-hud,.f1-hud-shell{background:#f8fbff!important;color:#10233b!important;box-shadow:0 14px 35px rgba(36,76,120,.14)!important}"
-            ".map,.graph{background:radial-gradient(circle at 50% 45%,#e8f3ff,#dce9f6 78%)!important}"
-            ".sub,.note,.meta,.stat span{color:#536c86!important}"
+            "html{color-scheme:light}body{background:#edf4fb!important;color:#10233b!important}"
+            ".hud,.r,.panel,.summary,.card,.f1-hud,.f1-hud-shell,.racecenter-card,.rc-ticker,.rc-driver-box,.rc-timer-wide-box,.box,.tile{background:#f8fbff!important;color:#10233b!important;border-color:#bfd0e2!important;box-shadow:0 10px 26px rgba(36,76,120,.10)!important}"
+            ".map,.graph{background:radial-gradient(circle at 50% 45%,#f8fbff,#dce9f6 78%)!important;border-color:#bfd0e2!important}"
+            ".sub,.note,.meta,.stat span,.rc-title-bar,.rc-gap,.time-label{color:#536c86!important}"
+            ".title,.head,.stat b,.hero b,.rc-title-bar span,.time-num{color:#10233b!important}"
+            ".btn,.pilot,.key{background:#e7f0f9!important;color:#17324f!important;border-color:#9fb8cf!important}"
         )
-    return "html{color-scheme:dark}body{background:#090d14!important;color:#edf6ff!important}"
+    return (
+        "html{color-scheme:dark}body{background:#090d14!important;color:#edf6ff!important}"
+        ".hud,.r,.panel,.summary,.card,.f1-hud,.f1-hud-shell,.racecenter-card{color:#edf6ff!important}"
+    )
 
 
 def render_html_hud(markup, height=150, scrolling=False):
@@ -8244,38 +8249,29 @@ def _replay_overlay_v26(payload):
     return payload
 
 
+@st.cache_data(ttl=21600, show_spinner=False)
 def build_stable_race_replay_payload(year, event_name):
-    """Use the verified FastF1 package for every available circuit, then normalize it.
+    """Load compact OpenF1 history first and use heavy FastF1 only as fallback."""
+    openf1_payload = openf1_fallback.build_race_replay(int(year), str(event_name))
+    if isinstance(openf1_payload, dict) and openf1_payload.get('ok'):
+        valid, reason = validate_stable_replay_payload(openf1_payload)
+        if valid:
+            payload = _replay_overlay_v26(openf1_payload)
+            payload['replay_source'] = 'OpenF1 doğrulanmış tur, konum, sıra, pit ve lastik kayıtları.'
+            payload['version'] = '3.2-openf1-fast'
+            return payload
+        openf1_reason = reason
+    else:
+        openf1_reason = openf1_payload.get('reason', '') if isinstance(openf1_payload, dict) else ''
 
-    This wrapper never invents a race for a track FastF1 cannot yet provide.
-    Its job is only to preserve annotations and a safe pit-lane visualization.
-    """
     payload = _build_stable_race_replay_payload_v25(year, event_name)
     if not isinstance(payload, dict) or not payload.get('ok'):
         fastf1_reason = payload.get('reason', '') if isinstance(payload, dict) else ''
-        payload = openf1_fallback.build_race_replay(int(year), str(event_name))
-        if not payload.get('ok'):
-            if fastf1_reason:
-                payload['reason'] = fastf1_reason + ' · ' + payload.get('reason', '')
-            return payload
-        valid, reason = validate_stable_replay_payload(payload)
-        if not valid:
-            return {'ok': False, 'reason': reason}
-        payload = _replay_overlay_v26(payload)
-        payload['replay_source'] = 'OpenF1 tarihî tur, konum, sıra ve stint kayıtlarıyla yeniden kurulan yarış akışı.'
-        payload['version'] = '3.1-openf1-fallback'
-        return payload
+        return {'ok': False, 'reason': ' · '.join(item for item in (openf1_reason, fastf1_reason) if item)}
     payload = _replay_overlay_v26(payload)
-    payload['version'] = '2.6'
-    payload['replay_source'] = (
-        'FastF1 doğrulanmış tur, sıra, pit giriş/çıkış ve lastik kaydı. '
-        'Pit şeridi görünümü şematiktir; canlı GPS değildir.'
-    )
+    payload['version'] = '3.2-fastf1-fallback'
+    payload['replay_source'] = 'FastF1 doğrulanmış tur, sıra, pit ve lastik kayıtları.'
     return payload
-
-
-# The existing retry button calls `.clear()`. Preserve that API after wrapping.
-build_stable_race_replay_payload.clear = _build_stable_race_replay_payload_v25.clear
 
 
 def stable_race_replay_html(payload):
@@ -8296,13 +8292,13 @@ function lap(c,t){const a=c.laps||[];for(let i=0;i<a.length;i++)if(t<=a[i].end)r
 function point(f){const n=route.length;if(!n)return{x:0,y:0,a:0};const p=((f%1)+1)%1*n,i=Math.floor(p),r=p-i,a=route[i],b=route[(i+1)%n];return{x:a[0]+(b[0]-a[0])*r,y:a[1]+(b[1]-a[1])*r,a:Math.atan2(b[1]-a[1],b[0]-a[0])}}function visual(c,t){const s=state(c,t),start=Math.max(0,1-Math.min(1,t/4)),grid=((c.grid||1)-1)*.0013*start;return point(s.frac-grid)}
 function transform(){const xs=route.map(p=>p[0]),ys=route.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=30,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}function xy(p,t){return[(p.x-t.minX)*t.s+(t.w-(t.maxX-t.minX)*t.s)/2,(t.maxY-p.y)*t.s+(t.h-(t.maxY-t.minY)*t.s)/2]}
 function mark(f,label,col){const q=xy(point(f),view);ctx.fillStyle=col;ctx.beginPath();ctx.arc(q[0],q[1],4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#eaf4ff';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText(label,q[0]+6,q[1]-6)}function zone(z,label,col){if(!Number.isFinite(z.start)||!Number.isFinite(z.end))return;ctx.beginPath();for(let i=0;i<=28;i++){const q=xy(point(z.start+(z.end-z.start)*i/28),view);i?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle=col;ctx.lineWidth=6;ctx.globalAlpha=.9;ctx.stroke();ctx.globalAlpha=1;mark(z.start,label,col)}
-function pitPath(){const a=xy(point(.984),view),b=xy(point(.026),view),dx=b[0]-a[0],dy=b[1]-a[1],len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,dir=(a[0]+b[0])/2<view.w/2?1:-1,offset=Math.min(58,Math.max(34,view.w*.065))*dir;return{a,b,c:[a[0]+nx*offset,a[1]+ny*offset],d:[b[0]+nx*offset,b[1]+ny*offset]}}function bez(p0,p1,p2,p3,u){const v=1-u;return{x:v*v*v*p0[0]+3*v*v*u*p1[0]+3*v*u*u*p2[0]+u*u*u*p3[0],y:v*v*v*p0[1]+3*v*v*u*p1[1]+3*v*u*u*p2[1]+u*u*u*p3[1]}}function pitPoint(event,t){const p=pitPath(),u=Math.max(0,Math.min(1,(t-event.start)/(event.end-event.start||1))),q=bez(p.a,p.c,p.d,p.b,u),q2=bez(p.a,p.c,p.d,p.b,Math.min(1,u+.012));return{x:q.x,y:q.y,a:Math.atan2(q2.y-q.y,q2.x-q.x)}}
+function pitPath(){const marks=overlay.pit||[],pin=marks.find(x=>String(x.label||'').includes('IN'))?.fraction??.972,pout=marks.find(x=>String(x.label||'').includes('OUT'))?.fraction??.032,a=xy(point(pin),view),b=xy(point(pout),view),dx=b[0]-a[0],dy=b[1]-a[1],len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,dir=(a[0]+b[0])/2<view.w/2?1:-1,offset=Math.min(58,Math.max(34,view.w*.065))*dir;return{a,b,c:[a[0]+nx*offset,a[1]+ny*offset],d:[b[0]+nx*offset,b[1]+ny*offset]}}function bez(p0,p1,p2,p3,u){const v=1-u;return{x:v*v*v*p0[0]+3*v*v*u*p1[0]+3*v*u*u*p2[0]+u*u*u*p3[0],y:v*v*v*p0[1]+3*v*v*u*p1[1]+3*v*u*u*p2[1]+u*u*u*p3[1]}}function pitPoint(event,t){const p=pitPath(),u=Math.max(0,Math.min(1,(t-event.start)/(event.end-event.start||1))),q=bez(p.a,p.c,p.d,p.b,u),q2=bez(p.a,p.c,p.d,p.b,Math.min(1,u+.012));return{x:q.x,y:q.y,a:Math.atan2(q2.y-q.y,q2.x-q.x)}}
 function drawLane(){const p=pitPath();ctx.beginPath();ctx.moveTo(...p.a);ctx.bezierCurveTo(...p.c,...p.d,...p.b);ctx.strokeStyle='#ffd46b';ctx.lineWidth=4;ctx.setLineDash([7,5]);ctx.globalAlpha=.9;ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;ctx.fillStyle='#ffd46b';ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.fillText('PIT LANE (şematik)',(p.c[0]+p.d[0])/2,(p.c[1]+p.d[1])/2-8)}
 function car(x,y,a,c,code,chosen,pit){ctx.save();ctx.translate(x,y);ctx.rotate(-a);ctx.fillStyle='#050a10';ctx.fillRect(-12,-7,5,14);ctx.fillRect(10,-8,4,16);ctx.fillStyle=c;ctx.fillRect(-8,-4,21,8);ctx.fillRect(8,-2,9,4);ctx.fillRect(13,-8,3,16);ctx.fillStyle='#f4f7ff';ctx.fillRect(-16,-9,3,18);ctx.fillRect(0,-1,8,2);if(pit){ctx.strokeStyle='#ffd44b';ctx.lineWidth=2;ctx.strokeRect(-19,-12,39,24)}if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.3;ctx.strokeRect(-21,-14,43,28)}ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-15)}
-function draw(){if(!view||!route.length)return;ctx.clearRect(0,0,view.w,view.h);ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;(overlay.straights||[]).forEach((z,i)=>zone(z,i?'Overtake olasılığı':'Straight Mode',i?'#71e6a1':'#45c8ff'));mark(0,'START / FINISH','#fff');(overlay.sectors||[]).forEach(x=>mark(x.fraction,x.label,x.colour||'#f4d35e'));(overlay.pit||[]).forEach(x=>mark(x.fraction,x.label,'#b79cff'));drawLane();cars.forEach(c=>{const s=state(c,time);if(s.out)return;const e=pitEvent(c,time);let q,p;if(e){p=pitPoint(e,time);q=[p.x,p.y]}else{p=visual(c,time);q=xy(p,view)}car(q[0],q[1],p.a,c.colour,c.code,c.code===selected,!!e)})}
+function draw(){if(!view||!route.length)return;ctx.clearRect(0,0,view.w,view.h);ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;(overlay.straights||[]).forEach((z,i)=>zone(z,i?'OM · OVERTAKE MODE':'SM · STRAIGHT MODE',i?'#71e6a1':'#45c8ff'));mark(0,'START / FINISH','#fff');(overlay.sectors||[]).forEach(x=>mark(x.fraction,x.label,x.colour||'#f4d35e'));(overlay.pit||[]).forEach(x=>mark(x.fraction,x.label,'#b79cff'));drawLane();cars.forEach(c=>{const s=state(c,time);if(s.out)return;const e=pitEvent(c,time);let q,p;if(e){p=pitPoint(e,time);q=[p.x,p.y]}else{p=visual(c,time);q=xy(p,view)}car(q[0],q[1],p.a,c.colour,c.code,c.code===selected,!!e)})}
 function order(){return cars.filter(c=>!state(c,time).out).sort((a,b)=>{const x=state(a,time),y=state(b,time);return x.pos-y.pos||(y.lap+y.frac)-(x.lap+x.frac)})}function lastPit(c){const e=(c.pit_events||[]).filter(x=>x.end<=time).at(-1);return e?'Tur '+e.lap:'Henüz yok'}
 function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML=list.map(c=>{const s=state(c,time);return`<button class="pilot ${c.code===selected?'active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div><div class="stat"><span>Stint / lastik</span><b>${l?.stint||'—'} · ${compound}</b></div><div class="tyrebar" style="--wear:${wear}%"><i></i></div><div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds)}
-function frame(now){let dt=Math.min(.04,Math.max(0,(now-last)/1000));last=now;if(playing){time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}}draw();update();requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;lastHud=0;draw();update()};document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · FastF1 ortak yarış saati';window.addEventListener('resize',resize);resize();requestAnimationFrame(frame);
+let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}function frame(now){raf=0;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!playing)return;time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}if(now-lastPaint>=33||!playing){lastPaint=now;draw();update()}if(playing)raf=requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(1.5,devicePixelRatio||1);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat';if(playing)startLoop();else{draw();update()}};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;playing=false;document.getElementById('play').textContent='▶ Oynat';lastHud=0;draw();update()};document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;document.getElementById('play').textContent='▶ Oynat'}});document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · doğrulanmış yarış saati';window.addEventListener('resize',resize);resize();startLoop();
 </script></div></body></html>""".replace('__PAYLOAD__', packed)
 
 
@@ -8836,6 +8832,35 @@ st.markdown(r"""
 </style>
 """, unsafe_allow_html=True)
 
+# Final authoritative theme layer. This comes after legacy visual patches so
+# light/dark mode cannot be overwritten by an older hard-coded dark selector.
+st.markdown(f"""
+<style>
+html,body,#root,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"]{{
+  color-scheme:{'light' if light_mode_v31 else 'dark'}!important;
+  color:var(--fp-text)!important;
+  background-color:var(--fp-page)!important;
+  background-image:linear-gradient(var(--fp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--fp-grid) 1px,transparent 1px),radial-gradient(circle at 82% 8%,var(--fp-glow),transparent 31%),linear-gradient(135deg,var(--fp-page),var(--fp-page2))!important;
+  background-size:44px 44px,44px 44px,100% 100%,100% 100%!important;
+  animation:none!important;
+}}
+[data-testid="stAppViewContainer"]::before,[data-testid="stAppViewContainer"]::after{{display:none!important;animation:none!important}}
+[data-testid="stHeader"]{{background:color-mix(in srgb,var(--fp-page) 92%,transparent)!important}}
+section[data-testid="stSidebar"]{{background:linear-gradient(180deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:8px 0 24px var(--fp-shadow)!important}}
+section[data-testid="stSidebar"] *,section[data-testid="stSidebar"] p,section[data-testid="stSidebar"] label{{color:var(--fp-text)!important}}
+.nav-section-v29{{color:var(--fp-muted)!important;background:linear-gradient(90deg,color-mix(in srgb,#e10600 12%,var(--fp-panel)),transparent)!important}}
+section[data-testid="stSidebar"] div[data-testid="stButton"]>button{{background:linear-gradient(90deg,var(--fp-panel2),var(--fp-panel))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 5px 13px var(--fp-shadow)!important;transition:border-color .14s ease,transform .14s ease!important}}
+section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:#259ad4!important;transform:translateX(1px)!important}}
+section[data-testid="stSidebar"] [data-testid="stExpander"]{{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}}
+.f1-header,.hud-card,.metric-card,.news-card,.driver-card,.career-panel-v28,.career-metric-v28,[data-testid="stMetric"],[data-testid="stAlert"],div[data-testid="stExpander"]{{background:linear-gradient(145deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 10px 26px var(--fp-shadow)!important}}
+.f1-header h1,.hud-value,.news-title,.metric-card .value,.career-metric-v28 b,h1,h2,h3,h4{{color:var(--fp-text)!important}}
+.f1-header p,.history-copy,.driver-meta,.news-desc,.metric-card .title,.career-hero-v28 p,.career-source-v28,[data-testid="stCaptionContainer"]{{color:var(--fp-muted)!important}}
+div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}}
+.status-dot-v31{{animation:none!important;box-shadow:0 0 9px rgba(104,231,174,.7)!important}}
+*{{scrollbar-color:var(--fp-line) var(--fp-panel2)}}
+</style>
+""", unsafe_allow_html=True)
+
 if st.session_state['page'] == 'home':
     # İlk kare hiçbir dış kaynağı beklemez. Böylece FastF1/cache bağlantısı
     # problemliyken bile navigasyon ve arayüz görünür kalır.
@@ -9279,15 +9304,15 @@ elif st.session_state['page'] == 'live':
                         "sıra, pit ve lastik verisiyle akıcı olarak bu yörüngede ilerler; bu alan canlı GPS diye etiketlenmez."
                     )
                     st.session_state[replay_hud_key] = True
-                    st.caption("2D tekrar otomatik hazırlanır; FastF1 paketi eksikse OpenF1 tarihî verisi devreye girer.")
+                    st.caption("2D tekrar hızlı OpenF1 tarihî paketinden hazırlanır; yalnızca eksik yarışlarda FastF1 yedeği kullanılır.")
 
                     if st.session_state.get(replay_hud_key, False):
                         render_data_state(
                             "RACE REPLAY STATUS",
-                            "Race data is being verified once; later opens use the local cache.",
+                            "Yarış paketi bir kez doğrulanır; sonraki açılışlar önbellekten gelir.",
                             "info",
                         )
-                        with st.spinner("İlk açılışta FastF1 yarış paketi indiriliyor; birkaç dakika sürebilir..."):
+                        with st.spinner("Doğrulanmış yarış haritası hazırlanıyor..."):
                             replay_payload = build_stable_race_replay_payload(2026, replay_event_name)
                         if replay_payload.get('ok'):
                             render_data_state(
