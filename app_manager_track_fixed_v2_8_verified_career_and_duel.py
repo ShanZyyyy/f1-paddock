@@ -9138,13 +9138,13 @@ def render_paddock_draft_game_v30():
 def render_paddock_career_alpha_v01():
     """Instant browser prototype while the full Unity WebGL production is prepared."""
     st.markdown("## 🏎️ Paddock Career — Sürüş Prototipi")
-    st.caption("Alpha 0.1 · Paddock Ring · WASD sürüş · Kask içi, T-Cam ve burun kamerası")
+    st.caption("Alpha 0.2 · Paddock Ring GP · Sabit tam-pist kamera · WASD sürüş · Hızlı yapay zekâ")
     game_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paddock_ring_alpha.html")
     try:
         with open(game_path, "r", encoding="utf-8") as game_file:
             game_markup = game_file.read()
         components.html(game_markup, height=790, scrolling=False)
-        st.info("Kontroller: W gaz · S fren · A/D direksiyon · Space ERS · E DRS · C kamera · P pit isteği · R sıfırla")
+        st.info("Kontroller: W gaz · S fren · A/D direksiyon · Space ERS · E DRS · P pit isteği · R sıfırla")
     except OSError as error:
         log_data_error("Paddock Career prototype", error)
         st.error("Sürüş paketi yüklenemedi. Oyun dosyasının yayın paketinde bulunduğunu kontrol ediyoruz.")
@@ -9159,7 +9159,7 @@ def render_games_hub_v30():
         ("KARİYER", "Takım Patronu", "Pilot, lastik, tempo ve bütçe kararlarıyla sezon yönet.", "#2ee6c9", "Kariyeri aç", "team_manager"),
         ("KADRO PAZARI", "Paddock Draft", "İki pilot seç, uyum kur ve sponsor bütçeni büyüt.", "#a78bfa", "Draftı aç", "draft"),
         ("YARIŞ TAHMİNİ", "Paddock Tahmin", "Pole ve podyum tahminini gerçek sonuçla karşılaştır.", "#7dd3fc", "Tahmini aç", "predictor"),
-        ("SÜRÜŞ ALPHA 0.1", "Paddock Career", "WASD ile Paddock Ring'de tur at; üç kamera, DRS, ERS ve hayalet tur.", "#e10600", "Motoru çalıştır", "paddock_career"),
+        ("SÜRÜŞ ALPHA 0.2", "Paddock Career", "İki kat uzun Paddock Ring GP'de sabit harita, DRS, ERS ve hızlı rakiple tur at.", "#e10600", "Motoru çalıştır", "paddock_career"),
     ]
     for start in range(0, len(games), 2):
         columns = st.columns(2)
