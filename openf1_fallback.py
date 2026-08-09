@@ -243,11 +243,16 @@ def _telemetry(session_key, driver_number, date_start, lap_duration):
     if len(locations) < 30:
         raise RuntimeError("OpenF1 konum örneği yetersiz")
     loc = pd.DataFrame(locations)
-    loc["Date"] = pd.to_datetime(loc["date"], utc=True)
+    # OpenF1 can mix ISO timestamps with and without fractional seconds in the
+    # same response. Pandas 2.x otherwise infers one strict format from the
+    # first row and rejects the other valid form.
+    loc["Date"] = pd.to_datetime(loc["date"], utc=True, errors="coerce", format="mixed")
+    loc = loc.dropna(subset=["Date"])
     loc = loc.sort_values("Date")
     if car_data:
         car = pd.DataFrame(car_data)
-        car["Date"] = pd.to_datetime(car["date"], utc=True)
+        car["Date"] = pd.to_datetime(car["date"], utc=True, errors="coerce", format="mixed")
+        car = car.dropna(subset=["Date"])
         merged = pd.merge_asof(loc, car.sort_values("Date"), on="Date", direction="nearest", tolerance=pd.Timedelta("700ms"))
     else:
         merged = loc
