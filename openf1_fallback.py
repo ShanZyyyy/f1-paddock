@@ -14,6 +14,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 from functools import lru_cache
 
 import numpy as np
@@ -40,6 +41,14 @@ def _json(endpoint: str, params: dict | None = None):
                     payload = json.loads(response.read().decode("utf-8"))
                 _LAST_REQUEST = time.monotonic()
             return payload if isinstance(payload, list) else []
+        except urllib.error.HTTPError as error:
+            # A missing filtered packet is deterministic; retrying the same
+            # 404 five times added ~25 seconds to circuits such as Monaco.
+            if error.code == 404:
+                raise
+            if attempt == 4:
+                raise
+            time.sleep(2.5 * (attempt + 1))
         except Exception:
             if attempt == 4:
                 raise
@@ -58,10 +67,11 @@ def query(endpoint: str, **params):
 def _normal(value):
     text = str(value or "").casefold()
     replacements = {
-        "grand prix": "", "gp": "", "hungarian": "hungary", "british": "great britain",
+        "grand prix": "", "gp": "", "hungarian": "hungary", "british": "united kingdom",
         "italian": "italy", "spanish": "spain", "austrian": "austria", "dutch": "netherlands",
         "belgian": "belgium", "mexico city": "mexico", "são paulo": "brazil", "saudi arabian": "saudi arabia",
         "emilia romagna": "imola", "azerbaijan": "baku", "united states": "austin",
+        "chinese": "china", "japanese": "japan", "canadian": "canada",
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
@@ -238,7 +248,28 @@ def _telemetry(session_key, driver_number, date_start, lap_duration):
         "session_key": int(session_key), "driver_number": int(driver_number),
         "date>": start.isoformat(), "date<": end.isoformat(),
     }
-    locations = query("location", **filters)
+    location_clock_adjust = pd.Timedelta(0)
+    try:
+        locations = query("location", **filters)
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+        all_locations = query("location", session_key=int(session_key), driver_number=int(driver_number))
+        locations = []
+        # A small number of historical location packets use a local/UTC clock
+        # offset while lap and car_data timestamps remain UTC. Detect the
+        # offset from real samples instead of hard-coding a circuit.
+        for shift_hours in (0, -1, 1, -2, 2):
+            shifted_start = start + pd.Timedelta(hours=shift_hours)
+            shifted_end = end + pd.Timedelta(hours=shift_hours)
+            candidate = [
+                item for item in all_locations
+                if pd.notna(_timestamp(item.get("date"))) and shifted_start <= _timestamp(item.get("date")) <= shifted_end
+            ]
+            if len(candidate) >= 30:
+                locations = candidate
+                location_clock_adjust = pd.Timedelta(hours=-shift_hours)
+                break
     car_data = query("car_data", **filters)
     if len(locations) < 30:
         raise RuntimeError("OpenF1 konum örneği yetersiz")
@@ -247,6 +278,7 @@ def _telemetry(session_key, driver_number, date_start, lap_duration):
     # same response. Pandas 2.x otherwise infers one strict format from the
     # first row and rejects the other valid form.
     loc["Date"] = pd.to_datetime(loc["date"], utc=True, errors="coerce", format="mixed")
+    loc["Date"] = loc["Date"] + location_clock_adjust
     loc = loc.dropna(subset=["Date"])
     loc = loc.sort_values("Date")
     if car_data:
@@ -289,12 +321,48 @@ def _profile(driver):
             "photo": driver.get("headshot_url") or "", "flag": str(driver.get("country_code") or "").lower()}
 
 
+def _track_overlay(telemetry):
+    """Derive visible SM/OM zones from measured speed along the reference lap."""
+    if telemetry is None or telemetry.empty:
+        return {"sectors": [], "corners": [], "brakes": [], "straights": [], "pit": []}
+    speed = pd.to_numeric(telemetry.get("Speed"), errors="coerce").interpolate().fillna(0).to_numpy(float)
+    zones = []
+    if len(speed) >= 40:
+        threshold = max(210.0, float(np.nanquantile(speed, .72)))
+        begin = None
+        runs = []
+        for index, active in enumerate(np.r_[speed >= threshold, False]):
+            if active and begin is None:
+                begin = index
+            elif not active and begin is not None:
+                if index - begin >= max(5, len(speed) // 45):
+                    runs.append((begin, index - 1))
+                begin = None
+        runs.sort(key=lambda pair: pair[1] - pair[0], reverse=True)
+        zones = [
+            {"start": round(a / max(1, len(speed) - 1), 4), "end": round(b / max(1, len(speed) - 1), 4)}
+            for a, b in sorted(runs[:2])
+        ]
+    if len(zones) < 2:
+        zones = [{"start": .08, "end": .20}, {"start": .70, "end": .84}]
+    return {
+        "sectors": [
+            {"fraction": round(1 / 3, 4), "label": "SEKTOR 1", "colour": "#f4d35e"},
+            {"fraction": round(2 / 3, 4), "label": "SEKTOR 2", "colour": "#ff7a9f"},
+        ],
+        "corners": [], "brakes": [], "straights": zones,
+        "pit": [{"fraction": .972, "label": "PIT IN"}, {"fraction": .032, "label": "PIT OUT"}],
+    }
+
+
+@lru_cache(maxsize=32)
 def build_race_replay(year, event_name):
     try:
         session = load_session(int(year), str(event_name), "R")
         results = session._results_raw
         drivers = session._drivers
         positions_raw = query("position", session_key=session.session_key)
+        pits_raw = query("pit", session_key=session.session_key)
         positions = {}
         for item in positions_raw:
             number = int(item.get("driver_number", -1))
@@ -305,13 +373,30 @@ def build_race_replay(year, event_name):
         for values in positions.values():
             values.sort(key=lambda pair: pair[0])
         grid = {number: values[0][1] for number, values in positions.items() if values}
+        pits = {}
+        for item in pits_raw:
+            number = int(item.get("driver_number", -1))
+            when = _timestamp(item.get("date"))
+            duration = _seconds(item.get("lane_duration")) or _seconds(item.get("pit_duration")) or 20.0
+            if number > 0 and pd.notna(when):
+                pits.setdefault(number, []).append((when, float(duration), int(item.get("lap_number") or 0)))
 
         valid_laps = session.laps.dropna(subset=["LapTime", "DateStart"])
         if valid_laps.empty:
             return {"ok": False, "reason": "OpenF1 yarış tur paketi boş."}
-        reference_row = valid_laps.loc[valid_laps["LapTime"].idxmin()]
-        reference = session.fastest_lap(str(reference_row["Driver"]))
-        telemetry = reference.get_telemetry()
+        # Prefer a clean representative lap from the first 70% of the race.
+        # Some feeds keep lap timing after location sampling has ended (Monaco
+        # 2026 is one example), so the absolute late-race fastest lap can have
+        # no matching XY packet even though the race map is available.
+        maximum_lap = pd.to_numeric(valid_laps["LapNumber"], errors="coerce").max()
+        lap_floor = max(2, int(maximum_lap * .18))
+        lap_limit = max(5, int(maximum_lap * .55))
+        lap_numbers = pd.to_numeric(valid_laps["LapNumber"], errors="coerce")
+        reference_pool = valid_laps[(lap_numbers >= lap_floor) & (lap_numbers <= lap_limit)]
+        if reference_pool.empty:
+            reference_pool = valid_laps
+        reference_row = reference_pool.loc[reference_pool["LapTime"].idxmin()]
+        telemetry = telemetry_for_lap(session, reference_row["_raw"])
         track = telemetry[["X", "Y"]].iloc[::max(1, len(telemetry) // 700)].to_numpy(dtype=float).tolist()
         if track:
             track.append(track[0])
@@ -351,15 +436,18 @@ def build_race_replay(year, event_name):
             if not timeline:
                 continue
             final_position = int(result.get("position") or previous_position)
+            pit_events = []
+            for when, duration, lap_number in pits.get(number, []):
+                pit_start = max(0.0, (when - session_start).total_seconds())
+                pit_events.append({"start": round(pit_start, 3), "end": round(pit_start + duration, 3), "lap": lap_number})
             cars.append({"code": driver.get("name_acronym") or str(number), "team": driver.get("team_name") or "Formula 1",
                          "colour": "#" + str(driver.get("team_colour") or "55c7ff").lstrip("#"), "accent": "#f4f8ff",
                          "profile": _profile(driver), "grid": grid.get(number) or timeline[0]["start_position"],
                          "final_position": final_position, "status": "Finished" if not result.get("dnf") else "DNF",
-                         "retired": bool(result.get("dnf")), "laps": timeline, "pit_events": []})
+                         "retired": bool(result.get("dnf")), "laps": timeline, "pit_events": pit_events})
         payload = {"ok": bool(cars and track), "event": str(event_name), "track": track, "cars": cars,
                    "total_laps": total_laps, "total_seconds": round(total_seconds, 2),
-                   "overlay": {"sectors": [], "corners": [], "brakes": [], "straights": [],
-                               "pit": [{"fraction": .985, "label": "PIT IN"}, {"fraction": .025, "label": "PIT OUT"}]},
+                   "overlay": _track_overlay(telemetry),
                    "replay_source": "OpenF1 tarihî tur, konum, sıra ve stint kayıtları", "version": "openf1-3.1"}
         return payload if payload["ok"] else {"ok": False, "reason": "OpenF1 tekrar paketi tamamlanamadı."}
     except Exception as error:
