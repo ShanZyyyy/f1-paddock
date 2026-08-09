@@ -324,11 +324,16 @@ def build_race_replay(year, event_name):
                 continue
             result = results.get(number, {})
             timeline = []
+            previous_end = 0.0
             previous_position = grid.get(number) or int(result.get("position") or 20)
             for _, row in table.iterrows():
                 start_date = _timestamp(row["DateStart"])
                 duration = row["LapTime"].total_seconds()
-                start = max(0.0, (start_date - session_start).total_seconds())
+                measured_start = max(0.0, (start_date - session_start).total_seconds())
+                # A few OpenF1 events contain overlapping lap_start timestamps
+                # around timing-line corrections. Keep the measured order but
+                # make the replay clock monotonic so cars never jump backwards.
+                start = max(previous_end, measured_start)
                 end = start + duration
                 actual_position = previous_position
                 for when, position in positions.get(number, []):
@@ -339,6 +344,7 @@ def build_race_replay(year, event_name):
                 timeline.append({"lap": int(row["LapNumber"]), "start": round(start, 3), "end": round(end, 3),
                                  "position": actual_position, "start_position": previous_position,
                                  "compound": str(row.get("Compound") or "-"), "stint": int(row.get("Stint") or 0)})
+                previous_end = end
                 previous_position = actual_position
                 total_laps = max(total_laps, int(row["LapNumber"]))
                 total_seconds = max(total_seconds, end)
