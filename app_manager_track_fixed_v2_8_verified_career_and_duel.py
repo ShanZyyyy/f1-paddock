@@ -9138,7 +9138,7 @@ def render_paddock_draft_game_v30():
 def render_paddock_career_alpha_v01():
     """Instant browser prototype while the full Unity WebGL production is prepared."""
     st.markdown("## 🏎️ Paddock Career — Sürüş Prototipi")
-    st.caption("Alpha 0.2 · Paddock Ring GP · Sabit tam-pist kamera · WASD sürüş · Hızlı yapay zekâ")
+    st.caption("Alpha 0.3 · Paddock Ring GP · Kuzeye sabit yakın takip · Tam-pist minimap · Fizik tabanlı AI")
     game_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paddock_ring_alpha.html")
     try:
         with open(game_path, "r", encoding="utf-8") as game_file:
@@ -9159,7 +9159,7 @@ def render_games_hub_v30():
         ("KARİYER", "Takım Patronu", "Pilot, lastik, tempo ve bütçe kararlarıyla sezon yönet.", "#2ee6c9", "Kariyeri aç", "team_manager"),
         ("KADRO PAZARI", "Paddock Draft", "İki pilot seç, uyum kur ve sponsor bütçeni büyüt.", "#a78bfa", "Draftı aç", "draft"),
         ("YARIŞ TAHMİNİ", "Paddock Tahmin", "Pole ve podyum tahminini gerçek sonuçla karşılaştır.", "#7dd3fc", "Tahmini aç", "predictor"),
-        ("SÜRÜŞ ALPHA 0.2", "Paddock Career", "İki kat uzun Paddock Ring GP'de sabit harita, DRS, ERS ve hızlı rakiple tur at.", "#e10600", "Motoru çalıştır", "paddock_career"),
+        ("SÜRÜŞ ALPHA 0.3", "Paddock Career", "Yeni yumuşak GP pistinde yakın takip kamerası, sabit minimap ve fren yapan AI ile yarış.", "#e10600", "Motoru çalıştır", "paddock_career"),
     ]
     for start in range(0, len(games), 2):
         columns = st.columns(2)
