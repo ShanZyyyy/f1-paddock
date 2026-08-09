@@ -20,6 +20,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap
 import numpy as np
 import pandas as pd
+import openf1_fallback
 
 
 LOGGER = logging.getLogger("f1_paddock")
@@ -53,13 +54,20 @@ def _legacy_render_html_hud(markup, height=150, scrolling=False):
 
 # Streamlit ayarı, dosyadaki ilk Streamlit çağrısından önce olmak zorunda.
 def current_paddock_theme():
-    """Tema motoru kaldırıldı: uygulama tutarlı ve sabit koyu HUD kullanır."""
-    return 'Koyu'
+    """Return the active user-selectable visual theme."""
+    return 'Açık' if st.session_state.get('paddock_light_mode_v31', False) else 'Koyu'
 
 
 def hud_theme_override_css():
-    """Her iframe için sabit koyu görünüm; tema geçişi yoktur."""
-    return "html{color-scheme:dark} body{background:#090d14!important;color:#edf6ff!important}"
+    """Propagate the selected theme into isolated Streamlit HUD iframes."""
+    if current_paddock_theme() == 'Açık':
+        return (
+            "html{color-scheme:light}body{background:#eef4fb!important;color:#10233b!important}"
+            ".hud,.r,.panel,.summary,.card,.f1-hud,.f1-hud-shell{background:#f8fbff!important;color:#10233b!important;box-shadow:0 14px 35px rgba(36,76,120,.14)!important}"
+            ".map,.graph{background:radial-gradient(circle at 50% 45%,#e8f3ff,#dce9f6 78%)!important}"
+            ".sub,.note,.meta,.stat span{color:#536c86!important}"
+        )
+    return "html{color-scheme:dark}body{background:#090d14!important;color:#edf6ff!important}"
 
 
 def render_html_hud(markup, height=150, scrolling=False):
@@ -142,6 +150,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+if 'paddock_light_mode_v31' not in st.session_state:
+    st.session_state['paddock_light_mode_v31'] = False
 
 # STREAMLIT 1.60 LAYOUT RECOVERY
 # Bazı Windows/Chrome oturumlarında, önceki HUD/tema denemelerinden sonra
@@ -535,6 +546,8 @@ def format_time(td):
         return str(td)
 
 def get_driver_fastest_lap(session, driver, q_sub=None):
+    if isinstance(session, openf1_fallback.OpenF1Session):
+        return session.fastest_lap(driver, q_sub)
     drv_laps = session.laps.pick_drivers(driver)
     if drv_laps.empty:
         return None
@@ -6340,7 +6353,7 @@ st.markdown("""
             <img src="https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg" alt="Formula Paddock">
             <div><div class="hud-label">FORMULA PADDOCK</div><h1 style="margin:3px 0 0">RACE INTELLIGENCE</h1><p>F1 yarışları, şampiyona verileri, pilot analizleri ve tarihî oyunlar</p></div>
         </div>
-        <div style="text-align:right"><div class="hud-label">PADDOCK EDITION</div><div style="color:#6ee7b7;font-size:.8rem;font-weight:850;margin-top:5px">● 2026 SEZONU · CANLI MERKEZ</div></div>
+        <div style="text-align:right"><div class="hud-label">PADDOCK EDITION</div><div style="color:#6ee7b7;font-size:.8rem;font-weight:850;margin-top:5px"><span class="status-dot-v31"></span>&nbsp; 2026 SEZONU · CANLI MERKEZ</div></div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -6359,6 +6372,47 @@ st.sidebar.markdown("""
 .nav-section-v29{margin:15px 2px 7px;padding:7px 10px;border-left:3px solid #e10600;color:#9bb0c7;font-size:.66rem;font-weight:900;letter-spacing:1.25px;background:linear-gradient(90deg,rgba(225,6,0,.12),transparent);border-radius:3px}
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button{border:1px solid #263b53!important;background:linear-gradient(135deg,#111d2d,#0d1724)!important;color:#eaf2fb!important;box-shadow:0 5px 12px rgba(0,0,0,.14)!important;transition:border-color .16s ease,transform .16s ease!important}
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{border-color:#e10600!important;transform:translateX(2px)!important;background:linear-gradient(135deg,#18283d,#101b2a)!important}
+</style>
+""", unsafe_allow_html=True)
+
+light_mode_v31 = st.sidebar.toggle(
+    "☀️ Açık görünüm",
+    key='paddock_light_mode_v31',
+    help="Koyu yarış kontrolü ile aydınlık veri görünümü arasında geçiş yapar.",
+)
+
+if light_mode_v31:
+    theme_v31 = {
+        'page': '#edf4fb', 'page2': '#dce9f5', 'panel': 'rgba(250,253,255,.94)',
+        'panel2': '#f4f8fc', 'text': '#11253c', 'muted': '#58718a', 'line': '#b7cce0',
+        'shadow': 'rgba(31,73,113,.18)', 'grid': 'rgba(36,117,172,.075)', 'glow': 'rgba(30,155,220,.18)',
+    }
+else:
+    theme_v31 = {
+        'page': '#07101a', 'page2': '#091522', 'panel': 'rgba(13,25,41,.94)',
+        'panel2': '#101d2f', 'text': '#edf6ff', 'muted': '#91a8c0', 'line': '#29445f',
+        'shadow': 'rgba(0,0,0,.38)', 'grid': 'rgba(41,112,156,.075)', 'glow': 'rgba(0,224,255,.12)',
+    }
+
+st.markdown(f"""
+<style>
+:root{{--fp-page:{theme_v31['page']};--fp-page2:{theme_v31['page2']};--fp-panel:{theme_v31['panel']};--fp-panel2:{theme_v31['panel2']};--fp-text:{theme_v31['text']};--fp-muted:{theme_v31['muted']};--fp-line:{theme_v31['line']};--fp-shadow:{theme_v31['shadow']};--fp-grid:{theme_v31['grid']};--fp-glow:{theme_v31['glow']}}}
+[data-testid="stAppViewContainer"]{{background:linear-gradient(135deg,var(--fp-page),var(--fp-page2))!important;color:var(--fp-text)!important;position:relative;isolation:isolate}}
+[data-testid="stAppViewContainer"]::before{{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(var(--fp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--fp-grid) 1px,transparent 1px),radial-gradient(circle at 15% 18%,var(--fp-glow),transparent 28%),radial-gradient(circle at 84% 72%,rgba(225,6,0,.08),transparent 25%);background-size:42px 42px,42px 42px,100% 100%,100% 100%;animation:fp-grid-drift 28s linear infinite}}
+[data-testid="stAppViewContainer"]::after{{content:"";position:fixed;width:38vw;height:38vw;left:-18vw;top:25vh;border:1px solid rgba(50,190,255,.16);border-radius:50%;z-index:-1;pointer-events:none;box-shadow:0 0 90px rgba(20,170,235,.09);animation:fp-orbit 18s ease-in-out infinite alternate}}
+section[data-testid="stSidebar"]{{background:var(--fp-panel)!important;border-right:1px solid var(--fp-line)!important;box-shadow:12px 0 36px var(--fp-shadow)!important}}
+.f1-header,.hud-card,[data-testid="stMetric"],div[data-testid="stExpander"]{{background:linear-gradient(145deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 14px 34px var(--fp-shadow),inset 0 1px 0 rgba(255,255,255,.05)!important;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease!important}}
+.hud-card:hover,[data-testid="stMetric"]:hover{{transform:translateY(-2px);border-color:#28aee9!important;box-shadow:0 18px 42px var(--fp-shadow),0 0 22px var(--fp-glow)!important}}
+.hud-label,.driver-meta,.history-copy,[data-testid="stCaptionContainer"],p{{color:var(--fp-muted)!important}}
+h1,h2,h3,h4,[data-testid="stMetricValue"],.hud-value{{color:var(--fp-text)!important}}
+[data-testid="stAlert"]{{background:var(--fp-panel)!important;border:1px solid var(--fp-line)!important;box-shadow:0 10px 28px var(--fp-shadow)!important}}
+.stTabs [data-baseweb="tab-list"]{{background:var(--fp-panel)!important;border:1px solid var(--fp-line);border-radius:12px;padding:5px;box-shadow:0 9px 24px var(--fp-shadow)}}
+.stTabs [aria-selected="true"]{{background:linear-gradient(135deg,#0879bd,#16b8df)!important;color:white!important;border-radius:8px;box-shadow:0 0 20px rgba(38,187,236,.28)}}
+.status-dot-v31{{display:inline-block;width:8px;height:8px;border-radius:50%;background:#68e7ae;box-shadow:0 0 0 rgba(104,231,174,.5);animation:fp-signal 1.9s ease-out infinite}}
+@keyframes fp-grid-drift{{to{{background-position:42px 42px,42px 42px,0 0,0 0}}}}
+@keyframes fp-orbit{{to{{transform:translate(12vw,-10vh) scale(1.12);opacity:.58}}}}
+@keyframes fp-signal{{0%{{box-shadow:0 0 0 0 rgba(104,231,174,.55)}}70%{{box-shadow:0 0 0 9px rgba(104,231,174,0)}}100%{{box-shadow:0 0 0 0 rgba(104,231,174,0)}}}}
+@media(prefers-reduced-motion:reduce){{[data-testid="stAppViewContainer"]::before,[data-testid="stAppViewContainer"]::after,.status-dot-v31{{animation:none!important}}}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -8198,6 +8252,18 @@ def build_stable_race_replay_payload(year, event_name):
     """
     payload = _build_stable_race_replay_payload_v25(year, event_name)
     if not isinstance(payload, dict) or not payload.get('ok'):
+        fastf1_reason = payload.get('reason', '') if isinstance(payload, dict) else ''
+        payload = openf1_fallback.build_race_replay(int(year), str(event_name))
+        if not payload.get('ok'):
+            if fastf1_reason:
+                payload['reason'] = fastf1_reason + ' · ' + payload.get('reason', '')
+            return payload
+        valid, reason = validate_stable_replay_payload(payload)
+        if not valid:
+            return {'ok': False, 'reason': reason}
+        payload = _replay_overlay_v26(payload)
+        payload['replay_source'] = 'OpenF1 tarihî tur, konum, sıra ve stint kayıtlarıyla yeniden kurulan yarış akışı.'
+        payload['version'] = '3.1-openf1-fallback'
         return payload
     payload = _replay_overlay_v26(payload)
     payload['version'] = '2.6'
@@ -9212,14 +9278,8 @@ elif st.session_state['page'] == 'live':
                         "Pist, tek temiz telemetri turundan çizilir. Araçlar doğrulanmış yarış başlangıcı, tur süresi, "
                         "sıra, pit ve lastik verisiyle akıcı olarak bu yörüngede ilerler; bu alan canlı GPS diye etiketlenmez."
                     )
-                    replay_action, retry_action = st.columns([4, 1])
-                    with replay_action:
-                        if st.button("▶ 2D yarış tekrarını aç", key=f"load_{replay_hud_key}", use_container_width=True):
-                            st.session_state[replay_hud_key] = True
-                    with retry_action:
-                        if st.button("↻ Yeniden dene", key=f"retry_{replay_hud_key}", use_container_width=True):
-                            build_stable_race_replay_payload.clear()
-                            st.session_state[replay_hud_key] = True
+                    st.session_state[replay_hud_key] = True
+                    st.caption("2D tekrar otomatik hazırlanır; FastF1 paketi eksikse OpenF1 tarihî verisi devreye girer.")
 
                     if st.session_state.get(replay_hud_key, False):
                         render_data_state(
@@ -9246,8 +9306,7 @@ elif st.session_state['page'] == 'live':
                             render_html_hud(position_flow_html(replay_payload), height=520, scrolling=True)
 
                             intelligence_key = f"race_intelligence_2026_{replay_event_name}"
-                            if st.button("🧭 Race Intelligence'ı yükle", key=intelligence_key, use_container_width=True):
-                                st.session_state[intelligence_key] = True
+                            st.session_state[intelligence_key] = True
                             if st.session_state.get(intelligence_key, False):
                                 with st.spinner("Hava, pit-lane ve Race Control verisi hazırlanıyor..."):
                                     race_intelligence = get_race_intelligence_v19(2026, replay_event_name)
@@ -9309,8 +9368,18 @@ elif st.session_state['page'] == 'live':
 elif st.session_state['page'] == 'telemetry':
     try:
         with st.spinner('Telemetri verileri yükleniyor...'):
-            session = fastf1.get_session(year, gp, session_type)
-            session.load()
+            try:
+                session = fastf1.get_session(year, gp, session_type)
+                session.load(laps=True, telemetry=True, weather=False, messages=False)
+                if session.laps is None or session.laps.empty:
+                    raise RuntimeError('FastF1 tur paketi boş')
+                telemetry_source_v31 = 'FastF1'
+            except Exception as fastf1_error:
+                log_data_error('telemetry FastF1 primary', fastf1_error)
+                session = openf1_fallback.load_session(int(year), str(gp), str(session_type))
+                telemetry_source_v31 = 'OpenF1 tarihî veri yedeği'
+
+        st.caption(f"Veri kaynağı: {telemetry_source_v31} · Tamamlanmış seans verisi otomatik seçildi.")
 
         if session_type == "Q" and target_q:
             try:
