@@ -257,7 +257,6 @@ def _telemetry(session_key, driver_number, date_start, lap_duration):
     step = np.hypot(merged["X"].diff().fillna(0), merged["Y"].diff().fillna(0))
     # OpenF1 coordinates are approximate; filter single-sample jumps before accumulating distance.
     step = step.clip(upper=max(20.0, float(step.quantile(.96)) * 1.8))
-    merged["Distance"] = step.cumsum()
     elapsed = (merged["Date"] - merged["Date"].iloc[0]).dt.total_seconds()
     merged["Time"] = pd.to_timedelta(elapsed, unit="s")
     for source, target, default in (("speed", "Speed", np.nan), ("throttle", "Throttle", 0), ("brake", "Brake", 0), ("n_gear", "nGear", 0), ("rpm", "RPM", 0)):
@@ -265,6 +264,11 @@ def _telemetry(session_key, driver_number, date_start, lap_duration):
     if merged["Speed"].isna().all():
         delta_t = elapsed.diff().replace(0, np.nan)
         merged["Speed"] = (step / delta_t * 3.6).clip(0, 380).interpolate().fillna(0)
+    delta_t = elapsed.diff().clip(lower=0, upper=1.5).fillna(0)
+    # Distance is integrated from the measured car speed. OpenF1 X/Y values
+    # are excellent for shape but their coordinate scale is not guaranteed to
+    # be metres, so accumulating raw XY would produce false 30+ km laps.
+    merged["Distance"] = (merged["Speed"].fillna(0).clip(0, 390) / 3.6 * delta_t).cumsum()
     return merged[["Date", "Time", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM"]].reset_index(drop=True)
 
 
