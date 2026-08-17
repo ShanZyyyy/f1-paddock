@@ -6381,45 +6381,138 @@ section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{border
 """, unsafe_allow_html=True)
 
 
-# English mode is isolated from Streamlit state and existing navigation.
-# It opens the published page through Google's HTTPS translation view.
+# Dil değişimi aynı Streamlit adresinde yapılır; haricî çeviri sayfasına
+# yönlendirme olmadığı için oturum, menüler ve oyunlar çalışmaya devam eder.
 with st.sidebar:
     components.html(
         r"""
         <style>
           *{box-sizing:border-box}
           body{margin:0;background:transparent;font-family:Inter,Segoe UI,Arial,sans-serif}
-          #fp-language-en{width:100%;height:38px;border:1px solid #38516d;border-radius:8px;
+          #fp-language{width:100%;height:38px;border:1px solid #38516d;border-radius:8px;
             background:linear-gradient(135deg,#14243a,#0e1a2a);color:#f5f9ff;font-size:14px;
             font-weight:850;cursor:pointer}
-          #fp-language-en:hover{border-color:#28aee9;background:linear-gradient(135deg,#1a3150,#11243a)}
+          #fp-language:hover{border-color:#28aee9;background:linear-gradient(135deg,#1a3150,#11243a)}
           #fp-language-note{display:none;margin-top:4px;color:#9bb0c7;font-size:10px;line-height:1.25}
         </style>
-        <button id="fp-language-en" type="button" aria-label="Open Formula Paddock in English">🇬🇧 English</button>
+        <button id="fp-language" type="button" aria-label="Change site language">🇬🇧 English</button>
         <div id="fp-language-note" role="status"></div>
         <script>
-          const englishButton=document.getElementById('fp-language-en');
-          const languageNote=document.getElementById('fp-language-note');
-          englishButton.addEventListener('click',()=>{
-            let sourceUrl='';
-            try{sourceUrl=window.parent.location.href}catch(_){sourceUrl=document.referrer}
-            if(!sourceUrl){
-              languageNote.textContent='The page address could not be detected.';
-              languageNote.style.display='block';
+          const host=window.parent;
+          const button=document.getElementById('fp-language');
+          const note=document.getElementById('fp-language-note');
+          const language=host.localStorage.getItem('fp_language')||'tr';
+          button.textContent=language==='en'?'🇹🇷 Türkçe':'🇬🇧 English';
+
+          function setTranslationCookie(value){
+            const secure=host.location.protocol==='https:'?';Secure':'';
+            host.document.cookie='googtrans='+value+';path=/;SameSite=Lax'+secure;
+            if(host.location.hostname.includes('.')){
+              host.document.cookie='googtrans='+value+';path=/;domain=.'+host.location.hostname+';SameSite=Lax'+secure;
+            }
+          }
+
+          function clearTranslation(){
+            host.localStorage.setItem('fp_language','tr');
+            setTranslationCookie('/tr/tr');
+            host.location.reload();
+          }
+
+          function installEnglishTranslation(){
+            if(host.document.getElementById('fp-google-translate-host')) return;
+            const cleanupStyle=host.document.createElement('style');
+            cleanupStyle.id='fp-translate-cleanup';
+            cleanupStyle.textContent='iframe.skiptranslate,.goog-te-banner-frame.skiptranslate,iframe.goog-te-banner-frame{display:none!important}'
+              +'body{top:0!important}.goog-logo-link,.goog-te-gadget{display:none!important}'
+              +'#goog-gt-tt,.goog-te-balloon-frame{display:none!important}';
+            host.document.head.appendChild(cleanupStyle);
+            const holder=host.document.createElement('div');
+            holder.id='fp-google-translate-host';
+            holder.style.display='none';
+            host.document.body.appendChild(holder);
+
+            function translateFrame(frame,index){
+              try{
+                if(frame===window.frameElement) return;
+                const frameWindow=frame.contentWindow;
+                const frameDocument=frame.contentDocument;
+                if(!frameWindow||!frameDocument||!frameDocument.body||frameDocument.getElementById('fp-frame-translate-host')) return;
+                const frameCleanup=frameDocument.createElement('style');
+                frameCleanup.textContent='iframe.skiptranslate{display:none!important}body{top:0!important}'
+                  +'#goog-gt-tt,.goog-te-balloon-frame{display:none!important}';
+                frameDocument.head.appendChild(frameCleanup);
+                const frameHolder=frameDocument.createElement('div');
+                frameHolder.id='fp-frame-translate-host';
+                frameHolder.style.display='none';
+                frameDocument.body.appendChild(frameHolder);
+                const callback='fpFrameTranslateInit'+index;
+                frameWindow[callback]=()=>{
+                  new frameWindow.google.translate.TranslateElement({
+                    pageLanguage:'tr',includedLanguages:'en,tr',autoDisplay:false
+                  },'fp-frame-translate-host');
+                  frameWindow.setTimeout(()=>{
+                    const combo=frameDocument.querySelector('.goog-te-combo');
+                    if(combo){
+                      combo.value='en';
+                      combo.dispatchEvent(new frameWindow.Event('change',{bubbles:true}));
+                    }
+                  },700);
+                };
+                const frameScript=frameDocument.createElement('script');
+                frameScript.src='https://translate.google.com/translate_a/element.js?cb='+callback;
+                frameScript.async=true;
+                frameDocument.head.appendChild(frameScript);
+              }catch(_){/* Üçüncü taraf çerçeveler güvenle atlanır. */}
+            }
+
+            function translateAllFrames(){
+              host.document.querySelectorAll('iframe').forEach((frame,index)=>translateFrame(frame,index));
+            }
+
+            host.googleTranslateElementInit=()=>{
+              new host.google.translate.TranslateElement({
+                pageLanguage:'tr',includedLanguages:'en,tr',autoDisplay:false
+              },'fp-google-translate-host');
+              host.setTimeout(()=>{
+                const select=host.document.querySelector('.goog-te-combo');
+                if(select){
+                  select.value='en';
+                  select.dispatchEvent(new host.Event('change',{bubbles:true}));
+                }else{
+                  note.textContent='English translation could not be loaded. Please try again.';
+                  note.style.display='block';
+                }
+                translateAllFrames();
+              },700);
+            };
+
+            const script=host.document.createElement('script');
+            script.id='fp-google-translate-script';
+            script.src='https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+            script.async=true;
+            script.onerror=()=>{
+              note.textContent='English translation could not be loaded. Please try again.';
+              note.style.display='block';
+            };
+            host.document.head.appendChild(script);
+            const observer=new host.MutationObserver(()=>host.setTimeout(translateAllFrames,250));
+            observer.observe(host.document.body,{childList:true,subtree:true});
+          }
+
+          button.addEventListener('click',()=>{
+            if(language==='en'){
+              clearTranslation();
               return;
             }
-            const source=new URL(sourceUrl);
-            if(source.hostname==='localhost'||source.hostname==='127.0.0.1'){
-              languageNote.textContent='English translation is available on the published website.';
-              languageNote.style.display='block';
-              return;
-            }
-            const translated='https://translate.google.com/translate?sl=tr&tl=en&u='+encodeURIComponent(source.href);
-            window.open(translated,'_blank','noopener,noreferrer');
+            host.localStorage.setItem('fp_language','en');
+            setTranslationCookie('/tr/en');
+            host.location.reload();
           });
+
+          if(language==='en') installEnglishTranslation();
         </script>
         """,
-        height=48,
+        height=54,
         scrolling=False,
     )
 
