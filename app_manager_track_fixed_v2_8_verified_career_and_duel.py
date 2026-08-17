@@ -6380,6 +6380,49 @@ section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{border
 </style>
 """, unsafe_allow_html=True)
 
+
+# English mode is isolated from Streamlit state and existing navigation.
+# It opens the published page through Google's HTTPS translation view.
+with st.sidebar:
+    components.html(
+        r"""
+        <style>
+          *{box-sizing:border-box}
+          body{margin:0;background:transparent;font-family:Inter,Segoe UI,Arial,sans-serif}
+          #fp-language-en{width:100%;height:38px;border:1px solid #38516d;border-radius:8px;
+            background:linear-gradient(135deg,#14243a,#0e1a2a);color:#f5f9ff;font-size:14px;
+            font-weight:850;cursor:pointer}
+          #fp-language-en:hover{border-color:#28aee9;background:linear-gradient(135deg,#1a3150,#11243a)}
+          #fp-language-note{display:none;margin-top:4px;color:#9bb0c7;font-size:10px;line-height:1.25}
+        </style>
+        <button id="fp-language-en" type="button" aria-label="Open Formula Paddock in English">🇬🇧 English</button>
+        <div id="fp-language-note" role="status"></div>
+        <script>
+          const englishButton=document.getElementById('fp-language-en');
+          const languageNote=document.getElementById('fp-language-note');
+          englishButton.addEventListener('click',()=>{
+            let sourceUrl='';
+            try{sourceUrl=window.parent.location.href}catch(_){sourceUrl=document.referrer}
+            if(!sourceUrl){
+              languageNote.textContent='The page address could not be detected.';
+              languageNote.style.display='block';
+              return;
+            }
+            const source=new URL(sourceUrl);
+            if(source.hostname==='localhost'||source.hostname==='127.0.0.1'){
+              languageNote.textContent='English translation is available on the published website.';
+              languageNote.style.display='block';
+              return;
+            }
+            const translated='https://translate.google.com/translate?sl=tr&tl=en&u='+encodeURIComponent(source.href);
+            window.open(translated,'_blank','noopener,noreferrer');
+          });
+        </script>
+        """,
+        height=48,
+        scrolling=False,
+    )
+
 light_mode_v31 = st.sidebar.toggle(
     "☀️ Açık görünüm",
     key='paddock_light_mode_v31',
