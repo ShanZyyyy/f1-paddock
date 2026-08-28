@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "paddock",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "streamlit", "run", "app_manager_track_fixed_v2_8_verified_career_and_duel.py", "--server.port", "8720", "--server.headless", "true"],
+      "port": 8720
+    }
+  ]
+}

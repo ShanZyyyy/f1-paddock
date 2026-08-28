@@ -250,33 +250,34 @@ section[data-testid="stSidebar"] *{color:var(--fp-text)}
 .fp-nav-sec{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--fp-text-mute);
   padding:16px 6px 4px}
 
-/* nav = st.button, slim rail görünümüne indirgenir */
-section[data-testid="stSidebar"] [data-testid="stButton"]{margin:0 0 1px}
-section[data-testid="stSidebar"] [data-testid="stButton"] > button{
-  width:100%;justify-content:flex-start;gap:11px;
-  padding:9px 12px;min-height:0;
+/* nav = st.button, slim rail görünümüne indirgenir.
+   Selektörler eski tema bloklarını (div[data-testid=stButton]>button !important)
+   yenmek için aynı özgüllükte + !important. */
+section[data-testid="stSidebar"] div[data-testid="stButton"]{margin:0 0 1px !important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button{
+  width:100% !important;justify-content:flex-start !important;gap:11px !important;
+  padding:9px 12px !important;min-height:0 !important;
   background:transparent !important;border:none !important;
   border-left:var(--fp-edge) solid transparent !important;border-radius:0 !important;
-  box-shadow:none !important;
+  box-shadow:none !important;transform:none !important;
   font-family:var(--fp-f-display) !important;font-weight:600 !important;font-size:14px !important;
   letter-spacing:.02em;color:var(--fp-text-dim) !important;
-  transition:background .12s ease,color .12s ease,border-color .12s ease;
+  transition:background .12s ease,color .12s ease,border-color .12s ease !important;
 }
-section[data-testid="stSidebar"] [data-testid="stButton"] > button:hover{
-  background:rgba(255,255,255,.035) !important;color:var(--fp-text) !important;
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover{
+  background:rgba(255,255,255,.05) !important;color:var(--fp-text) !important;border-left-color:transparent !important;
 }
-section[data-testid="stSidebar"] [data-testid="stButton"] > button [data-testid="stIconMaterial"]{
-  font-size:17px;opacity:.75;
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button span[data-testid="stIconMaterial"]{
+  font-size:17px !important;opacity:.7;
 }
-/* aktif sayfa: type="primary" ile işaretlenir */
-section[data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"],
-section[data-testid="stSidebar"] [data-testid="stButton"] > button[data-testid="baseButton-primary"]{
+/* aktif sayfa: type="primary" */
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]{
   color:#fff !important;
-  background:linear-gradient(90deg,color-mix(in srgb,var(--fp-red) 18%,transparent),transparent 72%) !important;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--fp-red) 20%,transparent),transparent 72%) !important;
   border-left-color:var(--fp-red) !important;
 }
-section[data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] [data-testid="stIconMaterial"]{
-  opacity:1;color:var(--fp-red);
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] span[data-testid="stIconMaterial"]{
+  opacity:1;color:var(--fp-red) !important;
 }
 """
 

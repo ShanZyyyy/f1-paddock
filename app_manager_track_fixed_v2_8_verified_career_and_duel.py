@@ -22,6 +22,10 @@ import numpy as np
 import pandas as pd
 import openf1_fallback
 
+# Yeniden yapilandirma (redesign) — tasarim sistemi
+from core import nav as fp_nav
+from core import ui as fp_ui
+
 
 LOGGER = logging.getLogger("f1_paddock")
 
@@ -6367,18 +6371,8 @@ st.markdown("""
 # SOL MENÜ (SIDEBAR & NAVİGASYON)
 # ==========================================
 
-st.sidebar.markdown("""
-<div class="paddock-side-brand">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg" alt="Formula Paddock">
-    <div class="brand-title">FORMULA PADDOCK</div>
-    <div class="brand-sub">RACE INTELLIGENCE</div>
-</div>
-<style>
-.nav-section-v29{margin:15px 2px 7px;padding:7px 10px;border-left:3px solid #e10600;color:#9bb0c7;font-size:.66rem;font-weight:900;letter-spacing:1.25px;background:linear-gradient(90deg,rgba(225,6,0,.12),transparent);border-radius:3px}
-section[data-testid="stSidebar"] div[data-testid="stButton"]>button{border:1px solid #263b53!important;background:linear-gradient(135deg,#111d2d,#0d1724)!important;color:#eaf2fb!important;box-shadow:0 5px 12px rgba(0,0,0,.14)!important;transition:border-color .16s ease,transform .16s ease!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{border-color:#e10600!important;transform:translateX(2px)!important;background:linear-gradient(135deg,#18283d,#101b2a)!important}
-</style>
-""", unsafe_allow_html=True)
+# redesign: slim-rail marka kilidi (eski brand + inline style kaldirildi)
+fp_ui.sidebar_brand()
 
 
 # Dil değişimi aynı Streamlit adresinde yapılır; haricî çeviri sayfasına
@@ -6557,18 +6551,22 @@ h1,h2,h3,h4,[data-testid="stMetricValue"],.hud-value{{color:var(--fp-text)!impor
 </style>
 """, unsafe_allow_html=True)
 
-st.sidebar.markdown("<div class='nav-section-v29'>GENEL</div>", unsafe_allow_html=True)
+_nav_now = st.session_state['page']
 
-# 1. ANA SAYFA VE HABERLER BUTONU
-if st.sidebar.button("🏠 Ana Sayfa & Haberler", use_container_width=True):
-    st.session_state['page'] = 'home'
 
-# NEWS CENTRE
-if st.sidebar.button('📰 Haberler // 30 Haber', use_container_width=True):
-    st.session_state['page'] = 'news'
+def _nav(label, icon, key):
+    """redesign: slim-rail nav satiri. Tiklaninca sayfayi degistirir + rerun."""
+    if fp_ui.nav_button(label, icon, key, _nav_now):
+        st.session_state['page'] = key
+        st.rerun()
+
+
+fp_ui.sidebar_section("Genel")
+_nav("Ana Sayfa & Haberler", "home", "home")
+_nav("Haber Merkezi", "newspaper", "news")
 
 # 2. TELEMETRİ SEANS AYARLARI
-st.sidebar.markdown("<div class='nav-section-v29'>VERİ & ANALİZ</div>", unsafe_allow_html=True)
+fp_ui.sidebar_section("Veri & Analiz")
 with st.sidebar.expander("📊 TELEMETRİ SEANS AYARLARI", expanded=(st.session_state['page'] == 'telemetry')):
     year = st.number_input("Sezon Yılı", min_value=2018, max_value=2026, value=2026)
 
@@ -6629,48 +6627,26 @@ with st.sidebar.expander("📊 TELEMETRİ SEANS AYARLARI", expanded=(st.session_
         st.session_state['page'] = 'telemetry'
 
 # 3. SEANS TAKİBİ VE YENİ MERKEZLER
-st.sidebar.markdown("<div class='nav-section-v29'>CANLI & YARIŞ</div>", unsafe_allow_html=True)
-if st.sidebar.button("📡 Seans Takibi", use_container_width=True):
-    st.session_state['page'] = 'live'
+fp_ui.sidebar_section("Canli & Yaris")
+_nav("Seans Takibi", "sensors", "live")
+_nav("Takvim & Pistler", "calendar_month", "calendar")
+_nav("Hafta Sonu Merkezi", "flag", "weekend")
+_nav("Yaris Hikayesi", "menu_book", "story")
+_nav("Pilot Karsilastirma", "compare_arrows", "compare")
 
-if st.sidebar.button("🏁 Takvim & Pistler", use_container_width=True):
-    st.session_state['page'] = 'calendar'
+fp_ui.sidebar_section("Paddock")
+_nav("F1 Baslangic Garaji", "school", "learn")
+_nav("Favori Paddock", "star", "favourites")
 
-if st.sidebar.button("📅 Hafta Sonu Merkezi", use_container_width=True):
-    st.session_state['page'] = 'weekend'
+fp_ui.sidebar_section("Sampiyonalar")
+_nav("2026 Takimlar & Pilotlar", "groups", "teams")
+_nav("Sampiyona Merkezi", "emoji_events", "standings")
+_nav("F2 & F3 Takip", "stacked_line_chart", "f2f3")
+_nav("F1 Sozlugu", "quiz", "glossary")
+_nav("Paddock Asistani", "smart_toy", "assistant")
 
-if st.sidebar.button("📖 Yaris Hikayesi", use_container_width=True):
-    st.session_state['page'] = 'story'
-
-if st.sidebar.button("⚔️ Pilot Karsilastirma", use_container_width=True):
-    st.session_state['page'] = 'compare'
-
-st.sidebar.markdown("<div class='nav-section-v29'>PADDOCK</div>", unsafe_allow_html=True)
-if st.sidebar.button("🎓 F1 Baslangic Garaji", use_container_width=True):
-    st.session_state['page'] = 'learn'
-
-if st.sidebar.button("⭐ Favori Paddock", use_container_width=True):
-    st.session_state['page'] = 'favourites'
-
-st.sidebar.markdown("<div class='nav-section-v29'>ŞAMPİYONALAR</div>", unsafe_allow_html=True)
-if st.sidebar.button("👥 2026 Takımlar & Pilotlar", use_container_width=True):
-    st.session_state['page'] = 'teams'
-
-if st.sidebar.button("🏆 Şampiyona Merkezi", use_container_width=True):
-    st.session_state['page'] = 'standings'
-
-if st.sidebar.button("🏎️ F2 & F3 Takip", use_container_width=True):
-    st.session_state['page'] = 'f2f3'
-
-if st.sidebar.button("❓ F1 Sözlüğü", use_container_width=True):
-    st.session_state['page'] = 'glossary'
-
-if st.sidebar.button("🧠 Paddock Asistanı", use_container_width=True):
-    st.session_state['page'] = 'assistant'
-
-st.sidebar.markdown("<div class='nav-section-v29'>OYUNLAR</div>", unsafe_allow_html=True)
-if st.sidebar.button("🎮 Oyun Merkezi", use_container_width=True):
-    st.session_state['page'] = 'games'
+fp_ui.sidebar_section("Oyunlar")
+_nav("Oyun Merkezi", "sports_esports", "games")
 
 with st.sidebar.expander("⭐ Hızlı Favori", expanded=False):
     favourite_team = st.selectbox("Takım", list(TEAM_DIRECTORY_2026.keys()), key="favourite_team")
@@ -9352,6 +9328,9 @@ div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{{b
 *{{scrollbar-color:var(--fp-line) var(--fp-panel2)}}
 </style>
 """, unsafe_allow_html=True)
+
+# redesign: slim-rail menu temasi EN SONDA — eski !important sidebar bloklarini yener
+fp_ui.inject_sidebar_theme()
 
 if st.session_state['page'] == 'home':
     # İlk kare hiçbir dış kaynağı beklemez. Böylece FastF1/cache bağlantısı

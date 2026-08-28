@@ -49,6 +49,21 @@ def inject_theme():
     st.markdown(theme.sidebar_style(), unsafe_allow_html=True)
 
 
+def inject_sidebar_theme():
+    """Faz 2 gecis donemi: sadece :root jetonlari + slim-rail sidebar CSS.
+
+    Sayfa govde CSS'i henuz eski monolitten geldigi icin page_style'in
+    tamamini enjekte etmiyoruz — yalnizca menuyu yeniliyoruz.
+    Dosyanin EN SONUNDA cagrilmali ki eski !important sidebar bloklarini yensin.
+    """
+    light = is_light()
+    st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
+    st.markdown(
+        "<style>" + theme._root_vars(light) + theme._SIDEBAR_CSS + "</style>",
+        unsafe_allow_html=True,
+    )
+
+
 # =====================================================================
 # BASLIKLAR
 # =====================================================================
