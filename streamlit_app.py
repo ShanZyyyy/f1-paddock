@@ -7,7 +7,6 @@ import urllib.error
 import unicodedata
 import json
 import re
-import base64
 import html as html_lib
 import logging
 import xml.etree.ElementTree as ET
@@ -661,88 +660,6 @@ DRIVER_TEAMS = {
     "PER": {"color": "#C0C0C0"}, "BOT": {"color": "#C0C0C0"},
 }
 
-TEAMS_DATA_2026 = {
-    "McLaren": {
-        "full_name": "McLaren Formula 1 Team (2026)",
-        "nationality": "🇬🇧 İngiltere",
-        "drivers": [
-            {"name": "Lando Norris", "no": "#4", "age": 26, "nat": "🇬🇧 İngiltere", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png"},
-            {"name": "Oscar Piastri", "no": "#81", "age": 25, "nat": "🇦🇺 Avustralya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png"}
-        ]
-    },
-    "Ferrari": {
-        "full_name": "Scuderia Ferrari HP (2026)",
-        "nationality": "🇮🇹 İtalya",
-        "drivers": [
-            {"name": "Lewis Hamilton", "no": "#44", "age": 41, "nat": "🇬🇧 İngiltere", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png"},
-            {"name": "Charles Leclerc", "no": "#16", "age": 28, "nat": "🇲🇨 Monako", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png"}
-        ]
-    },
-    "Mercedes": {
-        "full_name": "Mercedes-AMG PETRONAS F1 Team (2026)",
-        "nationality": "🇩🇪 Almanya",
-        "drivers": [
-            {"name": "George Russell", "no": "#63", "age": 28, "nat": "🇬🇧 İngiltere", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png"},
-            {"name": "Kimi Antonelli", "no": "#12", "age": 19, "nat": "🇮🇹 İtalya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ANDANT01_Andrea_Kimi_Antonelli/andant01.png"}
-        ]
-    },
-    "Red Bull": {
-        "full_name": "Oracle Red Bull Racing (2026)",
-        "nationality": "🇦🇹 Avusturya",
-        "drivers": [
-            {"name": "Max Verstappen", "no": "#1", "age": 28, "nat": "🇳🇱 Hollanda", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png"},
-            {"name": "Liam Lawson", "no": "#30", "age": 24, "nat": "🇳🇿 Yeni Zelanda", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LIALAW01_Liam_Lawson/lialaw01.png"}
-        ]
-    },
-    "Williams": {
-        "full_name": "Williams Racing (2026)",
-        "nationality": "🇬🇧 İngiltere",
-        "drivers": [
-            {"name": "Carlos Sainz", "no": "#55", "age": 31, "nat": "🇪🇸 İspanya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png"},
-            {"name": "Alexander Albon", "no": "#23", "age": 30, "nat": "🇹🇭 Tayland", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ALEALB01_Alexander_Albon/alealb01.png"}
-        ]
-    },
-    "Aston Martin": {
-        "full_name": "Aston Martin Aramco F1 Team (2026)",
-        "nationality": "🇬🇧 İngiltere",
-        "drivers": [
-            {"name": "Fernando Alonso", "no": "#14", "age": 45, "nat": "🇪🇸 İspanya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png"},
-            {"name": "Lance Stroll", "no": "#18", "age": 27, "nat": "🇨🇦 Kanada", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANSTR01_Lance_Stroll/lanstr01.png"}
-        ]
-    },
-    "Alpine": {
-        "full_name": "BWT Alpine F1 Team (2026)",
-        "nationality": "🇫🇷 Fransa",
-        "drivers": [
-            {"name": "Pierre Gasly", "no": "#10", "age": 30, "nat": "🇫🇷 Fransa", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/P/PIEGAS01_Pierre_Gasly/piegas01.png"},
-            {"name": "Jack Doohan", "no": "#7", "age": 23, "nat": "🇦🇺 Avustralya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/J/JACDOO01_Jack_Doohan/jacdoo01.png"}
-        ]
-    },
-    "Haas": {
-        "full_name": "MoneyGram Haas F1 Team (2026)",
-        "nationality": "🇺🇸 ABD",
-        "drivers": [
-            {"name": "Esteban Ocon", "no": "#31", "age": 29, "nat": "🇫🇷 Fransa", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png"},
-            {"name": "Oliver Bearman", "no": "#87", "age": 21, "nat": "🇬🇧 İngiltere", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png"}
-        ]
-    },
-    "RB (Racing Bulls)": {
-        "full_name": "Visa Cash App RB F1 Team (2026)",
-        "nationality": "🇮🇹 İtalya",
-        "drivers": [
-            {"name": "Yuki Tsunoda", "no": "#22", "age": 26, "nat": "🇯🇵 Japonya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/Y/YUKTSU01_Yuki_Tsunoda/yuktsu01.png"},
-            {"name": "Isack Hadjar", "no": "#6", "age": 21, "nat": "🇫🇷 Fransa", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/I/ISAHAD01_Isack_Hadjar/isahad01.png"}
-        ]
-    },
-    "Sauber": {
-        "full_name": "Stake F1 Team Kick Sauber (2026)",
-        "nationality": "🇨🇭 İsviçre",
-        "drivers": [
-            {"name": "Nico Hülkenberg", "no": "#27", "age": 38, "nat": "🇩🇪 Almanya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png"},
-            {"name": "Gabriel Bortoleto", "no": "#5", "age": 21, "nat": "🇧🇷 Brezilya", "photo": "https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GABBOR01_Gabriel_Bortoleto/gabbor01.png"}
-        ]
-    }
-}
 
 # Güncel 2026 grid. Bu liste, eski sidebar verisinden bağımsız olarak
 # Takımlar & Pilotlar merkezinde kullanılır.
@@ -3354,28 +3271,8 @@ def render_team_manager_game():
         st.rerun()
 
 
-MANAGER_RACE_CALENDAR = [
-    ('Bahrain', 57, 'Gece yarışı', 'Kum ve sıcaklık lastikleri yorar.'),
-    ('Monaco', 78, 'Sokak pisti', 'Sıralama ve temiz hava çok önemlidir.'),
-    ('Silverstone', 52, 'Yüksek hızlı', 'Enerji kullanımı ve dengeli tempo öne çıkar.'),
-    ('Hungaroring', 70, 'Teknik pist', 'Lastik yönetimi ve undercut belirleyicidir.'),
-    ('Spa', 44, 'Değişken hava', 'Yağmur ihtimali stratejiyi değiştirebilir.'),
-    ('Monza', 53, 'Düşük yere basma', 'Düzlük hızı ve savunma önemlidir.'),
-    ('Singapore', 62, 'Gece sokak yarışı', 'Güvenlik aracı ve lastik aşınması risktir.'),
-    ('Austin', 56, 'Karma pist', 'Pilot yeteneği ile araç dengesi birlikte çalışır.'),
-    ('Interlagos', 71, 'Kısa tur', 'Hava ve trafik yarışın yönünü değiştirir.'),
-    ('Abu Dhabi', 58, 'Sezon finali', 'Her puan kariyer hedefi için önem taşır.'),
-]
 
-MANAGER_TYRES = {
-    'SOFT': {'letter': 'S', 'color': '#ff385c', 'decay': 1.85, 'pace': -0.33},
-    'MEDIUM': {'letter': 'M', 'color': '#f7c948', 'decay': 1.25, 'pace': -0.12},
-    'HARD': {'letter': 'H', 'color': '#eef4ff', 'decay': .82, 'pace': .12},
-    'INTERMEDIATE': {'letter': 'I', 'color': '#41d27d', 'decay': 1.15, 'pace': .05},
-    'WET': {'letter': 'W', 'color': '#50c4ff', 'decay': .95, 'pace': .18},
-}
 
-MANAGER_SAVE_PATH = os.path.join(os.path.dirname(__file__), 'manager_career_save.json')
 
 
 
@@ -4679,7 +4576,6 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:5
 # not fabricate old driver statistics when the catalog cannot be reached.
 # =========================================================
 
-STEWARDLE_HISTORY_SOURCE_V21 = 'Jolpica historical F1 database'
 
 
 def _stewarlde_safe_int_v21(value, fallback=0):
@@ -4746,23 +4642,6 @@ def fetch_stewarlde_historic_roster_v21(season):
         return []
 
 
-def stewarlde_current_roster_v21():
-    """Uses the local current-grid package only as an offline fallback mode."""
-    rows = []
-    for driver in stewarlde_drivers():
-        rows.append({
-            'name': driver['name'],
-            'code': driver['code'],
-            'team': driver['team'],
-            'nation': driver['nation'],
-            'wins': 0,
-            'champion': 1 if _stewarlde_safe_int_v21(driver.get('titles'), 0) > 0 else 0,
-            'standing': 99,
-            'points': 0,
-            'season': 2026,
-            'photo': driver.get('photo', ''),
-        })
-    return sorted(rows, key=lambda row: row['name'])
 
 
 def stewarlde_cell_v21(value, target, numeric=False):
@@ -4776,151 +4655,18 @@ def stewarlde_cell_v21(value, target, numeric=False):
     return 'miss', '\u2014'
 
 
-def stewarlde_target_index_v21(length, mode, season, round_number):
-    if length < 1:
-        return 0
-    if mode == 'Gunluk':
-        return (datetime.date.today().toordinal() + int(season)) % length
-    # A deterministic prime step lets unlimited rounds circulate through the
-    # actual season roster without relying on browser randomness.
-    return ((int(round_number) - 1) * 11 + int(season)) % length
 
 
-def stewarlde_profile_v21(driver, colour):
-    photo = safe_external_url(driver.get('photo', ''))
-    if photo:
-        visual = (
-            f"<img src='{html_lib.escape(photo, quote=True)}' alt='{html_lib.escape(driver['name'])}' "
-            "style='width:112px;height:142px;object-fit:contain;object-position:center bottom' "
-            "onerror=\"this.style.display='none'\">"
-        )
-    else:
-        initials = ''.join(piece[:1] for piece in str(driver['name']).split()[-2:]).upper()
-        visual = (
-            f"<div class='stewarlde-id-v21' style='border-color:{colour};color:{colour}'>"
-            f"{html_lib.escape(initials)}</div>"
-        )
-    return (
-        f"<div class='hud-card' style='border-left:5px solid {colour};margin-top:14px'>"
-        "<div style='display:flex;align-items:center;gap:18px;flex-wrap:wrap'>"
-        + visual
-        + "<div><div class='hud-label'>BULMACA PILOTU</div>"
-        + f"<div style='font-size:1.62rem;font-weight:950;color:{colour};margin-top:4px'>{html_lib.escape(driver['name'])}</div>"
-        + f"<div class='driver-meta' style='margin-top:7px'>{html_lib.escape(driver['team'])} \u00b7 {html_lib.escape(driver['nation'])}</div>"
-        + f"<div class='history-copy' style='margin-top:8px'>Sezon: {driver['season']} \u00b7 Sezon galibiyeti: {driver['wins']} \u00b7 Sezon sampiyonlugu: {driver['champion']}</div>"
-        + "</div></div></div>"
-    )
 
 
-def render_stewarlde_v21():
-    st.markdown('## \U0001f3ae Stewarlde')
-    st.caption('2010-2025 tamamlanmis sezonlarindan gercek surucu ve sonuc verileriyle F1 bulmacasi.')
-
-    top_a, top_b = st.columns([1, 1])
-    with top_a:
-        mode = st.radio('Oyun modu', ['Gunluk', 'Sinirsiz'], horizontal=True, key='stewarlde_mode_v21')
-    with top_b:
-        season = st.selectbox('Tarihsel sezon', list(range(2025, 2009, -1)), key='stewarlde_season_v21')
-
-    state_key = 'stewarlde_state_v21'
-    if state_key not in st.session_state:
-        st.session_state[state_key] = {'scope': None, 'round': 1, 'guesses': [], 'finished': False}
-    game = st.session_state[state_key]
-    scope = f'{mode}:{season}'
-    if game.get('scope') != scope:
-        game = {'scope': scope, 'round': 1, 'guesses': [], 'finished': False}
-        st.session_state[state_key] = game
-
-    with st.spinner('Tarihsel grid dogrulaniyor...'):
-        drivers = fetch_stewarlde_historic_roster_v21(season)
-    if not drivers:
-        st.error('Bu sezonun dogrulanmis surucu paketi su an yuklenemedi. Baglantini kontrol edip Yeniden dene ile tekrar deneyebilirsin; oyun uydurma tarihsel veri gostermez.')
-        if st.button('Yeniden dene', key='stewarlde_retry_v21'):
-            fetch_stewarlde_historic_roster_v21.clear()
-            st.rerun()
-        return
-
-    target = drivers[stewarlde_target_index_v21(len(drivers), mode, season, game['round'])]
-    st.markdown(
-        "<div class='hud-card stewarlde-brief-v21'><div class='hud-label'>TARIHSEL PADDOCK BULMACASI</div>"
-        f"<div class='history-copy' style='margin-top:7px'>{season} sezonunun resmi surucu klasmanindan bir pilotu bul. "
-        "Yesil dogru; sari sayisal yon ipucu; gri eslesme yok demek. Galibiyet, sampiyonluk bilgisinin hemen onundedir.</div>"
-        f"<div class='driver-meta' style='margin-top:8px'>Mod: {html_lib.escape(mode)} \u00b7 Sinirsiz tur: {game['round'] if mode == 'Sinirsiz' else '-'} \u00b7 Kaynak: {STEWARDLE_HISTORY_SOURCE_V21}</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    if not game['finished'] and len(game['guesses']) < 6:
-        used = set(game['guesses'])
-        options = [driver for driver in drivers if driver['code'] not in used]
-        pick = st.selectbox(
-            'Pilot tahminin', options,
-            format_func=lambda item: f"{item['name']} ({item['team']})",
-            key=f"stewarlde_pick_v21_{scope}_{game['round']}_{len(game['guesses'])}",
-        )
-        if st.button('Tahmini gonder', type='primary', use_container_width=True, key=f"stewarlde_submit_v21_{scope}_{game['round']}_{len(game['guesses'])}"):
-            game['guesses'].append(pick['code'])
-            game['finished'] = pick['code'] == target['code'] or len(game['guesses']) >= 6
-            st.session_state[state_key] = game
-            st.rerun()
-
-    lookup = {driver['code']: driver for driver in drivers}
-    if game['guesses']:
-        rows = []
-        for code in game['guesses']:
-            guess = lookup.get(code)
-            if not guess:
-                continue
-            values = [
-                ('Pilot', guess['name'], guess['code'] == target['code'], ''),
-                ('Takim', guess['team'], guess['team'] == target['team'], ''),
-                ('Ulke', guess['nation'], guess['nation'] == target['nation'], ''),
-                ('Galibiyet', guess['wins'], *stewarlde_cell_v21(guess['wins'], target['wins'], True)),
-                ('Sampiyonluk', guess['champion'], *stewarlde_cell_v21(guess['champion'], target['champion'], True)),
-                ('Klasman', guess['standing'], *stewarlde_cell_v21(guess['standing'], target['standing'], True)),
-            ]
-            cells = []
-            for label, value, status, hint in values:
-                css = 'match' if status is True or status == 'match' else 'near' if status == 'near' else 'miss'
-                cells.append(
-                    f"<div class='stewarlde-cell-v21 {css}'><small>{html_lib.escape(label)}</small>"
-                    f"<b>{html_lib.escape(str(value))}</b><i>{html_lib.escape(str(hint))}</i></div>"
-                )
-            rows.append("<div class='stewarlde-row-v21'>" + ''.join(cells) + '</div>')
-        st.markdown("<div class='stewarlde-table-v21'>" + ''.join(rows) + '</div>', unsafe_allow_html=True)
-
-    if game['finished']:
-        won = bool(game['guesses']) and game['guesses'][-1] == target['code']
-        if won:
-            st.success(f"Dogru cevap: {target['name']}. {len(game['guesses'])}/6 tahminde buldun.")
-        else:
-            st.error(f"Bu tur bitti. Dogru cevap: {target['name']} ({target['team']}).")
-        colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
-        st.markdown(stewarlde_profile_v21(target, colour), unsafe_allow_html=True)
-        if mode == 'Sinirsiz':
-            if st.button('Yeni sinirsiz bulmaca', key=f"stewarlde_next_v21_{scope}_{game['round']}", use_container_width=True):
-                st.session_state[state_key] = {'scope': scope, 'round': game['round'] + 1, 'guesses': [], 'finished': False}
-                st.rerun()
-        elif st.button('Bugunun tahminlerini temizle', key=f"stewarlde_reset_v21_{scope}"):
-            st.session_state[state_key] = {'scope': scope, 'round': game['round'], 'guesses': [], 'finished': False}
-            st.rerun()
 
 
 _render_games_hub_v20 = render_games_hub
 
 
-def render_games_hub_v21():
-    st.markdown(
-        "<div class='hud-card games-hub-v21'><div class='hud-label'>OYUN MERKEZI // 2.1</div>"
-        "<div class='hud-value'>Veri, strateji ve tekrar oynanabilirlik</div>"
-        "<div class='history-copy' style='margin-top:7px'>Stewarlde artik 2010-2025 tamamlanmis sezonlarini, sinirsiz modu ve resmi sezon galibiyeti alanini destekler. Diger oyunlarin mevcut kayitlari korunur.</div></div>",
-        unsafe_allow_html=True,
-    )
-    _render_games_hub_v20()
 
 
 # Keep all existing page routes and engines intact; only the renderer names change.
-render_stewarlde = render_stewarlde_v21
-render_games_hub = render_games_hub_v21
 
 
 st.markdown(r"""
@@ -5112,111 +4858,12 @@ def render_paddock_draft_game_v22():
         st.rerun()
 
 
-def stewarlde_season_v22(mode, round_number):
-    """Chooses a completed historical season automatically; no manual date picker."""
-    today_number = datetime.date.today().toordinal()
-    if mode == 'G\u00fcnl\u00fck':
-        return 2010 + ((today_number * 17 + 5) % 16)
-    return 2010 + ((today_number + int(round_number) * 7) % 16)
 
 
-def render_stewarlde_v22():
-    st.markdown('## \U0001f3ae Stewarlde')
-    st.caption('2010-2025 tamamlanmis sezonlarindan gercek surucu ve sonuc verileriyle F1 bulmacasi.')
-
-    mode = st.radio('Oyun modu', ['G\u00fcnl\u00fck', 'S\u0131n\u0131rs\u0131z'], horizontal=True, key='stewarlde_mode_v22')
-    state_key = 'stewarlde_state_v22'
-    if state_key not in st.session_state:
-        st.session_state[state_key] = {'mode': None, 'day': None, 'round': 1, 'guesses': [], 'finished': False}
-    game = st.session_state[state_key]
-    day_key = datetime.date.today().isoformat()
-    if game.get('mode') != mode or (mode == 'G\u00fcnl\u00fck' and game.get('day') != day_key):
-        game = {'mode': mode, 'day': day_key, 'round': 1, 'guesses': [], 'finished': False}
-        st.session_state[state_key] = game
-
-    season = stewarlde_season_v22(mode, game['round'])
-    with st.spinner('Tarihsel grid dogrulaniyor...'):
-        drivers = fetch_stewarlde_historic_roster_v21(season)
-    if not drivers:
-        st.error('Bu turun dogrulanmis surucu paketi su an yuklenemedi. Oyun uydurma tarihsel veri gostermez.')
-        if st.button('Yeniden dene', key='stewarlde_retry_v22'):
-            fetch_stewarlde_historic_roster_v21.clear()
-            st.rerun()
-        return
-
-    if mode == 'G\u00fcnl\u00fck':
-        target_index = (datetime.date.today().toordinal() + season) % len(drivers)
-    else:
-        target_index = ((game['round'] - 1) * 11 + season) % len(drivers)
-    target = drivers[target_index]
-
-    hud_a, hud_b, hud_c = st.columns(3)
-    with hud_a:
-        st.markdown(f"<div class='hud-card stewarlde-stat-v22' style='border-top:5px solid #ff385c'><div class='hud-label'>BUGUNUN TARIHSEL SEZONU</div><div class='hud-value'>{season}</div><div class='driver-meta'>Sayfa tarafindan rastgele secildi</div></div>", unsafe_allow_html=True)
-    with hud_b:
-        st.markdown(f"<div class='hud-card stewarlde-stat-v22' style='border-top:5px solid #a78bfa'><div class='hud-label'>OYUN MODU</div><div class='hud-value'>{html_lib.escape(mode)}</div><div class='driver-meta'>{'Her gun tek cevap' if mode == 'G\u00fcnl\u00fck' else 'Her biten turda yeni rastgele pilot'}</div></div>", unsafe_allow_html=True)
-    with hud_c:
-        rights = max(0, 6 - len(game['guesses']))
-        st.markdown(f"<div class='hud-card stewarlde-stat-v22' style='border-top:5px solid #2ee6c9'><div class='hud-label'>TAHMIN HAKKI</div><div class='hud-value'>{rights} / 6</div><div class='driver-meta'>{'Tur ' + str(game['round']) if mode == 'S\u0131n\u0131rs\u0131z' else 'Gunluk bulmaca'}</div></div>", unsafe_allow_html=True)
-    st.markdown(
-        "<div class='hud-card stewarlde-brief-v21'><div class='hud-label'>TARIHSEL PADDOCK BULMACASI</div>"
-        "<div class='history-copy' style='margin-top:7px'>Tarih secmezsin: sistem tamamlanmis 2010-2025 sezonlarindan rastgele bir grid ve pilot getirir. Yesil dogru; sari sayisal yon ipucu; gri eslesme yok demek.</div>"
-        f"<div class='driver-meta' style='margin-top:8px'>Kaynak: {STEWARDLE_HISTORY_SOURCE_V21} \u00b7 Galibiyet alani sampiyonluktan once gelir.</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    if not game['finished'] and len(game['guesses']) < 6:
-        used = set(game['guesses'])
-        options = [driver for driver in drivers if driver['code'] not in used]
-        pick = st.selectbox('Pilot tahminin', options, format_func=lambda item: f"{item['name']} ({item['team']})", key=f"stewarlde_pick_v22_{mode}_{season}_{game['round']}_{len(game['guesses'])}")
-        if st.button('Tahmini gonder', type='primary', use_container_width=True, key=f"stewarlde_submit_v22_{mode}_{season}_{game['round']}_{len(game['guesses'])}"):
-            game['guesses'].append(pick['code'])
-            game['finished'] = pick['code'] == target['code'] or len(game['guesses']) >= 6
-            st.session_state[state_key] = game
-            st.rerun()
-
-    lookup = {driver['code']: driver for driver in drivers}
-    if game['guesses']:
-        rows = []
-        for code in game['guesses']:
-            guess = lookup.get(code)
-            if not guess:
-                continue
-            values = [
-                ('Pilot', guess['name'], guess['code'] == target['code'], ''),
-                ('Takim', guess['team'], guess['team'] == target['team'], ''),
-                ('Ulke', guess['nation'], guess['nation'] == target['nation'], ''),
-                ('Galibiyet', guess['wins'], *stewarlde_cell_v21(guess['wins'], target['wins'], True)),
-                ('Sampiyonluk', guess['champion'], *stewarlde_cell_v21(guess['champion'], target['champion'], True)),
-                ('Klasman', guess['standing'], *stewarlde_cell_v21(guess['standing'], target['standing'], True)),
-            ]
-            cells = []
-            for label, value, status, hint in values:
-                css = 'match' if status is True or status == 'match' else 'near' if status == 'near' else 'miss'
-                cells.append(f"<div class='stewarlde-cell-v21 {css}'><small>{html_lib.escape(label)}</small><b>{html_lib.escape(str(value))}</b><i>{html_lib.escape(str(hint))}</i></div>")
-            rows.append("<div class='stewarlde-row-v21'>" + ''.join(cells) + '</div>')
-        st.markdown("<div class='stewarlde-table-v21'>" + ''.join(rows) + '</div>', unsafe_allow_html=True)
-
-    if game['finished']:
-        won = bool(game['guesses']) and game['guesses'][-1] == target['code']
-        if won:
-            st.success(f"Dogru cevap: {target['name']}. {len(game['guesses'])}/6 tahminde buldun.")
-        else:
-            st.error(f"Bu tur bitti. Dogru cevap: {target['name']} ({target['team']}).")
-        colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
-        st.markdown(stewarlde_profile_v21(target, colour), unsafe_allow_html=True)
-        if mode == 'S\u0131n\u0131rs\u0131z':
-            if st.button('Yeni rastgele pilot', key=f"stewarlde_next_v22_{season}_{game['round']}", use_container_width=True):
-                st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'] + 1, 'guesses': [], 'finished': False}
-                st.rerun()
-        elif st.button('Gunluk tahminleri temizle', key=f"stewarlde_reset_v22_{day_key}"):
-            st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'], 'guesses': [], 'finished': False}
-            st.rerun()
 
 
 # Existing routes remain unchanged and now call the repaired market and no-date Stewarlde.
 render_paddock_draft_game_v19 = render_paddock_draft_game_v22
-render_stewarlde = render_stewarlde_v22
 
 
 st.markdown(r"""
@@ -5236,127 +4883,14 @@ st.markdown(r"""
 # =========================================================
 
 
-STEWARDLE_PRE_2010_TITLES_V23 = {
-    # Titles won before the first Stewarlde season (2010). Later titles come
-    # directly from season champions returned by the historical data source.
-    'michael_schumacher': 7,
-    'schumacher': 7,
-    'alonso': 2,
-    'raikkonen': 1,
-    'button': 1,
-    'hamilton': 1,
-}
 
 
-def _stewarlde_request_json_v23(endpoint):
-    request = urllib.request.Request(
-        endpoint,
-        headers={'User-Agent': 'FormulaPaddock/2.3 (Stewarlde historical game)'},
-    )
-    with urllib.request.urlopen(request, timeout=9) as response:
-        return json.loads(response.read().decode('utf-8'))
 
 
-@st.cache_data(ttl=60 * 60 * 24 * 14, show_spinner=False)
-def fetch_stewarlde_universe_v23():
-    """Loads every actual driver appearing in the 2010-2025 final standings.
-
-    The requests are made in a small parallel group and then cached. Current
-    2026 local-grid drivers are added afterwards, so the selector always
-    includes the complete 2026 grid as well. We do not create fake careers
-    when the source is unavailable.
-    """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    seasons = list(range(2010, 2026))
-
-    def load_season(season):
-        return season, fetch_stewarlde_historic_roster_v21(season)
-
-    loaded = {}
-    try:
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [executor.submit(load_season, season) for season in seasons]
-            for future in as_completed(futures):
-                season, rows = future.result()
-                if rows:
-                    loaded[season] = rows
-    except Exception as error:
-        log_data_error('stewarlde universe', error)
-
-    if not loaded:
-        return []
-
-    merged = {}
-    for season in sorted(loaded):
-        for row in loaded[season]:
-            code = str(row.get('code', '')).strip()
-            if not code:
-                continue
-            item = merged.setdefault(code, {
-                'name': row['name'], 'code': code, 'team': row['team'],
-                'nation': row['nation'], 'photo': '', 'latest_season': season,
-                'season_wins': 0, 'titles_since_2010': 0,
-            })
-            item['season_wins'] += _stewarlde_safe_int_v21(row.get('wins'), 0)
-            item['titles_since_2010'] += 1 if _stewarlde_safe_int_v21(row.get('champion'), 0) == 1 else 0
-            if season >= item['latest_season']:
-                item.update({
-                    'name': row['name'], 'team': row['team'],
-                    'nation': row['nation'], 'latest_season': season,
-                })
-
-    for row in stewarlde_current_roster_v21():
-        code = str(row.get('code', '')).strip()
-        if not code:
-            continue
-        item = merged.setdefault(code, {
-            'name': row['name'], 'code': code, 'team': row['team'],
-            'nation': row['nation'], 'photo': row.get('photo', ''),
-            'latest_season': 2026, 'season_wins': 0, 'titles_since_2010': 0,
-        })
-        item['name'] = row['name']
-        item['team'] = row['team']
-        item['nation'] = row['nation']
-        item['photo'] = row.get('photo', item.get('photo', ''))
-        item['latest_season'] = max(2026, item.get('latest_season', 0))
-
-    for item in merged.values():
-        pre_titles = STEWARDLE_PRE_2010_TITLES_V23.get(item['code'], 0)
-        item['titles'] = pre_titles + int(item.get('titles_since_2010', 0))
-        item['wins'] = int(item.get('season_wins', 0))
-        item['starts'] = None
-    return sorted(merged.values(), key=lambda item: item['name'].casefold())
 
 
-@st.cache_data(ttl=60 * 60 * 24 * 30, show_spinner=False)
-def fetch_stewarlde_career_totals_v23(driver_code):
-    """Gets real all-time GP starts and wins for a selected historical driver."""
-    code = urllib.parse.quote(str(driver_code).strip())
-    if not code:
-        return {'starts': None, 'wins': None}
-    try:
-        base = 'https://api.jolpi.ca/ergast/f1/drivers/' + code
-        all_results = _stewarlde_request_json_v23(base + '/results.json?limit=1')
-        win_results = _stewarlde_request_json_v23(base + '/results/1.json?limit=1')
-        all_total = all_results.get('MRData', {}).get('total')
-        win_total = win_results.get('MRData', {}).get('total')
-        return {
-            'starts': _stewarlde_safe_int_v21(all_total, None),
-            'wins': _stewarlde_safe_int_v21(win_total, None),
-        }
-    except Exception as error:
-        log_data_error('stewarlde driver career totals', error)
-        return {'starts': None, 'wins': None}
 
 
-def stewarlde_stats_v23(driver):
-    totals = fetch_stewarlde_career_totals_v23(driver['code'])
-    return {
-        'wins': totals.get('wins') if totals.get('wins') is not None else driver.get('wins', 0),
-        'titles': int(driver.get('titles', 0)),
-        'starts': totals.get('starts'),
-    }
 
 
 def stewarlde_numeric_cell_v23(value, target):
@@ -5365,28 +4899,6 @@ def stewarlde_numeric_cell_v23(value, target):
     return stewarlde_cell_v21(value, target, True)
 
 
-def stewarlde_profile_v23(driver, stats, colour):
-    photo = safe_external_url(driver.get('photo', ''))
-    if photo:
-        visual = (
-            f"<img src='{html_lib.escape(photo, quote=True)}' alt='{html_lib.escape(driver['name'])}' "
-            "style='width:112px;height:142px;object-fit:contain;object-position:center bottom' "
-            "onerror=\"this.style.display='none'\">"
-        )
-    else:
-        initials = ''.join(piece[:1] for piece in str(driver['name']).split()[-2:]).upper()
-        visual = f"<div class='stewarlde-id-v21' style='border-color:{colour};color:{colour}'>{html_lib.escape(initials)}</div>"
-    starts = stats.get('starts')
-    starts_text = str(starts) if starts is not None else 'Kaynak bekleniyor'
-    return (
-        f"<div class='hud-card' style='border-left:5px solid {colour};margin-top:14px'>"
-        "<div style='display:flex;align-items:center;gap:18px;flex-wrap:wrap'>" + visual +
-        "<div><div class='hud-label'>BULMACA PILOTU</div>" +
-        f"<div style='font-size:1.62rem;font-weight:950;color:{colour};margin-top:4px'>{html_lib.escape(driver['name'])}</div>" +
-        f"<div class='driver-meta' style='margin-top:7px'>{html_lib.escape(driver['team'])} \\u00b7 {html_lib.escape(driver['nation'])}</div>" +
-        f"<div class='history-copy' style='margin-top:8px'>Kariyer galibiyeti: {stats.get('wins', 0)} \\u00b7 D\\u00fcnya \\u015fampiyonlu\\u011fu: {stats.get('titles', 0)} \\u00b7 GP start\\u0131: {starts_text}</div>" +
-        "</div></div></div>"
-    )
 
 
 def stewarlde_target_index_v23(length, mode, round_number):
@@ -5398,106 +4910,8 @@ def stewarlde_target_index_v23(length, mode, round_number):
     return (day * 19 + int(round_number) * 37 + 11) % length
 
 
-def render_stewarlde_v23():
-    st.markdown('## \U0001f3ae Stewarlde')
-    st.caption('2010-2026 pilot havuzundan, ger\u00e7ek kariyer istatistikleriyle F1 bulmacas\u0131.')
-
-    mode = st.radio('Oyun modu', ['G\u00fcnl\u00fck', 'S\u0131n\u0131rs\u0131z'], horizontal=True, key='stewarlde_mode_v23')
-    state_key = 'stewarlde_state_v23'
-    if state_key not in st.session_state:
-        st.session_state[state_key] = {'mode': None, 'day': None, 'round': 1, 'guesses': [], 'finished': False}
-    game = st.session_state[state_key]
-    day_key = datetime.date.today().isoformat()
-    if game.get('mode') != mode or (mode == 'G\u00fcnl\u00fck' and game.get('day') != day_key):
-        game = {'mode': mode, 'day': day_key, 'round': 1, 'guesses': [], 'finished': False}
-        st.session_state[state_key] = game
-
-    with st.spinner('2010-2026 pilot havuzu do\u011frulan\u0131yor...'):
-        drivers = fetch_stewarlde_universe_v23()
-    if not drivers:
-        st.error('Tarih\u00ee pilot havuzu \u015fu an y\u00fcklenemedi. Oyun veri uydurmaz; ba\u011flant\u0131 geldi\u011finde tekrar dene.')
-        if st.button('Yeniden dene', key='stewarlde_retry_v23'):
-            fetch_stewarlde_universe_v23.clear()
-            fetch_stewarlde_historic_roster_v21.clear()
-            st.rerun()
-        return
-
-    target = drivers[stewarlde_target_index_v23(len(drivers), mode, game['round'])]
-    stat_a, stat_b, stat_c, stat_d = st.columns(4)
-    with stat_a:
-        st.markdown(f"<div class='hud-card stewarlde-stat-v23'><div class='hud-label'>PILOT HAVUZU</div><div class='hud-value'>{len(drivers)} s\u00fcr\u00fcc\u00fc</div><div class='driver-meta'>2010-2026 ger\u00e7ek gridleri</div></div>", unsafe_allow_html=True)
-    with stat_b:
-        st.markdown("<div class='hud-card stewarlde-stat-v23'><div class='hud-label'>TAR\u0130H SE\u00c7\u0130M\u0130</div><div class='hud-value'>Yok</div><div class='driver-meta'>Hedef sistem taraf\u0131ndan rastgele gelir</div></div>", unsafe_allow_html=True)
-    with stat_c:
-        st.markdown(f"<div class='hud-card stewarlde-stat-v23'><div class='hud-label'>OYUN MODU</div><div class='hud-value'>{html_lib.escape(mode)}</div><div class='driver-meta'>{'G\u00fcnde tek bulmaca' if mode == 'G\u00fcnl\u00fck' else 'Her turda yeni rastgele pilot'}</div></div>", unsafe_allow_html=True)
-    with stat_d:
-        rights = max(0, 6 - len(game['guesses']))
-        st.markdown(f"<div class='hud-card stewarlde-stat-v23'><div class='hud-label'>TAHM\u0130N HAKKI</div><div class='hud-value'>{rights} / 6</div><div class='driver-meta'>{'G\u00fcnl\u00fck' if mode == 'G\u00fcnl\u00fck' else 'Tur ' + str(game['round'])}</div></div>", unsafe_allow_html=True)
-
-    st.markdown(
-        "<div class='hud-card stewarlde-brief-v23'><div class='hud-label'>TARIH\u00ce PADDOCK BULMACASI</div>"
-        "<div class='history-copy' style='margin-top:8px'>Sen tarih se\u00e7mezsin. Hedef pilot rastgele gelir; ancak tahmin men\u00fcs\u00fcnde 2010-2026 havuzundaki t\u00fcm pilotlar vard\u0131r. Ye\u015fil do\u011fru, sar\u0131 say\u0131sal y\u00f6n, gri e\u015fle\u015fme yok demek.</div>"
-        "<div class='driver-meta' style='margin-top:8px'>Alanlar: toplam GP galibiyeti \u00b7 d\u00fcnya \u015fampiyonlu\u011fu \u00b7 GP start\u0131. Kaynak: Jolpica F1 verisi.</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    if not game['finished'] and len(game['guesses']) < 6:
-        used = set(game['guesses'])
-        options = [driver for driver in drivers if driver['code'] not in used]
-        pick = st.selectbox(
-            'Pilot tahminin', options,
-            format_func=lambda item: f"{item['name']} \u2014 {item['team']} ({item['latest_season']})",
-            key=f"stewarlde_pick_v23_{mode}_{game['round']}_{len(game['guesses'])}",
-        )
-        if st.button('Tahmini g\u00f6nder', type='primary', use_container_width=True, key=f"stewarlde_submit_v23_{mode}_{game['round']}_{len(game['guesses'])}"):
-            game['guesses'].append(pick['code'])
-            game['finished'] = pick['code'] == target['code'] or len(game['guesses']) >= 6
-            st.session_state[state_key] = game
-            st.rerun()
-
-    lookup = {driver['code']: driver for driver in drivers}
-    target_stats = stewarlde_stats_v23(target) if game['guesses'] else None
-    if game['guesses']:
-        rows = []
-        for code in game['guesses']:
-            guess = lookup.get(code)
-            if not guess:
-                continue
-            guess_stats = stewarlde_stats_v23(guess)
-            values = [
-                ('Pilot', guess['name'], guess['code'] == target['code'], ''),
-                ('Tak\u0131m', guess['team'], guess['team'] == target['team'], ''),
-                ('\u00dclke', guess['nation'], guess['nation'] == target['nation'], ''),
-                ('Galibiyet', guess_stats['wins'], *stewarlde_numeric_cell_v23(guess_stats['wins'], target_stats['wins'])),
-                ('\u015eampiyonluk', guess_stats['titles'], *stewarlde_numeric_cell_v23(guess_stats['titles'], target_stats['titles'])),
-                ('Yar\u0131\u015f say\u0131s\u0131', guess_stats['starts'], *stewarlde_numeric_cell_v23(guess_stats['starts'], target_stats['starts'])),
-            ]
-            cells = []
-            for label, value, status, hint in values:
-                css = 'match' if status is True or status == 'match' else 'near' if status == 'near' else 'miss'
-                display_value = value if value is not None else '?'
-                cells.append(f"<div class='stewarlde-cell-v23 {css}'><small>{html_lib.escape(label)}</small><b>{html_lib.escape(str(display_value))}</b><i>{html_lib.escape(str(hint))}</i></div>")
-            rows.append("<div class='stewarlde-row-v23'>" + ''.join(cells) + '</div>')
-        st.markdown("<div class='stewarlde-table-v23'>" + ''.join(rows) + '</div>', unsafe_allow_html=True)
-
-    if game['finished']:
-        won = bool(game['guesses']) and game['guesses'][-1] == target['code']
-        if won:
-            st.success(f"Do\u011fru cevap: {target['name']}. {len(game['guesses'])}/6 tahminde buldun.")
-        else:
-            st.error(f"Bu tur bitti. Do\u011fru cevap: {target['name']} ({target['team']}).")
-        colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
-        st.markdown(stewarlde_profile_v23(target, target_stats or {}, colour), unsafe_allow_html=True)
-        if mode == 'S\u0131n\u0131rs\u0131z':
-            if st.button('Yeni rastgele pilot', key=f"stewarlde_next_v23_{game['round']}", use_container_width=True):
-                st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'] + 1, 'guesses': [], 'finished': False}
-                st.rerun()
-        elif st.button('G\u00fcnl\u00fck tahminleri temizle', key=f"stewarlde_reset_v23_{day_key}"):
-            st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'], 'guesses': [], 'finished': False}
-            st.rerun()
 
 
-render_stewarlde = render_stewarlde_v23
 
 
 st.markdown(r"""
@@ -5536,179 +4950,16 @@ STEWARDLE_ACTIVE_API_IDS_V24 = {
 
 
 
-@st.cache_data(ttl=60 * 60 * 24 * 30, show_spinner=False)
-def fetch_stewarlde_career_totals_v24(api_code):
-    """Read exact all-time starts and wins from the source, or report absent data."""
-    clean_code = str(api_code or '').strip()
-    if not clean_code:
-        return {'starts': None, 'wins': None}
-    try:
-        base = 'https://api.jolpi.ca/ergast/f1/drivers/' + urllib.parse.quote(clean_code)
-        starts_payload = _stewarlde_request_json_v23(base + '/results.json?limit=1')
-        wins_payload = _stewarlde_request_json_v23(base + '/results/1.json?limit=1')
-        return {
-            'starts': _stewarlde_safe_int_v21(starts_payload.get('MRData', {}).get('total'), None),
-            'wins': _stewarlde_safe_int_v21(wins_payload.get('MRData', {}).get('total'), None),
-        }
-    except Exception as error:
-        log_data_error('stewarlde 2.4 career totals', error)
-        return {'starts': None, 'wins': None}
 
 
-def stewarlde_stats_v24(driver):
-    totals = fetch_stewarlde_career_totals_v24(driver.get('api_code'))
-    return {
-        'wins': totals.get('wins'),
-        'titles': int(driver.get('titles', 0)),
-        'starts': totals.get('starts'),
-    }
 
 
-def stewarlde_profile_v24(driver, stats, colour):
-    photo = safe_external_url(driver.get('photo', ''))
-    visual = (
-        f"<img src='{html_lib.escape(photo, quote=True)}' alt='{html_lib.escape(driver['name'])}' "
-        "style='width:108px;height:138px;object-fit:contain;object-position:center bottom' onerror=\"this.style.display='none'\">"
-        if photo else
-        f"<div class='stewarlde-id-v21' style='border-color:{colour};color:{colour}'>{html_lib.escape(''.join(piece[:1] for piece in str(driver['name']).split()[-2:]).upper())}</div>"
-    )
-    wins = stats.get('wins')
-    starts = stats.get('starts')
-    wins_text = str(wins) if wins is not None else 'Kaynakta yok'
-    starts_text = str(starts) if starts is not None else 'Kaynakta yok'
-    return (
-        f"<div class='hud-card game-result-v24' style='border-left:5px solid {colour}'>"
-        "<div style='display:flex;align-items:center;gap:18px;flex-wrap:wrap'>" + visual +
-        "<div><div class='hud-label'>DOĞRU CEVAP</div>" +
-        f"<div style='font-size:1.58rem;font-weight:950;color:{colour};margin-top:4px'>{html_lib.escape(driver['name'])}</div>" +
-        f"<div class='driver-meta' style='margin-top:7px'>{html_lib.escape(driver['team'])} · {html_lib.escape(driver['nation'])}</div>" +
-        f"<div class='history-copy' style='margin-top:8px'>Kariyer galibiyeti: {wins_text} · Dünya şampiyonluğu: {stats.get('titles', 0)} · GP startı: {starts_text}</div>" +
-        "</div></div></div>"
-    )
 
 
-def render_stewarlde_v24():
-    st.markdown('## 🎮 Stewarlde')
-    st.caption('2010–2026 F1 pilot havuzuyla; gerçek galibiyet, şampiyonluk ve GP start verilerine dayalı bulmaca.')
-    mode = st.radio('Oyun modu', ['Günlük', 'Sınırsız'], horizontal=True, key='stewarlde_mode_v24')
-    state_key = 'stewarlde_state_v24'
-    day_key = datetime.date.today().isoformat()
-    if state_key not in st.session_state:
-        st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': 1, 'guesses': [], 'finished': False}
-    game = st.session_state[state_key]
-    if game.get('mode') != mode or (mode == 'Günlük' and game.get('day') != day_key):
-        game = {'mode': mode, 'day': day_key, 'round': 1, 'guesses': [], 'finished': False}
-        st.session_state[state_key] = game
-
-    with st.spinner('Tekil tarihî pilot havuzu hazırlanıyor...'):
-        drivers = fetch_stewarlde_universe_v24()
-    if not drivers:
-        st.error('Tarihî pilot verisi şu an alınamadı. Oyun veri uydurmaz; bağlantı geldiğinde tekrar dene.')
-        if st.button('Yeniden dene', key='stewarlde_retry_v24'):
-            fetch_stewarlde_universe_v24.clear()
-            fetch_stewarlde_historic_roster_v21.clear()
-            st.rerun()
-        return
-
-    target = drivers[stewarlde_target_index_v23(len(drivers), mode, game['round'])]
-    cards = st.columns(3)
-    values = [
-        ('TEKİL PİLOT HAVUZU', f"{len(drivers)} pilot", 'Aynı kişi yalnızca bir kez listelenir'),
-        ('OYUN MODU', mode, 'Günlük hedef veya sınırsız tur'),
-        ('TAHMİN HAKKI', f"{max(0, 6-len(game['guesses']))} / 6", f"Tur {game['round']}"),
-    ]
-    for col, (label, value, note) in zip(cards, values):
-        with col:
-            st.markdown(f"<div class='hud-card game-stat-v24'><div class='hud-label'>{label}</div><div class='hud-value'>{html_lib.escape(value)}</div><div class='driver-meta'>{html_lib.escape(note)}</div></div>", unsafe_allow_html=True)
-
-    st.markdown(
-        "<div class='hud-card game-brief-v24'><div class='hud-label'>STEWARDLE // GERÇEK KARİYER VERİSİ</div>"
-        "<div class='history-copy' style='margin-top:7px'>Pilot menüsünde 2010–2026 boyunca yarışmış tüm tekil isimler bulunur. Yeşil doğru; sarı sayısal yön ipucu; gri eşleşme yok demektir. Galibiyet ve GP startı doğrudan tarihî kaynaktan gelir.</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    if not game['finished'] and len(game['guesses']) < 6:
-        used = set(game['guesses'])
-        options = [driver for driver in drivers if driver['identity'] not in used]
-        pick = st.selectbox('Pilot tahminin', options, format_func=lambda item: f"{item['name']} — {item['team']} ({item['latest_season']})", key=f"stewarlde_pick_v24_{mode}_{game['round']}_{len(game['guesses'])}")
-        if st.button('Tahmini gönder', type='primary', use_container_width=True, key=f"stewarlde_submit_v24_{mode}_{game['round']}_{len(game['guesses'])}"):
-            game['guesses'].append(pick['identity'])
-            game['finished'] = pick['identity'] == target['identity'] or len(game['guesses']) >= 6
-            st.session_state[state_key] = game
-            st.rerun()
-
-    lookup = {driver['identity']: driver for driver in drivers}
-    target_stats = stewarlde_stats_v24(target) if game['guesses'] else None
-    if game['guesses']:
-        rows = []
-        for identity in game['guesses']:
-            guess = lookup.get(identity)
-            if not guess:
-                continue
-            stats = stewarlde_stats_v24(guess)
-            cells_data = [
-                ('Pilot', guess['name'], guess['identity'] == target['identity'], ''),
-                ('Takım', guess['team'], guess['team'] == target['team'], ''),
-                ('Ülke', guess['nation'], guess['nation'] == target['nation'], ''),
-                ('Galibiyet', stats['wins'], *stewarlde_numeric_cell_v23(stats['wins'], target_stats['wins'])),
-                ('Şampiyonluk', stats['titles'], *stewarlde_numeric_cell_v23(stats['titles'], target_stats['titles'])),
-                ('GP startı', stats['starts'], *stewarlde_numeric_cell_v23(stats['starts'], target_stats['starts'])),
-            ]
-            cells = []
-            for label, value, status, hint in cells_data:
-                state = 'match' if status is True or status == 'match' else 'near' if status == 'near' else 'miss'
-                display = value if value is not None else '—'
-                cells.append(f"<div class='stewarlde-cell-v23 {state}'><small>{html_lib.escape(label)}</small><b>{html_lib.escape(str(display))}</b><i>{html_lib.escape(str(hint))}</i></div>")
-            rows.append("<div class='stewarlde-row-v23'>" + ''.join(cells) + '</div>')
-        st.markdown("<div class='stewarlde-table-v23'>" + ''.join(rows) + '</div>', unsafe_allow_html=True)
-
-    if game['finished']:
-        won = bool(game['guesses']) and game['guesses'][-1] == target['identity']
-        if won:
-            st.success(f"Doğru cevap: {target['name']}. {len(game['guesses'])}/6 tahminde buldun.")
-        else:
-            st.error(f"Bu tur bitti. Doğru cevap: {target['name']} ({target['team']}).")
-        colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
-        st.markdown(stewarlde_profile_v24(target, target_stats or {}, colour), unsafe_allow_html=True)
-        if mode == 'Sınırsız':
-            if st.button('Yeni rastgele pilot', key=f"stewarlde_next_v24_{game['round']}", use_container_width=True):
-                st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'] + 1, 'guesses': [], 'finished': False}
-                st.rerun()
-        elif st.button('Günlük tahminleri temizle', key=f"stewarlde_reset_v24_{day_key}"):
-            st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'], 'guesses': [], 'finished': False}
-            st.rerun()
 
 
-def render_games_hub_v24():
-    """Stable common HUD for every existing game; routes stay unchanged."""
-    st.markdown('## 🎮 Oyun Merkezi')
-    st.caption('Oyun sonuçları simülasyondur. Gerçek tarihî veriler yalnızca açıkça etiketlenen Stewarlde alanında kullanılır.')
-    games = [
-        ('TARİHÎ BULMACA', 'Stewarlde', 'Tekil sürücü kimliği, gerçek kariyer verisi ve sınırsız tur.', '#ff385c', 'Stewarlde aç', 'stewarlde'),
-        ('F1 BİLGİ TESTİ', 'GridMaster', 'Kısa ve tekrar oynanabilir F1 bilgi testi.', '#f7c948', 'GridMaster aç', 'gridmaster'),
-        ('KARİYER YÖNETİMİ', 'Takım Patronu', 'Pilot, lastik, tempo ve bütçe kararlarıyla kalıcı kariyer.', '#2ee6c9', 'Kariyeri aç', 'team_manager'),
-        ('KADRO PAZARI', 'Paddock Draft', 'Bütün aktif grid içinden bütçene göre iki pilot seç.', '#a78bfa', 'Draftı aç', 'draft'),
-        ('YARIŞ TAHMİNİ', 'Paddock Tahmin', 'Pole ve podyum tahminini gerçek sonuçla karşılaştır.', '#7dd3fc', 'Tahmini aç', 'predictor'),
-        ('STRATEJİ LABI', 'Pit Wall', 'Lastik ve pit penceresi kararlarını güvenli simülasyonda dene.', '#f7c948', 'Strateji laboratuvarını aç', 'pitwall'),
-    ]
-    for start in range(0, len(games), 2):
-        columns = st.columns(2)
-        for column, game in zip(columns, games[start:start+2]):
-            label, title, description, colour, button_text, page = game
-            with column:
-                st.markdown(f"<div class='hud-card game-card-v24' style='border-top:5px solid {colour}'><div class='hud-label'>{label}</div><div class='game-card-title-v24'>{title}</div><div class='history-copy' style='margin-top:8px'>{description}</div></div>", unsafe_allow_html=True)
-                if st.button(button_text, key=f'games_v24_{page}', use_container_width=True):
-                    if page == 'pitwall':
-                        st.session_state['game_hub_open_pitwall_v24'] = True
-                    else:
-                        st.session_state['page'] = page
-                        st.rerun()
-    if st.session_state.get('game_hub_open_pitwall_v24'):
-        render_pitwall_challenge_game()
 
 
-render_stewarlde = render_stewarlde_v24
-render_games_hub = render_games_hub_v24
 
 
 st.markdown(r"""
