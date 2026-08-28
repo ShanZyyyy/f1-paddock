@@ -25,6 +25,8 @@ import openf1_fallback
 from core import nav as fp_nav
 from core import ui as fp_ui
 from core import plot as fp_plot
+from core import i18n as fp_i18n
+from core.i18n import t as T
 
 
 LOGGER = logging.getLogger("f1_paddock")
@@ -3562,7 +3564,7 @@ def completed_session_options(event):
 
 
 def render_weekend_centre():
-    render_page_header('Hafta Sonu Merkezi', 'Bir Grand Prix sec; programi, tamamlanan seanslari ve sonuc ekranlarini tek yerde gor.', '#7dd3fc')
+    render_page_header(T('page.weekend.title'), T('page.weekend.sub'))
     events = get_calendar_details(2026)
     if not events:
         st.warning('Takvim verisi su anda alinamadi. Biraz sonra tekrar dene.')
@@ -3610,7 +3612,7 @@ def render_weekend_centre():
 def render_favourites_centre():
     team_name = st.session_state.get('favourite_team', 'Mercedes')
     driver_name = st.session_state.get('favourite_driver', 'George Russell')
-    render_page_header('Favori Paddock', 'Sevdigin takim ve pilot icin hizli baslangic alani.', team_colour(team_name))
+    render_page_header(T('page.favourites.title'), T('page.favourites.sub'))
     team = TEAM_DIRECTORY_2026.get(team_name, TEAM_DIRECTORY_2026['Mercedes'])
     st.markdown(f"<div class='hud-card' style='border-top:4px solid {team['color']}'><div class='hud-label'>FAVORI TAKIM</div><div class='hud-value' style='color:{team['color']}'>{html_lib.escape(team_name)}</div><div class='driver-meta'>{html_lib.escape(driver_name)} secili pilotun.</div></div>", unsafe_allow_html=True)
     cols = st.columns(2)
@@ -3739,7 +3741,7 @@ def paddock_assistant_answer_v19_pro(question, year=2026):
 
 
 def render_paddock_assistant_v20():
-    fp_ui.page_header("Paddock Asistani", "Sonuc, pole, lastik ve tarihi sorular dogrulanmis F1 verisinden yanitlanir.", eyebrow="Paddock")
+    fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"), eyebrow=T("section.paddock"))
     api_ready = bool(configured_openai_api_key())
     accent = '#2ee6c9' if api_ready else '#f7c948'
     mode = 'OPENAI + DOGRULANMIS VERI' if api_ready else 'F1 VERI VE TARIH ARSIVI'
@@ -3869,13 +3871,8 @@ section[data-testid="stSidebar"] .stButton,section[data-testid="stSidebar"] div[
 fp_ui.sidebar_brand()
 
 
-# redesign: kirilgan window.parent Google Translate hack kaldirildi.
-# Yerine tum siteyi ceviren tek, temiz dis baglanti.
-st.sidebar.link_button(
-    "🌐 English (Google Translate)",
-    "https://translate.google.com/translate?sl=tr&tl=en&u=https://appmanagertrackfixedv28verifiedcareerandduelpy-fteph2y8up6ft3g.streamlit.app/",
-    use_container_width=True,
-)
+# redesign: kucuk TR | EN dil secici (gercek i18n — core/i18n.py)
+fp_i18n.lang_toggle()
 
 # redesign: acik/koyu artik sag-alt kontrol panosunda (istemci tarafi, aninda).
 light_mode_v31 = False
@@ -3895,35 +3892,37 @@ def _nav(label, icon, key):
         st.rerun()
 
 
-fp_ui.sidebar_section("Genel")
-_nav("Ana Sayfa & Haberler", "home", "home")
-_nav("Haber Merkezi", "newspaper", "news")
+def _navk(icon, key):
+    _nav(T(f"nav.{key}"), icon, key)
 
-# 2. VERİ & ANALİZ
-fp_ui.sidebar_section("Veri & Analiz")
-_nav("Telemetri Merkezi", "monitoring", "telemetry")
 
-# 3. SEANS TAKİBİ VE YENİ MERKEZLER
-fp_ui.sidebar_section("Canli & Yaris")
-_nav("Seans Takibi", "sensors", "live")
-_nav("Takvim & Pistler", "calendar_month", "calendar")
-_nav("Hafta Sonu Merkezi", "flag", "weekend")
-_nav("Yaris Hikayesi", "menu_book", "story")
-_nav("Pilot Karsilastirma", "compare_arrows", "compare")
+fp_ui.sidebar_section(T("section.general"))
+_navk("home", "home")
+_navk("newspaper", "news")
 
-fp_ui.sidebar_section("Paddock")
-_nav("F1 Baslangic Garaji", "school", "learn")
-_nav("Favori Paddock", "star", "favourites")
+fp_ui.sidebar_section(T("section.data"))
+_navk("monitoring", "telemetry")
 
-fp_ui.sidebar_section("Sampiyonalar")
-_nav("2026 Takimlar & Pilotlar", "groups", "teams")
-_nav("Sampiyona Merkezi", "emoji_events", "standings")
-_nav("F2 & F3 Takip", "stacked_line_chart", "f2f3")
-_nav("F1 Sozlugu", "quiz", "glossary")
-_nav("Paddock Asistani", "smart_toy", "assistant")
+fp_ui.sidebar_section(T("section.live"))
+_navk("sensors", "live")
+_navk("calendar_month", "calendar")
+_navk("flag", "weekend")
+_navk("menu_book", "story")
+_navk("compare_arrows", "compare")
 
-fp_ui.sidebar_section("Oyunlar")
-_nav("Oyun Merkezi", "sports_esports", "games")
+fp_ui.sidebar_section(T("section.paddock"))
+_navk("school", "learn")
+_navk("star", "favourites")
+
+fp_ui.sidebar_section(T("section.champ"))
+_navk("groups", "teams")
+_navk("emoji_events", "standings")
+_navk("stacked_line_chart", "f2f3")
+_navk("quiz", "glossary")
+_navk("smart_toy", "assistant")
+
+fp_ui.sidebar_section(T("section.games"))
+_navk("sports_esports", "games")
 
 with st.sidebar.expander("⭐ Hızlı Favori", expanded=False):
     favourite_team = st.selectbox("Takım", list(TEAM_DIRECTORY_2026.keys()), key="favourite_team")
@@ -4031,11 +4030,7 @@ def localise_news_item_v20(item):
 
 
 def render_news_centre_v20():
-    render_page_header(
-        'Haber Merkezi',
-        'Türkçe Formula 1 haberleri, kapak seçkisi ve takımına göre filtrelenmiş akış.',
-        '#ff385c',
-    )
+    render_page_header(T('page.news.title'), T('page.news.sub'))
     teams = ['Genel F1'] + list(TEAM_DIRECTORY_2026.keys())
     selected = st.selectbox('\u0130zlemek istedi\u011fin ak\u0131\u015f', teams, key='news_team_filter_v20')
     with st.spinner('Türkçe haber akışı hazırlanıyor...'):
@@ -4144,11 +4139,7 @@ def get_race_story_package_v20(year, event_name):
 
 
 def render_race_story_centre_v20():
-    render_page_header(
-        'Yarış Hikâyesi',
-        'Tabloyu tek başına bırakmaz: kazanan, podyum, yükseliş, pitler ve FIA notlarını Türkçe bir yarış akışına dönüştürür.',
-        '#ff385c',
-    )
+    render_page_header(T('page.story.title'), T('page.story.sub'))
     events = get_calendar_details(2026)
     completed = [event for event in events if any(item.get('code') == 'R' for item in completed_session_options(event))]
     if not completed:
@@ -4206,11 +4197,7 @@ def render_race_story_centre_v20():
 
 
 def render_learning_centre_v20():
-    render_page_header(
-        'F1 Başlangıç Garajı',
-        'Sözlük değil: Formula 1’i ilk kez izleyen biri için yarış izleme rehberi, mini kararlar ve pratik yol haritası.',
-        '#f7c948',
-    )
+    render_page_header(T('page.learn.title'), T('page.learn.sub'))
     st.markdown("<div class='hud-card learning-hero-v20'><div class='hud-label'>F1'E BAŞLA // 5 DAKİKALIK ROTA</div><div class='hud-value'>Önce yarışı anla, sonra veriyi oku.</div><div class='history-copy'>Buradaki kartlar terim ezberletmez; bir hafta sonunda ekranda neye bakacağını öğretir.</div></div>", unsafe_allow_html=True)
     tracks = [
         ('1', 'Hafta sonu', 'FP1–FP3 hazırlıktır. Sıralama başlangıç sırasını, yarış ise puanları belirler.', '#7dd3fc'),
@@ -5186,11 +5173,7 @@ def _career_panel_v28(info, stats, colour):
 
 def render_driver_comparison_centre():
     """Career-only comparison with verified historical rows, never session data."""
-    render_page_header(
-        'Pilot Karşılaştırma',
-        'İki sürücünün doğrulanmış kariyer istatistiklerini aynı HUD üzerinde karşılaştır.',
-        '#a78bfa',
-    )
+    render_page_header(T('page.compare.title'), T('page.compare.sub'))
     driver_rows = []
     for team_name, team in TEAM_DIRECTORY_2026.items():
         for name, code, number, image_path in team.get('drivers', []):
@@ -5653,11 +5636,7 @@ def games_profile_hud_html(profile):
 
 
 def render_games_hub_v30():
-    fp_ui.page_header(
-        "Oyun Merkezi",
-        "Stewardle dogrulanmis tarihsel motorunda kalir. Diger oyunlar Paddock Oyun Motoru 3.0 uzerinde calisir.",
-        eyebrow="Oyunlar",
-    )
+    fp_ui.page_header(T("page.games.title"), T("page.games.sub"), eyebrow=T("section.games"))
     _gp = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
     render_html_hud(games_profile_hud_html(_gp), height=126)
     games = [
@@ -5730,11 +5709,7 @@ fp_ui.control_dock()
 
 if st.session_state['page'] == 'home':
     # redesign: F1 TV yonu — page_header + yaris sonuc basligi + sakin race center
-    fp_ui.page_header(
-        "Race Intelligence",
-        "F1 yarislari, sampiyona verileri, pilot analizleri ve tarihi oyunlar.",
-        eyebrow="Formula Paddock",
-    )
+    fp_ui.page_header(T("page.home.title"), T("page.home.sub"), eyebrow="Formula Paddock")
 
     # İlk kare hiçbir dış kaynağı beklemez. Böylece FastF1/cache bağlantısı
     # problemliyken bile navigasyon ve arayüz görünür kalır.
@@ -5972,11 +5947,7 @@ elif st.session_state['page'] == 'live':
     curr_event, target_s_name, target_s_time, is_live_now = get_current_or_next_event()
     gp_name = curr_event['EventName'] if 'EventName' in curr_event else "Hungarian Grand Prix"
     
-    fp_ui.page_header(
-        "Seans Takibi",
-        f"{gp_name} · Dereceler ve tamamlanmis yaris tekrarlari.",
-        eyebrow="Canli & Yaris",
-    )
+    fp_ui.page_header(T("page.live.title"), f"{gp_name}", eyebrow=T("section.live"))
     fp_ui.data_state(
         "Alpha Odagi",
         "Canli 2D pist, dogrulanmis bir konum saglayicisi hazir olana kadar kapali tutulur; site sahte canli konum uretmez.",
@@ -6203,11 +6174,7 @@ elif st.session_state['page'] == 'live':
 
 # SAYFA 3: TELEMETRİ VE DOMİNASYON HARİTASI
 elif st.session_state['page'] == 'telemetry':
-    fp_ui.page_header(
-        "Telemetri Merkezi",
-        "Tamamlanmis bir seans sec: tur duellosu, fren analizi, lastik stratejisi.",
-        eyebrow="Veri & Analiz",
-    )
+    fp_ui.page_header(T("page.telemetry.title"), T("page.telemetry.sub"), eyebrow=T("section.data"))
 
     # --- SEANS SEÇİMİ (artik sayfa govdesinde, sidebar yerine) ---
     fp_ui.section_title("Seans Ayarlari")
@@ -6568,11 +6535,7 @@ elif st.session_state['page'] == 'telemetry':
 
 # SAYFA 4: TAKVİM VE PİSTLER
 elif st.session_state['page'] == 'calendar':
-    fp_ui.page_header(
-        "Takvim & Pistler",
-        "Bir yaris sec: pist gorunumu, hafta sonu programi ve tamamlanan seans sonuclari ayni yerde.",
-        eyebrow="Canli & Yaris",
-    )
+    fp_ui.page_header(T("page.calendar.title"), T("page.calendar.sub"), eyebrow=T("section.live"))
     calendar_year = st.selectbox("Sezon", [2026, 2025, 2024], index=0, key="calendar_year")
     events = get_calendar_details(calendar_year)
     if not events:
@@ -6705,11 +6668,7 @@ elif st.session_state['page'] == 'calendar':
 
 # SAYFA 5: TAKIMLAR VE PİLOTLAR
 elif st.session_state['page'] == 'teams':
-    fp_ui.page_header(
-        "2026 Takimlar & Pilotlar",
-        "2026 grid: 11 takim, 22 pilot. Logolar ve pilot portreleri guncel takim renkleriyle.",
-        eyebrow="Sampiyonalar",
-    )
+    fp_ui.page_header(T("page.teams.title"), T("page.teams.sub"), eyebrow=T("section.champ"))
     if 'team_focus' not in st.session_state:
         st.session_state['team_focus'] = 'Mercedes'
 
@@ -6783,11 +6742,7 @@ elif st.session_state['page'] == 'teams':
 
 # SAYFA 6: ŞAMPİYONA MERKEZİ
 elif st.session_state['page'] == 'standings':
-    fp_ui.page_header(
-        "Sampiyona Merkezi",
-        "Puanlar tamamlanmis yaris ve sprint sonuclarindan hazirlanir. Sira hucreleri: yaris / sprint.",
-        eyebrow="Sampiyonalar",
-    )
+    fp_ui.page_header(T("page.standings.title"), T("page.standings.sub"), eyebrow=T("section.champ"))
     fp_ui.data_state(
         "Sezon Verisi",
         "2026 sonuclari dogrulanmis FastF1 paketinden otomatik hazirlanir. Ilk acilis kisa surebilir; sonrasi yerel onbellekten gelir.",
@@ -6865,11 +6820,7 @@ elif st.session_state['page'] == 'standings':
 
 # SAYFA 7: F2 VE F3
 elif st.session_state['page'] == 'f2f3':
-    fp_ui.page_header(
-        "Formula 2 & Formula 3",
-        "2026 resmi kadrolari. F1 ile ayni HUD duzeni, ayri veri kaynagi ve ayri puan merkezleri.",
-        eyebrow="Sampiyonalar",
-    )
+    fp_ui.page_header(T("page.f2f3.title"), T("page.f2f3.sub"), eyebrow=T("section.champ"))
     fp_ui.data_state("Junior Paddock · Beta", "Takim ve pilot kartlari yerel 2026 kadro dizininden gelir. F2/F3 sonuc akisi dogrulanmis kaynak baglanana kadar F1 puan tablosuyla karistirilmaz.", "info")
     f2_grid = {
         'Invicta Racing': 'Rafael Câmara • Joshua Dürksen', 'Hitech': 'Ritomo Miyata • Colton Herta',
@@ -6943,11 +6894,7 @@ elif st.session_state['page'] == 'paddock_career':
 
 # SAYFA 9: F1 SÖZLÜĞÜ
 elif st.session_state['page'] == 'glossary':
-    fp_ui.page_header(
-        "F1 Sozlugu",
-        "2026 kurallari ve telemetri ekranlari icin hazirlanmis 60 temel terim.",
-        eyebrow="Paddock",
-    )
+    fp_ui.page_header(T("page.glossary.title"), T("page.glossary.sub"), eyebrow=T("section.paddock"))
     terms = [
         ('2026 Teknolojisi', 'Active Aero', 'Ön ve arka kanadın sürüş koşuluna göre aktif açı değiştirmesidir.', True),
         ('2026 Teknolojisi', 'Corner Mode', 'Virajlarda daha fazla yere basma için kullanılan aktif aero ayarıdır.', True),

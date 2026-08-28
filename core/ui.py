@@ -48,7 +48,7 @@ def inject_theme():
     st.markdown(theme.sidebar_style(), unsafe_allow_html=True)
 
 
-_DOCK_STYLE = """
+_DOCK_CSS = """
 <style>
 #fp-dock{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;
   align-items:flex-end;gap:10px;font-family:var(--fp-f-body)}
@@ -73,24 +73,23 @@ _DOCK_STYLE = """
 .fp-dock-music input{flex:1;accent-color:var(--fp-red)}
 @media(max-width:600px){#fp-dock{right:10px;bottom:10px}}
 </style>
-<div id="fp-dock">
-  <div id="fp-dock-panel">
-    <div class="fp-dock-row"><span>Görünüm</span>
-      <div class="fp-dock-seg">
-        <button data-theme="dark" id="fp-th-dark">Koyu</button>
-        <button data-theme="light" id="fp-th-light">Açık</button>
-      </div>
-    </div>
-    <div class="fp-dock-row"><span>Ortam müziği</span>
-      <div class="fp-dock-music">
-        <button id="fp-music">▶</button>
-        <input id="fp-vol" type="range" min="0" max="100" value="35" aria-label="Ses">
-      </div>
-    </div>
-  </div>
-  <button id="fp-dock-toggle" aria-label="Ayarlar">⚙</button>
-</div>
 """
+
+
+def _dock_markup():
+    from core import i18n as _i18n
+    return (
+        "<div id='fp-dock'><div id='fp-dock-panel'>"
+        f"<div class='fp-dock-row'><span>{_esc(_i18n.t('dock.view'))}</span>"
+        "<div class='fp-dock-seg'>"
+        f"<button data-theme='dark' id='fp-th-dark'>{_esc(_i18n.t('dock.dark'))}</button>"
+        f"<button data-theme='light' id='fp-th-light'>{_esc(_i18n.t('dock.light'))}</button>"
+        "</div></div>"
+        f"<div class='fp-dock-row'><span>{_esc(_i18n.t('dock.music'))}</span>"
+        "<div class='fp-dock-music'><button id='fp-music'>&#9654;</button>"
+        "<input id='fp-vol' type='range' min='0' max='100' value='35' aria-label='Ses'></div></div>"
+        "</div><button id='fp-dock-toggle' aria-label='Ayarlar'>&#9881;</button></div>"
+    )
 
 _DOCK_SCRIPT = r"""
 <script>
@@ -161,7 +160,7 @@ _DOCK_SCRIPT = r"""
 
 def control_dock():
     """Sag-alt yuzen kontrol panosu: koyu/acik tema + ortam muzigi."""
-    st.markdown(_DOCK_STYLE, unsafe_allow_html=True)
+    st.markdown(_DOCK_CSS + _dock_markup(), unsafe_allow_html=True)
     components.html(_DOCK_SCRIPT, height=0)
 
 
