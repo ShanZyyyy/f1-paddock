@@ -282,7 +282,8 @@ def get_real_top_drivers(year, gp_name, session_code):
         if results is None or results.empty:
             return [], []
 
-        results = results.sort_values('Position', na_position='last').head(5)
+        # LED serit tum kadroyu gosterir; ilk 5 degil, tamami sirali.
+        results = results.sort_values('Position', na_position='last').head(30)
         drivers_data = []
         race_finish_times = {}
         race_leader_finish = None
@@ -5763,9 +5764,17 @@ if st.session_state['page'] == 'home':
             f"{pill}</div>"
         )
 
-    if not ticker_html_items:
-        ticker_html_items = ("<div style='width:100%;text-align:center;color:#63748a;font-weight:600;padding:12px'>"
-                             "Son seansin dogrulanmis siralamasi henuz yuklenemedi.</div>")
+    _ticker_marquee = bool(real_drivers)
+    if _ticker_marquee:
+        # LED panosu gibi: icerik iki kez -> kesintisiz sola akis
+        _ticker_dur = max(24, len(real_drivers) * 3)
+        ticker_body = (
+            f"<div class='rc-track' style='animation-duration:{_ticker_dur}s'>"
+            f"{ticker_html_items}{ticker_html_items}</div>"
+        )
+    else:
+        ticker_body = ("<div style='width:100%;text-align:center;color:#63748a;font-weight:600;padding:12px'>"
+                       "Son seansin dogrulanmis siralamasi henuz yuklenemedi.</div>")
 
     status_badge_text = (
         "TAKVIM VERISI BEKLENIYOR"
@@ -5790,7 +5799,13 @@ if st.session_state['page'] == 'home':
       .rc-head .t b{{color:#f2f5f8}}
       .rc-flag{{font:700 10px 'JetBrains Mono',monospace;letter-spacing:.1em;padding:4px 9px;border-radius:3px;
         background:{'#e10600' if is_live_now else '#1e2836'};border:1px solid {'#ff1801' if is_live_now else '#26313f'};color:#fff}}
-      .rc-ticker{{display:flex;overflow-x:auto}}
+      .rc-ticker{{overflow:hidden;position:relative;border-bottom:1px solid #26313f;
+        -webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);
+        mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}}
+      .rc-track{{display:flex;width:max-content;animation-name:rc-scroll;animation-timing-function:linear;animation-iteration-count:infinite}}
+      .rc-ticker:hover .rc-track{{animation-play-state:paused}}
+      @keyframes rc-scroll{{from{{transform:translateX(0)}}to{{transform:translateX(-50%)}}}}
+      @media(prefers-reduced-motion:reduce){{.rc-track{{animation:none}}.rc-ticker{{overflow-x:auto}}}}
       .rc-timer{{padding:16px;text-align:center;border-top:1px solid #26313f;background:#0c1016}}
       .rc-timer .lab{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#63748a;margin-bottom:8px}}
       .rc-timer .val{{font:700 34px 'JetBrains Mono',monospace;color:#f2f5f8;display:flex;align-items:baseline;justify-content:center;gap:6px;flex-wrap:wrap}}
@@ -5803,7 +5818,7 @@ if st.session_state['page'] == 'home':
         <span class="t">F1 RACE CENTER <b>· {html_lib.escape(str(last_session_label))}</b></span>
         <span class="rc-flag">{status_badge_text}</span>
       </div>
-      <div class="rc-ticker">{ticker_html_items}</div>
+      <div class="rc-ticker">{ticker_body}</div>
       <div class="rc-timer">
         <div class="lab">{html_lib.escape(str(countdown_title))}</div>
         <div class="val" id="rc-timer">
