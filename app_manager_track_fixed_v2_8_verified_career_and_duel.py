@@ -6060,9 +6060,7 @@ st.markdown(r"""
 .f1-header{background:linear-gradient(120deg,#0f1d32 0%,#101b2d 56%,#151123 100%)!important;border:1px solid #29446c!important;border-radius:18px!important;box-shadow:0 16px 36px rgba(0,0,0,.25)!important;padding:20px 24px!important;}
 .f1-header h1{letter-spacing:1.7px!important;font-size:1.6rem!important;}
 .paddock-topline{display:flex;align-items:center;gap:12px}.paddock-topline img{width:74px;height:auto;filter:invert(1) sepia(1) saturate(8) hue-rotate(125deg)}
-.paddock-side-brand{padding:8px 6px 18px;text-align:center}.paddock-side-brand img{width:76px;filter:invert(1) sepia(1) saturate(8) hue-rotate(125deg);margin-bottom:7px}.paddock-side-brand .brand-sub{font-size:.62rem;letter-spacing:2.2px;color:#74d9ff;font-weight:900}.paddock-side-brand .brand-title{font-size:.88rem;letter-spacing:1.2px;color:#f4f8ff;font-weight:900;margin-top:3px}
-section[data-testid="stSidebar"] button{border:1px solid #2b527a!important;border-left:4px solid #2d8fda!important;border-radius:12px!important;background:linear-gradient(90deg,rgba(13,34,59,.96),rgba(13,27,47,.85))!important;color:#eef7ff!important;font-weight:760!important;letter-spacing:.05px!important;box-shadow:none!important;transition:transform .15s ease,border-color .15s ease!important}
-section[data-testid="stSidebar"] button:hover{border-left-color:#3be5d1!important;border-color:#3b82c4!important;transform:translateX(2px)!important}
+/* redesign: eski .paddock-side-brand + bare sidebar-button mavi stili kaldirildi */
 .hud-card{border-radius:15px!important;background:linear-gradient(145deg,rgba(18,31,52,.96),rgba(13,23,39,.96))!important;border-color:#294566!important;box-shadow:0 12px 24px rgba(0,0,0,.14)!important}.hud-label{letter-spacing:1.45px!important;color:#92abd0!important}.hud-value{margin-top:8px!important}.home-command-card{min-height:100px}.compare-mini{min-height:95px}.compare-driver-card{min-height:178px}.compare-driver-main{display:flex;align-items:center;gap:15px}.compare-driver-main img{width:92px!important;height:112px!important;object-fit:contain!important}.compare-stat-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:14px}.compare-stat-grid>div{background:#0b1627;border:1px solid #25405f;border-radius:10px;padding:10px}.compare-stat-grid span{display:block;color:#89a3c7;font-size:.65rem;letter-spacing:1.1px;font-weight:800}.compare-stat-grid b{display:block;color:#f5fbff;font-size:1.05rem;margin-top:4px}
 .paddock-ai-intro{margin-bottom:15px!important}@media(max-width:800px){.home-command-card{min-height:78px}.compare-driver-main img{width:72px!important;height:92px!important}.f1-header{padding:16px!important}}
 </style>
@@ -9329,8 +9327,9 @@ div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{{b
 </style>
 """, unsafe_allow_html=True)
 
-# redesign: slim-rail menu temasi EN SONDA — eski !important sidebar bloklarini yener
-fp_ui.inject_sidebar_theme()
+# redesign: kabuk temasi (arka plan + slim-rail menu) EN SONDA —
+# eski !important bloklarini yener
+fp_ui.inject_shell_theme()
 
 if st.session_state['page'] == 'home':
     # İlk kare hiçbir dış kaynağı beklemez. Böylece FastF1/cache bağlantısı

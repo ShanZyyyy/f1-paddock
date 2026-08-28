@@ -250,13 +250,13 @@ section[data-testid="stSidebar"] *{color:var(--fp-text)}
 .fp-nav-sec{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--fp-text-mute);
   padding:16px 6px 4px}
 
-/* nav = st.button, slim rail görünümüne indirgenir.
-   Selektörler eski tema bloklarını (div[data-testid=stButton]>button !important)
-   yenmek için aynı özgüllükte + !important. */
-section[data-testid="stSidebar"] div[data-testid="stButton"]{margin:0 0 1px !important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button{
+/* nav = st.button (key="nav_*") -> slim rail.
+   Sadece .st-key-nav_* sarmaliyicilarini hedefler; expander ic butonlari (CTA)
+   dokunulmaz. !important eski tema bloklarini yenmek icin. */
+section[data-testid="stSidebar"] [class*="st-key-nav_"] div[data-testid="stButton"]{margin:0 0 1px !important}
+section[data-testid="stSidebar"] [class*="st-key-nav_"] div[data-testid="stButton"] > button{
   width:100% !important;justify-content:flex-start !important;gap:11px !important;
-  padding:9px 12px !important;min-height:0 !important;
+  padding:9px 12px !important;min-height:0 !important;height:auto !important;
   background:transparent !important;border:none !important;
   border-left:var(--fp-edge) solid transparent !important;border-radius:0 !important;
   box-shadow:none !important;transform:none !important;
@@ -264,26 +264,88 @@ section[data-testid="stSidebar"] div[data-testid="stButton"] > button{
   letter-spacing:.02em;color:var(--fp-text-dim) !important;
   transition:background .12s ease,color .12s ease,border-color .12s ease !important;
 }
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover{
+section[data-testid="stSidebar"] [class*="st-key-nav_"] div[data-testid="stButton"] > button:hover{
   background:rgba(255,255,255,.05) !important;color:var(--fp-text) !important;border-left-color:transparent !important;
 }
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button span[data-testid="stIconMaterial"]{
+section[data-testid="stSidebar"] [class*="st-key-nav_"] div[data-testid="stButton"] > button span[data-testid="stIconMaterial"]{
   font-size:17px !important;opacity:.7;
 }
 /* aktif sayfa: type="primary" */
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"]{
+section[data-testid="stSidebar"] [class*="st-key-nav_"] div[data-testid="stButton"] > button[kind="primary"]{
   color:#fff !important;
-  background:linear-gradient(90deg,color-mix(in srgb,var(--fp-red) 20%,transparent),transparent 72%) !important;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--fp-red) 22%,transparent),transparent 72%) !important;
   border-left-color:var(--fp-red) !important;
 }
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] span[data-testid="stIconMaterial"]{
+section[data-testid="stSidebar"] [class*="st-key-nav_"] div[data-testid="stButton"] > button[kind="primary"] span[data-testid="stIconMaterial"]{
   opacity:1;color:var(--fp-red) !important;
 }
+
+/* sidebar expander (Telemetri Seans Ayarlari, Hizli Favori) — slim rail dili */
+section[data-testid="stSidebar"] div[data-testid="stExpander"]{
+  background:transparent !important;border:1px solid var(--fp-line) !important;
+  border-left:var(--fp-edge) solid var(--fp-line) !important;
+  border-radius:var(--fp-r-sm) !important;box-shadow:none !important;margin:2px 0 6px !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stExpander"] summary,
+section[data-testid="stSidebar"] div[data-testid="stExpander"] details > summary{
+  font-family:var(--fp-f-display) !important;font-weight:600 !important;font-size:13px !important;
+  letter-spacing:.03em !important;color:var(--fp-text-dim) !important;padding:10px 12px !important;
+  background:transparent !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stExpander"] summary:hover{color:var(--fp-text) !important}
+section[data-testid="stSidebar"] div[data-testid="stExpander"][open]{
+  border-left-color:var(--fp-red) !important;background:rgba(255,255,255,.02) !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stExpander"] [data-testid="stExpanderDetails"]{
+  padding:4px 10px 10px !important;
+}
+/* sidebar form kontrolleri */
+section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+section[data-testid="stSidebar"] [data-baseweb="input"],
+section[data-testid="stSidebar"] input{
+  background:var(--fp-bg-2) !important;border-color:var(--fp-line) !important;
+  border-radius:var(--fp-r-sm) !important;color:var(--fp-text) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stNumberInputStepUp"],
+section[data-testid="stSidebar"] [data-testid="stNumberInputStepDown"]{
+  background:var(--fp-bg-3) !important;color:var(--fp-text-dim) !important;border-color:var(--fp-line) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stButton"] > button{
+  border-radius:var(--fp-r-sm) !important;
+}
+/* nav DISI sidebar butonlari (select tetikleyicisi vb.): notr, mavi kenar yok */
+section[data-testid="stSidebar"] [data-testid="stSelectbox"] button,
+section[data-testid="stSidebar"] [data-baseweb="select"] button{
+  border:1px solid var(--fp-line) !important;border-left-width:1px !important;
+  background:var(--fp-bg-2) !important;color:var(--fp-text) !important;
+  border-radius:var(--fp-r-sm) !important;box-shadow:none !important;transform:none !important;
+}
+"""
+
+# ---- Uygulama arka plani (F1 TV — sakin, animasyonsuz) ---------------
+_SHELL_BG_CSS = r"""
+/* eski animasyonlu grid + yorunge halkasini kapat */
+[data-testid="stAppViewContainer"]::before,
+[data-testid="stAppViewContainer"]::after{content:none !important;display:none !important;animation:none !important}
+[data-testid="stAppViewContainer"],.stApp{
+  background:
+    radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 9%,transparent), transparent 55%),
+    linear-gradient(180deg, var(--fp-bg-1), var(--fp-bg-0)) !important;
+  background-attachment:fixed !important;
+}
+[data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
 """
 
 
 def sidebar_style():
     return "<style>" + _SIDEBAR_CSS + "</style>"
+
+
+def shell_style(light=False):
+    """Gecis donemi kabuk temasi: :root jetonlari + yeni arka plan + slim-rail
+    sidebar. Sayfa govde CSS'i hala eski monolitten geldigi icin _COMPONENT_CSS
+    burada YOK — dosyanin en sonunda cagrilir ki eski bloklari yensin."""
+    return "<style>" + _root_vars(light) + _SHELL_BG_CSS + _SIDEBAR_CSS + "</style>"
 
 
 # =====================================================================

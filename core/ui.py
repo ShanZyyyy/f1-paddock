@@ -49,19 +49,19 @@ def inject_theme():
     st.markdown(theme.sidebar_style(), unsafe_allow_html=True)
 
 
-def inject_sidebar_theme():
-    """Faz 2 gecis donemi: sadece :root jetonlari + slim-rail sidebar CSS.
+def inject_shell_theme():
+    """Faz 2 gecis donemi kabuk temasi: :root jetonlari + yeni sakin arka plan
+    + slim-rail sidebar (menu + expander'lar).
 
-    Sayfa govde CSS'i henuz eski monolitten geldigi icin page_style'in
-    tamamini enjekte etmiyoruz — yalnizca menuyu yeniliyoruz.
-    Dosyanin EN SONUNDA cagrilmali ki eski !important sidebar bloklarini yensin.
+    Sayfa govde CSS'i henuz eski monolitten geldigi icin _COMPONENT_CSS'i
+    enjekte etmiyoruz. Dosyanin EN SONUNDA cagrilmali ki eski !important
+    bloklarini yensin.
     """
-    light = is_light()
     st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
-    st.markdown(
-        "<style>" + theme._root_vars(light) + theme._SIDEBAR_CSS + "</style>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(theme.shell_style(is_light()), unsafe_allow_html=True)
+
+
+inject_sidebar_theme = inject_shell_theme  # geriye donuk ad
 
 
 # =====================================================================

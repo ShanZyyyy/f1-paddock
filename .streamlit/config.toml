@@ -1,0 +1,15 @@
+# Formula Paddock — Streamlit tema tabani.
+# CSS savasini azaltir: widget vurgulari (select, slider, radio, focus) buradan.
+[theme]
+base = "dark"
+primaryColor = "#e10600"
+backgroundColor = "#0c1016"
+secondaryBackgroundColor = "#161d28"
+textColor = "#f2f5f8"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
