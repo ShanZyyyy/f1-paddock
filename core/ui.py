@@ -109,6 +109,31 @@ def stat_tile(label, value, sub="", accent="cyan", mono=True):
     )
 
 
+def mini_note(text, accent="cyan"):
+    st.markdown(
+        f"<div class='fp-note' style='--nc:{_accent(accent)}'>{_esc(text)}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def news_card(title, source="", date="", excerpt="", link="", image=""):
+    """Tek haber karti. link/image cagiran tarafta safe_external_url'den gecmeli."""
+    meta = " · ".join(p for p in [source, date] if p)
+    if image:
+        ph = f"<div class='ph'><img src='{_html.escape(image, quote=True)}' alt='' onerror=\"this.parentElement.textContent='F1'\"></div>"
+    else:
+        ph = "<div class='ph'>F1</div>"
+    lk = (f"<a class='lk' href='{_html.escape(link, quote=True)}' target='_blank' rel='noopener noreferrer'>"
+          f"Haberi Ac &#8599;</a>") if link else ""
+    st.markdown(
+        f"<div class='fp-news'>{ph}<div class='bd'>"
+        f"<span class='src'>{_esc(meta)}</span>"
+        f"<div class='hl'>{_esc(title)}</div>"
+        f"<div class='ex'>{_esc(excerpt)}</div>{lk}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def data_state(title, message, tone="info"):
     colour = theme.tone_hex(tone, is_light())
     st.markdown(

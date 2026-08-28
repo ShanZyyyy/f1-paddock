@@ -9502,21 +9502,23 @@ if st.session_state['page'] == 'home':
 
 
     if session_summary:
-        st.markdown("#### 🧠 Bu seansta ne oldu?")
-        insight_columns = st.columns(len(session_summary))
-        for column, insight in zip(insight_columns, session_summary):
-            with column:
-                st.info(insight)
+        st.write("")
+        fp_ui.section_title("Bu Seansta Ne Oldu?")
+        _si_cols = st.columns(len(session_summary))
+        _si_tones = ["cyan", "amber", "pink", "purple"]
+        for _i, (_col, _insight) in enumerate(zip(_si_cols, session_summary)):
+            with _col:
+                fp_ui.mini_note(_insight, _si_tones[_i % len(_si_tones)])
 
     if is_live_now:
-        if st.button(f"🔴 CANLI TAKİP: {target_s_name.upper()} SEANSI BAŞLADI — TIKLA VE İNCELE ➔", use_container_width=True):
+        if st.button(f"CANLI TAKIP: {target_s_name.upper()} SEANSI BASLADI — TIKLA VE INCELE", use_container_width=True):
             st.session_state['page'] = 'live'
 
     st.write("")
-    st.markdown("### 📰 Paddock Live News — Son Dakika Türkçe F1 Haberleri")
+    fp_ui.section_title("Paddock Live News · Turkce")
     if not st.session_state['news_requested']:
-        st.caption("Haber akışı ilk açılışta siteyi bekletmez.")
-        if st.button("📰 Haber akışını getir", key="load_live_news", use_container_width=True):
+        st.caption("Haber akisi ilk acilista siteyi bekletmez.")
+        if st.button("Haber akisini getir", key="load_live_news", use_container_width=True):
             st.session_state['news_requested'] = True
             st.rerun()
         live_news = []
@@ -9525,23 +9527,17 @@ if st.session_state['page'] == 'home':
         if st.button('Tum haberleri ve takim filtrelerini ac', key='open_news_centre_v19', use_container_width=True):
             st.session_state['page'] = 'news'
             st.rerun()
-    
-    col_n1, col_n2 = st.columns(2)
-    for idx, item in enumerate(live_news):
-        target_col = col_n1 if idx % 2 == 0 else col_n2
-        with target_col:
-            news_date = html_lib.escape(str(item.get('date', '')))
-            news_title = html_lib.escape(str(item.get('title', '')))
-            news_desc = html_lib.escape(str(item.get('desc', '')))
-            news_link = safe_external_url(item.get('link')) or 'https://www.formula1.com/'
-            st.markdown(f"""
-            <div class="news-card">
-                <div class="news-date">🕒 {news_date} — F1 CANLI HABER AKIŞI</div>
-                <div class="news-title">{news_title}</div>
-                <div class="news-desc">{news_desc}</div>
-                <a href="{html_lib.escape(news_link, quote=True)}" target="_blank" rel="noopener noreferrer" class="news-link">Orijinal Haberi Oku (İngilizce) ↗</a>
-            </div>
-            """, unsafe_allow_html=True)
+
+    _nn = st.columns(2)
+    for _idx, _item in enumerate(live_news):
+        with _nn[_idx % 2]:
+            fp_ui.news_card(
+                _item.get('title', ''),
+                source="F1 Canli Haber Akisi",
+                date=str(_item.get('date', '')),
+                excerpt=str(_item.get('desc', '')),
+                link=safe_external_url(_item.get('link')) or 'https://www.formula1.com/',
+            )
 
 # SAYFA 2: CANLI SEANS TAKİBİ
 elif st.session_state['page'] == 'live':

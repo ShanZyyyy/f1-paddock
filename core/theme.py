@@ -222,6 +222,25 @@ _FP_COMPONENTS_CSS = r"""
 .fp-result .gap span{color:var(--fp-text-mute);font-weight:500;margin-right:6px}
 .fp-result .next{font-family:var(--fp-f-mono);font-size:12px;color:var(--fp-text-dim)}
 .fp-result .next b{color:var(--fp-text)}
+
+/* ---- news card ---- */
+.fp-news{background:var(--fp-bg-2);border:1px solid var(--fp-line-soft);border-radius:var(--fp-r-md);
+  overflow:hidden;display:flex;flex-direction:column;height:100%}
+.fp-news .ph{height:110px;background:linear-gradient(135deg,#1a2433,#101722);display:flex;
+  align-items:center;justify-content:center;font-family:var(--fp-f-display);font-weight:800;
+  color:#2b3a4d;font-size:24px;letter-spacing:.1em}
+.fp-news .ph img{width:100%;height:100%;object-fit:cover}
+.fp-news .bd{padding:12px 15px;display:flex;flex-direction:column;gap:6px;flex:1}
+.fp-news .src{font-family:var(--fp-f-mono);font-size:10px;letter-spacing:.06em;color:var(--fp-red-bright);text-transform:uppercase}
+.fp-news .hl{font-family:var(--fp-f-display);font-weight:700;font-size:15px;line-height:1.25}
+.fp-news .ex{font-size:12px;color:var(--fp-text-dim);flex:1}
+.fp-news .lk{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--fp-cyan);text-decoration:none}
+
+/* ---- mini not (seans ozeti vb.) ---- */
+.fp-note{border:1px solid var(--fp-line);border-left:var(--fp-edge) solid var(--nc,var(--fp-cyan));
+  background:var(--fp-bg-2);border-radius:var(--fp-r-sm);padding:11px 14px;height:100%;
+  font-size:12.5px;color:var(--fp-text-dim);line-height:1.5}
 """
 
 
