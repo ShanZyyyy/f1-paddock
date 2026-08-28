@@ -1,0 +1,305 @@
+# -*- coding: utf-8 -*-
+"""Formula Paddock — tasarım sistemi (tek kaynak).
+
+F1 TV yayın grafiği yönü. Bütün renkler, tipografi ve bileşen sınıfları
+burada tanımlanır; sayfalar kendi ``<style>`` bloğunu YAZMAZ.
+
+Bu modül Streamlit'e bağımlı değildir — saf string üretir, izole test edilebilir.
+`design/preview.html` bu jetonların birebir görsel karşılığıdır.
+"""
+
+# =====================================================================
+# RENK JETONLARI
+# =====================================================================
+TOKENS = {
+    # Zemin katmanları (arkadan öne)
+    "bg-0": "#07090d",
+    "bg-1": "#0c1016",
+    "bg-2": "#11161f",
+    "bg-3": "#161d28",
+    "bg-4": "#1e2836",
+    # Çizgi / kenar
+    "line": "#26313f",
+    "line-soft": "#1b2330",
+    # Metin
+    "text": "#f2f5f8",
+    "text-dim": "#9fb0c0",
+    "text-mute": "#63748a",
+    # Marka & durum
+    "red": "#e10600",
+    "red-bright": "#ff1801",
+    "cyan": "#38e1d0",
+    "amber": "#f5c33b",
+    "green": "#4ade80",
+    "purple": "#b98bff",
+    "pink": "#ff5c8a",
+}
+
+# Açık tema (isteğe bağlı). Koyu = varsayılan, yayın grafiği koyu çalışır.
+TOKENS_LIGHT = {
+    "bg-0": "#dfe7f0",
+    "bg-1": "#e9eff6",
+    "bg-2": "#f6f9fc",
+    "bg-3": "#ffffff",
+    "bg-4": "#eef3f9",
+    "line": "#c3d1e0",
+    "line-soft": "#d5deea",
+    "text": "#0f1b2a",
+    "text-dim": "#3c5064",
+    "text-mute": "#66788c",
+    "red": "#d10600",
+    "red-bright": "#e8002d",
+    "cyan": "#0f9b8e",
+    "amber": "#b7861a",
+    "green": "#1f9d57",
+    "purple": "#7a4fd0",
+    "pink": "#d1477e",
+}
+
+# 2026 takım renkleri. Anahtarlar canonical takım adıyla eşleşir.
+TEAM_COLORS = {
+    "Mercedes": "#00d7b6",
+    "Ferrari": "#e8002d",
+    "Red Bull Racing": "#3671c6",
+    "McLaren": "#ff8000",
+    "Aston Martin": "#229971",
+    "Alpine": "#0093cc",
+    "Williams": "#64c4ff",
+    "Racing Bulls": "#6692ff",
+    "Haas F1 Team": "#b6babd",
+    "Audi": "#00e701",
+    "Cadillac": "#e0c04a",
+}
+TEAM_COLOR_FALLBACK = "#8a9bb0"
+
+# Lastik hamuru renkleri (rozet için)
+TYRE_COLORS = {
+    "SOFT": ("#3a0f12", "#ff5b5b"),
+    "MEDIUM": ("#3a3410", "#ffe14d"),
+    "HARD": ("#2a2f36", "#e7edf3"),
+    "INTERMEDIATE": ("#0f2a17", "#4ade80"),
+    "WET": ("#0e2436", "#5db4ff"),
+}
+
+# Durum tonları (data_state / rozet)
+TONE_COLORS = {
+    "info": "cyan",
+    "success": "green",
+    "warning": "amber",
+    "error": "pink",
+    "neutral": "text-dim",
+}
+
+# =====================================================================
+# TİPOGRAFİ
+# =====================================================================
+FONT_LINK = (
+    '<link rel="preconnect" href="https://fonts.googleapis.com">'
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+    '<link href="https://fonts.googleapis.com/css2?'
+    'family=Saira+Condensed:wght@500;600;700;800&'
+    'family=Saira:wght@400;500;600;700&'
+    'family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">'
+)
+
+F_DISPLAY = "'Saira Condensed','Arial Narrow',system-ui,sans-serif"
+F_BODY = "'Saira',system-ui,-apple-system,'Segoe UI',sans-serif"
+F_MONO = "'JetBrains Mono','Consolas',ui-monospace,monospace"
+
+
+def team_color(name):
+    """Takım adından marka rengi; bilinmiyorsa nötr fallback."""
+    if not name:
+        return TEAM_COLOR_FALLBACK
+    key = str(name).strip()
+    if key in TEAM_COLORS:
+        return TEAM_COLORS[key]
+    low = key.lower()
+    for team, colour in TEAM_COLORS.items():
+        if team.lower() in low or low in team.lower():
+            return colour
+    return TEAM_COLOR_FALLBACK
+
+
+def tone_hex(tone, light=False):
+    """Durum tonunun ham hex karşılığı."""
+    token = TONE_COLORS.get(tone, "cyan")
+    table = TOKENS_LIGHT if light else TOKENS
+    return table.get(token, table["cyan"])
+
+
+def _root_vars(light=False):
+    table = TOKENS_LIGHT if light else TOKENS
+    parts = [f"--fp-{key}:{value}" for key, value in table.items()]
+    parts += [f"--t-{slug}:{hexv}" for slug, hexv in _team_slug_vars().items()]
+    parts.append(f"--fp-f-display:{F_DISPLAY}")
+    parts.append(f"--fp-f-body:{F_BODY}")
+    parts.append(f"--fp-f-mono:{F_MONO}")
+    # Ölçek
+    parts += ["--fp-edge:3px", "--fp-r-sm:3px", "--fp-r-md:5px", "--fp-r-lg:8px",
+              "--fp-shadow:0 12px 30px rgba(0,0,0,.45)"]
+    return ":root{" + ";".join(parts) + "}"
+
+
+def _team_slug_vars():
+    slugs = {
+        "mercedes": "Mercedes", "ferrari": "Ferrari", "redbull": "Red Bull Racing",
+        "mclaren": "McLaren", "aston": "Aston Martin", "alpine": "Alpine",
+        "williams": "Williams", "rb": "Racing Bulls", "haas": "Haas F1 Team",
+        "audi": "Audi", "cadillac": "Cadillac",
+    }
+    return {slug: TEAM_COLORS[team] for slug, team in slugs.items()}
+
+
+# =====================================================================
+# GLOBAL CSS — bileşen sınıfları
+# =====================================================================
+_COMPONENT_CSS = r"""
+/* ---- Streamlit kabuğu ---- */
+[data-testid="stAppViewContainer"],.stApp{
+  background:
+    radial-gradient(120% 80% at 85% -8%, color-mix(in srgb,var(--fp-red) 10%,transparent), transparent 55%),
+    linear-gradient(180deg,var(--fp-bg-1),var(--fp-bg-0)) !important;
+  color:var(--fp-text) !important;
+}
+[data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 92%,transparent) !important}
+.block-container{padding-top:2.4rem;max-width:1180px}
+body,[data-testid="stMarkdownContainer"]{font-family:var(--fp-f-body)}
+h1,h2,h3,h4{font-family:var(--fp-f-display);letter-spacing:.02em}
+a{color:var(--fp-cyan)}
+
+/* ---- eyebrow / bölüm başlığı ---- */
+.fp-eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-section{font-family:var(--fp-f-display);font-weight:700;font-size:19px;letter-spacing:.05em;text-transform:uppercase;
+  padding-left:10px;border-left:var(--fp-edge) solid var(--fp-red);margin:6px 0 2px}
+
+/* ---- page header ---- */
+.fp-page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+  padding-bottom:12px;border-bottom:1px solid var(--fp-line);margin-bottom:6px}
+.fp-page-header h1{font-weight:800;font-size:32px;text-transform:uppercase;line-height:1;margin:6px 0 0}
+.fp-page-header .sub{color:var(--fp-text-dim);font-size:13px;margin-top:5px;max-width:62ch}
+.fp-badge{font-family:var(--fp-f-mono);font-size:11px;font-weight:700;letter-spacing:.08em;
+  padding:5px 10px;border-radius:var(--fp-r-sm);white-space:nowrap;
+  background:var(--fp-bg-3);border:1px solid var(--fp-line);color:var(--fp-text-dim)}
+.fp-badge.live{background:color-mix(in srgb,var(--fp-green) 12%,transparent);border-color:color-mix(in srgb,var(--fp-green) 40%,transparent);color:var(--fp-green)}
+.fp-badge.wait{background:color-mix(in srgb,var(--fp-amber) 10%,transparent);border-color:color-mix(in srgb,var(--fp-amber) 35%,transparent);color:var(--fp-amber)}
+
+/* ---- HUD kart ---- */
+.fp-hud{background:linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));border:1px solid var(--fp-line);
+  border-top:var(--fp-edge) solid var(--accent,var(--fp-red));border-radius:var(--fp-r-md);
+  padding:16px;box-shadow:var(--fp-shadow)}
+.fp-hud .lbl{font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-hud .val{font-family:var(--fp-f-display);font-weight:700;font-size:22px;text-transform:uppercase;letter-spacing:.02em;margin-top:6px}
+.fp-hud .cpy{color:var(--fp-text-dim);font-size:13px;margin-top:8px}
+
+/* ---- stat tile ---- */
+.fp-tile{background:var(--fp-bg-2);border:1px solid var(--fp-line-soft);
+  border-left:var(--fp-edge) solid var(--accent,var(--fp-cyan));border-radius:var(--fp-r-sm);padding:12px 16px}
+.fp-tile .lbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:24px;margin-top:6px;color:var(--fp-text)}
+.fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:2px}
+
+/* ---- data-state ---- */
+.fp-state{border:1px solid var(--fp-line);border-left:var(--fp-edge) solid var(--sc,var(--fp-cyan));
+  background:var(--fp-bg-2);border-radius:var(--fp-r-sm);padding:12px 16px}
+.fp-state .st{font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--sc,var(--fp-cyan))}
+.fp-state .sc{font-size:12.5px;color:var(--fp-text-dim);margin-top:5px}
+
+/* ---- result hero (yarış bitti) ---- */
+.fp-result{background:
+    radial-gradient(120% 130% at 8% 0%, color-mix(in srgb,var(--tc) 22%,transparent), transparent 60%),
+    linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));
+  border:1px solid var(--fp-line);border-left:5px solid var(--tc);border-radius:var(--fp-r-md);
+  padding:16px 24px;box-shadow:var(--fp-shadow)}
+.fp-result .eb{font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-result .nm{font-family:var(--fp-f-display);font-weight:800;font-size:36px;line-height:1;text-transform:uppercase;margin-top:8px}
+.fp-result .nm b{color:var(--tc)}
+.fp-result .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
+.fp-result .team{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fp-text-dim)}
+.fp-result .gap{font-family:var(--fp-f-mono);font-weight:700;font-size:13px;padding:6px 11px;border-radius:var(--fp-r-sm);
+  background:var(--fp-bg-0);border:1px solid var(--fp-line);color:var(--fp-text)}
+.fp-result .gap span{color:var(--fp-text-mute);font-weight:500;margin-right:6px}
+.fp-result .next{font-family:var(--fp-f-mono);font-size:12px;color:var(--fp-text-dim)}
+.fp-result .next b{color:var(--fp-text)}
+"""
+
+
+def page_style(light=False):
+    """`st.markdown(..., unsafe_allow_html=True)` ile bir kez enjekte edilir."""
+    return "<style>" + _root_vars(light) + _COMPONENT_CSS + "</style>"
+
+
+# =====================================================================
+# SIDEBAR — slim rail
+# =====================================================================
+_SIDEBAR_CSS = r"""
+section[data-testid="stSidebar"]{
+  background:linear-gradient(180deg,var(--fp-bg-2),var(--fp-bg-1)) !important;
+  border-right:1px solid var(--fp-line);
+}
+section[data-testid="stSidebar"] .block-container{padding-top:1rem}
+section[data-testid="stSidebar"] *{color:var(--fp-text)}
+
+/* marka kilidi */
+.fp-brand{display:flex;align-items:center;gap:9px;padding:4px 6px 12px;margin-bottom:2px;border-bottom:1px solid var(--fp-line)}
+.fp-brand .mark{width:26px;height:16px;background:var(--fp-red);clip-path:polygon(0 0,100% 0,78% 100%,0 100%);flex:0 0 auto}
+.fp-brand .txt{font-family:var(--fp-f-display);font-weight:800;font-size:13px;letter-spacing:.09em;text-transform:uppercase;line-height:1}
+.fp-brand .txt s{display:block;font-weight:600;font-size:8.5px;letter-spacing:.22em;color:var(--fp-text-mute);text-decoration:none;margin-top:3px}
+
+/* bölüm etiketi */
+.fp-nav-sec{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--fp-text-mute);
+  padding:16px 6px 4px}
+
+/* nav = st.button, slim rail görünümüne indirgenir */
+section[data-testid="stSidebar"] [data-testid="stButton"]{margin:0 0 1px}
+section[data-testid="stSidebar"] [data-testid="stButton"] > button{
+  width:100%;justify-content:flex-start;gap:11px;
+  padding:9px 12px;min-height:0;
+  background:transparent !important;border:none !important;
+  border-left:var(--fp-edge) solid transparent !important;border-radius:0 !important;
+  box-shadow:none !important;
+  font-family:var(--fp-f-display) !important;font-weight:600 !important;font-size:14px !important;
+  letter-spacing:.02em;color:var(--fp-text-dim) !important;
+  transition:background .12s ease,color .12s ease,border-color .12s ease;
+}
+section[data-testid="stSidebar"] [data-testid="stButton"] > button:hover{
+  background:rgba(255,255,255,.035) !important;color:var(--fp-text) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stButton"] > button [data-testid="stIconMaterial"]{
+  font-size:17px;opacity:.75;
+}
+/* aktif sayfa: type="primary" ile işaretlenir */
+section[data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"],
+section[data-testid="stSidebar"] [data-testid="stButton"] > button[data-testid="baseButton-primary"]{
+  color:#fff !important;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--fp-red) 18%,transparent),transparent 72%) !important;
+  border-left-color:var(--fp-red) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stButton"] > button[kind="primary"] [data-testid="stIconMaterial"]{
+  opacity:1;color:var(--fp-red);
+}
+"""
+
+
+def sidebar_style():
+    return "<style>" + _SIDEBAR_CSS + "</style>"
+
+
+# =====================================================================
+# İZOLE HUD IFRAME — tema propagasyonu
+# (eski hud_theme_override_css'in yerini alır)
+# =====================================================================
+def hud_iframe_style(light=False):
+    t = TOKENS_LIGHT if light else TOKENS
+    scheme = "light" if light else "dark"
+    return (
+        f"html{{color-scheme:{scheme}}}"
+        f"body{{margin:0;background:transparent;color:{t['text']};"
+        f"font-family:{F_BODY}}}"
+        f".fp-hud-shell{{width:100%;overflow:hidden}}"
+        f".hud,.r,.panel,.summary,.card,.f1-hud,.f1-hud-shell,.racecenter-card,"
+        f".rc-ticker,.rc-driver-box,.box,.tile{{"
+        f"background:{t['bg-3']};color:{t['text']};border-color:{t['line']}}}"
+        f".sub,.note,.meta,.time-label{{color:{t['text-mute']}}}"
+        f".title,.head,.hero b,.time-num{{color:{t['text']}}}"
+    )
