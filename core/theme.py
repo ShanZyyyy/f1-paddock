@@ -154,20 +154,17 @@ def _team_slug_vars():
 # =====================================================================
 # GLOBAL CSS — bileşen sınıfları
 # =====================================================================
-_COMPONENT_CSS = r"""
-/* ---- Streamlit kabuğu ---- */
-[data-testid="stAppViewContainer"],.stApp{
-  background:
-    radial-gradient(120% 80% at 85% -8%, color-mix(in srgb,var(--fp-red) 10%,transparent), transparent 55%),
-    linear-gradient(180deg,var(--fp-bg-1),var(--fp-bg-0)) !important;
-  color:var(--fp-text) !important;
-}
-[data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 92%,transparent) !important}
+# Streamlit kabugu — SADECE tam page_style'da (tum sayfa gecince). Gecis
+# doneminde eski sayfa CSS'iyle catismasin diye shell_style buna dokunmaz.
+_SHELL_CHROME_CSS = r"""
 .block-container{padding-top:2.4rem;max-width:1180px}
 body,[data-testid="stMarkdownContainer"]{font-family:var(--fp-f-body)}
 h1,h2,h3,h4{font-family:var(--fp-f-display);letter-spacing:.02em}
 a{color:var(--fp-cyan)}
+"""
 
+# .fp-* bilesen siniflari — hem shell_style hem page_style bunu iceriir.
+_FP_COMPONENTS_CSS = r"""
 /* ---- eyebrow / bölüm başlığı ---- */
 .fp-eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--fp-text-mute)}
 .fp-section{font-family:var(--fp-f-display);font-weight:700;font-size:19px;letter-spacing:.05em;text-transform:uppercase;
@@ -194,9 +191,13 @@ a{color:var(--fp-cyan)}
 
 /* ---- stat tile ---- */
 .fp-tile{background:var(--fp-bg-2);border:1px solid var(--fp-line-soft);
-  border-left:var(--fp-edge) solid var(--accent,var(--fp-cyan));border-radius:var(--fp-r-sm);padding:12px 16px}
+  border-left:var(--fp-edge) solid var(--accent,var(--fp-cyan));border-radius:var(--fp-r-sm);
+  padding:12px 16px;height:100%}
 .fp-tile .lbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--fp-text-mute)}
-.fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:24px;margin-top:6px;color:var(--fp-text)}
+.fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:24px;margin-top:6px;color:var(--fp-text);
+  line-height:1.15;overflow-wrap:anywhere}
+.fp-tile .val.txt{font-family:var(--fp-f-display);font-size:16px;letter-spacing:.01em;
+  text-transform:uppercase;word-break:normal}
 .fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:2px}
 
 /* ---- data-state ---- */
@@ -225,8 +226,9 @@ a{color:var(--fp-cyan)}
 
 
 def page_style(light=False):
-    """`st.markdown(..., unsafe_allow_html=True)` ile bir kez enjekte edilir."""
-    return "<style>" + _root_vars(light) + _COMPONENT_CSS + "</style>"
+    """Tam tema — tum sayfalar gecince. `st.markdown(unsafe_allow_html=True)`."""
+    return ("<style>" + _root_vars(light) + _SHELL_CHROME_CSS
+            + _FP_COMPONENTS_CSS + _SHELL_BG_CSS + _SIDEBAR_CSS + "</style>")
 
 
 # =====================================================================
@@ -343,9 +345,11 @@ def sidebar_style():
 
 def shell_style(light=False):
     """Gecis donemi kabuk temasi: :root jetonlari + yeni arka plan + slim-rail
-    sidebar. Sayfa govde CSS'i hala eski monolitten geldigi icin _COMPONENT_CSS
-    burada YOK — dosyanin en sonunda cagrilir ki eski bloklari yensin."""
-    return "<style>" + _root_vars(light) + _SHELL_BG_CSS + _SIDEBAR_CSS + "</style>"
+    sidebar + .fp-* bilesen siniflari (yeni sayfalarin kullandigi).
+    Eski Streamlit-kabuk kurallari (_SHELL_CHROME_CSS) burada YOK — henuz
+    eski sayfalar var. Dosyanin en sonunda cagrilir ki eski bloklari yensin."""
+    return ("<style>" + _root_vars(light) + _SHELL_BG_CSS
+            + _FP_COMPONENTS_CSS + _SIDEBAR_CSS + "</style>")
 
 
 # =====================================================================

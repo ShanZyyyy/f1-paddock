@@ -6353,17 +6353,8 @@ section[data-testid="stSidebar"] .stButton,section[data-testid="stSidebar"] div[
 """, unsafe_allow_html=True)
 
 
-st.markdown("""
-<div class="f1-header">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap">
-        <div class="paddock-topline">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg" alt="Formula Paddock">
-            <div><div class="hud-label">FORMULA PADDOCK</div><h1 style="margin:3px 0 0">RACE INTELLIGENCE</h1><p>F1 yarışları, şampiyona verileri, pilot analizleri ve tarihî oyunlar</p></div>
-        </div>
-        <div style="text-align:right"><div class="hud-label">PADDOCK EDITION</div><div style="color:#6ee7b7;font-size:.8rem;font-weight:850;margin-top:5px"><span class="status-dot-v31"></span>&nbsp; 2026 SEZONU · CANLI MERKEZ</div></div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# redesign: global .f1-header banner kaldirildi — her sayfa kendi fp_ui.page_header'ini
+# (veya mevcut "## Baslik" basligini) kullaniyor.
 
 # ==========================================
 # SOL MENÜ (SIDEBAR & NAVİGASYON)
@@ -9332,12 +9323,19 @@ div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{{b
 fp_ui.inject_shell_theme()
 
 if st.session_state['page'] == 'home':
+    # redesign: F1 TV yonu — page_header + yaris sonuc basligi + sakin race center
+    fp_ui.page_header(
+        "Race Intelligence",
+        "F1 yarislari, sampiyona verileri, pilot analizleri ve tarihi oyunlar.",
+        eyebrow="Formula Paddock",
+    )
+
     # İlk kare hiçbir dış kaynağı beklemez. Böylece FastF1/cache bağlantısı
     # problemliyken bile navigasyon ve arayüz görünür kalır.
     if not st.session_state['home_data_requested']:
-        render_data_state(
-            "PADDOCK BAĞLANTISI HAZIR",
-            "Site güvenli modda anında açıldı. Yarış merkezi ve haberleri yalnızca sen istediğinde doğrulanmış kaynaktan yükler.",
+        fp_ui.data_state(
+            "PADDOCK BAGLANTISI HAZIR",
+            "Site guvenli modda aninda acildi. Yaris merkezi ve haberleri yalnizca sen istediginde dogrulanmis kaynaktan yukler.",
             "success",
         )
         if st.button("⚡ Yarış merkezi verilerini yükle", key="load_home_data", use_container_width=True):
@@ -9383,210 +9381,125 @@ if st.session_state['page'] == 'home':
             )
 
     target_timestamp_ms = int(target_s_time.timestamp() * 1000)
-    
+
+    # --- YARIS SONUC BASLIGI: kim, hangi takim, kac saniye farkla kazandi ---
+    # Sadece son tamamlanan seans YARIS ise ve dogrulanmis sonuc varsa gorunur.
+    if last_session and str(last_session.get('session_code')) == 'R' and real_drivers:
+        _w = real_drivers[0]
+        _wd = directory_driver_by_code(_w['code'])
+        _gap = real_drivers[1]['time'] if len(real_drivers) > 1 else ''
+        if isinstance(_gap, str) and _gap.startswith('+'):
+            _gap = _gap + ' sn'
+        _runners = []
+        for _r in real_drivers[1:3]:
+            _rd = directory_driver_by_code(_r['code'])
+            _pos = str(_r['name']).split('.')[0].strip() + '.'
+            _runners.append((_pos, _r['code'], _rd['team'] or 'Formula 1'))
+        fp_ui.result_hero(
+            last_session['event_name'], 'Yaris',
+            _wd['name'] or _w['code'], _wd['team'] or '', _gap, _runners,
+        )
+
+    _TYRE_PILL = {'S': '#ff5b5b', 'M': '#ffe14d', 'H': '#e7edf3', 'I': '#4ade80', 'W': '#5db4ff'}
     ticker_html_items = ""
     for d in real_drivers:
-        code = d["code"]
-        t_data = DRIVER_TEAMS.get(code, {"color": "#FFFFFF"})
-        tyre_badge = get_tyre_html(d["tyre"])
-        
-        ticker_html_items += f"""
-        <div class="rc-driver-box" style="border-left-color: {t_data['color']};">
-            <span class="rc-driver-item" style="color: {t_data['color']};">{d['name']}</span>
-            <span class="rc-gap">{d['time']}</span>
-            {tyre_badge}
-        </div>
-        """
+        colour = DRIVER_TEAMS.get(d["code"], {"color": "#63748a"})["color"]
+        letter = (str(d.get("tyre", "")).strip()[:1] or "").upper()
+        pill = ""
+        if letter in _TYRE_PILL:
+            pill = (f"<span style='font:700 9px JetBrains Mono,monospace;padding:1px 5px;border-radius:2px;"
+                    f"background:#0c1016;color:{_TYRE_PILL[letter]};border:1px solid {_TYRE_PILL[letter]}44'>{letter}</span>")
+        ticker_html_items += (
+            f"<div style='flex:0 0 auto;min-width:126px;padding:10px 13px;border-left:3px solid {colour};"
+            f"border-right:1px solid #1b2330;display:flex;flex-direction:column;gap:3px'>"
+            f"<span style='font:700 15px Saira Condensed,sans-serif;letter-spacing:.04em;color:{colour}'>{html_lib.escape(str(d['name']))}</span>"
+            f"<span style='font:12px JetBrains Mono,monospace;color:#9fb0c0'>{html_lib.escape(str(d['time']))}</span>"
+            f"{pill}</div>"
+        )
 
     if not ticker_html_items:
-        ticker_html_items = """
-        <div style="width:100%; text-align:center; color:#94A3B8; font-weight:700;">
-            Son seansın doğrulanmış sıralaması henüz yüklenemedi.
-        </div>
-        """
+        ticker_html_items = ("<div style='width:100%;text-align:center;color:#63748a;font-weight:600;padding:12px'>"
+                             "Son seansin dogrulanmis siralamasi henuz yuklenemedi.</div>")
 
     status_badge_text = (
-        "TAKVİM VERİSİ BEKLENİYOR"
+        "TAKVIM VERISI BEKLENIYOR"
         if calendar_waiting
-        else ("CANLI YAYINDA 🔴" if is_live_now else "BEKLENİYOR ⏱️")
+        else ("CANLI YAYINDA" if is_live_now else "BEKLENIYOR")
     )
     countdown_title = (
-        "TAKVİM VE SEANS SAATİ DOĞRULANIYOR"
+        "TAKVIM VE SEANS SAATI DOGRULANIYOR"
         if calendar_waiting
-        else f"📍 {location_name.upper()} — {target_s_name.upper()} (Sıradaki Seans) Başlangıcına Kalan Süre:"
+        else f"{location_name.upper()} — {target_s_name.upper()} · SIRADAKI SEANSA KALAN"
     )
 
-    # RACECENTER HTML (SON YAPILAN SEANS BİLGİSİ İLE)
+    # redesign: sakin F1-TV race center — sirit + geri sayim (canli JS)
     racecenter_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
     <style>
-        body {{
-            background-color: transparent;
-            color: #F1F5F9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-        }}
-        .racecenter-card {{
-            background: #111622;
-            border: 1px solid #222C3E;
-            border-radius: 12px;
-            padding: 18px 22px;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.5);
-            box-sizing: border-box;
-        }}
-        .rc-title-bar {{
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.95rem;
-            font-weight: 800;
-            color: #94A3B8;
-            border-bottom: 1px solid #1E293B;
-            padding-bottom: 10px;
-            margin-bottom: 14px;
-        }}
-        .rc-badge {{
-            background: {'#E10600' if is_live_now else '#1E293B'};
-            border: 1px solid {'#FF1801' if is_live_now else '#334155'};
-            padding: 4px 12px;
-            border-radius: 6px;
-            color: #FFF;
-            font-size: 0.82rem;
-            font-weight: 800;
-        }}
-        .rc-ticker {{
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: #182030;
-            border: 1px solid #28354A;
-            padding: 10px 14px;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin-bottom: 16px;
-        }}
-        .rc-driver-box {{
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            background: #0D121D;
-            border-radius: 6px;
-            border-left: 4px solid #FFF;
-        }}
-        .rc-driver-item {{
-            font-size: 0.95rem;
-            font-weight: 900;
-            white-space: nowrap;
-        }}
-        .rc-gap {{
-            font-size: 0.82rem;
-            color: #94A3B8;
-            font-weight: 700;
-            margin-left: 3px;
-        }}
-        .rc-timer-wide-box {{
-            background: linear-gradient(135deg, #0D121D 0%, #161E2E 100%);
-            border: 1px solid #222C3E;
-            border-radius: 12px;
-            padding: 16px 20px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }}
-        .rc-track-title {{
-            font-size: 1.15rem;
-            color: #E10600;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 6px;
-        }}
-        .rc-timer-val-big {{
-            font-size: 2.8rem;
-            font-weight: 900;
-            color: #FFFFFF;
-            font-family: monospace;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }}
-        .time-num {{ color: #FFFFFF; }}
-        .time-label {{
-            font-size: 0.9rem;
-            color: #8E8E9F;
-            font-weight: 800;
-            margin-left: 2px;
-            margin-right: 14px;
-        }}
+      *{{box-sizing:border-box}}
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,'Segoe UI',sans-serif;color:#f2f5f8}}
+      .rc{{background:linear-gradient(160deg,#161d28,#11161f);border:1px solid #26313f;border-radius:5px;overflow:hidden}}
+      .rc-head{{display:flex;align-items:center;justify-content:space-between;gap:10px;
+        padding:11px 16px;border-bottom:1px solid #26313f}}
+      .rc-head .t{{font:700 13px 'Saira Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#9fb0c0}}
+      .rc-head .t b{{color:#f2f5f8}}
+      .rc-flag{{font:700 10px 'JetBrains Mono',monospace;letter-spacing:.1em;padding:4px 9px;border-radius:3px;
+        background:{'#e10600' if is_live_now else '#1e2836'};border:1px solid {'#ff1801' if is_live_now else '#26313f'};color:#fff}}
+      .rc-ticker{{display:flex;overflow-x:auto}}
+      .rc-timer{{padding:16px;text-align:center;border-top:1px solid #26313f;background:#0c1016}}
+      .rc-timer .lab{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#63748a;margin-bottom:8px}}
+      .rc-timer .val{{font:700 34px 'JetBrains Mono',monospace;color:#f2f5f8;display:flex;align-items:baseline;justify-content:center;gap:6px;flex-wrap:wrap}}
+      .rc-timer .val u{{font:700 11px 'Saira',sans-serif;color:#63748a;text-decoration:none;margin-right:10px}}
+      .rc-timer .val i{{color:#e10600;font-style:normal}}
+      .rc-wait{{color:#9fb0c0;font:600 13px 'Saira',sans-serif}}
     </style>
-    </head>
-    <body>
-        <div class="racecenter-card">
-            <div class="rc-title-bar">
-                <span>F1 RACE CENTER <span style="color:#FFF;">• {last_session_label}</span></span>
-                <span class="rc-badge">{status_badge_text}</span>
-            </div>
-            
-            <div class="rc-ticker">
-                {ticker_html_items}
-            </div>
-
-            <div class="rc-timer-wide-box">
-                <div class="rc-track-title">{countdown_title}</div>
-                <div id="timer-container" class="rc-timer-val-big">
-                    <span class="time-num" id="rc-d">00</span><span class="time-label">GÜN</span>
-                    <span style="color:#E10600;">:</span>
-                    <span class="time-num" id="rc-h">00</span><span class="time-label">SAAT</span>
-                    <span style="color:#E10600;">:</span>
-                    <span class="time-num" id="rc-m">00</span><span class="time-label">DK</span>
-                    <span style="color:#E10600;">:</span>
-                    <span class="time-num" id="rc-s">00</span><span class="time-label">SN</span>
-                </div>
-            </div>
+    <div class="rc">
+      <div class="rc-head">
+        <span class="t">F1 RACE CENTER <b>· {html_lib.escape(str(last_session_label))}</b></span>
+        <span class="rc-flag">{status_badge_text}</span>
+      </div>
+      <div class="rc-ticker">{ticker_html_items}</div>
+      <div class="rc-timer">
+        <div class="lab">{html_lib.escape(str(countdown_title))}</div>
+        <div class="val" id="rc-timer">
+          <span id="rc-d">00</span><u>GUN</u><i>:</i>
+          <span id="rc-h">00</span><u>SAAT</u><i>:</i>
+          <span id="rc-m">00</span><u>DK</u><i>:</i>
+          <span id="rc-s">00</span><u>SN</u>
         </div>
-
-        <script>
-            var targetTime = {target_timestamp_ms};
-            var calendarWaiting = {str(calendar_waiting).lower()};
-            function updateTimer() {{
-                if (calendarWaiting) {{
-                    document.getElementById("timer-container").innerHTML = '<div style="color:#9eb6cf; font-size:1.1rem; font-weight:800;">Takvim bağlantısı yeniden denenecek. Doğrulanmamış bir seans için sahte sayaç gösterilmez.</div>';
-                    return;
-                }}
-                var now = new Date().getTime();
-                var distance = targetTime - now;
-                
-                if (distance <= 0) {{
-                    document.getElementById("timer-container").innerHTML = '<div style="color:#00FF66; font-size:1.8rem; font-weight:900;">🔴 SEANS BAŞLADI! CANLI SİNYAL AKTİF</div>';
-                    return;
-                }}
-                
-                var days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                
-                document.getElementById("rc-d").innerText = days < 10 ? "0" + days : days;
-                document.getElementById("rc-h").innerText = hours < 10 ? "0" + hours : hours;
-                document.getElementById("rc-m").innerText = minutes < 10 ? "0" + minutes : minutes;
-                document.getElementById("rc-s").innerText = seconds < 10 ? "0" + seconds : seconds;
-            }}
-            setInterval(updateTimer, 1000);
-            updateTimer();
-        </script>
-    </body>
-    </html>
+      </div>
+    </div>
+    <script>
+      var target={target_timestamp_ms}, waiting={str(calendar_waiting).lower()};
+      function tick(){{
+        var box=document.getElementById('rc-timer');
+        if(waiting){{box.innerHTML='<span class="rc-wait">Takvim baglantisi yeniden denenecek. Dogrulanmamis seans icin sahte sayac gosterilmez.</span>';return;}}
+        var d=target-Date.now();
+        if(d<=0){{box.innerHTML='<span style="color:#4ade80;font-weight:700">SEANS BASLADI · CANLI SINYAL AKTIF</span>';return;}}
+        var D=Math.floor(d/864e5),H=Math.floor(d%864e5/36e5),M=Math.floor(d%36e5/6e4),S=Math.floor(d%6e4/1e3);
+        var z=n=>n<10?'0'+n:n;
+        document.getElementById('rc-d').innerText=z(D);document.getElementById('rc-h').innerText=z(H);
+        document.getElementById('rc-m').innerText=z(M);document.getElementById('rc-s').innerText=z(S);
+      }}
+      setInterval(tick,1000);tick();
+    </script>
     """
 
-    render_html_hud(racecenter_html, height=270)
+    fp_ui.render_html_hud(racecenter_html, height=250)
 
-    render_home_command_hud_v18(event_name, location_name, target_s_name, last_session, real_drivers, is_live_now)
+    # redesign: komut seridi -> 4 stat tile
+    _sess_copy = f"{last_session['event_name']} // {last_session['display_name']}" if last_session else 'Son tamamlanan seans bekleniyor'
+    _leader = real_drivers[0]['name'] if real_drivers else 'Veri bekleniyor'
+    _cmd = st.columns(4)
+    with _cmd[0]:
+        fp_ui.stat_tile("Son Seans", _sess_copy, accent="cyan", mono=False)
+    with _cmd[1]:
+        fp_ui.stat_tile("Siradaki", f"{location_name} · {target_s_name}", accent="purple", mono=False)
+    with _cmd[2]:
+        fp_ui.stat_tile("Durum", "CANLI SEANS" if is_live_now else "PROGRAM BEKLENIYOR",
+                        accent="red" if is_live_now else "amber", mono=False)
+    with _cmd[3]:
+        fp_ui.stat_tile("Son Lider", _leader, accent="amber", mono=False)
+
 
     if session_summary:
         st.markdown("#### 🧠 Bu seansta ne oldu?")

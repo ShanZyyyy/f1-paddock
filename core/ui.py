@@ -97,11 +97,14 @@ def hud_card(label, value, copy="", accent="red"):
     )
 
 
-def stat_tile(label, value, sub="", accent="cyan"):
+def stat_tile(label, value, sub="", accent="cyan", mono=True):
+    """mono=True: buyuk JetBrains Mono (sayi/zaman icin).
+    mono=False: kompakt Saira (metin degerleri icin — takim adi, durum vb.)."""
     sub_html = f"<div class='sub'>{_esc(sub)}</div>" if sub else ""
+    val_cls = "val" if mono else "val txt"
     st.markdown(
         f"<div class='fp-tile' style='--accent:{_accent(accent)}'>"
-        f"<div class='lbl'>{_esc(label)}</div><div class='val'>{_esc(value)}</div>{sub_html}</div>",
+        f"<div class='lbl'>{_esc(label)}</div><div class='{val_cls}'>{_esc(value)}</div>{sub_html}</div>",
         unsafe_allow_html=True,
     )
 
