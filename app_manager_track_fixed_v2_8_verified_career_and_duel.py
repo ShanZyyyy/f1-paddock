@@ -10301,9 +10301,16 @@ elif st.session_state['page'] == 'teams':
 
 # SAYFA 6: ŞAMPİYONA MERKEZİ
 elif st.session_state['page'] == 'standings':
-    st.markdown("## 🏆 Puan Merkezi")
-    st.caption("Puanlar tamamlanmış yarış ve sprint sonuçlarından hazırlanır. Sıra hücreleri: `yarış / sprint`.")
-    st.markdown("<div class='hud-card'><div class='hud-label'>SEZON VERİSİ</div><div class='hud-value'>2026 sonuç tablosu</div><div class='history-copy' style='margin-top:6px'>Sayfa açıldığında tamamlanmış yarış ve sprint sonuçları doğrulanmış FastF1 paketinden otomatik hazırlanır. İlk açılışta kısa süre alabilir; sonraki açılışlar yerel önbellekten gelir.</div></div>", unsafe_allow_html=True)
+    fp_ui.page_header(
+        "Sampiyona Merkezi",
+        "Puanlar tamamlanmis yaris ve sprint sonuclarindan hazirlanir. Sira hucreleri: yaris / sprint.",
+        eyebrow="Sampiyonalar",
+    )
+    fp_ui.data_state(
+        "Sezon Verisi",
+        "2026 sonuclari dogrulanmis FastF1 paketinden otomatik hazirlanir. Ilk acilis kisa surebilir; sonrasi yerel onbellekten gelir.",
+        "info",
+    )
     load_key = 'championship_data_ready_2026'
     if not st.session_state.get(load_key, False):
         st.session_state[load_key] = True
@@ -10329,18 +10336,22 @@ elif st.session_state['page'] == 'standings':
             height=150,
             scrolling=False,
         )
-        round_labels = " • ".join(round_info['badge'] for round_info in completed_rounds)
-        st.markdown(f"<div style='background:#111827;border:1px solid #263246;border-radius:10px;padding:14px 16px;margin:8px 0 20px'><div style='font-weight:800;color:#fff'>🏁 Tamamlanan pistler</div><div style='color:#94A3B8;margin-top:6px'>{round_labels}</div><div style='color:#94A3B8;font-size:.78rem;margin-top:8px'>Sprint hafta sonlarında hücre: yarış sırası / sprint sırası</div></div>", unsafe_allow_html=True)
-        driver_tab, team_tab = st.tabs(["🏁 Sezon Tablosu", "🏭 Takım Puanları"])
+        round_labels = " · ".join(round_info['badge'] for round_info in completed_rounds)
+        fp_ui.hud_card("Tamamlanan Pistler", round_labels,
+                       "Sprint hafta sonlarinda hucre: yaris sirasi / sprint sirasi", accent="cyan")
+        st.write("")
+        driver_tab, team_tab = st.tabs(["Sezon Tablosu", "Takim Puanlari"])
         with driver_tab:
             if 'championship_matrix_mode' not in st.session_state:
                 st.session_state['championship_matrix_mode'] = 'sıralama'
             sort_button, points_button = st.columns(2)
             with sort_button:
-                if st.button("🏁 Sıralama", key='championship_show_positions', use_container_width=True):
+                if st.button("Siralama", key='championship_show_positions', use_container_width=True,
+                             type="primary" if st.session_state['championship_matrix_mode'] != 'puan' else "secondary"):
                     st.session_state['championship_matrix_mode'] = 'sıralama'
             with points_button:
-                if st.button("🟡 Puan", key='championship_show_points', use_container_width=True):
+                if st.button("Puan", key='championship_show_points', use_container_width=True,
+                             type="primary" if st.session_state['championship_matrix_mode'] == 'puan' else "secondary"):
                     st.session_state['championship_matrix_mode'] = 'puan'
 
             show_points = st.session_state['championship_matrix_mode'] == 'puan'
@@ -10362,8 +10373,13 @@ elif st.session_state['page'] == 'standings':
                 height=constructor_hud_component_height(constructor_standings),
                 scrolling=False,
             )
-    st.markdown("### Favorilerin")
-    st.write(f"Takım: **{st.session_state.get('favourite_team', 'Mercedes')}** | Pilot: **{st.session_state.get('favourite_driver', 'George Russell')}**")
+    st.write("")
+    fp_ui.section_title("Favorilerin")
+    _ft, _fd = st.columns(2)
+    with _ft:
+        fp_ui.stat_tile("Takim", st.session_state.get('favourite_team', 'Mercedes'), accent="red", mono=False)
+    with _fd:
+        fp_ui.stat_tile("Pilot", st.session_state.get('favourite_driver', 'George Russell'), accent="cyan", mono=False)
 
 # SAYFA 7: F2 VE F3
 elif st.session_state['page'] == 'f2f3':

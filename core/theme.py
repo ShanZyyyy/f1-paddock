@@ -357,6 +357,42 @@ _SHELL_BG_CSS = r"""
 [data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
 """
 
+# ---- ESKI SINIF KOPRUSU --------------------------------------------
+# Faz 3 hizlandirici: her sayfanin markup'ini elle degistirmek yerine
+# eski sinif adlarini (.hud-card, .metric-card, .stTabs ...) yeni palete
+# bagliyoruz. Sayfa bazli is sadece baslik + yerlesim kaliyor.
+_LEGACY_BRIDGE_CSS = r"""
+.hud-card,.metric-card,.news-card,.driver-card,.career-panel-v28,.career-metric-v28{
+  background:linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2)) !important;
+  border:1px solid var(--fp-line) !important;border-radius:var(--fp-r-md) !important;
+  box-shadow:var(--fp-shadow) !important;
+}
+.hud-card:hover,.metric-card:hover{transform:none !important;border-color:var(--fp-line) !important;box-shadow:var(--fp-shadow) !important}
+.hud-label,[data-testid="stCaptionContainer"]{color:var(--fp-text-mute) !important;letter-spacing:.14em}
+.hud-value,.metric-card .value,.news-title{color:var(--fp-text) !important}
+.history-copy,.driver-meta,.news-desc,.metric-card .title{color:var(--fp-text-dim) !important}
+.new-badge,.term-badge{background:var(--fp-bg-4) !important;color:var(--fp-text-dim) !important;border:1px solid var(--fp-line) !important}
+
+/* tablar — eski mavi gradyan yerine kirmizi */
+.stTabs [data-baseweb="tab-list"]{background:var(--fp-bg-2) !important;border:1px solid var(--fp-line) !important;
+  border-radius:var(--fp-r-sm) !important;padding:4px !important;gap:2px !important;box-shadow:none !important}
+.stTabs [data-baseweb="tab"]{color:var(--fp-text-dim) !important;border-radius:var(--fp-r-sm) !important}
+.stTabs [aria-selected="true"]{background:var(--fp-red) !important;color:#fff !important;
+  border-radius:var(--fp-r-sm) !important;box-shadow:none !important}
+
+/* dataframe */
+[data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid var(--fp-line) !important;border-radius:var(--fp-r-sm)}
+
+/* metin butonlari (sayfa govdesi) — notr koyu, mavi degil */
+.stApp div[data-testid="stButton"] > button{
+  background:var(--fp-bg-2) !important;border:1px solid var(--fp-line) !important;
+  color:var(--fp-text) !important;border-radius:var(--fp-r-sm) !important;box-shadow:none !important;
+  font-family:var(--fp-f-body) !important;font-weight:600 !important;
+}
+.stApp div[data-testid="stButton"] > button:hover{border-color:var(--fp-red) !important;background:var(--fp-bg-3) !important}
+.stApp div[data-testid="stButton"] > button[kind="primary"]{background:var(--fp-red) !important;border-color:var(--fp-red) !important;color:#fff !important}
+"""
+
 
 def sidebar_style():
     return "<style>" + _SIDEBAR_CSS + "</style>"
@@ -367,7 +403,7 @@ def shell_style(light=False):
     sidebar + .fp-* bilesen siniflari (yeni sayfalarin kullandigi).
     Eski Streamlit-kabuk kurallari (_SHELL_CHROME_CSS) burada YOK — henuz
     eski sayfalar var. Dosyanin en sonunda cagrilir ki eski bloklari yensin."""
-    return ("<style>" + _root_vars(light) + _SHELL_BG_CSS
+    return ("<style>" + _root_vars(light) + _SHELL_BG_CSS + _LEGACY_BRIDGE_CSS
             + _FP_COMPONENTS_CSS + _SIDEBAR_CSS + "</style>")
 
 
