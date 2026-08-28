@@ -242,12 +242,61 @@ h2.sec{
 .game .cta{align-self:flex-start;font-family:var(--f-mono);font-size:11px;font-weight:700;padding:7px 12px;border-radius:var(--r-sm);background:var(--accent);color:#06090d;text-transform:uppercase;letter-spacing:.04em}
 
 /* =========================================================
-   10. SIDEBAR NAV item
+   10. SIDEBAR NAV — 3 aday
    ========================================================= */
-.nav-demo{max-width:280px;background:linear-gradient(180deg,var(--fp-bg-2),var(--fp-bg-1));border:1px solid var(--fp-line);border-radius:var(--r-md);padding:var(--sp-3)}
-.nav-sec{font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute);padding:10px 8px 6px;border-left:var(--edge) solid var(--fp-red);margin-bottom:4px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--r-sm);border:1px solid var(--fp-line-soft);border-left:var(--edge) solid var(--fp-cyan);background:var(--fp-bg-2);font-family:var(--f-display);font-weight:600;letter-spacing:.03em;font-size:14px;margin-bottom:6px}
-.nav-item.active{border-left-color:var(--fp-red);background:var(--fp-bg-4);color:#fff}
+.nav-demo{background:linear-gradient(180deg,var(--fp-bg-2),var(--fp-bg-1));border:1px solid var(--fp-line);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-2) var(--sp-4)}
+.nav-brand{display:flex;align-items:center;gap:9px;padding:6px 10px 12px;margin-bottom:6px;border-bottom:1px solid var(--fp-line)}
+.nav-brand .mark{width:26px;height:16px;background:var(--fp-red);clip-path:polygon(0 0,100% 0,78% 100%,0 100%)}
+.nav-brand .txt{font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.09em;text-transform:uppercase;line-height:1}
+.nav-brand .txt s{display:block;font-weight:600;font-size:8.5px;letter-spacing:.22em;color:var(--fp-text-mute);text-decoration:none;margin-top:3px}
+.nv-variant-label{font-family:var(--f-mono);font-size:10px;color:var(--fp-text-mute);text-align:center;margin-top:10px}
+
+/* A — Slim rail: kutu yok, sadece aktifte kırmızı çubuk */
+.nvA .sec{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--fp-text-mute);padding:14px 12px 6px}
+.nvA .item{display:flex;align-items:center;gap:11px;padding:9px 12px;font-family:var(--f-display);font-weight:600;font-size:13.5px;letter-spacing:.02em;color:var(--fp-text-dim);border-left:var(--edge) solid transparent;border-radius:0 var(--r-sm) var(--r-sm) 0}
+.nvA .item:hover{background:rgba(255,255,255,.03);color:var(--fp-text)}
+.nvA .item.active{color:#fff;background:linear-gradient(90deg,rgba(225,6,0,.16),transparent 70%);border-left-color:var(--fp-red)}
+.nvA .item .ic{width:16px;text-align:center;opacity:.85}
+
+/* B — Divider list: bölüm başlığı hairline, item alt çizgili */
+.nvB .sec{display:flex;align-items:center;gap:8px;font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute);padding:15px 12px 8px}
+.nvB .sec::before{content:"";width:5px;height:5px;background:var(--fp-red);flex:0 0 auto}
+.nvB .item{display:flex;align-items:center;gap:11px;padding:11px 12px;font-family:var(--f-display);font-weight:600;font-size:13.5px;color:var(--fp-text-dim);border-bottom:1px solid var(--fp-line-soft)}
+.nvB .item:last-child{border-bottom:none}
+.nvB .item:hover{color:var(--fp-text)}
+.nvB .item.active{color:#fff}
+.nvB .item.active::after{content:"";margin-left:auto;width:6px;height:6px;border-radius:50%;background:var(--fp-red);box-shadow:0 0 8px var(--fp-red)}
+.nvB .item .ic{width:16px;text-align:center;opacity:.85}
+
+/* C — Chip fill: aktif item dolu blok, sıra numarası gibi */
+.nvC .sec{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--fp-text-mute);padding:14px 10px 7px}
+.nvC .item{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0 4px 4px;border-radius:var(--r-sm);font-family:var(--f-display);font-weight:600;font-size:13.5px;color:var(--fp-text-dim)}
+.nvC .item:hover{background:var(--fp-bg-3);color:var(--fp-text)}
+.nvC .item.active{background:var(--fp-red);color:#fff;font-weight:700}
+.nvC .item .ic{width:16px;text-align:center;opacity:.9}
+
+/* =========================================================
+   11. RESULT HERO — yarış bitince "kim, kaç farkla kazandı"
+   ========================================================= */
+.result-hero{
+  background:
+    radial-gradient(120% 130% at 8% 0%, color-mix(in srgb,var(--tc) 22%,transparent), transparent 60%),
+    linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));
+  border:1px solid var(--fp-line);border-left:5px solid var(--tc);border-radius:var(--r-md);
+  padding:var(--sp-4) var(--sp-5);box-shadow:var(--shadow);
+}
+.result-hero .rh-eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute)}
+.result-hero .rh-name{font-family:var(--f-display);font-weight:800;font-size:38px;line-height:1;text-transform:uppercase;letter-spacing:.01em;margin-top:8px}
+.result-hero .rh-name b{color:var(--tc)}
+.result-hero .rh-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
+.result-hero .rh-team{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fp-text-dim)}
+.result-hero .rh-gap{
+  font-family:var(--f-mono);font-weight:700;font-size:13px;padding:6px 11px;border-radius:var(--r-sm);
+  background:var(--fp-bg-0);border:1px solid var(--fp-line);color:var(--fp-text);
+}
+.result-hero .rh-gap span{color:var(--fp-text-mute);font-weight:500;margin-right:6px}
+.result-hero .rh-next{font-family:var(--f-mono);font-size:12px;color:var(--fp-text-dim)}
+.result-hero .rh-next b{color:var(--fp-text)}
 
 /* ---------- data-state ---------- */
 .state{border:1px solid var(--fp-line);border-left:var(--edge) solid var(--sc,var(--fp-cyan));background:var(--fp-bg-2);border-radius:var(--r-sm);padding:var(--sp-3) var(--sp-4)}
@@ -358,7 +407,19 @@ h2.sec{
 
   <!-- 4 -->
   <section>
-    <h2 class="sec">4 · Race Center — Canlı Şerit</h2>
+    <h2 class="sec">4 · Race Center — Sonuç Başlığı + Canlı Şerit</h2>
+
+    <div class="result-hero" style="--tc:var(--t-mclaren);margin-top:16px">
+      <div class="rh-eyebrow">Dutch Grand Prix · Yarış · Resmî Sonuç</div>
+      <div class="rh-name">Lando <b>Norris</b> kazandı</div>
+      <div class="rh-row">
+        <span class="rh-team">McLaren</span>
+        <span class="rh-gap"><span>KAZANMA FARKI</span>+3.891 sn</span>
+        <span class="rh-next">2. <b>VER</b> (Red Bull) &nbsp;·&nbsp; 3. <b>PIA</b> (McLaren)</span>
+      </div>
+    </div>
+    <p class="note" style="margin:8px 0 0">Yarış dışı seanslarda (Sıralama/Antrenman) bu kart otomatik "POLE: … " veya "EN HIZLI: …" başlığına döner. Veri yoksa hiç görünmez — uydurma sonuç göstermez.</p>
+
     <div class="rc" style="margin-top:16px">
       <div class="rc-head">
         <div class="title">F1 RACE CENTER — <b>Dutch Grand Prix</b> · Son Seans (Yarış)</div>
@@ -430,20 +491,54 @@ h2.sec{
 
   <!-- 9 -->
   <section>
-    <h2 class="sec">9 · Kenar Menü</h2>
-    <div class="nav-demo" style="margin-top:16px">
-      <div class="nav-sec">Genel</div>
-      <div class="nav-item active">🏁 Ana Sayfa &amp; Haberler</div>
-      <div class="nav-item">📰 Haber Merkezi</div>
-      <div class="nav-sec">Canlı &amp; Yarış</div>
-      <div class="nav-item">📡 Seans Takibi</div>
-      <div class="nav-item">📅 Takvim &amp; Pistler</div>
-      <div class="nav-sec">Oyunlar</div>
-      <div class="nav-item">🎮 Oyun Merkezi</div>
+    <h2 class="sec">9 · Kenar Menü — 3 Aday</h2>
+    <p class="note" style="margin:12px 0 0">Eski menüde her satırın kutusu + iki renkli kenarı vardı, kalabalık duruyordu. Aşağıda 3 sade yön var — hangisi?</p>
+    <div class="grid g3" style="margin-top:16px">
+
+      <div class="nav-demo nvA">
+        <div class="nav-brand"><span class="mark"></span><span class="txt">Formula Paddock<s>Race Intelligence</s></span></div>
+        <div class="sec">Genel</div>
+        <div class="item active"><span class="ic">▨</span> Ana Sayfa &amp; Haberler</div>
+        <div class="item"><span class="ic">▦</span> Haber Merkezi</div>
+        <div class="sec">Canlı &amp; Yarış</div>
+        <div class="item"><span class="ic">◈</span> Seans Takibi</div>
+        <div class="item"><span class="ic">▤</span> Takvim &amp; Pistler</div>
+        <div class="sec">Oyunlar</div>
+        <div class="item"><span class="ic">◆</span> Oyun Merkezi</div>
+        <div class="nv-variant-label">A · Slim rail (aktifte kırmızı çubuk)</div>
+      </div>
+
+      <div class="nav-demo nvB">
+        <div class="nav-brand"><span class="mark"></span><span class="txt">Formula Paddock<s>Race Intelligence</s></span></div>
+        <div class="sec">Genel</div>
+        <div class="item active"><span class="ic">▨</span> Ana Sayfa &amp; Haberler</div>
+        <div class="item"><span class="ic">▦</span> Haber Merkezi</div>
+        <div class="sec">Canlı &amp; Yarış</div>
+        <div class="item"><span class="ic">◈</span> Seans Takibi</div>
+        <div class="item"><span class="ic">▤</span> Takvim &amp; Pistler</div>
+        <div class="sec">Oyunlar</div>
+        <div class="item"><span class="ic">◆</span> Oyun Merkezi</div>
+        <div class="nv-variant-label">B · Divider list (aktifte kırmızı nokta)</div>
+      </div>
+
+      <div class="nav-demo nvC">
+        <div class="nav-brand"><span class="mark"></span><span class="txt">Formula Paddock<s>Race Intelligence</s></span></div>
+        <div class="sec">Genel</div>
+        <div class="item active"><span class="ic">▨</span> Ana Sayfa &amp; Haberler</div>
+        <div class="item"><span class="ic">▦</span> Haber Merkezi</div>
+        <div class="sec">Canlı &amp; Yarış</div>
+        <div class="item"><span class="ic">◈</span> Seans Takibi</div>
+        <div class="item"><span class="ic">▤</span> Takvim &amp; Pistler</div>
+        <div class="sec">Oyunlar</div>
+        <div class="item"><span class="ic">◆</span> Oyun Merkezi</div>
+        <div class="nv-variant-label">C · Chip fill (aktif item dolu kırmızı)</div>
+      </div>
+
     </div>
+    <p class="note" style="margin-top:12px">İkonlar geçici (▨ ◈ ◆). Gerçekte emoji mi, çizgi-ikon mu, hiç ikon yok mu — onu da söyle.</p>
   </section>
 
-  <p class="note">v0.1 — geri bildirimini bekliyorum: renkler, yazı tipi, köşe sertliği, vurgu kullanımı, kart yoğunluğu. Beğendiğin/değiştirdiğin her şey <b>core/theme.py</b> ve <b>core/ui.py</b> olarak kodlanacak, sonra sayfalar tek tek bu bileşenlere geçirilecek.</p>
+  <p class="note">v0.1 — <b>onaylanan:</b> genel HUD yönü, renkler, tipografi. <b>bu turda:</b> yarış sonuç başlığı eklendi, kenar menü 3 adaya düşürüldü. Sen menüyü seçince → <b>core/theme.py</b> + <b>core/ui.py</b> kodlanır → Faz 2: sayfalar tek tek geçirilir. Canlı veri fonksiyonlarına dokunulmaz.</p>
 
 </div>
 </body>
