@@ -2643,105 +2643,6 @@ def _openf1_race_control_v19(records, limit=5):
     return list(reversed(messages))
 
 
-@st.cache_data(ttl=15, show_spinner=False)
-def get_openf1_live_snapshot_v19(explicit_token='', username='', password=''):
-    """Canlı konum + tur + lastik + pit + hava + Race Control paketini güvenli biçimde toplar.
-
-    Bu fonksiyon token yokken anonim erişimi bir kez dener. Sağlayıcı gerçek-zaman
-    erişimini vermiyorsa boş sonuç döner; kesinlikle uydurma canlı konum üretmez.
-    """
-    token = _openf1_token_v19(explicit_token, username, password)
-    endpoint_names = [
-        'sessions?session_key=latest',
-        'drivers?session_key=latest',
-        'location?session_key=latest',
-        'laps?session_key=latest',
-        'stints?session_key=latest',
-        'pit?session_key=latest',
-        'position?session_key=latest',
-        'intervals?session_key=latest',
-        'weather?session_key=latest',
-        'race_control?session_key=latest',
-    ]
-    packets = [_openf1_get_optional_v19(endpoint, token) for endpoint in endpoint_names]
-    (
-        sessions, drivers, locations, laps, stints, pits,
-        positions, intervals, weather, race_control,
-    ) = packets
-
-    session = sessions[0] if sessions else {}
-    driver_map = {
-        str(item.get('driver_number')): item
-        for item in drivers or []
-        if item.get('driver_number') is not None
-    }
-    location_map = _latest_by_driver_v19(locations)
-    lap_map = _latest_by_driver_v19(laps)
-    stint_map = _latest_by_driver_v19(stints)
-    pit_map = _latest_by_driver_v19(pits)
-    position_map = _latest_by_driver_v19(positions)
-    interval_map = _latest_by_driver_v19(intervals)
-
-    cars = []
-    for number, location in location_map.items():
-        try:
-            x, y = float(location.get('x')), float(location.get('y'))
-        except (TypeError, ValueError):
-            continue
-        driver = driver_map.get(number, {})
-        lap = lap_map.get(number, {})
-        stint = stint_map.get(number, {})
-        pit = pit_map.get(number, {})
-        position = position_map.get(number, {})
-        interval = interval_map.get(number, {})
-        code = str(driver.get('name_acronym') or driver.get('last_name') or f'#{number}').strip()
-        team = str(driver.get('team_name') or 'Formula 1').strip()
-        profile = race_driver_profile(code, team)
-        pit_duration = pd.to_numeric(pit.get('pit_duration'), errors='coerce')
-        cars.append({
-            'number': number,
-            'code': code,
-            'team': team,
-            'colour': team_colour(team),
-            'x': x,
-            'y': y,
-            'position': position.get('position') or '—',
-            'lap': lap.get('lap_number') or '—',
-            'last_lap': _api_duration_text(lap.get('lap_duration')) if lap.get('lap_duration') else '—',
-            'compound': str(stint.get('compound') or '—').upper(),
-            'tyre_age_start': stint.get('tyre_age_at_start') if stint.get('tyre_age_at_start') is not None else '—',
-            'gap': str(interval.get('gap_to_leader') or interval.get('interval') or '—'),
-            'last_pit_lap': pit.get('lap_number') or '—',
-            'pit_duration': None if pd.isna(pit_duration) else round(float(pit_duration), 2),
-            'profile': profile,
-            'date': str(location.get('date', '')),
-        })
-
-    def sort_key(item):
-        try:
-            return int(float(item['position']))
-        except (TypeError, ValueError):
-            return 999
-
-    cars.sort(key=lambda item: (sort_key(item), item['number']))
-    has_access = bool(token)
-    if cars:
-        reason = ''
-    elif has_access:
-        reason = 'Açık veri sağlayıcısı aktif seans için henüz konum paketi göndermedi.'
-    else:
-        reason = 'Canlı konum için açık sağlayıcıdan yetkili veri paketi gelmedi. Tamamlanan yarış tekrarı aşağıdaki resmi FastF1 verisiyle çalışmaya devam eder.'
-    return {
-        'ok': bool(cars),
-        'reason': reason,
-        'authenticated': has_access,
-        'source': 'OpenF1 canlı paket' if has_access else 'OpenF1 anonim denemesi',
-        'cars': cars,
-        'track': _openf1_track_outline_v19(locations),
-        'session': session,
-        'weather': _openf1_weather_summary_v19(weather),
-        'race_control': _openf1_race_control_v19(race_control),
-    }
 
 
 def _openf1_utc_v19(value):
@@ -3314,56 +3215,6 @@ def render_paddock_assistant_v19():
     )
 
 
-def render_paddock_assistant_v20():
-    """Veri sorularını kesin, genel soruları ise anahtar varsa gerçek ChatGPT ile yanıtlayan sohbet ekranı."""
-    st.markdown("## 🧠 Paddock Asistanı")
-    ai_ready = bool(configured_openai_api_key())
-    state_label = 'CHATGPT + DOĞRULANMIŞ VERİ' if ai_ready else 'DOĞRULANMIŞ VERİ MODU'
-    state_copy = (
-        'Genel F1 soruları için ChatGPT bağlantısı etkin. Yarış sonucu sorularında önce FastF1 doğrulanmış verisi kullanılır.'
-        if ai_ready else
-        'Yarış sonucu, lastik, pole ve seans özeti soruları FastF1 verisinden yanıtlanır. Genel ChatGPT sohbeti için OPENAI_API_KEY eklenmelidir.'
-    )
-    st.markdown(
-        f"<div class='hud-card' style='border-left:4px solid {'#22d3ee' if ai_ready else '#f7c948'}'>"
-        f"<div class='hud-label'>{state_label}</div><div class='history-copy' style='margin-top:7px'>{state_copy}</div></div>",
-        unsafe_allow_html=True,
-    )
-    if 'paddock_chat_history_v20' not in st.session_state:
-        st.session_state['paddock_chat_history_v20'] = []
-
-    quick_a, quick_b, quick_c = st.columns(3)
-    chosen = ''
-    with quick_a:
-        if st.button('Pole kim?', use_container_width=True, key='assistant_pole_v20'):
-            chosen = 'Pole kim?'
-    with quick_b:
-        if st.button('Son seansta ne oldu?', use_container_width=True, key='assistant_story_v20'):
-            chosen = 'Son seansta ne oldu?'
-    with quick_c:
-        if st.button('Alonso kaçıncı oldu?', use_container_width=True, key='assistant_alonso_v20'):
-            chosen = 'Alonso kaçıncı oldu?'
-
-    for item in st.session_state['paddock_chat_history_v20'][-8:]:
-        with st.chat_message(item['role']):
-            st.markdown(item['text'])
-            if item.get('source'):
-                st.caption(f"Kaynak: {item['source']}")
-
-    prompt = st.chat_input('F1 hakkında bir şey sor… örn. Alonso kaçıncı oldu?')
-    question = chosen or prompt
-    if question:
-        st.session_state['paddock_chat_history_v20'].append({'role': 'user', 'text': question})
-        with st.chat_message('user'):
-            st.markdown(question)
-        with st.chat_message('assistant'):
-            with st.spinner('Paddock verisi kontrol ediliyor…'):
-                answer = paddock_assistant_answer_v19(question, 2026)
-            st.markdown(answer['answer'])
-            st.caption(f"Kaynak: {answer['source']}")
-        st.session_state['paddock_chat_history_v20'].append({
-            'role': 'assistant', 'text': answer['answer'], 'source': answer['source'],
-        })
 
 
 STEWARDLE_META = {
@@ -3409,79 +3260,6 @@ def stewarlde_cell(value, target, numeric=False):
     return 'miss', '—'
 
 
-def render_stewarlde():
-    """Günün 2026 F1 sürücüsünü tahmin et: sade, yerel ve her gün aynı cevap."""
-    drivers = stewarlde_drivers()
-    daily_key = datetime.date.today().isoformat()
-    target = drivers[datetime.date.today().toordinal() % len(drivers)]
-    state_key = 'stewarlde_state_v1'
-    if st.session_state.get(state_key, {}).get('day') != daily_key:
-        st.session_state[state_key] = {'day': daily_key, 'guesses': [], 'finished': False}
-    game = st.session_state[state_key]
-
-    st.markdown('## 🎮 Stewarlde')
-    st.caption('Günün resmî 2026 F1 pilotunu altı tahminde bul. Yeşil doğru; sarı sayı için yön ipucu; gri eşleşmedi demek.')
-    st.markdown(
-        "<div class='hud-card' style='border-left:4px solid #ff385c'><div class='hud-label'>GÜNLÜK PADDOCK BULMACASI</div>"
-        "<div class='history-copy' style='margin-top:7px'>Her gün tek cevap vardır; 22 pilot cevap havuzunda sırayla döner. Takım, numara, ülke kodu, gerçek F1 başlangıç yılı ve dünya şampiyonluğu ipuçlarını kullan.</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    if not game['finished'] and len(game['guesses']) < 6:
-        used = set(game['guesses'])
-        options = [driver for driver in drivers if driver['code'] not in used]
-        pick = st.selectbox(
-            'Pilot tahminin', options, format_func=lambda item: f"{item['name']} ({item['code']})",
-            key=f"stewarlde_pick_{daily_key}_{len(game['guesses'])}",
-        )
-        if st.button('Tahmini gönder', type='primary', use_container_width=True, key=f"stewarlde_submit_{daily_key}_{len(game['guesses'])}"):
-            game['guesses'].append(pick['code'])
-            game['finished'] = pick['code'] == target['code'] or len(game['guesses']) >= 6
-            st.session_state[state_key] = game
-            st.rerun()
-
-    lookup = {driver['code']: driver for driver in drivers}
-    if game['guesses']:
-        cards = []
-        for code in game['guesses']:
-            guess = lookup[code]
-            values = [
-                ('Pilot', guess['name'], guess['code'] == target['code'], ''),
-                ('Takım', guess['team'], guess['team'] == target['team'], ''),
-                ('No', guess['number'], *stewarlde_cell(guess['number'], target['number'], True)),
-                ('Ülke', guess['nation'], guess['nation'] == target['nation'], ''),
-                ('İlk F1 yılı', guess['debut'], *stewarlde_cell(guess['debut'], target['debut'], True)),
-                ('Şampiyonluk', guess['titles'], *stewarlde_cell(guess['titles'], target['titles'], True)),
-            ]
-            cells = []
-            for label, value, status, hint in values:
-                css = 'match' if status is True or status == 'match' else 'near' if status == 'near' else 'miss'
-                cells.append(f"<div class='steardle-cell {css}'><small>{html_lib.escape(label)}</small><b>{html_lib.escape(str(value))}</b><i>{html_lib.escape(str(hint))}</i></div>")
-            cards.append("<div class='steardle-row'>" + ''.join(cells) + '</div>')
-        st.markdown(
-            "<style>.steardle-row{display:grid;grid-template-columns:1.55fr 1.35fr repeat(4,1fr);gap:7px;margin:9px 0}.steardle-cell{min-height:58px;border:1px solid #2d435c;border-radius:8px;padding:8px;background:#111b29}.steardle-cell small{display:block;color:#9aafc4;font-size:.68rem;font-weight:800}.steardle-cell b{display:block;color:#f4f8fc;font-size:.92rem;margin-top:5px}.steardle-cell i{float:right;font-style:normal;font-weight:950}.steardle-cell.match{background:#123f31;border-color:#45d991}.steardle-cell.near{background:#4c3d16;border-color:#efc84a}.steardle-cell.miss{background:#252c36;border-color:#465463}@media(max-width:760px){.steardle-row{grid-template-columns:repeat(2,1fr)}.steardle-cell{min-height:52px}}</style>"
-            + ''.join(cards), unsafe_allow_html=True,
-        )
-
-    if game['finished']:
-        won = game['guesses'][-1] == target['code']
-        if won:
-            st.success(f"Pole pozisyonu! Bugünün pilotu: {target['name']}. {len(game['guesses'])}/6 tahminde buldun.")
-        else:
-            st.error(f"Bugünkü altı tahmin bitti. Doğru cevap: {target['name']} ({target['code']}).")
-        profile_colour = team_colour(target['team'])
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid {profile_colour};margin-top:12px'>"
-            f"<div style='display:flex;align-items:center;gap:18px;flex-wrap:wrap'>"
-            f"<img src='{html_lib.escape(target['photo'], quote=True)}' style='width:130px;height:160px;object-fit:contain;object-position:center bottom' alt='{html_lib.escape(target['name'])}'>"
-            f"<div><div class='hud-label'>GÜNÜN PİLOTU</div><div style='font-size:1.7rem;font-weight:950;color:{profile_colour};margin-top:4px'>{html_lib.escape(target['name'])}</div>"
-            f"<div class='driver-meta' style='margin-top:7px'>{html_lib.escape(target['team'])} · #{html_lib.escape(target['number'])} · {html_lib.escape(target['nation'])} · {html_lib.escape(str(target['age']))} yaş</div>"
-            f"<div class='history-copy' style='margin-top:8px'>F1 başlangıcı: {html_lib.escape(str(target['debut']))} · Dünya şampiyonluğu: {html_lib.escape(str(target['titles']))}</div></div></div></div>",
-            unsafe_allow_html=True,
-        )
-        if st.button('Bu günün tahminlerini temizle', key=f'stewarlde_reset_{daily_key}'):
-            st.session_state[state_key] = {'day': daily_key, 'guesses': [], 'finished': False}
-            st.rerun()
 
 
 def _gridmaster_options(values, correct, offset):
@@ -3526,77 +3304,6 @@ def gridmaster_questions():
     return questions
 
 
-def render_gridmaster():
-    """Yeni oyun: 10 soruluk, hata toleranslı günlük F1 Sprint Quiz."""
-    questions = gridmaster_questions()
-    today = datetime.date.today().isoformat()
-    state_key = 'gridmaster_state_v1'
-    state = st.session_state.get(state_key, {})
-    if state.get('day') != today:
-        state = {'day': today, 'index': 0, 'score': 0, 'answers': [], 'finished': False}
-        st.session_state[state_key] = state
-
-    st.markdown('## ⚡ GridMaster')
-    st.caption('10 soruluk günlük F1 Sprint Quiz. Her cevap 1 puan; bütün sorular 2026 kadro verisinden üretilir.')
-    st.markdown(
-        "<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>PIT WALL // SPRINT QUIZ</div>"
-        "<div class='history-copy' style='margin-top:7px'>Pilot, takım, numara, ülke kodu, ilk F1 yılı ve şampiyonluk bilgilerini kullan. "
-        "Sorular her gün değişir; tahmin hakkı sınırsız değildir, cevap geri alınamaz.</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    if not state['finished']:
-        question = questions[state['index']]
-        driver = question['driver']
-        colour = team_colour(driver['team'])
-        progress = int(state['index'] / len(questions) * 100)
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid {colour};margin-top:14px'>"
-            f"<div class='hud-label'>SORU {state['index'] + 1} / {len(questions)} · PUAN {state['score']}</div>"
-            f"<div style='display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px'>"
-            f"<img src='{html_lib.escape(driver['photo'], quote=True)}' alt='' style='width:82px;height:94px;object-fit:contain;object-position:center bottom'>"
-            f"<div><div style='font-size:1.35rem;font-weight:950;color:{colour}'>{html_lib.escape(driver['name'])}</div>"
-            f"<div class='driver-meta'>{html_lib.escape(driver['code'])} · {html_lib.escape(driver['team'])}</div>"
-            f"<div style='font-size:1.05rem;font-weight:850;margin-top:8px'>{html_lib.escape(question['prompt'])}</div></div></div>"
-            f"<div style='height:7px;background:#09111b;border-radius:99px;margin-top:13px;overflow:hidden'><div style='height:100%;width:{progress}%;background:{colour}'></div></div></div>",
-            unsafe_allow_html=True,
-        )
-        answer = st.radio(
-            'Cevabın', question['options'], index=None, horizontal=True,
-            key=f"gridmaster_pick_{today}_{state['index']}",
-            label_visibility='collapsed',
-        )
-        if st.button('Cevabı kilitle', type='primary', use_container_width=True, disabled=answer is None, key=f"gridmaster_lock_{today}_{state['index']}"):
-            correct = answer == question['answer']
-            state['answers'].append({'question': question, 'answer': answer, 'correct': correct})
-            state['score'] += int(correct)
-            state['index'] += 1
-            state['finished'] = state['index'] >= len(questions)
-            st.session_state[state_key] = state
-            st.rerun()
-    else:
-        score = state['score']
-        if score == len(questions):
-            title, note = '🏆 Kusursuz tur!', 'Pit wall seni baş mühendis ilan etti: 10/10.'
-        elif score >= 7:
-            title, note = '🟢 Güçlü hafta sonu', f'{score}/10 — sağlam bir yarış mühendisi performansı.'
-        elif score >= 4:
-            title, note = '🟡 Orta grup mücadelesi', f'{score}/10 — verileri biraz daha kurcalamalısın.'
-        else:
-            title, note = '🔴 Zor bir seans', f'{score}/10 — yarın yeni bir Sprint Quiz gelecek.'
-        st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948;margin-top:14px'><div style='font-size:1.45rem;font-weight:950'>{title}</div><div class='history-copy' style='margin-top:7px'>{note}</div></div>", unsafe_allow_html=True)
-        result_rows = []
-        for item in state['answers']:
-            question = item['question']
-            result_rows.append({
-                'Pilot': question['driver']['name'], 'Soru': question['prompt'],
-                'Cevabın': item['answer'], 'Doğru cevap': question['answer'],
-                'Durum': '✓ Doğru' if item['correct'] else '✕ Yanlış',
-            })
-        st.dataframe(pd.DataFrame(result_rows), use_container_width=True, hide_index=True)
-        if st.button('Bugünün Sprint Quizini yeniden başlat', use_container_width=True, key=f'gridmaster_reset_{today}'):
-            st.session_state[state_key] = {'day': today, 'index': 0, 'score': 0, 'answers': [], 'finished': False}
-            st.rerun()
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -4583,29 +4290,10 @@ def build_stable_race_replay_payload(year, event_name):
         return {'ok': False, 'reason': f'Yarış tekrar paketi hazırlanamadı: {error}'}
 
 
-def stable_race_replay_html(payload):
-    """Her karede yalnızca canvas çizer; HUD DOM'u düşük sıklıkta güncellenir."""
-    packed = fp_ui.json_for_script(payload)
-    return r'''<!doctype html><html><head><meta charset="utf-8"><style>
-    *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:500px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px}.hero{border-bottom:1px solid #2b4058;padding-bottom:10px;margin-bottom:8px}.hero b{font-size:21px;color:var(--team)}.hero small{display:block;color:#a9bbcd;margin-top:5px}.stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #26394f;font-size:12px}.stat span{color:#92a7bc}.pit{color:#ffd46b}.on{color:#81e6ac}.controls,.strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn,.pilot{border:1px solid #39516f;border-radius:7px;background:#142239;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}.pilot{border-left:4px solid var(--team);font-size:11px}.pilot.active{background:#1c3049;box-shadow:0 0 0 1px var(--team) inset}.slider{accent-color:#ff4051;flex:1;min-width:135px}.clock{font:900 12px ui-monospace,Consolas,monospace}.note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.grid{grid-template-columns:1fr}.map canvas{height:390px}}
-    </style></head><body><div class="hud"><div class="top"><div><div class="title">RACE CONTROL // STABLE REPLAY</div><div class="sub" id="sub"></div></div><div class="badge">● VERIFIED RACE FLOW</div></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn active" data-speed="1">1× Gerçek</button><button class="btn" data-speed="5">5×</button><button class="btn" data-speed="20">20×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="note">Araçlar ortak yarış saatine göre ilerler. Pit zamanları doğrulanmış giriş/çıkış kayıtlarıdır; pit şeridi görsel olarak şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
-    const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.code||'',playing=true,speed=1,time=0,last=performance.now(),lastHud=0,lastKey='',view=null;const tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};
-    const fmt=n=>{n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
-    function lap(c,t){const a=c.laps||[];for(let i=0;i<a.length;i++)if(t<=a[i].end)return a[i];return a[a.length-1]||null}function pitEvent(c,t){return(c.pit_events||[]).find(e=>t>=e.start&&t<=e.end)||null}function state(c,t){const l=lap(c,t),a=c.laps||[],last=a[a.length-1],out=!!c.retired&&t>=(last?.end||0);if(!l)return{lap:0,frac:0,pos:c.grid||20,pit:false,out};const i=a.indexOf(l),previous=a[Math.max(0,i-1)]?.position||l.start_position||c.grid||20,frac=Math.max(0,Math.min(1,(t-l.start)/(l.end-l.start||1)));return{lap:l.lap,frac,pos:frac>.997?(l.position||previous):previous,pit:!out&&!!pitEvent(c,t),out}}
-    function point(f){const n=route.length;if(!n)return{x:0,y:0,a:0};const p=((f%1)+1)%1*n,i=Math.floor(p),r=p-i,a=route[i],b=route[(i+1)%n];return{x:a[0]+(b[0]-a[0])*r,y:a[1]+(b[1]-a[1])*r,a:Math.atan2(b[1]-a[1],b[0]-a[0])}}function visual(c,t){const s=state(c,t),start=Math.max(0,1-Math.min(1,t/4)),grid=((c.grid||1)-1)*.0013*start;return point(s.frac-grid)}
-    function transform(){const xs=route.map(p=>p[0]),ys=route.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=30,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}function xy(p,t){return[(p.x-t.minX)*t.s+(t.w-(t.maxX-t.minX)*t.s)/2,(t.maxY-p.y)*t.s+(t.h-(t.maxY-t.minY)*t.s)/2]}
-    function car(x,y,a,c,code,chosen,pit){ctx.save();ctx.translate(x,y);ctx.rotate(-a);ctx.fillStyle='#050a10';ctx.fillRect(-12,-7,5,14);ctx.fillRect(10,-8,4,16);ctx.fillStyle=c;ctx.fillRect(-8,-4,21,8);ctx.fillRect(8,-2,9,4);ctx.fillRect(13,-8,3,16);ctx.fillStyle='#f4f7ff';ctx.fillRect(-16,-9,3,18);ctx.fillRect(0,-1,8,2);if(pit){ctx.strokeStyle='#ffd44b';ctx.lineWidth=2;ctx.strokeRect(-19,-12,39,24)}if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.3;ctx.strokeRect(-21,-14,43,28)}ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-15)}
-    function draw(){if(!view||!route.length)return;ctx.clearRect(0,0,view.w,view.h);ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;cars.forEach(c=>{const s=state(c,time);if(s.out)return;const p=visual(c,time),q=xy(p,view);if(s.pit){q[0]+=18;q[1]+=18;ctx.fillStyle='#ffd44b';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText('PIT',q[0]+9,q[1]+12)}car(q[0],q[1],p.a,c.colour,c.code,c.code===selected,s.pit)})}
-    function order(){return cars.filter(c=>!state(c,time).out).sort((a,b)=>{const x=state(a,time),y=state(b,time);return x.pos-y.pos||(y.lap+y.frac)-(x.lap+x.frac)})}function lastPit(c){const e=(c.pit_events||[]).filter(x=>x.end<=time).at(-1);return e?'Tur '+e.lap:'Henüz yok'}
-    function update(){const now=performance.now();if(now-lastHud<260)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML=list.map(c=>{const s=state(c,time);return`<button class="pilot ${c.code===selected?'active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0;document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').innerHTML=`<div class="hero"><b>${c.code} · P${s.pos}</b><small>${c.team}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div><div class="stat"><span>Stint / lastik</span><b>${l?.stint||'—'} · ${compound}</b></div><div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds)}
-    function frame(now){let dt=Math.min(.04,Math.max(0,(now-last)/1000));last=now;if(playing){time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}}draw();update();requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;lastHud=0;draw();update()};document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · ortak doğrulanmış yarış saati';window.addEventListener('resize',resize);resize();requestAnimationFrame(frame);
-    </script></div></body></html>'''.replace('__PAYLOAD__',packed)
 
 
 
 # Shared replay HUD: portrait, tyre history, pits and track-mode overlays.
-def stable_race_replay_html(payload):
-    return premium_race_replay_html(payload)
 
 def strategy_wall_html(payload):
     """Stint tablosunu yarış mühendisliği strateji duvarı HUD'una dönüştürür."""
@@ -4679,36 +4367,6 @@ def render_driver_profile_hud(team_name, driver):
 
 
 
-def render_team_personnel_hud(team_name, section='all'):
-    """Takim patronunu ve oyun ekibi rollerini sahte kisi atamadan gosterir."""
-    team = TEAM_DIRECTORY_2026[team_name]
-    leader = TEAM_LEADERSHIP_2026.get(team_name)
-    if leader and section in {'all', 'leader'}:
-        st.markdown("### Takim yonetimi")
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid {team['color']};margin:8px 0 18px;overflow:hidden'>"
-            f"<div style='display:flex;gap:16px;align-items:center;flex-wrap:wrap'>"
-            f"<img src='{html_lib.escape(leader['photo'], quote=True)}' alt='{html_lib.escape(leader['name'])}' style='width:146px;height:94px;object-fit:cover;object-position:center;border-radius:8px;border:1px solid #31425c' onerror=\"this.style.display='none'\">"
-            f"<div style='min-width:220px;flex:1'><div class='hud-label'>2026 TAKIM PATRONU</div><div style='font-size:1.35rem;font-weight:950;color:{team['color']};margin-top:4px'>{html_lib.escape(leader['name'])}</div><div class='driver-meta'>{html_lib.escape(leader['role'])}</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(leader['bio'])}</div></div>"
-            f"<div style='display:flex;gap:8px'><div class='mini-stat'><span>STRATEJI</span><b>{leader['strategy']}/5</b></div><div class='mini-stat'><span>GUVENILIRLIK</span><b>{leader['reliability']}/5</b></div></div></div></div>",
-            unsafe_allow_html=True,
-        )
-    if section not in {'all', 'engineers'}:
-        return
-    st.markdown("### Pit duvari // oyun ekibi")
-    st.caption("Takim patronu dogrulanmis kisi/fotografiyla gosterilir. Diger kartlar kariyer oyunundaki rolleridir; gercek yaris muhendisi adi veya fotografi uydurulmaz.")
-    columns = st.columns(3)
-    for column, (_key, pack) in zip(columns, GAME_ENGINEERING_PACKAGES.items()):
-        with column:
-            logo = OFFICIAL_TEAM_LOGOS.get(team_name, '')
-            st.markdown(
-                f"<div class='hud-card' style='min-height:222px;border-top:3px solid {team['color']};overflow:hidden'>"
-                f"<div style='height:76px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,{team['color']}22,#0d1625);border-radius:8px'><img src='{html_lib.escape(logo, quote=True)}' alt='{html_lib.escape(team_name)}' style='max-height:58px;max-width:132px;object-fit:contain' onerror=\"this.style.display='none'\"></div>"
-                f"<div class='hud-label' style='margin-top:11px'>OYUN EKIBI ROLU</div><div style='font-weight:950;font-size:1.03rem;color:#f2f5f8;margin-top:4px'>{html_lib.escape(pack['title'])}</div>"
-                f"<div class='driver-meta' style='margin-top:5px'>{html_lib.escape(team_name)} pit duvari</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(pack['description'])}</div>"
-                f"<div style='margin-top:10px;color:{team['color']};font-weight:900;font-size:.82rem'>STR {pack['strategy']} | TEMPO {pack['pace']} | GUV {pack['reliability']}</div></div>",
-                unsafe_allow_html=True,
-            )
 def game_driver_pool():
     rows = []
     for team_name, team in TEAM_DIRECTORY_2026.items():
@@ -5360,72 +5018,7 @@ def render_manager_season_standings_hud(driver_totals, team_totals, driver_order
             st.dataframe(pd.DataFrame(team_rows), use_container_width=True, hide_index=True, height=min(540, 78 + 38 * len(team_rows)))
 
 
-def render_pitwall_challenge_game():
-    """K\u0131sa ve tekrar oynanabilen strateji oyunu; ger\u00e7ek yar\u0131\u015f sonucu de\u011fildir."""
-    key = 'pitwall_challenge_v1'
-    if key not in st.session_state:
-        st.session_state[key] = {'score': 0, 'round': 1, 'message': '', 'history': []}
-    game = st.session_state[key]
-    scenarios = [
-        ('Monaco \u00b7 dar pist', 'HARD', 25, 'Temiz hava ve uzun stint de\u011ferli.'),
-        ('Hungaroring \u00b7 y\u00fcksek a\u015f\u0131nma', 'MEDIUM', 20, 'Dengeli hamur s\u0131cak pistte g\u00fcvenli.'),
-        ('Silverstone \u00b7 d\u00fc\u015f\u00fck tutunma', 'SOFT', 14, 'K\u0131sa atakla pozisyon kazanabilirsin.'),
-        ('Bahrain \u00b7 gece yar\u0131\u015f\u0131', 'MEDIUM', 18, 'Erken pit trafik yaratabilir.'),
-    ]
-    name, target_tyre, target_lap, clue = scenarios[(game['round'] - 1) % len(scenarios)]
-    st.markdown("<div class='hud-card' style='border-top:4px solid #a78bfa;margin-top:20px'><div class='hud-label'>YEN\u0130 OYUN \u00b7 PIT WALL CHALLENGE</div><div style='font-size:1.25rem;font-weight:950;margin-top:5px'>Strateji Kart\u0131</div><div class='history-copy' style='margin-top:6px'>Lasti\u011fi ve pit penceresini se\u00e7; karar\u0131n oyun puan\u0131na d\u00f6n\u00fc\u015fs\u00fcn. Bu bir strateji sim\u00fclasyonudur.</div></div>", unsafe_allow_html=True)
-    left, right = st.columns([2, 1])
-    with left:
-        st.markdown(f"<div class='hud-card' style='border-left:4px solid #a78bfa'><div class='hud-label'>TUR {game['round']} \u00b7 STRATEJ\u0130 BR\u0130F\u0130NG\u0130</div><div class='hud-value'>{html_lib.escape(name)}</div><div class='driver-meta' style='margin-top:6px'>{html_lib.escape(clue)}</div></div>", unsafe_allow_html=True)
-        tyre = st.radio('Yeni lastik', ['SOFT', 'MEDIUM', 'HARD'], horizontal=True, key=f"pitwall_tyre_{game['round']}")
-        window = st.slider('Pit penceresi (tur)', 8, 32, 18, key=f"pitwall_lap_{game['round']}")
-        if st.button('Stratejiyi uygula', key=f"pitwall_play_{game['round']}", use_container_width=True):
-            gained = int((60 if tyre == target_tyre else 20) + max(0, 40 - abs(window - target_lap) * 5))
-            game['score'] += gained
-            game['history'].append({'Tur': game['round'], 'Senaryo': name, 'Lastik': tyre, 'Pit': window, 'Puan': gained})
-            game['message'] = f"Karar i\u015flendi: +{gained} oyun puan\u0131."
-            game['round'] += 1
-            st.session_state[key] = game
-            st.rerun()
-    with right:
-        st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>PIT WALL SKORU</div><div class='hud-value'>{game['score']} P</div><div class='driver-meta'>Tamamlanan karar: {len(game['history'])}</div></div>", unsafe_allow_html=True)
-    if game['message']:
-        st.success(game['message'])
-    if game['history']:
-        with st.expander('Strateji karar ge\u00e7mi\u015fi', expanded=False):
-            st.dataframe(pd.DataFrame(game['history']), use_container_width=True, hide_index=True)
-    if st.button('Strateji Kart\u0131 skorunu s\u0131f\u0131rla', key='pitwall_reset'):
-        st.session_state[key] = {'score': 0, 'round': 1, 'message': '', 'history': []}
-        st.rerun()
 
-def render_games_hub():
-    """Yerel ve veri-bağlı oyunları tek, basit oyun merkezinde toplar."""
-    st.markdown("## 🎮 Oyun Merkezi")
-    st.caption("Oyunlar 2026 pilot diziniyle çalışır. Kariyer sonucu oyundur; tahmin oyunu ise tamamlanan yarışın gerçek sonucuyla puanlanır.")
-    top_left, top_right = st.columns(2)
-    with top_left:
-        st.markdown("<div class='hud-card' style='border-top:4px solid #ff385c;min-height:166px'><div class='hud-label'>GÜNLÜK BULMACA</div><div style='font-size:1.35rem;font-weight:950;margin-top:7px'>Stewarlde</div><div class='history-copy' style='margin-top:8px'>Altı tahminde günün F1 pilotunu bul. Takım, numara, ülke ve kariyer ipuçları yol gösterir.</div></div>", unsafe_allow_html=True)
-        if st.button("Stewarlde'ı aç", key='games_open_stewarlde', use_container_width=True):
-            st.session_state['page'] = 'stewarlde'
-            st.rerun()
-    with top_right:
-        st.markdown("<div class='hud-card' style='border-top:4px solid #f7c948;min-height:166px'><div class='hud-label'>GÜNLÜK QUIZ</div><div style='font-size:1.35rem;font-weight:950;margin-top:7px'>GridMaster</div><div class='history-copy' style='margin-top:8px'>On soruluk kısa F1 testi. Her gün değişen sorularla kendi puanını yükselt.</div></div>", unsafe_allow_html=True)
-        if st.button("GridMaster'ı aç", key='games_open_gridmaster', use_container_width=True):
-            st.session_state['page'] = 'gridmaster'
-            st.rerun()
-    bottom_left, bottom_right = st.columns(2)
-    with bottom_left:
-        st.markdown("<div class='hud-card' style='border-top:4px solid #2ee6c9;min-height:166px'><div class='hud-label'>KALICI KARİYER OYUNU</div><div style='font-size:1.35rem;font-weight:950;margin-top:7px'>Takım Patronu Kariyeri</div><div class='history-copy' style='margin-top:8px'>İki pilotunu kur, lastikleri ve pit kararlarını kendin ver. Kariyer bilgisayara kaydolur; sezon bitince yeni sezona geçebilirsin.</div></div>", unsafe_allow_html=True)
-        if st.button("Kariyeri başlat", key='games_open_manager', use_container_width=True):
-            st.session_state['page'] = 'team_manager'
-            st.rerun()
-    with bottom_right:
-        st.markdown("<div class='hud-card' style='border-top:4px solid #7dd3fc;min-height:166px'><div class='hud-label'>GERÇEK YARIŞ TAHMİNİ</div><div style='font-size:1.35rem;font-weight:950;margin-top:7px'>Paddock Tahmin</div><div class='history-copy' style='margin-top:8px'>Yaklaşan hafta sonu için pole ve podyumu seç. Yarış bittiğinde tahminin FastF1 sonucuyla puanlansın.</div></div>", unsafe_allow_html=True)
-        if st.button("Tahmin oyununu aç", key='games_open_predictor', use_container_width=True):
-            st.session_state['page'] = 'predictor'
-            st.rerun()
-    render_data_trust_hud()
-    render_pitwall_challenge_game()
 
 
 
@@ -5605,27 +5198,6 @@ def render_pitwall_challenge_game():
         st.rerun()
 
 
-def render_games_hub():
-    """Clean games home with the tyre-and-pit game as its own lower section."""
-    st.markdown("## Oyun Merkezi")
-    st.caption("Oyun sonuclari simulasyondur. Gercek yarislardan gelen veri sadece tahmin ve bilgi alanlarinda kullanilir.")
-    cards = [
-        ('GUNLUK BULMACA', 'Stewarlde', 'Alti tahminde gunun F1 pilotunu bul.', '#ff385c', 'Stewarlde ac', 'stewarlde'),
-        ('GUNLUK QUIZ', 'GridMaster', 'Kisa F1 testiyle puanini yukseltebilirsin.', '#f7c948', 'GridMaster ac', 'gridmaster'),
-        ('KARIYER OYUNU', 'Takim Patronu Kariyeri', 'Pilot sec, sezonunu kur ve yarislari yonet.', '#2ee6c9', 'Kariyeri baslat', 'team_manager'),
-        ('GERCEK YARIS TAHMINI', 'Paddock Tahmin', 'Pole ve podyum tahminini tamamlanmis sonuc ile karsilastir.', '#7dd3fc', 'Tahmin oyununu ac', 'predictor'),
-    ]
-    for row in [cards[:2], cards[2:]]:
-        columns = st.columns(2)
-        for col, card in zip(columns, row):
-            label, title, copy, color, button_text, page = card
-            with col:
-                st.markdown(f"<div class='hud-card' style='border-top:4px solid {color};min-height:146px'><div class='hud-label'>{label}</div><div style='font-size:1.3rem;font-weight:950;margin-top:7px'>{title}</div><div class='history-copy' style='margin-top:8px'>{copy}</div></div>", unsafe_allow_html=True)
-                if st.button(button_text, key=f"games_open_{page}", use_container_width=True):
-                    st.session_state['page'] = page
-                    st.rerun()
-    render_data_trust_hud()
-    render_pitwall_challenge_game()
 
 
 
@@ -5722,118 +5294,10 @@ def render_weekend_centre():
     render_html_hud(session_leaderboard_html(table, f'{selected_name} // {selected["title"].upper()}'), height=leaderboard_component_height(table), scrolling=False)
 
 
-def render_race_story_centre():
-    render_page_header('Yaris Hikayesi', 'Sonuclari teknik bir tablo olmaktan cikarip pole, kazanan, en cok yukselen pilot ve onemli notlara donusturur.', '#ff385c')
-    events = get_calendar_details(2026)
-    if not events:
-        st.warning('Yaris takvimi su anda alinamadi.')
-        return
-    completed_events = []
-    for event in events:
-        if any(item.get('code') == 'R' for item in completed_session_options(event)):
-            completed_events.append(event)
-    if not completed_events:
-        st.info('Hikaye olusturmak icin henuz tamamlanmis bir yaris sonucu yok.')
-        return
-    names = [str(event.get('EventName')) for event in completed_events]
-    event_name = st.selectbox('Yaris sec', names, index=len(names)-1, key='story_centre_event')
-    with st.spinner('Yaris hikayesi hazirlaniyor...'):
-        table, _ = get_session_results_table(2026, event_name, 'R')
-        notes = get_session_story(2026, event_name, 'R')
-    if table.empty:
-        st.info('Bu yarisin dogrulanmis sonucu henuz alinamadi.')
-        return
-    cards = []
-    winner = table.iloc[0] if len(table) else None
-    if winner is not None:
-        cards.append(('KAZANAN', f"{winner.get('Pilot', '-')}", str(winner.get('Takım', '-')), '#f7c948'))
-    if 'Sıra' in table.columns:
-        top10 = table[table['Sıra'].astype(str).str.match(r'^\d+$', na=False)].head(10)
-        if not top10.empty:
-            cards.append(('PUAN ALAN SON PILOT', str(top10.iloc[-1].get('Pilot', '-')), 'Ilk 10 puan alir', '#7dd3fc'))
-    if 'Points' in table.columns:
-        points_text = 'Resmi puan paketi'
-    else:
-        points_text = 'Sonuc ve strateji ozeti'
-    cards.append(('YARIS DOSYASI', event_name, points_text, '#2ee6c9'))
-    cols = st.columns(len(cards))
-    for col, card in zip(cols, cards):
-        label, main, small, color = card
-        with col:
-            st.markdown(f"<div class='hud-card' style='border-top:4px solid {color};min-height:106px'><div class='hud-label'>{label}</div><div style='font-size:1.2rem;font-weight:950;margin-top:8px'>{html_lib.escape(main)}</div><div class='driver-meta' style='margin-top:6px'>{html_lib.escape(small)}</div></div>", unsafe_allow_html=True)
-    if notes:
-        st.markdown('#### Dikkat ceken anlar')
-        for entry in notes:
-            st.markdown(f"<div class='hud-card' style='border-left:4px solid #ff385c;padding:11px 14px;margin:7px 0'><b>{html_lib.escape(entry.get('kind','NOT'))}</b><div class='history-copy' style='margin-top:5px'>{html_lib.escape(entry.get('text',''))}</div></div>", unsafe_allow_html=True)
-    st.markdown('#### Tam sonuc')
-    render_html_hud(session_leaderboard_html(table, f'{event_name} // YARIS SONUCU'), height=leaderboard_component_height(table), scrolling=False)
 
 
-def render_driver_comparison_centre():
-    render_page_header('Pilot Karsilastirma', 'Iki pilotu ayni tamamlanmis seanstaki gercek sonuc, takim ve tur verisiyle karsilastir.', '#a78bfa')
-    latest = get_latest_completed_session(2026)
-    if not latest:
-        st.info('Karsilastirma icin tamamlanmis bir seans bekleniyor.')
-        return
-    event_name = latest['event_name']
-    session_code = latest['session_code']
-    with st.spinner('Karsilastirma verisi yukleniyor...'):
-        table, _ = get_session_results_table(latest['year'], event_name, session_code)
-    if table.empty or 'Pilot' not in table.columns:
-        st.info('Bu seans icin pilot sonucu henuz alinmadi.')
-        return
-    driver_codes = table['Pilot'].dropna().astype(str).tolist()
-    left, right = st.columns(2)
-    default_b = 1 if len(driver_codes) > 1 else 0
-    with left:
-        driver_a = st.selectbox('Birinci pilot', driver_codes, key='compare_driver_a')
-    with right:
-        driver_b = st.selectbox('Ikinci pilot', driver_codes, index=default_b, key='compare_driver_b')
-    if driver_a == driver_b:
-        st.warning('Iki farkli pilot sec.')
-        return
-    selected_rows = table[table['Pilot'].astype(str).isin([driver_a, driver_b])].copy()
-    rows = []
-    card_cols = st.columns(2)
-    for col, code in zip(card_cols, [driver_a, driver_b]):
-        info = directory_driver_by_code(code)
-        row = selected_rows[selected_rows['Pilot'].astype(str) == code].iloc[0]
-        colour = team_colour(str(row.get('Takım', info['team'])))
-        portrait = current_driver_portrait(info['team'], info['image']) if info['image'] else ''
-        with col:
-            st.markdown(f"<div class='hud-card' style='border-left:4px solid {colour};display:flex;gap:14px;align-items:center'>{strategy_game_image(portrait, info['name'], colour)}<div><div class='hud-label'>SEANS KARSILASTIRMA</div><div style='font-size:1.25rem;font-weight:950;color:{colour}'>{html_lib.escape(info['name'])}</div><div class='driver-meta'>{html_lib.escape(code)} | {html_lib.escape(str(row.get('Takım','-')))}</div><div style='font-size:1.12rem;font-weight:900;margin-top:8px'>Sira: {html_lib.escape(str(row.get('Sıra','-')))}</div></div></div>", unsafe_allow_html=True)
-        compact = {'Pilot': code, 'Takim': str(row.get('Takım', '-')), 'Sira': row.get('Sıra', '-')}
-        for key in ['En Hızlı Tur', 'Zaman', 'Q1', 'Q2', 'Q3', 'Durum', 'Puan']:
-            if key in table.columns:
-                compact[key] = row.get(key, '-')
-        rows.append(compact)
-    st.markdown(f"#### {html_lib.escape(event_name)} // {html_lib.escape(latest['display_name'])}", unsafe_allow_html=True)
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    st.caption('Bu ekran sadece secilen tamamlanmis seansin dogrulanmis sonucunu karsilastirir; tahmini sezon ratingi kullanmaz.')
 
 
-def render_learning_centre():
-    render_page_header('F1 Baslangic Garaji', 'Formula 1 bilmeyen biri icin hafta sonu, lastik, pit stop ve puan sistemini bes dakikada anlatan mini rehber.', '#f7c948')
-    lessons = [
-        ('1. Hafta sonu nasil isler?', 'FP1-FP3 arac hazirligi icindir. Siralama grid sirasini, yaris ise puanlari belirler.'),
-        ('2. Lastik neden onemli?', 'Soft hizli ama cabuk asinabilir. Hard daha dayaniklidir. Dogru pit zamani tur kaybini azaltir.'),
-        ('3. Pole nedir?', 'Siralamada en hizli turu atan pilot pole pozisyonundan, yani ilk siradan baslar.'),
-        ('4. Puan nasil gelir?', 'Ana yarista ilk 10 pilot puan alir. Sprint hafta sonlarinda sprint de ek puan getirir.'),
-        ('5. Telemetri ne soyler?', 'Hiz, fren, gaz ve vites grafigi iki pilotun turu nerede kazandigini gosterir.'),
-    ]
-    for title, copy in lessons:
-        with st.expander(title, expanded=False):
-            st.write(copy)
-    st.markdown('### Mini kontrol')
-    answer = st.radio('Pole pozisyonu neyi belirler?', ['Pit stop sirasini', 'Yaris baslangic sirasini', 'Takim puanini'], key='learning_pole_quiz')
-    if st.button('Cevabi kontrol et', key='learning_check'):
-        if answer == 'Yaris baslangic sirasini':
-            st.success('Dogru. Pole alan pilot ana yarisa ilk siradan baslar.')
-        else:
-            st.info('Ipuçu: Pole, siralamadaki en hizli turun oduludur.')
-    if st.button('GridMaster oyununu ac', key='learning_gridmaster', use_container_width=True):
-        st.session_state['page'] = 'gridmaster'
-        st.rerun()
 
 
 def render_favourites_centre():
@@ -5907,53 +5371,6 @@ def paddock_assistant_answer_v18(question, year=2026):
     return answer
 
 
-def render_paddock_assistant_v20():
-    st.markdown('## Paddock Asistani')
-    ai_ready = bool(configured_openai_api_key())
-    label = 'AI + DOGRULANMIS VERI' if ai_ready else 'DOGRULANMIS VERI + F1 TARIH ARSIVI'
-    colour = '#5ddcff' if ai_ready else '#f7c948'
-    copy = (
-        'Yaris sonucu sorulari once FastF1 sonucundan cevaplanir. Genel F1 sorulari ve tarih bilgisi icin OpenAI destegi aktif.'
-        if ai_ready else
-        'Son seans, pole, lastik, bitis sirasi ve 1950-2024 dunya sampiyonlari anahtar gerektirmeden cevaplanir. Genel sohbet icin istege bagli OpenAI anahtari eklenebilir.'
-    )
-    st.markdown(
-        f"<div class='hud-card paddock-ai-intro' style='border-left:5px solid {colour}'><div class='hud-label'>{label}</div><div class='history-copy' style='margin-top:7px'>{copy}</div></div>",
-        unsafe_allow_html=True,
-    )
-    if 'paddock_chat_history_v18' not in st.session_state:
-        st.session_state['paddock_chat_history_v18'] = []
-
-    quick = st.columns(4)
-    quick_questions = ['1985 sampiyonu kim?', 'Pole kim?', 'Son seansta ne oldu?', 'Alonso kacinci oldu?']
-    for col, item in zip(quick, quick_questions):
-        with col:
-            if st.button(item, use_container_width=True, key='assistant_quick_v18_' + item):
-                st.session_state['paddock_pending_v18'] = item
-                st.rerun()
-
-    for item in st.session_state['paddock_chat_history_v18'][-8:]:
-        with st.chat_message(item['role']):
-            st.markdown(item['text'])
-            if item.get('source'):
-                st.caption('Kaynak: ' + item['source'])
-
-    prompt = st.chat_input('F1 hakkinda sor... Ornek: 1985 sampiyonu kim?')
-    question = st.session_state.pop('paddock_pending_v18', '') or prompt
-    if question:
-        st.session_state['paddock_chat_history_v18'].append({'role': 'user', 'text': question})
-        with st.chat_message('user'):
-            st.markdown(question)
-        with st.chat_message('assistant'):
-            with st.spinner('Paddock kayitlari kontrol ediliyor...'):
-                answer = paddock_assistant_answer_v18(question, 2026)
-            st.markdown(answer['answer'])
-            st.caption('Kaynak: ' + answer['source'])
-        st.session_state['paddock_chat_history_v18'].append({'role': 'assistant', 'text': answer['answer'], 'source': answer['source']})
-
-    if not ai_ready:
-        with st.expander('Genel sorular icin OpenAI baglantisi (istege bagli)'):
-            st.write('Bilgisayarinda OPENAI_API_KEY ortam degiskeni veya Streamlit secrets icine OPENAI_API_KEY eklersen, asistan genel F1 sorularinda da yanit verebilir. Anahtar eklenmezse mevcut veri ve tarih arsivi normal calisir.')
 
 
 def _row_value_v18(row, keys):
@@ -5971,68 +5388,6 @@ def _position_v18(value):
         return 99
 
 
-def render_driver_comparison_centre():
-    render_page_header('Pilot Karsilastirma', 'Ayni tamamlanmis seanstan iki pilotun gercek sonucunu, sektorlerini ve takimlarini HUD ekranda gor.', '#a78bfa')
-    latest = get_latest_completed_session(2026)
-    if not latest:
-        st.info('Karsilastirma icin tamamlanmis bir seans bekleniyor.')
-        return
-    event_name, session_code = latest['event_name'], latest['session_code']
-    with st.spinner('Karsilastirma verisi yukleniyor...'):
-        table, _ = get_session_results_table(latest['year'], event_name, session_code)
-    if table is None or table.empty or 'Pilot' not in table.columns:
-        st.info('Bu seans icin pilot sonucu henuz alinmadi.')
-        return
-    codes = table['Pilot'].dropna().astype(str).tolist()
-    if len(codes) < 2:
-        st.info('Karsilastirma icin en az iki pilot sonucu gerekli.')
-        return
-    left, right = st.columns(2)
-    with left:
-        code_a = st.selectbox('Birinci pilot', codes, key='compare_driver_a_v18')
-    with right:
-        default_b = 1 if codes[0] == code_a else 0
-        code_b = st.selectbox('Ikinci pilot', codes, index=default_b, key='compare_driver_b_v18')
-    if code_a == code_b:
-        st.warning('Iki farkli pilot sec.')
-        return
-    row_a = table[table['Pilot'].astype(str) == code_a].iloc[0]
-    row_b = table[table['Pilot'].astype(str) == code_b].iloc[0]
-    rank_a, rank_b = _position_v18(row_a.get('Sıra', row_a.get('SÄ±ra'))), _position_v18(row_b.get('Sıra', row_b.get('SÄ±ra')))
-    info_a, info_b = directory_driver_by_code(code_a), directory_driver_by_code(code_b)
-    team_a = str(row_a.get('Takım', row_a.get('TakÄ±m', info_a['team'])))
-    team_b = str(row_b.get('Takım', row_b.get('TakÄ±m', info_b['team'])))
-    colour_a, colour_b = team_colour(team_a), team_colour(team_b)
-    time_keys = ['Q3', 'Q2', 'Q1', 'En Hızlı Tur', 'En HÄ±zlÄ± Tur', 'Zaman']
-    time_a, time_b = _row_value_v18(row_a, time_keys), _row_value_v18(row_b, time_keys)
-    leader = code_a if rank_a < rank_b else code_b if rank_b < rank_a else 'Esit'
-    gap_label = 'Sira farki: ' + str(abs(rank_a - rank_b)) if rank_a < 99 and rank_b < 99 else 'Sira verisi yok'
-    header_cards = st.columns(3)
-    hero = [('SEANS', f"{event_name} // {latest['display_name']}", '#7dd3fc'), ('ONE CIKAN', leader, '#2ee6c9'), ('KARSILASTIRMA', gap_label, '#f7c948')]
-    for col, (label, value, colour) in zip(header_cards, hero):
-        with col:
-            st.markdown(f"<div class='hud-card compare-mini' style='border-top:4px solid {colour}'><div class='hud-label'>{label}</div><div class='hud-value' style='font-size:1.25rem'>{html_lib.escape(value)}</div></div>", unsafe_allow_html=True)
-    cards = st.columns(2)
-    for col, code, row, info, team, colour, rank, time_value in [
-        (cards[0], code_a, row_a, info_a, team_a, colour_a, rank_a, time_a),
-        (cards[1], code_b, row_b, info_b, team_b, colour_b, rank_b, time_b),
-    ]:
-        portrait = current_driver_portrait(info['team'], info['image']) if info['image'] else ''
-        with col:
-            st.markdown(
-                f"<div class='hud-card compare-driver-card' style='border-top:5px solid {colour}'><div class='compare-driver-main'>{strategy_game_image(portrait, info['name'], colour)}<div><div class='hud-label'>PILOT DOSYASI</div><div style='font-size:1.38rem;font-weight:950;color:{colour}'>{html_lib.escape(info['name'])}</div><div class='driver-meta'>{html_lib.escape(code)} · {html_lib.escape(team)}</div></div></div><div class='compare-stat-grid'><div><span>SIRA</span><b>P{rank if rank < 99 else '-'}</b></div><div><span>ANA ZAMAN</span><b>{html_lib.escape(time_value)}</b></div></div></div>",
-                unsafe_allow_html=True,
-            )
-    detail_rows = []
-    for code, row, team in [(code_a, row_a, team_a), (code_b, row_b, team_b)]:
-        detail = {'Pilot': code, 'Takim': team, 'Sira': 'P' + str(_position_v18(row.get('Sıra', row.get('SÄ±ra'))))}
-        for column in ['Q1', 'Q2', 'Q3', 'En Hızlı Tur', 'En HÄ±zlÄ± Tur', 'Zaman', 'Lastik', 'Puan', 'Durum']:
-            if column in table.columns:
-                detail[column] = row.get(column, '-')
-        detail_rows.append(detail)
-    st.markdown('#### Detayli seans verisi')
-    st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
-    st.caption('HUD yalnizca FastF1 tarafindan saglanan tamamlanmis seans sonucunu kullanir; tahmini sezon ratingi kullanilmaz.')
 
 
 def render_home_command_hud_v18(event_name, location_name, next_session, latest, drivers, is_live):
@@ -6225,28 +5580,6 @@ def news_matches_team_v19(item, team_name):
     return any(word and word in haystack for word in words)
 
 
-def render_news_centre_v19():
-    render_page_header('Haber Merkezi', 'Tek bir merkezden genel F1 veya secili takiminla ilgili son haberleri takip et.', '#ff385c')
-    teams = ['Genel F1'] + list(TEAM_DIRECTORY_2026.keys())
-    selected = st.selectbox('Haber akisini sec', teams, key='news_team_filter_v19')
-    with st.spinner('Haber akisi yenileniyor...'):
-        news = fetch_f1_news_catalog_v19(30)
-    filtered = [item for item in news if news_matches_team_v19(item, selected)]
-    title = 'Genel F1 akisi' if selected == 'Genel F1' else selected + ' haberleri'
-    st.markdown(f"<div class='hud-card news-command-card'><div class='hud-label'>HABER RADARI</div><div class='hud-value'>{html_lib.escape(title)}</div><div class='driver-meta'>{len(filtered)} haber goruntuleniyor · Kaynaklar: Autosport, Sky Sports, Motorsport</div></div>", unsafe_allow_html=True)
-    if not filtered:
-        st.info('Bu takim icin katalogda eslesen haber bulunamadi. Genel F1 filtresini deneyebilir veya biraz sonra yenileyebilirsin.')
-        return
-    for start in range(0, len(filtered), 3):
-        cols = st.columns(3)
-        for col, item in zip(cols, filtered[start:start + 3]):
-            with col:
-                image = safe_external_url(item.get('image'))
-                image_html = f"<img class='news-thumb-v19' src='{html_lib.escape(image, quote=True)}' alt='' onerror=\"this.style.display='none'\">" if image else "<div class='news-thumb-v19 news-thumb-empty-v19'>F1</div>"
-                st.markdown(
-                    f"<div class='news-card news-card-v19'>{image_html}<div class='news-date'>{html_lib.escape(item['source'])} · {html_lib.escape(item['date'])}</div><div class='news-title'>{html_lib.escape(item['title'])}</div><div class='news-desc'>{html_lib.escape(item['desc'])}</div><a href='{html_lib.escape(item['link'], quote=True)}' target='_blank' rel='noopener noreferrer' class='news-link'>Haberi ac ↗</a></div>",
-                    unsafe_allow_html=True,
-                )
 
 
 def draft_driver_rating_v19(code):
@@ -6261,60 +5594,6 @@ def paddock_draft_state_v19():
     return st.session_state[key], key
 
 
-def render_paddock_draft_game_v19():
-    state, key = paddock_draft_state_v19()
-    pool = []
-    for team_name, team in TEAM_DIRECTORY_2026.items():
-        for name, code, number, image_path in team['drivers']:
-            rating = draft_driver_rating_v19(code)
-            cost = max(22, int((rating - 58) * 2.1))
-            pool.append({'name': name, 'code': code, 'team': team_name, 'image': image_path, 'rating': rating, 'cost': cost})
-    available = [driver for driver in pool if driver['code'] not in state['picks']]
-    chosen = [driver for driver in pool if driver['code'] in state['picks']]
-    spent = sum(driver['cost'] for driver in chosen)
-    state['budget'] = 100 - spent
-
-    st.markdown('---')
-    st.markdown('## Paddock Draft')
-    st.caption('Iki pilot sec, butceyi yonet ve mini sezon simulesinde kadronun gucunu test et. Bu bir oyun simulasyonudur; gercek sampiyona sonucu degildir.')
-    st.markdown(f"<div class='hud-card' style='border-top:4px solid #a78bfa'><div class='hud-label'>DRAFT ODASI</div><div class='hud-value'>Kalan butce: {state['budget']} M</div><div class='driver-meta'>Secim: {len(chosen)} / 2 · {html_lib.escape(state['message'])}</div></div>", unsafe_allow_html=True)
-    if len(chosen) < 2:
-        recommendations = sorted(available, key=lambda item: (-item['rating'], item['cost']))[:6]
-        for start in range(0, len(recommendations), 3):
-            cols = st.columns(3)
-            for col, driver in zip(cols, recommendations[start:start + 3]):
-                team = TEAM_DIRECTORY_2026[driver['team']]
-                portrait = current_driver_portrait(driver['team'], driver['image'])
-                with col:
-                    st.markdown(f"<div class='hud-card' style='border-top:4px solid {team['color']};text-align:center;min-height:188px'>{strategy_game_image(portrait, driver['name'], team['color'])}<div style='font-weight:950;color:{team['color']}'>{html_lib.escape(driver['name'])}</div><div class='driver-meta'>{driver['team']} · Rating {driver['rating']} · {driver['cost']} M</div></div>", unsafe_allow_html=True)
-                    disabled = driver['cost'] > state['budget']
-                    if st.button('Kadroyu sec', key='draft_pick_v19_' + driver['code'], disabled=disabled, use_container_width=True):
-                        state['picks'].append(driver['code'])
-                        state['message'] = driver['name'] + ' kadroya eklendi.'
-                        st.session_state[key] = state
-                        st.rerun()
-    else:
-        cards = st.columns(2)
-        for col, driver in zip(cards, chosen):
-            team = TEAM_DIRECTORY_2026[driver['team']]
-            portrait = current_driver_portrait(driver['team'], driver['image'])
-            with col:
-                st.markdown(f"<div class='hud-card' style='border-left:5px solid {team['color']};display:flex;gap:14px;align-items:center'>{strategy_game_image(portrait, driver['name'], team['color'])}<div><div class='hud-label'>KADRO PILOTU</div><div style='font-size:1.22rem;font-weight:950;color:{team['color']}'>{html_lib.escape(driver['name'])}</div><div class='driver-meta'>Rating {driver['rating']} · Maliyet {driver['cost']} M</div></div></div>", unsafe_allow_html=True)
-        if state['score'] is None:
-            if st.button('Uc yarislik mini sezonu simule et', key='draft_simulate_v19', use_container_width=True):
-                seed = sum(ord(ch) for code in state['picks'] for ch in code)
-                points = sum(item['rating'] for item in chosen) + (seed % 31)
-                state['score'] = points
-                state['message'] = 'Mini sezon tamamlandi. Kadrondaki pilotlarin ratingi ve takim uyumu puana donustu.'
-                st.session_state[key] = state
-                st.rerun()
-        else:
-            grade = 'A' if state['score'] >= 205 else 'B' if state['score'] >= 185 else 'C'
-            st.success(f"Mini sezon sonucu: {state['score']} puan · Takim notu: {grade}")
-            st.caption('Iyi bir Draft kadrosu rating, maliyet ve pilot uyumunu dengeler.')
-    if st.button('Drafti sifirla', key='draft_reset_v19'):
-        st.session_state.pop(key, None)
-        st.rerun()
 
 
 def render_games_hub():
@@ -7852,73 +7131,6 @@ STEWARDLE_ACTIVE_API_IDS_V24 = {
 }
 
 
-@st.cache_data(ttl=60 * 60 * 24 * 14, show_spinner=False)
-def fetch_stewarlde_universe_v24():
-    """One unique record per real person, not per API spelling or abbreviation."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    seasons = list(range(2010, 2026))
-    loaded = {}
-    try:
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = {executor.submit(fetch_stewarlde_historic_roster_v21, year): year for year in seasons}
-            for future in as_completed(futures):
-                year = futures[future]
-                rows = future.result()
-                if rows:
-                    loaded[year] = rows
-    except Exception as error:
-        log_data_error('stewarlde 2.4 universe', error)
-
-    if not loaded:
-        return []
-
-    merged = {}
-    for year in sorted(loaded):
-        for row in loaded[year]:
-            identity = stewarlde_identity_v24(row.get('name'))
-            api_code = str(row.get('code') or '').strip()
-            if not identity or not api_code:
-                continue
-            item = merged.setdefault(identity, {
-                'identity': identity, 'name': row['name'], 'api_code': api_code,
-                'code': api_code, 'team': row['team'], 'nation': row['nation'],
-                'photo': '', 'latest_season': year, 'titles_since_2010': 0,
-                'local_code': '',
-            })
-            item['titles_since_2010'] += 1 if _stewarlde_safe_int_v21(row.get('champion'), 0) == 1 else 0
-            if year >= item['latest_season']:
-                item.update({'name': row['name'], 'api_code': api_code, 'code': api_code,
-                             'team': row['team'], 'nation': row['nation'], 'latest_season': year})
-
-    # Current grid enriches the same person with a portrait and current team.
-    # It never creates a second record for RUS/russell, VER/max_verstappen etc.
-    for row in stewarlde_current_roster_v21():
-        identity = stewarlde_identity_v24(row.get('name'))
-        local_code = str(row.get('code') or '').strip().upper()
-        if not identity or not local_code:
-            continue
-        item = merged.get(identity)
-        if item is None:
-            api_code = STEWARDLE_ACTIVE_API_IDS_V24.get(local_code, '')
-            item = {
-                'identity': identity, 'name': row['name'], 'api_code': api_code,
-                'code': api_code or local_code, 'team': row['team'], 'nation': row['nation'],
-                'photo': row.get('photo', ''), 'latest_season': 2026,
-                'titles_since_2010': 0, 'local_code': local_code,
-            }
-            merged[identity] = item
-        else:
-            item.update({
-                'name': row['name'], 'team': row['team'], 'nation': row['nation'],
-                'photo': row.get('photo', item.get('photo', '')),
-                'local_code': local_code, 'latest_season': max(2026, item.get('latest_season', 0)),
-            })
-
-    for item in merged.values():
-        api_code = item.get('api_code', '')
-        item['titles'] = int(item.get('titles_since_2010', 0)) + int(STEWARDLE_PRE_2010_TITLES_V23.get(api_code, 0))
-    return sorted(merged.values(), key=lambda item: item['name'].casefold())
 
 
 @st.cache_data(ttl=60 * 60 * 24 * 30, show_spinner=False)
@@ -8148,14 +7360,6 @@ def fetch_stewarlde_career_record_v25(api_code):
         return empty
 
 
-def stewarlde_stats_v25(driver):
-    record = fetch_stewarlde_career_record_v25(driver.get('api_code'))
-    return {
-        'wins': record.get('wins'),
-        'titles': int(driver.get('titles', 0)),
-        'starts': record.get('starts'),
-        'first_gp_date': record.get('first_gp_date'),
-    }
 
 
 def stewarlde_date_cell_v25(value, target):
@@ -8612,69 +7816,6 @@ def _career_panel_v27(info, stats, colour):
     )
 
 
-def render_driver_comparison_centre():
-    """Pure career comparison: no session/timing/position data is rendered."""
-    render_page_header(
-        'Pilot Karşılaştırma',
-        'İki sürücünün kariyer istatistiklerini tek HUD üzerinde karşılaştır. Bu sayfada seans, tur zamanı veya yarış sırası kullanılmaz.',
-        '#a78bfa',
-    )
-    driver_rows = []
-    for team_name, team in TEAM_DIRECTORY_2026.items():
-        for name, code, number, image_path in team.get('drivers', []):
-            driver_rows.append({
-                'name': name, 'code': code, 'number': number,
-                'image': image_path, 'team': team_name,
-            })
-    driver_rows.sort(key=lambda row: row['name'].casefold())
-    if len(driver_rows) < 2:
-        st.info('Karşılaştırma için en az iki sürücü gerekli.')
-        return
-    labels = {row['code']: f"{row['name']} — {row['team']}" for row in driver_rows}
-    codes = [row['code'] for row in driver_rows]
-    default_a = codes.index('NOR') if 'NOR' in codes else 0
-    default_b = codes.index('VER') if 'VER' in codes else 1
-    select_a, select_b = st.columns(2)
-    with select_a:
-        code_a = st.selectbox('Birinci pilot', codes, index=default_a, format_func=lambda code: labels[code], key='career_compare_a_v27')
-    with select_b:
-        code_b = st.selectbox('İkinci pilot', codes, index=default_b, format_func=lambda code: labels[code], key='career_compare_b_v27')
-    if code_a == code_b:
-        st.warning('Karşılaştırma için iki farklı pilot seç.')
-        return
-    info_a = next(row for row in driver_rows if row['code'] == code_a)
-    info_b = next(row for row in driver_rows if row['code'] == code_b)
-    with st.spinner('Kariyer kayıtları doğrulanıyor...'):
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_a = executor.submit(get_driver_career_stats_v27, code_a)
-            future_b = executor.submit(get_driver_career_stats_v27, code_b)
-            stats_a, stats_b = future_a.result(), future_b.result()
-    wins_a = stats_a.get('wins')
-    wins_b = stats_b.get('wins')
-    leader = (
-        info_a['name'] if wins_a is not None and wins_b is not None and wins_a > wins_b
-        else info_b['name'] if wins_a is not None and wins_b is not None and wins_b > wins_a
-        else 'Eşit / doğrulanıyor'
-    )
-    summary = st.columns(3)
-    summaries = [
-        ('KARİYER MODU', 'Seans verisi yok', '#7dd3fc'),
-        ('GALİBİYET LİDERİ', leader, '#2ee6c9'),
-        ('VERİ DURUMU', 'Doğrulandı' if stats_a.get('verified') and stats_b.get('verified') else 'Kaynak bekleniyor', '#f7c948'),
-    ]
-    for column, (label, value, colour) in zip(summary, summaries):
-        with column:
-            st.markdown(
-                f"<div class='hud-card compare-mini' style='border-top:4px solid {colour}'><div class='hud-label'>{label}</div><div class='hud-value' style='font-size:1.12rem'>{html_lib.escape(value)}</div></div>",
-                unsafe_allow_html=True,
-            )
-    left, right = st.columns(2)
-    with left:
-        st.markdown(_career_panel_v27(info_a, stats_a, team_colour(info_a['team'])), unsafe_allow_html=True)
-    with right:
-        st.markdown(_career_panel_v27(info_b, stats_b, team_colour(info_b['team'])), unsafe_allow_html=True)
-    st.caption('Kariyer istatistikleri, seans tablosundan değil tarihî yarış kayıtlarından gelir. Veri kaynağı geçici olarak ulaşılamazsa değer uydurulmaz; “—” görünür.')
 
 
 st.markdown(r"""
