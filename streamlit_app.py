@@ -50,12 +50,6 @@ def log_data_error(context, error):
     LOGGER.warning("%s | %s | %s", context, type(error).__name__, str(error)[:420])
 
 
-def _legacy_render_html_hud(markup, height=150, scrolling=False):
-    """Yeni Streamlit iframe API'si; eski sürümde güvenli uyumluluk geri dönüşü."""
-    if hasattr(st, 'iframe'):
-        # st.iframe, HTML metnini doğrudan destekler; yeni API'de scrolling parametresi yoktur.
-        return st.iframe(markup, height=height)
-    return components.html(markup, height=height, scrolling=scrolling)
 
 # Streamlit ayarı, dosyadaki ilk Streamlit çağrısından önce olmak zorunda.
 def current_paddock_theme():
@@ -651,17 +645,6 @@ def build_strategy_from_laps(laps):
     return pd.DataFrame(rows)
 
 # 6. LASTİK ROZETİ (HTML)
-def get_tyre_html(compound):
-    comp = str(compound).upper() if pd.notnull(compound) else "SOFT"
-    tyre_colors = {
-        "SOFT": {"border": "#FF1801", "text": "#FF1801", "letter": "S"},
-        "MEDIUM": {"border": "#FFE11A", "text": "#FFE11A", "letter": "M"},
-        "HARD": {"border": "#FFFFFF", "text": "#FFFFFF", "letter": "H"},
-        "INTERMEDIATE": {"border": "#39B54A", "text": "#39B54A", "letter": "I"},
-        "WET": {"border": "#00AEEF", "text": "#00AEEF", "letter": "W"}
-    }
-    tc = tyre_colors.get(comp, tyre_colors["SOFT"])
-    return f"""<span style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#000; border:2px solid {tc['border']}; color:{tc['text']}; font-weight:900; font-size:11px; font-family:sans-serif; margin-left:6px;" title="{comp} Tyre">{tc['letter']}</span>"""
 
 # 7. DRIVER RENK VERİSİ
 DRIVER_TEAMS = {
@@ -957,48 +940,6 @@ def junior_team_car(series, team_name):
     )
 
 
-def _legacy_render_junior_team_hud(series, grid, accent, official_base):
-    """F2/F3 için takım seçilebilen, logo ve güncel pilot görselli HUD."""
-    state_key = f'{series}_team_focus'
-    teams = list(grid.keys())
-    if state_key not in st.session_state:
-        st.session_state[state_key] = teams[0]
-    for start in range(0, len(teams), 3):
-        columns = st.columns(3)
-        for column, team_name in zip(columns, teams[start:start + 3]):
-            drivers = grid[team_name].split(' • ')
-            with column:
-                with st.container(border=True):
-                    st.markdown(f"<div style='height:3px;background:{accent};border-radius:6px;margin:-2px -2px 10px'></div>", unsafe_allow_html=True)
-                    st.image(junior_team_logo(series, team_name), width=78)
-                    if st.button(team_name, key=f'{series}_{team_name}', use_container_width=True):
-                        st.session_state[state_key] = team_name
-                        st.rerun()
-                    st.caption(' • '.join(drivers))
-
-    selected_team = st.session_state[state_key]
-    selected_drivers = grid[selected_team].split(' • ')
-    team_slug = JUNIOR_TEAM_SLUGS.get(selected_team, re.sub(r'[^a-z0-9]', '', selected_team.lower()))
-    st.markdown('---')
-    logo_column, copy_column, action_column = st.columns([.7, 2.4, 1.2])
-    with logo_column:
-        st.image(junior_team_logo(series, selected_team), width=110)
-    with copy_column:
-        st.markdown(f"<div class='hud-label'>{series.upper()} // 2026 TEAM DOSYASI</div><div style='font-size:1.7rem;font-weight:900'>{selected_team}</div><div class='history-copy' style='margin-top:6px'>Resmî 2026 kadrosu. Pilot kartları takım seçimine göre güncellenir.</div>", unsafe_allow_html=True)
-    with action_column:
-        st.link_button('Resmî takım profili ↗', f'{official_base}/en/teams/{team_slug}', use_container_width=True)
-
-    driver_columns = st.columns(len(selected_drivers))
-    for column, driver_name in zip(driver_columns, selected_drivers):
-        with column:
-            portrait = junior_driver_portrait(series, selected_team, driver_name)
-            st.markdown(
-                f"<div class='hud-card' style='border-top:3px solid {accent};text-align:center;min-height:260px'>"
-                f"<img src='{portrait}' style='height:175px;max-width:100%;object-fit:contain' onerror=\"this.style.display='none'\">"
-                f"<div style='font-weight:900;font-size:1rem;margin-top:7px'>{driver_name}</div>"
-                f"<div class='driver-meta'>{selected_team} • 2026</div></div>",
-                unsafe_allow_html=True
-            )
 
 def render_junior_team_hud_v19(series, grid, accent, official_base):
     """V19 F2/F3 görünümü: logo kartın içine sabitlenir, boş fotoğraf kartı bırakmaz."""
@@ -1500,17 +1441,6 @@ def points_value(value):
         return 0.0
 
 
-def format_points(value):
-    """18.0 yerine 18; gerektiğinde 0.5 gibi gerçek yarım puanı korur."""
-    try:
-        number = float(value)
-        if not np.isfinite(number):
-            return '—'
-        if number.is_integer():
-            return str(int(number))
-        return f"{number:.2f}".rstrip('0').rstrip('.')
-    except (TypeError, ValueError):
-        return '—' if value is None or pd.isna(value) else str(value)
 
 
 def format_finish_position(value):
@@ -1537,113 +1467,6 @@ def clean_position_value(value):
     return text if text else '—'
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_championship_data(year):
-    """Tamamlanan yarış ve sprintlerin gerçek FastF1 sonuçlarından puan merkezi üretir."""
-    now = datetime.datetime.now(datetime.timezone.utc)
-    schedule = get_calendar_details(int(year))
-    completed_events = []
-    driver_totals = {}
-    team_totals = {}
-    per_driver_round = {}
-
-    for event in schedule:
-        race_date = event.get('Session5DateUtc')
-        if pd.isnull(race_date):
-            continue
-        race_time = pd.to_datetime(race_date)
-        race_time = race_time.tz_localize('UTC') if race_time.tzinfo is None else race_time.tz_convert('UTC')
-        if race_time + datetime.timedelta(hours=3) > now:
-            continue
-
-        event_name = str(event.get('EventName', ''))
-        if not event_name:
-            continue
-        round_info = {
-            'event_name': event_name,
-            'badge': round_badge(event),
-            'key': round_key(event),
-            'country_code': COUNTRY_CODES.get(str(event.get('Country', '')), 'un'),
-            'has_sprint': False,
-        }
-        event_results = {}
-
-        try:
-            race_session = fastf1.get_session(int(year), event_name, 'R')
-            # Puan Merkezi telemetri ya da tur verisi istemez. Bu ayar ilk
-            # girişte indirilen veriyi dramatik biçimde küçültür.
-            race_session.load(laps=False, telemetry=False, weather=False, messages=False)
-            race_results = race_session.results
-            if race_results is None or race_results.empty:
-                continue
-            for _, row in race_results.iterrows():
-                code = str(row.get('Abbreviation', '')).strip()
-                if not code or code == 'nan':
-                    continue
-                position = row.get('Position')
-                position_text = str(int(float(position))) if pd.notnull(position) else 'DNF'
-                team = str(row.get('TeamName', '—')).strip()
-                points = points_value(row.get('Points', 0))
-                event_results[code] = {'race': position_text, 'sprint': '', 'team': team}
-                driver_totals.setdefault(code, {'Pilot': code, 'Takım': team, 'Puan': 0.0})
-                driver_totals[code]['Puan'] += points
-                team_totals[team] = team_totals.get(team, 0.0) + points
-        except Exception:
-            continue
-
-        # Sprint olmayan yarışlarda hata vermeden boş kalır; olanlarda R / S görünür.
-        try:
-            sprint_session = fastf1.get_session(int(year), event_name, 'S')
-            sprint_session.load(laps=False, telemetry=False, weather=False, messages=False)
-            sprint_results = sprint_session.results
-            if sprint_results is not None and not sprint_results.empty:
-                event_has_sprint = False
-                for _, row in sprint_results.iterrows():
-                    code = str(row.get('Abbreviation', '')).strip()
-                    if not code or code == 'nan':
-                        continue
-                    position = row.get('Position')
-                    if code not in event_results:
-                        continue
-                    event_results[code]['sprint'] = str(int(float(position))) if pd.notnull(position) else 'DNF'
-                    points = points_value(row.get('Points', 0))
-                    driver_totals[code]['Puan'] += points
-                    team = event_results[code]['team']
-                    team_totals[team] = team_totals.get(team, 0.0) + points
-                    event_has_sprint = True
-                round_info['has_sprint'] = event_has_sprint
-        except Exception:
-            pass
-
-        for code, result in event_results.items():
-            per_driver_round.setdefault(code, {})[event_name] = result
-        completed_events.append(round_info)
-
-    driver_rows = sorted(driver_totals.values(), key=lambda row: (-row['Puan'], row['Pilot']))
-    for index, row in enumerate(driver_rows, start=1):
-        row['Sıra'] = index
-        row['Puan'] = int(row['Puan']) if float(row['Puan']).is_integer() else round(row['Puan'], 1)
-
-    team_rows = [{'Takım': team, 'Puan': int(points) if float(points).is_integer() else round(points, 1)} for team, points in team_totals.items()]
-    team_rows.sort(key=lambda row: (-row['Puan'], row['Takım']))
-    for index, row in enumerate(team_rows, start=1):
-        row['Sıra'] = index
-
-    matrix_rows = []
-    for row in driver_rows:
-        code = row['Pilot']
-        matrix_row = {'Pilot': code, 'Takım': row['Takım'], 'Puan': row['Puan']}
-        for event in completed_events:
-            result = per_driver_round.get(code, {}).get(event['event_name'])
-            if not result:
-                matrix_row[event['key']] = '—'
-            elif event['has_sprint']:
-                matrix_row[event['key']] = f"{result['race']} / {result['sprint'] or '—'}"
-            else:
-                matrix_row[event['key']] = result['race']
-        matrix_rows.append(matrix_row)
-
-    return pd.DataFrame(driver_rows), pd.DataFrame(team_rows), pd.DataFrame(matrix_rows), completed_events
 
 
 @st.cache_data(ttl=21600, show_spinner=False)
@@ -2022,49 +1845,6 @@ def leaderboard_component_height(table):
     return min(1540, max(360, 210 + max(0, row_count - 3) * 54))
 
 
-def _duel_samples(telemetry, sample_count=360):
-    """Telemetriyi 2D düello animasyonu için iki senkron biçime dönüştürür."""
-    columns = ['X', 'Y', 'Distance', 'Speed', 'Time']
-    source = telemetry[[column for column in columns if column in telemetry.columns]].dropna(subset=['X', 'Y']).copy()
-    if source.empty:
-        return {'distance': [], 'realtime': [], 'lap_seconds': 0}
-
-    source['Distance'] = pd.to_numeric(source.get('Distance', pd.Series(np.arange(len(source)))), errors='coerce')
-    source['Speed'] = pd.to_numeric(source.get('Speed', pd.Series(np.zeros(len(source)))), errors='coerce').fillna(0)
-    source = source.dropna(subset=['Distance']).sort_values('Distance').drop_duplicates('Distance')
-    if len(source) < 2:
-        return {'distance': [], 'realtime': [], 'lap_seconds': 0}
-
-    distance_grid = np.linspace(float(source['Distance'].min()), float(source['Distance'].max()), sample_count)
-    distance_points = [
-        {
-            'x': round(float(np.interp(value, source['Distance'], source['X'])), 2),
-            'y': round(float(np.interp(value, source['Distance'], source['Y'])), 2),
-            'speed': round(float(np.interp(value, source['Distance'], source['Speed'])), 1)
-        }
-        for value in distance_grid
-    ]
-
-    try:
-        elapsed = (pd.to_timedelta(source['Time']) - pd.to_timedelta(source['Time']).iloc[0]).dt.total_seconds()
-        duration = float(elapsed.iloc[-1])
-        if duration <= 0:
-            raise ValueError('Sıfır tur süresi')
-        time_source = source.assign(_elapsed=elapsed).sort_values('_elapsed').drop_duplicates('_elapsed')
-        time_grid = np.linspace(0, duration, sample_count)
-        realtime_points = [
-            {
-                'x': round(float(np.interp(value, time_source['_elapsed'], time_source['X'])), 2),
-                'y': round(float(np.interp(value, time_source['_elapsed'], time_source['Y'])), 2),
-                'speed': round(float(np.interp(value, time_source['_elapsed'], time_source['Speed'])), 1)
-            }
-            for value in time_grid
-        ]
-    except Exception:
-        duration = 0.0
-        realtime_points = distance_points
-
-    return {'distance': distance_points, 'realtime': realtime_points, 'lap_seconds': round(duration, 3)}
 
 
 def _duel_samples_v18(telemetry, sample_count=360):
@@ -2228,114 +2008,8 @@ def build_track_overlay(telemetry, lap=None, session=None):
         return empty
 
 
-def two_driver_duel_html(telemetry_1, telemetry_2, driver_1, driver_2, colour_1, colour_2, lap_time_1, lap_time_2):
-    """İki en hızlı turun 2D HUD animasyonunu üretir; sunucuya tekrar veri yüklemez."""
-    payload = {
-        'drivers': [
-            {'code': str(driver_1), 'colour': colour_1, 'lap': str(lap_time_1), 'samples': _duel_samples(telemetry_1)},
-            {'code': str(driver_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': _duel_samples(telemetry_2)}
-        ]
-    }
-    payload_json = fp_ui.json_for_script(payload)
-    return f"""
-    <style>
-      *{{box-sizing:border-box}} body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}
-      .hud{{border:1px solid #2c3d55;border-radius:14px;background:linear-gradient(135deg,#11161f,#0b111c);padding:14px}}
-      .bar{{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}}
-      .title{{font-size:13px;font-weight:900;letter-spacing:.1em}} .sub{{font-size:11px;color:#91a4ba;margin-top:4px}}
-      .driver{{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid #2e4058;border-radius:7px;background:#101725;font-size:12px;font-weight:900}}
-      .dot{{width:9px;height:9px;border-radius:50%;background:var(--team);box-shadow:0 0 10px var(--team)}}
-      canvas{{display:block;width:100%;height:455px;border:1px solid #26374f;border-radius:10px;background:radial-gradient(circle at 50% 40%,#141f31,#07090d 70%)}}
-      .controls{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:11px}} button{{color:#f2f5f8;background:#172235;border:1px solid #344760;border-radius:7px;padding:7px 10px;font-weight:800;cursor:pointer}} button.active{{border-color:#fb4b56;color:#fff;background:#32171c}} .readout{{font-family:ui-monospace,Consolas,monospace;color:#a9bbcf;font-size:12px;margin-left:auto}}
-      @media(max-width:650px){{canvas{{height:350px}}.readout{{width:100%;margin-left:0}}}}
-    </style>
-    <div class='hud'>
-      <div class='bar'><div><div class='title'>2D TUR DÜELLOSU</div><div class='sub'>MESAFE SENKRONU: AYNI VİRAJDA KİM HIZLI? • GERÇEK ZAMAN: KİM ÖNDE?</div></div><div id='labels'></div></div>
-      <canvas id='duel-canvas'></canvas>
-      <div class='controls'><button id='play'>▶ Oynat</button><button id='mode' class='active'>⇄ Mesafeye göre</button><button id='speed'>1×</button><span class='readout' id='readout'>Veri hazırlanıyor</span></div>
-    </div>
-    <script>
-      const duel = {payload_json}; const drivers = duel.drivers; const canvas = document.getElementById('duel-canvas'); const ctx = canvas.getContext('2d');
-      let playing = false, mode = 'distance', rate = 1, progress = 0, last = null;
-      document.getElementById('labels').innerHTML = drivers.map(d => `<span class='driver'><i class='dot' style='--team:${{d.colour}}'></i>${{d.code}} · ${{d.lap}}</span>`).join('');
-      function resized(){{ const box=canvas.getBoundingClientRect(); const ratio=window.devicePixelRatio||1; canvas.width=box.width*ratio; canvas.height=box.height*ratio; ctx.setTransform(ratio,0,0,ratio,0,0); draw(); }}
-      function series(d){{return mode==='distance' ? d.samples.distance : d.samples.realtime;}}
-      function allPoints(){{return drivers.flatMap(d=>series(d));}}
-      function transform(){{ const pts=allPoints(); if(!pts.length)return {{x:0,y:0,s:1,w:canvas.clientWidth,h:canvas.clientHeight}}; const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y), minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys); const w=canvas.clientWidth,h=canvas.clientHeight,pad=34; const scale=Math.min((w-pad*2)/(maxX-minX||1),(h-pad*2)/(maxY-minY||1)); return {{x:minX,y:minY,s:scale,w,h}};}}
-      function xy(p,t){{return [((p.x-t.x)*t.s)+(t.w-(Math.max(...allPoints().map(q=>q.x))-t.x)*t.s)/2, ((Math.max(...allPoints().map(q=>q.y))-p.y)*t.s)+(t.h-(Math.max(...allPoints().map(q=>q.y))-t.y)*t.s)/2];}}
-      function interpolate(points,p){{ if(!points.length)return null; const index=Math.min(points.length-1,Math.max(0,p*(points.length-1))); const a=points[Math.floor(index)],b=points[Math.min(points.length-1,Math.ceil(index))],f=index-Math.floor(index); return {{x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,speed:a.speed+(b.speed-a.speed)*f}};}}
-      function drawPath(points,t,colour){{if(points.length<2)return;ctx.beginPath();points.forEach((p,i)=>{{const [x,y]=xy(p,t);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}});ctx.strokeStyle=colour;ctx.globalAlpha=.22;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1;}}
-      function draw(){{const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h); const t=transform(); drivers.forEach(d=>drawPath(series(d),t,'#98aabd')); drivers.forEach((d,i)=>{{const points=series(d);let p=progress;if(mode==='realtime'){{const max=Math.max(...drivers.map(x=>x.samples.lap_seconds||1));p=Math.min(1,progress*max/(d.samples.lap_seconds||max));}}const pos=interpolate(points,p);if(!pos)return;const [x,y]=xy(pos,t);ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle=d.colour;ctx.shadowColor=d.colour;ctx.shadowBlur=18;ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#07101a';ctx.font='bold 11px Arial';ctx.textAlign='center';ctx.fillText(d.code,x,y+4);}}); const shown=(progress*100).toFixed(1); document.getElementById('readout').textContent=`${{mode==='distance'?'Pist mesafesi':'Tur zamanı'}}: %${{shown}}  •  ${{rate}}×`;}}
-      function frame(now){{if(last===null)last=now;const delta=(now-last)/1000;last=now;if(playing){{progress+=delta*rate/Math.max(...drivers.map(d=>d.samples.lap_seconds||90),90);if(progress>=1){{progress=1;playing=false;document.getElementById('play').textContent='↺ Baştan';}}}}draw();requestAnimationFrame(frame);}}
-      document.getElementById('play').onclick=()=>{{if(progress>=1)progress=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat';}};
-      document.getElementById('mode').onclick=()=>{{mode=mode==='distance'?'realtime':'distance';document.getElementById('mode').textContent=mode==='distance'?'⇄ Mesafeye göre':'◷ Gerçek zaman';document.getElementById('mode').classList.toggle('active',mode==='distance');progress=0;draw();}};
-      document.getElementById('speed').onclick=()=>{{rate=rate===1?2:rate===2?4:1;document.getElementById('speed').textContent=rate+'×';}}; window.addEventListener('resize',resized); resized();requestAnimationFrame(frame);
-    </script>
-    """
 
 
-def two_driver_duel_html_v9(telemetry_1, telemetry_2, driver_1, driver_2, team_1, team_2, colour_1, colour_2, lap_time_1, lap_time_2, lap_seconds_1, lap_seconds_2, track_overlay=None, sector_times_1=None, sector_times_2=None):
-    """Tur farkını gerçek zamanla gösteren; küçük F1 araçlı, taşmayan 2D HUD."""
-    first = _duel_samples_v18(telemetry_1)
-    second = _duel_samples_v18(telemetry_2)
-    first['lap_seconds'] = float(lap_seconds_1)
-    second['lap_seconds'] = float(lap_seconds_2)
-    payload = fp_ui.json_for_script({
-        'drivers': [
-            {'code': str(driver_1), 'team': str(team_1), 'colour': colour_1, 'lap': str(lap_time_1), 'samples': first, 'sectors': sector_times_1 or []},
-            {'code': str(driver_2), 'team': str(team_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': second, 'sectors': sector_times_2 or []}
-        ],
-        'overlay': track_overlay or {}
-    })
-    return """
-    <style>
-      *{box-sizing:border-box} body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-      .hud{border:1px solid #2d405a;border-radius:13px;background:linear-gradient(135deg,#11161f,#0a1019);padding:12px}
-      .top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}.title{font-size:12px;font-weight:950;letter-spacing:.1em}.sub{font-size:10px;color:#90a4ba;margin-top:4px}
-      .drivers{display:flex;gap:7px;flex-wrap:wrap}.driver{border:1px solid #31445e;background:#111a28;border-radius:7px;padding:5px 8px;font-size:11px;font-weight:900;color:var(--team)}.driver small{color:#a8b8ca;margin-left:4px;font-weight:700}
-      .map{border:1px solid #263950;border-radius:10px;background:radial-gradient(circle at 50% 45%,#142035,#07090d 72%);overflow:hidden}.map canvas{display:block;width:100%;height:398px}
-      .bottom{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn{border:1px solid #344a66;background:#162235;border-radius:7px;color:#f2f5f8;padding:7px 10px;font-weight:850;font-size:11px;cursor:pointer}.btn.active{border-color:#f04c55;background:#35191e}.gap{font-family:ui-monospace,Consolas,monospace;color:#f5f8fc;font-weight:900;font-size:12px;margin-left:auto}.timeline{width:100%;accent-color:#e10600;margin-top:7px}@media(max-width:650px){.map canvas{height:335px}.gap{width:100%;margin-left:0}}
-    </style>
-    <div class='hud'>
-      <div class='top'><div><div class='title'>2D TUR DÜELLOSU</div><div class='sub'>GERÇEK ZAMAN: FARKI GÖR • MESAFE: AYNI VİRAJDAKİ HIZI KARŞILAŞTIR</div></div><div class='drivers' id='drivers'></div></div>
-      <div class='map'><canvas id='duel'></canvas></div>
-      <input id='timeline' class='timeline' type='range' min='0' max='1000' value='0' aria-label='Tur zaman çizgisi'>
-      <div class='bottom'><button class='btn' id='play'>▶ Oynat</button><button class='btn active' id='mode'>◷ Gerçek zaman</button><button class='btn' id='speed'>1×</button><span class='gap' id='gap'>Fark hesaplanıyor…</span></div>
-    </div>
-    <script>
-      const duel=__DUEL_PAYLOAD__, drivers=duel.drivers, canvas=document.getElementById('duel'), ctx=canvas.getContext('2d'),overlay=duel.overlay||{};
-      let playing=false, mode='realtime', rate=1, progress=0, last=null,overlayMode='combined';
-      const duelStyle=document.createElement('style');duelStyle.textContent='.sector-hud{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.sector-card{border:1px solid #344b67;border-top:3px solid var(--sector);border-radius:8px;background:#101a29;padding:8px 10px}.sector-title{font-size:10px;font-weight:950;letter-spacing:.08em;color:#9eb4ca}.sector-line{display:flex;justify-content:space-between;gap:7px;margin-top:5px;font:800 11px ui-monospace,Consolas,monospace}.sector-delta{margin-top:5px;font:900 11px ui-monospace,Consolas,monospace;color:#9eb4ca}.winner{color:#79e7a7}.loser{color:#ff8793}@media(max-width:650px){.sector-hud{grid-template-columns:1fr}}';document.head.appendChild(duelStyle);
-      const maxLap=Math.max(...drivers.map(d=>d.samples.lap_seconds||1));
-      const fastest=drivers.reduce((a,b)=>a.samples.lap_seconds<=b.samples.lap_seconds?a:b); const delta=Math.abs(drivers[0].samples.lap_seconds-drivers[1].samples.lap_seconds);
-      document.getElementById('drivers').innerHTML=drivers.map(d=>`<span class='driver' style='--team:${d.colour}'>🏎 ${d.code}<small>${d.team} · ${d.lap}</small></span>`).join('');
-      canvas.insertAdjacentHTML('afterend','<div class="sector-hud" id="sector-hud"></div>');
-      function timeSeconds(value){const parts=String(value||'').split(':');if(parts.length!==2)return null;const minutes=Number(parts[0]),seconds=Number(parts[1]);return Number.isFinite(minutes)&&Number.isFinite(seconds)?minutes*60+seconds:null}
-      function renderSectors(){const host=document.getElementById('sector-hud');host.innerHTML=[0,1,2].map(index=>{const a=drivers[0].sectors?.[index]||'—',b=drivers[1].sectors?.[index]||'—',ta=timeSeconds(a),tb=timeSeconds(b),diff=ta!==null&&tb!==null?ta-tb:null,ahead=diff===null?'':diff<0?drivers[0].code:diff>0?drivers[1].code:'EŞİT',delta=diff===null?'Veri yok':`${diff<=0?'':'+'}${diff.toFixed(3)} sn`;return `<div class="sector-card" style="--sector:${index===0?'#f4d35e':index===1?'#56cfe1':'#ff7a9f'}"><div class="sector-title">SEKTÖR ${index+1} · ${ahead||'—'}</div><div class="sector-line"><span>${drivers[0].code}</span><b class="${diff!==null&&diff<=0?'winner':'loser'}">${a}</b></div><div class="sector-line"><span>${drivers[1].code}</span><b class="${diff!==null&&diff>=0?'winner':'loser'}">${b}</b></div><div class="sector-delta">Δ ${delta}</div></div>`}).join('')}
-      renderSectors();
-      function samples(d){return mode==='distance'?d.samples.distance:d.samples.realtime}
-      function all(){return drivers.flatMap(d=>samples(d))}
-      function project(p,rotate){return rotate?{x:-p.y,y:p.x}:p}
-      function transform(){const raw=all();if(!raw.length)return null;const xs=raw.map(p=>p.x),ys=raw.map(p=>p.y);const wide=(canvas.clientWidth/canvas.clientHeight)>1.35;const tall=(Math.max(...ys)-Math.min(...ys))>(Math.max(...xs)-Math.min(...xs));const rotate=wide&&tall;const ps=raw.map(p=>project(p,rotate)),px=ps.map(p=>p.x),py=ps.map(p=>p.y),minX=Math.min(...px),maxX=Math.max(...px),minY=Math.min(...py),maxY=Math.max(...py),pad=28,w=canvas.clientWidth,h=canvas.clientHeight,s=Math.min((w-pad*2)/(maxX-minX||1),(h-pad*2)/(maxY-minY||1));return{rotate,minX,maxX,minY,maxY,w,h,s}}
-      function xy(p,t){const q=project(p,t.rotate);return [((q.x-t.minX)*t.s)+(t.w-(t.maxX-t.minX)*t.s)/2,((t.maxY-q.y)*t.s)+(t.h-(t.maxY-t.minY)*t.s)/2]}
-      function at(points,p){if(!points.length)return null;const n=Math.min(points.length-1,Math.max(0,p*(points.length-1))),a=points[Math.floor(n)],b=points[Math.min(points.length-1,Math.ceil(n))],f=n-Math.floor(n);return{x:a.x+(b.x-a.x)*f,y:a.y+(b.y-a.y)*f,speed:a.speed+(b.speed-a.speed)*f}}
-      function advance(d){return mode==='distance'?progress:Math.min(1,progress*maxLap/(d.samples.lap_seconds||maxLap))}
-      function car(x,y,angle,colour,code,finished){ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.globalAlpha=finished?.52:1;ctx.fillStyle='#050a10';ctx.fillRect(-8,-8,4,16);ctx.fillRect(6,-9,4,18);ctx.fillStyle=colour;ctx.fillRect(-5,-4,14,8);ctx.fillRect(7,-2,7,4);ctx.fillRect(10,-8,3,16);ctx.fillStyle='#e8f4ff';ctx.fillRect(0,-1,5,2);ctx.restore();ctx.globalAlpha=1;ctx.fillStyle=colour;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-15)}
-      function drawLine(points,t){if(points.length<2)return;ctx.beginPath();points.forEach((p,i)=>{const [x,y]=xy(p,t);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#708196';ctx.globalAlpha=.42;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1}
-      function featureMarker(point,t,label,colour){if(!point)return;const [x,y]=xy(point,t);ctx.fillStyle=colour;ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2f5f8';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText(label,x+6,y-6)}
-      function featureZone(points,start,end,t,colour,label){if(!points.length)return;const from=Math.max(0,Math.floor(start*(points.length-1))),to=Math.min(points.length-1,Math.ceil(end*(points.length-1)));ctx.beginPath();for(let i=from;i<=to;i++){const [x,y]=xy(points[i],t);i===from?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.strokeStyle=colour;ctx.globalAlpha=.9;ctx.lineWidth=6;ctx.stroke();ctx.globalAlpha=1;featureMarker(points[from],t,label,colour)}
-      function drawOverlay(t){const route=drivers[0]?.samples?.distance||[];if(!route.length)return;if(overlayMode==='attack'){(overlay.straights||[]).forEach((zone,index)=>featureZone(route,zone.start,zone.end,t,index?'#45c8ff':'#71e6a1',index?'Straight':'Overtake olasiligi'));return}featureMarker(route[0],t,'START / FINISH','#ffffff');(overlay.sectors||[]).forEach(item=>featureMarker(at(route,item.fraction),t,item.label,item.colour||'#f4d35e'));(overlay.pit||[]).forEach(item=>featureMarker(at(route,item.fraction),t,item.label,'#b79cff'));(overlay.corners||[]).forEach(item=>featureMarker(at(route,item.fraction),t,item.label,'#8ca2bb'));(overlay.brakes||[]).forEach(item=>featureMarker(at(route,item.fraction),t,'BRAKE','#ff6b6b'));if(overlay.speed_marker)featureMarker(at(route,overlay.speed_marker.fraction),t,'TOP '+overlay.speed_marker.speed,'#5ddcff')}
-      function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);const t=transform();if(!t){ctx.fillStyle='#9badbf';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText('Geçerli telemetri verisi yok',w/2,h/2);return}drawLine(samples(drivers[0]),t);drivers.forEach((d,i)=>{const pts=samples(d),p=advance(d),here=at(pts,p),next=at(pts,Math.min(1,p+.004));if(!here||!next)return;let [x,y]=xy(here,t),[nx,ny]=xy(next,t);let angle=Math.atan2(ny-y,nx-x);if(mode==='distance'&&i===1){x+=Math.cos(angle+Math.PI/2)*7;y+=Math.sin(angle+Math.PI/2)*7}car(x,y,angle,d.colour,d.code,p>=.999);});const percent=Math.round(progress*100);document.getElementById('timeline').value=Math.round(progress*1000);document.getElementById('gap').textContent=`Δ ${delta.toFixed(3)} sn • ${fastest.code} önde • %${percent}`}
-      function drawOverlay(t){const route=drivers[0]?.samples?.distance||[];if(!route.length)return;(overlay.straights||[]).forEach((zone,index)=>featureZone(route,zone.start,zone.end,t,index?'#45c8ff':'#71e6a1',index?'Straight':'Overtake'));featureMarker(route[0],t,'START / FINISH','#ffffff');(overlay.sectors||[]).forEach(item=>featureMarker(at(route,item.fraction),t,item.label,item.colour||'#f4d35e'));(overlay.pit||[]).forEach(item=>featureMarker(at(route,item.fraction),t,item.label,'#b79cff'));(overlay.corners||[]).forEach(item=>featureMarker(at(route,item.fraction),t,item.label,'#8ca2bb'));(overlay.brakes||[]).forEach(item=>featureMarker(at(route,item.fraction),t,'BRAKE','#ff6b6b'));if(overlay.speed_marker)featureMarker(at(route,overlay.speed_marker.fraction),t,'TOP '+overlay.speed_marker.speed,'#5ddcff')}
-      function currentDelta(){const reference=mode==='distance'?progress:Math.min(advance(drivers[0]),advance(drivers[1])),a=at(drivers[0].samples.distance,reference),b=at(drivers[1].samples.distance,reference);if(!a||!b||!Number.isFinite(a.elapsed)||!Number.isFinite(b.elapsed))return null;const raw=a.elapsed-b.elapsed;return{value:Math.abs(raw),ahead:raw<0?drivers[0].code:raw>0?drivers[1].code:'EQUAL'}}
-      function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);const t=transform();if(!t){ctx.fillStyle='#9badbf';ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.fillText('Telemetri verisi yok',w/2,h/2);return}drawLine(samples(drivers[0]),t);drawOverlay(t);drivers.forEach((d,i)=>{const pts=samples(d),p=advance(d),here=at(pts,p),next=at(pts,Math.min(1,p+.004));if(!here||!next)return;let [x,y]=xy(here,t),[nx,ny]=xy(next,t);let angle=Math.atan2(ny-y,nx-x);if(mode==='distance'&&i===1){x+=Math.cos(angle+Math.PI/2)*7;y+=Math.sin(angle+Math.PI/2)*7}car(x,y,angle,d.colour,d.code,p>=.999)});const percent=Math.round(progress*100),live=currentDelta();document.getElementById('timeline').value=Math.round(progress*1000);document.getElementById('gap').textContent=live?`Anlık Delta ${live.value.toFixed(3)} sn · ${live.ahead} önde · %${percent}`:`Tur Farkı ${delta.toFixed(3)} sn · ${fastest.code} önde · %${percent}`}
-      function resize(){const b=canvas.getBoundingClientRect(),r=devicePixelRatio||1;canvas.width=b.width*r;canvas.height=b.height*r;ctx.setTransform(r,0,0,r,0,0);draw()}
-      function frame(now){if(last===null)last=now;const dt=(now-last)/1000;last=now;if(playing){progress+=dt*rate/maxLap;if(progress>=1){progress=1;playing=false;document.getElementById('play').textContent='↺ Baştan'}}draw();requestAnimationFrame(frame)}
-      document.getElementById('play').onclick=()=>{if(progress>=1)progress=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};
-      document.getElementById('mode').onclick=()=>{mode=mode==='realtime'?'distance':'realtime';const b=document.getElementById('mode');b.textContent=mode==='realtime'?'◷ Gerçek zaman':'⇄ Mesafeye göre';b.classList.toggle('active',mode==='realtime');progress=0;draw()};
-      document.getElementById('speed').onclick=()=>{rate=rate===1?2:rate===2?4:1;document.getElementById('speed').textContent=rate+'×'};document.getElementById('timeline').oninput=e=>{progress=Number(e.target.value)/1000;playing=false;document.getElementById('play').textContent='▶ Oynat';draw()};window.addEventListener('resize',resize);resize();requestAnimationFrame(frame);
-    </script>
-    """.replace('__DUEL_PAYLOAD__', payload)
 
 
 def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, team_1, team_2, colour_1, colour_2, lap_time_1, lap_time_2, lap_seconds_1, lap_seconds_2, track_overlay=None, sector_times_1=None, sector_times_2=None):
@@ -2361,40 +2035,8 @@ def two_driver_duel_html_repaired(*args, **kwargs):
     markup = markup.replace("function draw(){if(!view)return;", overlay + "function draw(){if(!view)return;")
     markup = markup.replace("ctx.globalAlpha=1;drivers.forEach(d=>{const a=advance(d)", "ctx.globalAlpha=1;drawOverlay();drivers.forEach(d=>{const a=advance(d)")
     return markup
-def hammer_time_soundboard_html():
-    """Kullanıcının lisanslı sesini veya nötr tarayıcı sesini açan ses butonu."""
-    audio_path = os.path.join(assets_dir, 'hammer_time.mp3')
-    audio_source = ''
-    if os.path.exists(audio_path):
-        try:
-            audio_source = 'data:audio/mpeg;base64,' + base64.b64encode(open(audio_path, 'rb').read()).decode('ascii')
-        except Exception:
-            audio_source = ''
-    source_json = json.dumps(audio_source)
-    return f"""
-    <style>body{{margin:0;background:transparent;font-family:Inter,Segoe UI,Arial,sans-serif}}.sound{{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #34445d;background:#111a29;border-radius:10px;color:#f2f5f8}}.label{{font-size:12px;font-weight:900;letter-spacing:.07em}}.small{{font-size:11px;color:#91a4ba;margin-top:4px}}button{{background:#e10600;color:white;border:0;border-radius:7px;padding:9px 13px;font-weight:900;cursor:pointer;white-space:nowrap}}</style>
-    <div class='sound'><div><div class='label'>🔊 PADDOCK SOUNDBOARD</div><div class='small'>Nötr tarayıcı sesi; lisanslı MP3 eklendiğinde onu çalar.</div></div><button id='hammer'>HAMMER TIME</button></div>
-    <script>const src={source_json};document.getElementById('hammer').onclick=()=>{{if(src){{const a=new Audio(src);a.play();}}else if('speechSynthesis' in window){{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance("Okay Lewis, it's hammer time.");u.lang='en-GB';u.rate=.96;speechSynthesis.speak(u);}}}};</script>
-    """
 
 
-def live_track_html():
-    """OpenF1'in tarayıcıdan canlı konum akışını kullanan deneysel 2D takip HUD'u."""
-    return """
-    <style>
-      *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2c3d55;border-radius:14px;background:linear-gradient(135deg,#11161f,#0b111c);padding:14px}.bar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-weight:900;letter-spacing:.1em;font-size:13px}.status{color:#7dd3fc;font-weight:800;font-size:12px}.map{position:relative;margin-top:12px;border:1px solid #26374f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#152237,#07090d 70%)}canvas{width:100%;height:470px;display:block}.legend{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}.driver{font-size:11px;font-weight:900;padding:5px 7px;border:1px solid #30415a;border-radius:6px;background:#11161f}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--colour);margin-right:5px}.note{font-size:11px;color:#91a4ba;margin-top:9px}
-    </style>
-    <div class='hud'><div class='bar'><div><div class='title'>LIVE 2D TRACKER • BETA</div><div class='note'>Canlı seans sırasında OpenF1 konum akışıyla güncellenir. Video yayını değildir.</div></div><div class='status' id='status'>Bağlantı kuruluyor…</div></div><div class='map'><canvas id='live-map'></canvas></div><div class='legend' id='legend'></div></div>
-    <script>
-      const api='https://api.openf1.org/v1/', canvas=document.getElementById('live-map'),ctx=canvas.getContext('2d');let cars={{}},trails={{}},meta={{}},busy=false;
-      const teamColours={{'mclaren':'#ff8000','ferrari':'#e8002d','mercedes':'#27f4d2','red bull racing':'#3671c6','red bull':'#3671c6','aston martin':'#229971','williams':'#64c4ff','alpine':'#ff87bc','haas f1 team':'#b6babd','racing bulls':'#6692ff','audi':'#52e252','cadillac':'#b8b8b8'}};
-      function colour(team){{return teamColours[(team||'').toLowerCase()]||'#e5eef8'}} function resize(){{const b=canvas.getBoundingClientRect(),r=devicePixelRatio||1;canvas.width=b.width*r;canvas.height=b.height*r;ctx.setTransform(r,0,0,r,0,0);draw();}}
-      function points(){{return Object.values(trails).flat().concat(Object.values(cars));}} function bounds(){{const p=points();if(!p.length)return null;const xs=p.map(x=>x.x),ys=p.map(x=>x.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=34,w=canvas.clientWidth,h=canvas.clientHeight,s=Math.min((w-pad*2)/(maxX-minX||1),(h-pad*2)/(maxY-minY||1));return{{minX,maxX,minY,maxY,pad,w,h,s}}}} function pos(p,b){{return [((p.x-b.minX)*b.s)+(b.w-(b.maxX-b.minX)*b.s)/2,((b.maxY-p.y)*b.s)+(b.h-(b.maxY-b.minY)*b.s)/2]}}
-      function draw(){{const b=bounds(),w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);if(!b){{ctx.fillStyle='#91a4ba';ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.fillText('Canlı konum verisi bekleniyor',w/2,h/2);return}}Object.entries(trails).forEach(([n,trail])=>{{if(trail.length<2)return;ctx.beginPath();trail.forEach((p,i)=>{{const [x,y]=pos(p,b);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}});ctx.strokeStyle=colour(meta[n]?.team_name);ctx.globalAlpha=.2;ctx.lineWidth=1.5;ctx.stroke();ctx.globalAlpha=1}});Object.entries(cars).forEach(([n,p])=>{{const [x,y]=pos(p,b),c=colour(meta[n]?.team_name);ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#06101a';ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(meta[n]?.name_acronym||n,x,y+3)}})}}
-      async function update(){{if(busy)return;busy=true;try{{const [locations,drivers]=await Promise.all([fetch(api+'location?session_key=latest').then(r=>r.ok?r.json():Promise.reject()),fetch(api+'drivers?session_key=latest').then(r=>r.ok?r.json():[]) ]);drivers.forEach(d=>meta[d.driver_number]=d);const last={{}};locations.forEach(p=>last[p.driver_number]=p);Object.entries(last).forEach(([n,p])=>{{const point={{x:+p.x,y:+p.y}};cars[n]=point;trails[n]=trails[n]||[];const previous=trails[n][trails[n].length-1];if(!previous||Math.hypot(previous.x-point.x,previous.y-point.y)>1)trails[n].push(point);if(trails[n].length>380)trails[n].shift();}});document.getElementById('status').textContent=`● ${{Object.keys(cars).length}} araç • canlı güncelleme`;document.getElementById('legend').innerHTML=Object.keys(cars).sort((a,b)=>+a-+b).map(n=>`<span class='driver'><i class='dot' style='--colour:${{colour(meta[n]?.team_name)}}'></i>${{meta[n]?.name_acronym||'#'+n}}</span>`).join('');draw();}}catch(e){{document.getElementById('status').textContent='● Canlı veri henüz yok / bağlantı bekleniyor';draw();}}finally{{busy=false}}}}
-      window.addEventListener('resize',resize);resize();update();setInterval(update,3000);
-    </script>
-    """.replace('{{', '{').replace('}}', '}')
 
 
 def _openf1_credentials():
@@ -2425,25 +2067,8 @@ def _openf1_token(username, password):
         return ''
 
 
-def _openf1_get(endpoint, token):
-    request = urllib.request.Request(
-        f'https://api.openf1.org/v1/{endpoint}',
-        headers={'Accept': 'application/json', 'Authorization': f'Bearer {token}', 'User-Agent': 'PaddockDataCentre/1.0'}
-    )
-    with urllib.request.urlopen(request, timeout=8) as response:
-        return json.loads(response.read().decode('utf-8'))
 
 
-def _latest_by_driver(records):
-    latest = {}
-    for record in records or []:
-        number = record.get('driver_number')
-        if number is None:
-            continue
-        current = latest.get(number)
-        if current is None or str(record.get('date', '')) >= str(current.get('date', '')):
-            latest[number] = record
-    return latest
 
 
 def _api_duration_text(value):
@@ -2453,73 +2078,8 @@ def _api_duration_text(value):
         return '-'
 
 
-@st.cache_data(ttl=15, show_spinner=False)
-def get_openf1_live_snapshot(username, password):
-    """Canlı konum, tur, lastik, pit ve delta bilgilerini tek güvenli sunucu çağrısında toplar."""
-    token = _openf1_token(username, password)
-    if not token:
-        return {'ok': False, 'reason': 'OpenF1 canlı erişim bilgisi bulunamadı.', 'cars': [], 'session': {}}
-    try:
-        endpoints = ['sessions?session_key=latest', 'drivers?session_key=latest', 'location?session_key=latest', 'laps?session_key=latest', 'stints?session_key=latest', 'pit?session_key=latest', 'position?session_key=latest', 'intervals?session_key=latest']
-        sessions, drivers, locations, laps, stints, pits, positions, intervals = [_openf1_get(endpoint, token) for endpoint in endpoints]
-        session = sessions[0] if sessions else {}
-        driver_map = {item.get('driver_number'): item for item in drivers or []}
-        location_map = _latest_by_driver(locations)
-        lap_map = _latest_by_driver(laps)
-        stint_map = _latest_by_driver(stints)
-        pit_map = _latest_by_driver(pits)
-        position_map = _latest_by_driver(positions)
-        interval_map = _latest_by_driver(intervals)
-        cars = []
-        for number, location in location_map.items():
-            driver = driver_map.get(number, {})
-            team = str(driver.get('team_name', 'Formula 1'))
-            lap = lap_map.get(number, {})
-            stint = stint_map.get(number, {})
-            pit = pit_map.get(number, {})
-            position = position_map.get(number, {})
-            interval = interval_map.get(number, {})
-            cars.append({
-                'number': str(number), 'code': str(driver.get('name_acronym') or driver.get('last_name') or f'#{number}'),
-                'team': team, 'colour': team_colour(team), 'x': float(location.get('x', 0)), 'y': float(location.get('y', 0)),
-                'position': position.get('position') or '-', 'lap': lap.get('lap_number') or '-',
-                'last_lap': _api_duration_text(lap.get('lap_duration')) if lap.get('lap_duration') else '-',
-                'compound': str(stint.get('compound') or '-'), 'tyre_age': stint.get('tyre_age_at_start') or '-',
-                'gap': str(interval.get('gap_to_leader') or interval.get('interval') or '-'),
-                'last_pit_lap': pit.get('lap_number') or '-', 'pit_duration': pit.get('pit_duration') or None,
-                'date': str(location.get('date', ''))
-            })
-        def position_sort_key(item):
-            try:
-                return int(item['position'])
-            except (TypeError, ValueError):
-                return 999
-        cars.sort(key=lambda item: (position_sort_key(item), item['number']))
-        return {'ok': bool(cars), 'reason': '' if cars else 'Aktif seans için konum paketi henüz gelmedi.', 'cars': cars, 'session': session}
-    except Exception:
-        return {'ok': False, 'reason': 'Canlı veri sağlayıcısına bağlanılamadı; seans başlamamış veya erişim yenileniyor olabilir.', 'cars': [], 'session': {}}
 
 
-def live_race_hud_html(snapshot):
-    """Sunucudan gelen canlı paketi, tıklanabilir F1 araçları ve pit/lastik HUD'u ile çizer."""
-    payload = fp_ui.json_for_script(snapshot)
-    return """
-    <style>
-      *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2b3d54;border-radius:14px;background:linear-gradient(135deg,#11161f,#0a111c);padding:13px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:13px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#93a9c0;margin-top:5px}.signal{font-size:11px;color:#66e7a1;font-weight:900}.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:11px;margin-top:12px}.map{border:1px solid #263950;border-radius:10px;background:radial-gradient(circle at 52% 42%,#152238,#07090d 72%);overflow:hidden}.map canvas{display:block;width:100%;height:475px}.panel{border:1px solid #2b3d54;border-radius:10px;background:#11161f;padding:12px}.selected{font-size:18px;font-weight:950;color:var(--team)}.team{font-size:12px;color:#97a9bd;margin:3px 0 12px}.stat{display:flex;justify-content:space-between;border-top:1px solid #26364d;padding:8px 0;font-size:12px}.stat span{color:#93a7bf}.tyre{display:inline-flex;justify-content:center;align-items:center;border:2px solid var(--tyre);color:var(--tyre);height:22px;width:22px;border-radius:50%;font-weight:950}.strip{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.pilot{background:#111b2a;border:1px solid #30435c;border-left:4px solid var(--team);border-radius:7px;color:#f2f5f8;padding:6px 8px;cursor:pointer;font-size:11px;font-weight:900}.pilot.active{background:#1a283b}.note{font-size:10px;color:#90a4ba;margin-top:8px}@media(max-width:850px){.layout{grid-template-columns:1fr}.map canvas{height:385px}}
-    </style>
-    <div class='hud'><div class='top'><div><div class='title'>LIVE RACE CONTROL • 2D TRACKER</div><div class='sub' id='session'>Canlı konum • lastik • pit • delta</div></div><div class='signal' id='signal'>● CANLI AKIŞ</div></div><div class='layout'><div><div class='map'><canvas id='track'></canvas></div><div class='strip' id='strip'></div><div class='note'>Araca veya altındaki pilot kartına bas: tur, lastik, pit ve delta detayları açılır.</div></div><div class='panel' id='panel'></div></div></div>
-    <script>
-      const data=__LIVE_PAYLOAD__,cars=data.cars||[],canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.number||null;
-      const tyres={SOFT:'#ff4048',MEDIUM:'#ffd43b',HARD:'#f0f4f8',INTERMEDIATE:'#39d46a',WET:'#38a8ff'};
-      function transform(){if(!cars.length)return null;const xs=cars.map(c=>c.x),ys=cars.map(c=>c.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=32,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}
-      function xy(c,t){return[((c.x-t.minX)*t.s)+(t.w-(t.maxX-t.minX)*t.s)/2,((t.maxY-c.y)*t.s)+(t.h-(t.maxY-t.minY)*t.s)/2]}
-      function f1car(x,y,colour,label,chosen){ctx.save();ctx.translate(x,y);ctx.fillStyle='#04090e';ctx.fillRect(-8,-8,4,16);ctx.fillRect(7,-9,4,18);ctx.fillStyle=colour;ctx.fillRect(-5,-4,14,8);ctx.fillRect(7,-2,7,4);ctx.fillRect(10,-8,3,16);ctx.fillStyle='#f4f8ff';ctx.fillRect(1,-1,5,2);if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.strokeRect(-10,-11,25,22)}ctx.restore();ctx.fillStyle=colour;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(label,x,y-15)}
-      function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);const t=transform();if(!t){ctx.fillStyle='#9bacc0';ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.fillText(data.reason||'Canlı konum bekleniyor',w/2,h/2);return}ctx.strokeStyle='#71849b';ctx.globalAlpha=.25;ctx.setLineDash([4,8]);ctx.beginPath();cars.forEach((c,i)=>{const[x,y]=xy(c,t);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;cars.forEach(c=>{const[x,y]=xy(c,t);f1car(x,y,c.colour,c.code,c.number===selected)})}
-      function panel(){const c=cars.find(x=>x.number===selected)||cars[0];if(!c){document.getElementById('panel').innerHTML='<div class="selected">Canlı veri bekleniyor</div>';return}const tyre=String(c.compound||'-').toUpperCase(),tc=tyres[tyre]||'#7c8ba1';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').innerHTML=`<div class='selected'>${c.code} <span style='font-size:12px;color:#9caec2'>P${c.position}</span></div><div class='team'>${c.team}</div><div class='stat'><span>Son tur</span><b>${c.last_lap}</b></div><div class='stat'><span>Tur</span><b>${c.lap}</b></div><div class='stat'><span>Delta / fark</span><b>${c.gap}</b></div><div class='stat'><span>Lastik</span><b><i class='tyre' style='--tyre:${tc}'>${tyre.slice(0,1)}</i> ${tyre}</b></div><div class='stat'><span>Lastik yaşı</span><b>${c.tyre_age} tur</b></div><div class='stat'><span>Son pit</span><b>Tur ${c.last_pit_lap}${c.pit_duration?' • '+Number(c.pit_duration).toFixed(1)+' sn':''}</b></div>`}
-      function strip(){document.getElementById('strip').innerHTML=cars.map(c=>`<button class='pilot ${c.number===selected?'active':''}' style='--team:${c.colour}' data-n='${c.number}'>P${c.position} · ${c.code} · ${c.last_lap}</button>`).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.n;draw();panel();strip()})}
-      function resize(){const b=canvas.getBoundingClientRect(),r=devicePixelRatio||1;canvas.width=b.width*r;canvas.height=b.height*r;ctx.setTransform(r,0,0,r,0,0);draw()}canvas.onclick=e=>{const t=transform();if(!t)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let best=null,d=Infinity;cars.forEach(c=>{const[a,b]=xy(c,t),v=Math.hypot(a-x,b-y);if(v<d){best=c;d=v}});if(best&&d<30){selected=best.number;draw();panel();strip()}};document.getElementById('session').textContent=`${data.session?.meeting_name||'Formula 1'} • ${data.session?.session_name||'Aktif seans'} • 2 sn yenileme`;window.addEventListener('resize',resize);resize();panel();strip();
-    </script>
-    """.replace('__LIVE_PAYLOAD__', payload)
 
 
 # =========================================================
@@ -3184,35 +2744,6 @@ def paddock_assistant_answer_v19(question, year=None):
     return {'title': 'Paddock Veri Asistanı', 'answer': 'Şu an son tamamlanan seansın doğrulanmış sonuçlarını okuyabiliyorum. Örnek: “Alonso kaçıncı oldu?”, “Pole kim?”, “Son seansta ne oldu?”', 'source': source}
 
 
-def render_paddock_assistant_v19():
-    """Sayfa içi, anahtarsız çalışan ve kaynak gösteren Paddock Asistan ekranı."""
-    st.markdown("## 🧠 Paddock Asistanı")
-    st.caption("Ücretsiz veri asistanı: yanıtlarını yalnızca uygulamanın doğrulanmış FastF1/OpenF1 paketlerinden verir; bilmediği veriyi uydurmaz.")
-    prompt = st.text_input("F1 ile ilgili sorunu yaz", placeholder="Örn. Alonso kaçıncı oldu? Pole kim? Son seansta ne oldu?", key='paddock_assistant_prompt_v19')
-    quick_a, quick_b, quick_c = st.columns(3)
-    chosen = ''
-    with quick_a:
-        if st.button("Pole kim?", use_container_width=True, key='assistant_pole_v19'):
-            chosen = 'Pole kim?'
-    with quick_b:
-        if st.button("Son seansta ne oldu?", use_container_width=True, key='assistant_story_v19'):
-            chosen = 'Son seansta ne oldu?'
-    with quick_c:
-        if st.button("Alonso kaçıncı oldu?", use_container_width=True, key='assistant_alonso_v19'):
-            chosen = 'Alonso kaçıncı oldu?'
-    if prompt or chosen:
-        answer = paddock_assistant_answer_v19(prompt or chosen, 2026)
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid #5ddcff'><div class='hud-label'>{html_lib.escape(answer['title'])}</div>"
-            f"<div style='font-size:1.04rem;font-weight:800;color:#f2f5f8;margin-top:8px;line-height:1.55'>{html_lib.escape(answer['answer'])}</div>"
-            f"<div class='driver-meta' style='margin-top:10px'>Kaynak: {html_lib.escape(answer['source'])}</div></div>",
-            unsafe_allow_html=True,
-        )
-    st.markdown(
-        "<div class='hud-card' style='margin-top:14px'><div class='hud-label'>YETKİ SINIRI</div><div class='history-copy' style='margin-top:6px'>"
-        "Bu sürüm, sonuç/race-control/lastik gibi sitede doğrulanmış veri üzerinden konuşur. Genel sohbet eden büyük dil modeli eklemek için ayrı bir AI sağlayıcı anahtarı gerekir; anahtar yokken uydurma “AI” cevabı gösterilmez.</div></div>",
-        unsafe_allow_html=True,
-    )
 
 
 
@@ -3248,60 +2779,12 @@ def stewarlde_drivers():
     return sorted(rows, key=lambda item: item['name'])
 
 
-def stewarlde_cell(value, target, numeric=False):
-    """Wordle benzeri, ama F1 verisi için dürüst eşleşme göstergesi."""
-    if str(value) == str(target):
-        return 'match', '✓'
-    if numeric:
-        try:
-            return ('near', '↑' if int(value) < int(target) else '↓')
-        except (TypeError, ValueError):
-            pass
-    return 'miss', '—'
 
 
 
 
-def _gridmaster_options(values, correct, offset):
-    """Tekrarsız, günlük olarak değişen dört şıklı oyun seçeneği üretir."""
-    distinct = []
-    for value in values:
-        text = str(value)
-        if text not in distinct:
-            distinct.append(text)
-    answer = str(correct)
-    alternatives = [value for value in distinct if value != answer]
-    picks = [answer]
-    for index in range(min(3, len(alternatives))):
-        picks.append(alternatives[(offset + index * 5) % len(alternatives)])
-    # Dört seçenek her zaman aynı sırada kalmasın; gün anahtarı sıralamayı değiştirir.
-    return [picks[(index + offset) % len(picks)] for index in range(len(picks))]
 
 
-def gridmaster_questions():
-    """GridMaster: sadece yerel 2026 kadro verisiyle çalışan günlük F1 Sprint Quiz."""
-    drivers = stewarlde_drivers()
-    day = datetime.date.today().toordinal()
-    questions = []
-    templates = [
-        ('team', 'Hangi takımda yarışıyor?', lambda item: item['team'], lambda items: [item['team'] for item in items]),
-        ('number', 'Araç numarası kaç?', lambda item: '#' + str(item['number']), lambda items: ['#' + str(item['number']) for item in items]),
-        ('nation', 'Ülke kodu nedir?', lambda item: item['nation'], lambda items: [item['nation'] for item in items]),
-        ('debut', 'İlk F1 sezonu hangisi?', lambda item: str(item['debut']), lambda items: [str(item['debut']) for item in items]),
-        ('titles', 'Kaç dünya şampiyonluğu var?', lambda item: str(item['titles']), lambda items: [str(item['titles']) for item in items]),
-    ]
-    for turn in range(10):
-        driver = drivers[(day * 7 + turn * 5) % len(drivers)]
-        field, prompt, value_fn, pool_fn = templates[(day + turn) % len(templates)]
-        answer = value_fn(driver)
-        questions.append({
-            'id': f'{driver["code"]}_{field}_{turn}',
-            'driver': driver,
-            'prompt': prompt,
-            'answer': str(answer),
-            'options': _gridmaster_options(pool_fn(drivers), answer, day + turn * 3),
-        })
-    return questions
 
 
 
@@ -3350,196 +2833,8 @@ def _timedelta_seconds(value):
         return None
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
-def _legacy_position_replay_payload(year, event_name):
-    """Tamamlanmış bir yarışın gerçek araç konumlarını tarayıcıda oynatılacak pakete dönüştürür."""
-    try:
-        session = fastf1.get_session(int(year), event_name, 'R')
-        session.load(telemetry=True, weather=False, messages=False)
-
-        if session.results is None or session.results.empty or not getattr(session, 'pos_data', None):
-            return {'ok': False, 'reason': 'Bu yarışın araç konum paketi henüz FastF1 verisinde bulunmuyor.'}
-
-        raw_cars = []
-        all_starts = []
-        for _, result in session.results.iterrows():
-            code = str(result.get('Abbreviation', '')).strip()
-            raw_number = result.get('DriverNumber', '')
-            try:
-                number = str(int(float(raw_number)))
-            except (TypeError, ValueError):
-                number = str(raw_number).strip()
-            if not code:
-                continue
-
-            positions = None
-            for candidate in [number, int(number) if number.isdigit() else number, code]:
-                try:
-                    candidate_data = session.pos_data[candidate]
-                    if candidate_data is not None and not candidate_data.empty:
-                        positions = candidate_data
-                        break
-                except Exception:
-                    continue
-            if positions is None:
-                continue
-
-            source = positions[[column for column in ['Time', 'X', 'Y'] if column in positions.columns]].copy()
-            if not {'Time', 'X', 'Y'}.issubset(source.columns):
-                continue
-            source = source.dropna(subset=['Time', 'X', 'Y'])
-            if source.empty:
-                continue
-            source['_time'] = pd.to_timedelta(source['Time']).dt.total_seconds()
-            source['X'] = pd.to_numeric(source['X'], errors='coerce')
-            source['Y'] = pd.to_numeric(source['Y'], errors='coerce')
-            source = source.dropna(subset=['_time', 'X', 'Y']).sort_values('_time').drop_duplicates('_time')
-            if len(source) < 2:
-                continue
-
-            all_starts.append(float(source['_time'].iloc[0]))
-            laps = []
-            try:
-                driver_laps = session.laps.pick_drivers(code)
-                for _, lap in driver_laps.iterrows():
-                    lap_start = _timedelta_seconds(lap.get('LapStartTime'))
-                    lap_time = _timedelta_seconds(lap.get('LapTime'))
-                    if lap_start is None or lap_time is None or lap_time <= 0:
-                        continue
-                    laps.append({
-                        'lap': int(lap.get('LapNumber', len(laps) + 1)),
-                        'start': round(lap_start, 3),
-                        'end': round(lap_start + lap_time, 3),
-                        'compound': str(lap.get('Compound', '')).upper(),
-                        'stint': int(lap.get('Stint', 0)) if pd.notna(lap.get('Stint')) else 0,
-                        'pit_in': _timedelta_seconds(lap.get('PitInTime')),
-                        'pit_out': _timedelta_seconds(lap.get('PitOutTime')),
-                    })
-            except Exception:
-                laps = []
-
-            raw_cars.append({
-                'code': code,
-                'number': number,
-                'team': str(result.get('TeamName', 'Takım')),
-                'colour': team_colour(str(result.get('TeamName', ''))),
-                'status': str(result.get('Status', 'Finished')),
-                'position': result.get('Position', 99),
-                'source': source,
-                'laps': laps,
-            })
-
-        if not raw_cars or not all_starts:
-            return {'ok': False, 'reason': 'Bu yarış için yeterli araç konumu bulunamadı.'}
-
-        # İlk turdaki tek bir bozuk/erken zaman kaydı bütün araçları dakikalarca
-        # bekletebiliyordu. Ortanca çevresindeki normal başlangıç kümesini alıyoruz.
-        start_values = np.asarray(all_starts, dtype=float)
-        start_median = float(np.median(start_values))
-        normal_starts = start_values[np.abs(start_values - start_median) <= 20.0]
-        race_start = float(np.median(normal_starts if len(normal_starts) else start_values))
-        cars = []
-        track = []
-        for car_index, item in enumerate(raw_cars):
-            source = item.pop('source').copy()
-            source['_time'] = source['_time'] - race_start
-            duration = float(source['_time'].iloc[-1])
-            # 20 araç için tarayıcıyı yormayan, ama akıcı görünmesini sağlayan gerçek konum örnekleri.
-            point_count = max(180, min(850, int(max(duration, 1) / 1.15)))
-            grid = np.linspace(float(source['_time'].iloc[0]), duration, point_count)
-            points = [
-                [round(float(value), 2), round(float(np.interp(value, source['_time'], source['X'])), 1), round(float(np.interp(value, source['_time'], source['Y'])), 1)]
-                for value in grid
-            ]
-            if car_index == 0:
-                outline = source.iloc[::max(1, len(source) // 520)]
-                track = [[round(float(row['X']), 1), round(float(row['Y']), 1)] for _, row in outline.iterrows()]
-
-            for lap in item['laps']:
-                lap['start'] = round(lap['start'] - race_start, 3)
-                lap['end'] = round(lap['end'] - race_start, 3)
-                if lap['pit_in'] is not None:
-                    lap['pit_in'] = round(lap['pit_in'] - race_start, 3)
-                if lap['pit_out'] is not None:
-                    lap['pit_out'] = round(lap['pit_out'] - race_start, 3)
-
-            try:
-                final_position = int(float(item['position']))
-            except (TypeError, ValueError):
-                final_position = 99
-            cars.append({
-                'code': item['code'], 'number': item['number'], 'team': item['team'], 'colour': item['colour'],
-                'status': item['status'], 'final_position': final_position, 'points': points, 'laps': item['laps'],
-            })
-
-        race_events = []
-        try:
-            seen = set()
-            status_names = {'4': 'GÜVENLİK ARACI', '5': 'KIRMIZI BAYRAK', '6': 'SANAL GÜVENLİK ARACI', '7': 'VSC BİTTİ'}
-            for _, item in session.track_status.iterrows():
-                code = str(item.get('Status', ''))
-                if code not in status_names:
-                    continue
-                event_time = _timedelta_seconds(item.get('Time'))
-                if event_time is None:
-                    continue
-                key = (round(event_time - race_start), code)
-                if key not in seen:
-                    seen.add(key)
-                    race_events.append({'time': round(event_time - race_start, 2), 'label': status_names[code]})
-        except Exception:
-            pass
-
-        return {
-            'ok': True,
-            'event': str(session.event.get('EventName', event_name)),
-            'total_seconds': round(
-                max((car['points'][-1][0] for car in cars if car.get('points')), default=0.0),
-                1,
-            ),
-            'track': track,
-            'cars': cars,
-            'events': race_events,
-        }
-    except Exception as error:
-        return {'ok': False, 'reason': f'Yarış tekrar verisi hazırlanamadı: {error}'}
 
 
-def race_replay_html(payload):
-    """Gerçek FastF1 konum örneklerini yaklaşık iki dakikalık, etkileşimli yarış tekrarına çizer."""
-    packed = fp_ui.json_for_script(payload)
-    return r"""
-    <style>
-      *{box-sizing:border-box} body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-      .hud{border:1px solid #2d415a;border-radius:14px;background:linear-gradient(135deg,#11161f,#0a111b);padding:14px}
-      .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#96abc3;margin-top:5px}.badge{border:1px solid #38506f;background:#132037;border-radius:8px;padding:7px 10px;color:#77e5af;font-size:11px;font-weight:900}
-      .layout{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:12px;margin-top:12px}.map{border:1px solid #2a4059;border-radius:11px;background:radial-gradient(circle at 50% 45%,#16243a,#080d14 72%);overflow:hidden}.map canvas{display:block;width:100%;height:510px}
-      .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.btn{border:1px solid #3b5270;border-radius:7px;background:#142238;color:#f2f5f8;padding:7px 10px;font-weight:900;cursor:pointer}.btn.active{border-color:#ff354a;background:#3a1822}.slider{flex:1;min-width:130px;accent-color:#ff354a}.clock{font-family:ui-monospace,Consolas,monospace;font-weight:900;color:#e9f3ff;font-size:12px}
-      .panel{border:1px solid #2d415a;border-radius:11px;background:#11161f;padding:12px;min-width:0}.selected{font-size:21px;font-weight:950;color:var(--team)}.team{color:#99aec3;font-size:12px;margin:4px 0 12px}.stat{display:flex;justify-content:space-between;gap:8px;border-top:1px solid #26384e;padding:8px 0;font-size:12px}.stat span{color:#95a8bd}.tyre{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:2px solid var(--tyre);border-radius:50%;color:var(--tyre);font-weight:950}.mini{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}.events{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}.event{border:1px solid #7b6034;background:#2b2315;color:#ffd57d;border-radius:6px;padding:5px 7px;font-size:10px;font-weight:900}
-      .strip{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.pilot{background:#111d2e;border:1px solid #304661;border-left:4px solid var(--team);border-radius:7px;color:#f2f5f8;padding:6px 8px;cursor:pointer;font-size:11px;font-weight:900}.pilot.active{background:#1c2e46;box-shadow:0 0 0 1px var(--team) inset}
-      @media(max-width:850px){.layout{grid-template-columns:1fr}.map canvas{height:410px}}
-    </style>
-    <div class="hud"><div class="top"><div><div class="title">RACE REPLAY // 2D TRACK HUD</div><div class="sub" id="subtitle">Gerçek FastF1 konum verisi • tüm araçlar • lastik ve pit akışı</div></div><div class="badge">● TAMAMLANMIŞ YARIŞ TEKRARI</div></div>
-    <div class="layout"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn" data-speed="0.5">0.5×</button><button class="btn active" data-speed="1">2 dk</button><button class="btn" data-speed="2">1 dk</button><input class="slider" id="progress" type="range" min="0" max="1000" value="0"><span class="clock" id="clock">00:00</span></div><div class="events" id="events"></div><div class="strip" id="strip"></div></div><aside class="panel" id="panel"></aside></div></div>
-    <script>
-      const data=__RACE_REPLAY_PAYLOAD__,cars=data.cars||[],canvas=document.getElementById('track'),ctx=canvas.getContext('2d');
-      const tyres={SOFT:'#ff4654',MEDIUM:'#ffd23e',HARD:'#f0f4f8',INTERMEDIATE:'#45d875',WET:'#42a9ff'};let selected=cars[0]?.number||'',playing=true,speed=1,progress=0,last=performance.now(); const runtime=120;
-      function fmt(value){value=Math.max(0,Math.round(value));return String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0')}
-      function point(car,t){const a=car.points||[];if(!a.length)return null;if(t<=a[0][0])return {x:a[0][1],y:a[0][2],out:false};if(t>=a[a.length-1][0])return {x:a[a.length-1][1],y:a[a.length-1][2],out:true};let lo=0,hi=a.length-1;while(lo<hi-1){const m=(lo+hi)>>1;if(a[m][0]<t)lo=m;else hi=m}const p=a[lo],n=a[hi],r=(t-p[0])/(n[0]-p[0]||1);return{x:p[1]+(n[1]-p[1])*r,y:p[2]+(n[2]-p[2])*r,out:false}}
-      function lap(car,t){return (car.laps||[]).find(x=>t>=x.start&&t<=x.end)||(car.laps||[]).filter(x=>x.start<=t).slice(-1)[0]||null}
-      function transform(){const pts=data.track||cars.flatMap(c=>c.points.map(p=>[p[1],p[2]]));if(!pts.length)return null;const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=28,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}
-      function xy(p,t){return[(p.x-t.minX)*t.s+(t.w-(t.maxX-t.minX)*t.s)/2,(t.maxY-p.y)*t.s+(t.h-(t.maxY-t.minY)*t.s)/2]}
-      function f1(x,y,colour,code,chosen,out){ctx.save();ctx.translate(x,y);ctx.globalAlpha=out?.35:1;ctx.fillStyle='#050a11';ctx.fillRect(-11,-7,5,14);ctx.fillRect(8,-8,4,16);ctx.fillStyle=colour;ctx.fillRect(-7,-4,17,8);ctx.fillRect(8,-2,8,4);ctx.fillRect(11,-8,3,16);ctx.fillStyle='#ecf6ff';ctx.fillRect(0,-1,6,2);if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.strokeRect(-13,-10,30,20)}ctx.restore();ctx.fillStyle=colour;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-14)}
-      function rank(c,t){const current=lap(c,t);const lapNo=current?.lap||0;const frac=current?Math.min(1,Math.max(0,(t-current.start)/(current.end-current.start||1))):0;return lapNo+frac}
-      function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);const tr=transform();if(!tr)return;const outline=data.track||[];ctx.strokeStyle='#7990aa';ctx.globalAlpha=.48;ctx.lineWidth=3;ctx.beginPath();outline.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},tr);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;cars.map(c=>({c,p:point(c,progress)})).filter(x=>x.p).forEach(({c,p})=>{const q=xy(p,tr);f1(q[0],q[1],c.colour,c.code,c.number===selected,p.out)})}
-      function ordered(){return cars.slice().sort((a,b)=>rank(b,progress)-rank(a,progress))}
-      function panel(){const c=cars.find(x=>x.number===selected)||cars[0];if(!c)return;const l=lap(c,progress),tyre=(l?.compound||'—').toUpperCase(),tc=tyres[tyre]||'#788aa0',position=ordered().findIndex(x=>x.number===c.number)+1;const pit=l&&((l.pit_in&&Math.abs(progress-l.pit_in)<18)||(l.pit_out&&Math.abs(progress-l.pit_out)<18));document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').innerHTML=`<div class="selected">${c.code} <span style="font-size:12px;color:#a6b8cc">P${position}</span></div><div class="team">${c.team}</div><div class="stat"><span>Yarış zamanı</span><b>${fmt(progress)}</b></div><div class="stat"><span>Tur</span><b>${l?'#'+l.lap:'Başlangıç'}</b></div><div class="stat"><span>Stint</span><b>${l?.stint||'—'}</b></div><div class="stat"><span>Lastik</span><b><i class="tyre" style="--tyre:${tc}">${tyre.slice(0,1)}</i> ${tyre}</b></div><div class="stat"><span>Pit durumu</span><b style="color:${pit?'#ffcf62':'#8ee5b1'}">${pit?'PIT AKIŞI':'PİSTTE'}</b></div><div class="stat"><span>Yarış sonucu</span><b>${c.final_position<90?'P'+c.final_position:c.status}</b></div><div class="mini">Sıra, tur ilerleme oranından hesaplanan yarış akışıdır. Araçların pist koordinatları gerçek FastF1 kaydından gelir.</div>`}
-      function strip(){document.getElementById('strip').innerHTML=ordered().map((c,i)=>`<button class="pilot ${c.number===selected?'active':''}" style="--team:${c.colour}" data-n="${c.number}">P${i+1} · ${c.code}</button>`).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.n;draw();panel();strip()})}
-      function ui(){document.getElementById('progress').value=Math.round(1000*progress/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(progress)+' / '+fmt(data.total_seconds);const active=(data.events||[]).filter(e=>Math.abs(e.time-progress)<18);document.getElementById('events').innerHTML=active.map(e=>`<span class="event">⚑ ${e.label}</span>`).join('')||'<span class="event" style="opacity:.55">Yarış akışı oynatılıyor</span>';draw();panel();strip()}
-      function step(now){const dt=(now-last)/1000;last=now;if(playing){progress+=dt*(data.total_seconds||1)*speed/runtime;if(progress>=data.total_seconds){progress=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan oynat'}}ui();requestAnimationFrame(step)}
-      function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);ui()} document.getElementById('play').onclick=()=>{if(progress>=data.total_seconds)progress=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('progress').oninput=e=>{progress=(Number(e.target.value)/1000)*(data.total_seconds||0);ui()};canvas.onclick=e=>{const tr=transform(),r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let best=null,dist=1e9;cars.forEach(c=>{const p=point(c,progress);if(!p)return;const q=xy(p,tr),d=Math.hypot(q[0]-mx,q[1]-my);if(d<dist){dist=d;best=c}});if(best&&dist<32){selected=best.number;ui()}};document.getElementById('subtitle').textContent=(data.event||'Formula 1')+' • gerçek araç konumları • tam yarış';window.addEventListener('resize',resize);resize();requestAnimationFrame(step);
-    </script>
-    """.replace('__RACE_REPLAY_PAYLOAD__', packed)
 
 
 def _race_int(value):
@@ -3576,585 +2871,16 @@ def _race_position(value):
     return position if position is not None and 1 <= position <= 30 else None
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
-def _legacy_clean_replay_payload(year, event_name):
-    """Gerçek Position Data ile akıcı, tam yarış ölçekli 2D replay paketi üretir.
-
-    Tur süresiyle pist üzerinde ilerleme tahmini yerine, FastF1'in araç konum
-    kaydını kullanır. Böylece ilk turda araçların beklemesi / aniden öne atlaması
-    engellenir; arazi çizimi de V18'deki gerçek pist kaynağına geri döner.
-    """
-    try:
-        session = fastf1.get_session(int(year), event_name, 'R')
-        session.load(telemetry=True, weather=False, messages=False)
-        if session.results is None or session.results.empty or session.laps is None or session.laps.empty:
-            return {'ok': False, 'reason': 'Bu yarışın doğrulanmış tur verisi henüz hazır değil.'}
-
-        reference_lap = session.laps.pick_fastest()
-        if reference_lap is None:
-            return {'ok': False, 'reason': 'Temiz pist çizimi için referans tur bulunamadı.'}
-        telemetry = reference_lap.get_telemetry()
-        telemetry_track = telemetry[[column for column in ['Distance', 'X', 'Y'] if column in telemetry.columns]].dropna().copy()
-        if not {'Distance', 'X', 'Y'}.issubset(telemetry_track.columns):
-            return {'ok': False, 'reason': 'Pist koordinatı bu yarışın telemetri kaydında yok.'}
-        telemetry_track['Distance'] = pd.to_numeric(telemetry_track['Distance'], errors='coerce')
-        telemetry_track = telemetry_track.dropna().sort_values('Distance').drop_duplicates('Distance')
-        if len(telemetry_track) < 20:
-            return {'ok': False, 'reason': 'Pist çizimi için yeterli telemetri noktası yok.'}
-        track_overlay = build_track_overlay(telemetry, reference_lap, session)
-
-        def position_source(result, code):
-            """FastF1'in değişebilen anahtar tipleri arasında gerçek araç konumunu bulur."""
-            raw_number = result.get('DriverNumber', '')
-            try:
-                number = str(int(float(raw_number)))
-            except (TypeError, ValueError):
-                number = str(raw_number).strip()
-
-            positions = None
-            for candidate in [number, int(number) if number.isdigit() else number, code]:
-                try:
-                    candidate_data = session.pos_data[candidate]
-                    if candidate_data is not None and not candidate_data.empty:
-                        positions = candidate_data
-                        break
-                except Exception:
-                    continue
-            if positions is None:
-                return pd.DataFrame()
-
-            source = positions[[column for column in ['Time', 'X', 'Y'] if column in positions.columns]].copy()
-            if not {'Time', 'X', 'Y'}.issubset(source.columns):
-                return pd.DataFrame()
-            source = source.dropna(subset=['Time', 'X', 'Y'])
-            if source.empty:
-                return pd.DataFrame()
-            source['_time'] = pd.to_timedelta(source['Time']).dt.total_seconds()
-            source['X'] = pd.to_numeric(source['X'], errors='coerce')
-            source['Y'] = pd.to_numeric(source['Y'], errors='coerce')
-            return source.dropna(subset=['_time', 'X', 'Y']).sort_values('_time').drop_duplicates('_time')
-
-        raw_cars, lap_start_candidates, position_start_candidates, total_laps = [], [], [], 0
-        for _, result in session.results.iterrows():
-            code = str(result.get('Abbreviation', '')).strip()
-            if not code:
-                continue
-
-            driver_laps = session.laps.pick_drivers(code)
-            race_laps = []
-            for _, lap in driver_laps.iterrows():
-                lap_number = _race_int(lap.get('LapNumber'))
-                lap_time = _timedelta_seconds(lap.get('LapTime'))
-                lap_start = _timedelta_seconds(lap.get('LapStartTime'))
-                lap_end = _timedelta_seconds(lap.get('Time'))
-                if lap_start is None and lap_end is not None and lap_time is not None:
-                    lap_start = lap_end - lap_time
-                if lap_number is None or lap_time is None or lap_time <= 0:
-                    continue
-                lap_position = _race_position(lap.get('Position'))
-                race_laps.append({
-                    'lap': int(lap_number),
-                    '_raw_start': lap_start,
-                    '_raw_end': lap_end,
-                    '_duration': float(lap_time),
-                    'position': lap_position, 'compound': str(lap.get('Compound', '')).upper(),
-                    'stint': int(lap.get('Stint', 0)) if pd.notna(lap.get('Stint')) else 0,
-                    'pit_in': _timedelta_seconds(lap.get('PitInTime')), 'pit_out': _timedelta_seconds(lap.get('PitOutTime')),
-                })
-            if not race_laps:
-                continue
-
-            race_laps.sort(key=lambda item: item['lap'])
-            if race_laps[0]['_raw_start'] is not None:
-                lap_start_candidates.append(race_laps[0]['_raw_start'])
-            pos_source = position_source(result, code)
-            if not pos_source.empty:
-                position_start_candidates.append(float(pos_source['_time'].iloc[0]))
-
-            total_laps = max(total_laps, max(item['lap'] for item in race_laps))
-            raw_cars.append({
-                'code': code,
-                'team': str(result.get('TeamName', 'Takım')),
-                'colour': team_colour(str(result.get('TeamName', ''))),
-                'accent': TEAM_LIVERY_ACCENTS.get(str(result.get('TeamName', '')), '#f2f7ff'),
-                'profile': race_driver_profile(code, str(result.get('TeamName', ''))),
-                'grid': _race_position(result.get('GridPosition')),
-                'final_position': _race_position(result.get('Position')),
-                'status': str(result.get('Status', 'Finished')),
-                'laps': race_laps,
-                '_positions': pos_source,
-            })
-
-        if not raw_cars:
-            return {'ok': False, 'reason': 'Bu yarışta araç tur geçmişi bulunamadı.'}
-
-        # Öncelik gerçek konum kaydının ilk zamanına verilir. Böylece yarışın
-        # açılışında herkes aynı zaman çizelgesinden başlar.
-        race_start = min(position_start_candidates or lap_start_candidates or [0.0])
-        cars = []
-        for car in raw_cars:
-            timeline, previous_end = [], 0.0
-            for index, lap in enumerate(car['laps']):
-                raw_end = lap.pop('_raw_end', None)
-                duration = max(0.1, float(lap.pop('_duration', 0.1)))
-                lap.pop('_raw_start', None)
-                start = 0.0 if index == 0 else previous_end
-                candidate_end = (raw_end - race_start) if raw_end is not None else None
-                if candidate_end is None or candidate_end <= start + 0.1:
-                    end = start + duration
-                else:
-                    end = candidate_end
-                lap['start'] = round(start, 3)
-                lap['end'] = round(end, 3)
-                if lap['pit_in'] is not None:
-                    lap['pit_in'] = round(lap['pit_in'] - race_start, 3)
-                if lap['pit_out'] is not None:
-                    lap['pit_out'] = round(lap['pit_out'] - race_start, 3)
-                previous_end = end
-                timeline.append(lap)
-            car['laps'] = timeline
-
-            source = car.pop('_positions', pd.DataFrame()).copy()
-            points = []
-            if not source.empty:
-                source['_time'] = source['_time'] - race_start
-                source = source[source['_time'] >= -0.25].copy()
-                if not source.empty:
-                    source['_time'] = source['_time'].clip(lower=0)
-                    source = source.sort_values('_time').drop_duplicates('_time')
-                    duration = float(source['_time'].iloc[-1])
-                    if duration > 0:
-                        point_count = max(220, min(1050, int(duration / 0.9)))
-                        sample_times = np.linspace(float(source['_time'].iloc[0]), duration, point_count)
-                        points = [
-                            [
-                                round(float(value), 2),
-                                round(float(np.interp(value, source['_time'], source['X'])), 1),
-                                round(float(np.interp(value, source['_time'], source['Y'])), 1),
-                            ]
-                            for value in sample_times
-                        ]
-            car['points'] = points
-            cars.append(car)
-
-        # Pist şekli V18'deki gibi gerçek Position Data'dan, referans turun
-        # zaman aralığı kesilerek çıkarılır. Bu, hız telemetrisiyle oluşan yanlış
-        # / deforme pist görüntüsünü engeller.
-        track = []
-        reference_code = str(reference_lap.get('Driver', '')).strip()
-        reference_car = next((car for car in raw_cars if car['code'] == reference_code), None)
-        if reference_car is not None:
-            ref_source = position_source(
-                next((row for _, row in session.results.iterrows() if str(row.get('Abbreviation', '')).strip() == reference_code), {}),
-                reference_code,
-            )
-            ref_start = _timedelta_seconds(reference_lap.get('LapStartTime'))
-            ref_end = _timedelta_seconds(reference_lap.get('Time'))
-            if not ref_source.empty and ref_start is not None and ref_end is not None:
-                ref_source = ref_source[(ref_source['_time'] >= ref_start - 1.0) & (ref_source['_time'] <= ref_end + 1.0)]
-                if len(ref_source) >= 20:
-                    sample_times = np.linspace(float(ref_source['_time'].iloc[0]), float(ref_source['_time'].iloc[-1]), 560)
-                    track = [
-                        [
-                            round(float(np.interp(value, ref_source['_time'], ref_source['X'])), 1),
-                            round(float(np.interp(value, ref_source['_time'], ref_source['Y'])), 1),
-                        ]
-                        for value in sample_times
-                    ]
-        if not track:
-            grid = np.linspace(float(telemetry_track['Distance'].min()), float(telemetry_track['Distance'].max()), 560)
-            track = [
-                [
-                    round(float(np.interp(value, telemetry_track['Distance'], telemetry_track['X'])), 1),
-                    round(float(np.interp(value, telemetry_track['Distance'], telemetry_track['Y'])), 1),
-                ]
-                for value in grid
-            ]
-
-        total_seconds = max(
-            [lap['end'] for car in cars for lap in car['laps']] +
-            [car['points'][-1][0] for car in cars if car.get('points')] +
-            [0.0]
-        )
-        cars.sort(key=lambda item: item['final_position'] if item['final_position'] is not None else 99)
-        return {
-            'ok': True,
-            'event': str(session.event.get('EventName', event_name)),
-            'track': track,
-            'overlay': track_overlay,
-            'cars': cars,
-            'total_laps': total_laps,
-            'total_seconds': round(total_seconds, 2),
-            'position_source': 'FastF1 Position Data',
-        }
-    except Exception as error:
-        return {'ok': False, 'reason': f'Yarış verisi hazırlanamadı: {error}'}
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
-def _legacy_build_verified_race_replay_payload(year, event_name):
-    """Alpha replay paketi: temiz pist + doğrulanmış tur zamanları.
-
-    Bu motor ham araç koordinatlarını doğrudan çizmez. FastF1 Position Data
-    paketleri seans başlangıcından da kayıt tutabildiği için yarış saatiyle
-    kayabiliyor ve araçları ilk turda dondurabiliyor. Bunun yerine pist, temiz
-    bir referans turdan; araç akışı ise resmî tur başlangıcı, tur süresi, sıra,
-    pit ve lastik kayıtlarından kurulur.
-    """
-    try:
-        session = fastf1.get_session(int(year), event_name, 'R')
-        session.load(telemetry=True, weather=False, messages=False)
-        if session.results is None or session.results.empty or session.laps is None or session.laps.empty:
-            return {'ok': False, 'reason': 'Bu yarışın doğrulanmış tur verisi henüz hazır değil.'}
-
-        reference_lap = session.laps.pick_fastest()
-        if reference_lap is None:
-            return {'ok': False, 'reason': 'Gerçek pist çizimi için temiz referans tur bulunamadı.'}
-
-        telemetry = reference_lap.get_telemetry()
-        track_source = telemetry[
-            [column for column in ['Distance', 'X', 'Y'] if column in telemetry.columns]
-        ].dropna().copy()
-        if not {'Distance', 'X', 'Y'}.issubset(track_source.columns):
-            return {'ok': False, 'reason': 'Bu yarışın referans turunda pist koordinatı yok.'}
-        track_source['Distance'] = pd.to_numeric(track_source['Distance'], errors='coerce')
-        track_source['X'] = pd.to_numeric(track_source['X'], errors='coerce')
-        track_source['Y'] = pd.to_numeric(track_source['Y'], errors='coerce')
-        track_source = (
-            track_source.dropna()
-            .sort_values('Distance')
-            .drop_duplicates('Distance')
-        )
-        if len(track_source) < 40:
-            return {'ok': False, 'reason': 'Temiz pist çizimi için yeterli telemetri noktası yok.'}
-
-        track_distance = np.linspace(
-            float(track_source['Distance'].min()),
-            float(track_source['Distance'].max()),
-            900,
-        )
-        track = [
-            [
-                round(float(np.interp(value, track_source['Distance'], track_source['X'])), 1),
-                round(float(np.interp(value, track_source['Distance'], track_source['Y'])), 1),
-            ]
-            for value in track_distance
-        ]
-        overlay = build_track_overlay(telemetry, reference_lap, session)
-
-        raw_cars, first_lap_starts, total_laps = [], [], 0
-        for _, result in session.results.iterrows():
-            code = str(result.get('Abbreviation', '')).strip()
-            if not code or code.lower() == 'nan':
-                continue
-
-            driver_laps = session.laps.pick_drivers(code).sort_values('LapNumber')
-            race_laps = []
-            for _, raw_lap in driver_laps.iterrows():
-                lap_number = _race_int(raw_lap.get('LapNumber'))
-                lap_time = _timedelta_seconds(raw_lap.get('LapTime'))
-                lap_start = _timedelta_seconds(raw_lap.get('LapStartTime'))
-                lap_end = _timedelta_seconds(raw_lap.get('Time'))
-                if lap_start is None and lap_end is not None and lap_time is not None:
-                    lap_start = lap_end - lap_time
-                if lap_number is None or lap_start is None or lap_time is None or lap_time <= 0:
-                    continue
-
-                race_laps.append({
-                    'lap': int(lap_number),
-                    '_start': float(lap_start),
-                    '_duration': float(lap_time),
-                    'position': _race_position(raw_lap.get('Position')),
-                    'compound': str(raw_lap.get('Compound', '')).upper(),
-                    'stint': int(raw_lap.get('Stint', 0)) if pd.notna(raw_lap.get('Stint')) else 0,
-                    '_pit_in': _timedelta_seconds(raw_lap.get('PitInTime')),
-                    '_pit_out': _timedelta_seconds(raw_lap.get('PitOutTime')),
-                })
-
-            if not race_laps:
-                continue
-            race_laps.sort(key=lambda item: item['lap'])
-            first_lap_starts.append(race_laps[0]['_start'])
-            total_laps = max(total_laps, max(item['lap'] for item in race_laps))
-            team_name = str(result.get('TeamName', 'Takım'))
-            raw_cars.append({
-                'code': code,
-                'team': team_name,
-                'colour': team_colour(team_name),
-                'accent': TEAM_LIVERY_ACCENTS.get(team_name, '#f2f7ff'),
-                'profile': race_driver_profile(code, team_name),
-                'grid': _race_position(result.get('GridPosition')),
-                'final_position': _race_position(result.get('Position')),
-                'status': str(result.get('Status', 'Finished')),
-                'laps': race_laps,
-            })
-
-        if not raw_cars or not first_lap_starts:
-            return {'ok': False, 'reason': 'Bu yarış için doğrulanmış tur geçmişi bulunamadı.'}
-
-        # Yarış saati yalnızca resmî tur başlangıçlarından oluşturulur.
-        # Position Data'nın seans öncesi kayıtları bu saate kesinlikle dahil edilmez.
-        race_start = min(first_lap_starts)
-        cars = []
-        for car in raw_cars:
-            timeline, previous_end = [], 0.0
-            for index, raw_lap in enumerate(car['laps']):
-                proposed_start = max(0.0, raw_lap['_start'] - race_start)
-                if index == 0:
-                    # Gridde herkes aynı yarış başlangıcından çıkar; birkaç saniyelik
-                    # ölçüm farkı korunur ama eksik kayıt nedeniyle yarım turdan başlanmaz.
-                    start = min(proposed_start, 12.0)
-                elif proposed_start < previous_end - 0.5 or proposed_start > previous_end + 15.0:
-                    start = previous_end
-                else:
-                    start = max(previous_end, proposed_start)
-
-                end = start + max(0.1, raw_lap['_duration'])
-                pit_in = raw_lap['_pit_in']
-                pit_out = raw_lap['_pit_out']
-                pit_in = pit_in - race_start if pit_in is not None else None
-                pit_out = pit_out - race_start if pit_out is not None else None
-                if pit_in is not None and not (start - 5 <= pit_in <= end + 25):
-                    pit_in = None
-                if pit_out is not None and not (start - 5 <= pit_out <= end + 25):
-                    pit_out = None
-
-                timeline.append({
-                    'lap': raw_lap['lap'],
-                    'start': round(start, 3),
-                    'end': round(end, 3),
-                    'position': raw_lap['position'],
-                    'compound': raw_lap['compound'],
-                    'stint': raw_lap['stint'],
-                    'pit_in': round(pit_in, 3) if pit_in is not None else None,
-                    'pit_out': round(pit_out, 3) if pit_out is not None else None,
-                })
-                previous_end = end
-
-            car['laps'] = timeline
-            car['points'] = []
-            cars.append(car)
-
-        total_seconds = max(
-            [lap['end'] for car in cars for lap in car['laps']] + [0.0]
-        )
-        cars.sort(key=lambda item: item['final_position'] if item['final_position'] is not None else 99)
-        return {
-            'ok': True,
-            'event': str(session.event.get('EventName', event_name)),
-            'track': track,
-            'overlay': overlay,
-            'cars': cars,
-            'total_laps': total_laps,
-            'total_seconds': round(total_seconds, 2),
-            'replay_source': 'FastF1 doğrulanmış tur zamanları, sıralama, pit ve lastik verisi',
-        }
-    except Exception as error:
-        log_data_error('verified race replay', error)
-        return {'ok': False, 'reason': f'Yarış tekrar paketi hazırlanamadı: {error}'}
 
 
-def _legacy_clean_race_replay_html(payload):
-    """Temiz tek pist üzerinde gerçek yarış süreleriyle oynayan 2D yarış HUD'u."""
-    packed = fp_ui.json_for_script(payload)
-    return r"""
-    <style>
-      *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.title{font-weight:950;font-size:14px;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;background:#122239;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.layout{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:500px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px}.selected{font-size:22px;font-weight:950;color:var(--team)}.team{font-size:12px;color:#9bafc5;margin:4px 0 12px}.stat{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #26394f;font-size:12px}.stat span{color:#92a7bc}.tyre{display:inline-flex;align-items:center;justify-content:center;height:22px;width:22px;border-radius:50%;border:2px solid var(--tyre);color:var(--tyre);font-weight:950}.controls,.strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn,.pilot{border:1px solid #39516f;border-radius:7px;background:#142239;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}.pilot{border-left:4px solid var(--team);font-size:11px}.pilot.active{box-shadow:0 0 0 1px var(--team) inset;background:#1c3049}.slider{accent-color:#ff4051;flex:1;min-width:135px}.clock{font:900 12px ui-monospace,Consolas,monospace}.note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.layout{grid-template-columns:1fr}.map canvas{height:395px}}
-    </style><div class="hud"><div class="top"><div><div class="title">RACE CONTROL // CLEAN TRACK REPLAY</div><div class="sub" id="sub">Gerçek tur zamanı • temiz telemetri pisti • lastik ve pit akışı</div></div><div class="badge">● GERÇEK ZAMAN ÖLÇEĞİ</div></div><div class="layout"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn active" data-speed="1">1× Gerçek</button><button class="btn" data-speed="5">5×</button><button class="btn" data-speed="20">20×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock">00:00</span></div><div class="strip" id="strip"></div></div><aside class="panel" id="panel"></aside></div></div>
-    <script>
-      const data=__CLEAN_RACE_PAYLOAD__,cars=data.cars||[],route=data.track||[],canvas=document.getElementById('track'),ctx=canvas.getContext('2d'),tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};let selected=cars[0]?.code||'',playing=true,speed=1,time=0,last=performance.now();
-      function fmt(n){n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
-      function lap(c,t){return(c.laps||[]).find(x=>t>=x.start&&t<=x.end)||(c.laps||[]).filter(x=>x.start<=t).slice(-1)[0]||null}
-      function state(c,t){const l=lap(c,t);if(!l)return{lap:0,frac:0,pos:c.grid||20,out:false};const frac=Math.min(1,Math.max(0,(t-l.start)/(l.end-l.start||1)));return{lap:l.lap,frac,pos:l.position||c.final_position||20,out:t>l.end&&l.lap>=data.total_laps}}
-      function point(frac){const n=route.length;if(!n)return{x:0,y:0,angle:0};const p=(frac%1)*n,i=Math.floor(p),r=p-i,a=route[i],b=route[(i+1)%n];return{x:a[0]+(b[0]-a[0])*r,y:a[1]+(b[1]-a[1])*r,angle:Math.atan2(b[1]-a[1],b[0]-a[0])}}
-      function actualPoint(c,t){const samples=c.points||[];if(samples.length>=2){if(t<=samples[0][0]){const a=samples[0],b=samples[1];return{x:a[1],y:a[2],angle:Math.atan2(b[2]-a[2],b[1]-a[1])}}const lastSample=samples[samples.length-1];if(t>=lastSample[0]){const a=samples[samples.length-2],b=lastSample;return{x:b[1],y:b[2],angle:Math.atan2(b[2]-a[2],b[1]-a[1])}}let low=0,high=samples.length-1;while(low+1<high){const mid=(low+high)>>1;if(samples[mid][0]<=t)low=mid;else high=mid}const a=samples[low],b=samples[high],ratio=Math.max(0,Math.min(1,(t-a[0])/(b[0]-a[0]||1)));return{x:a[1]+(b[1]-a[1])*ratio,y:a[2]+(b[2]-a[2])*ratio,angle:Math.atan2(b[2]-a[2],b[1]-a[1])}}const s=state(c,t),launch=Math.max(0,1-Math.min(1,t/9)),gridOffset=((c.grid||1)-1)*.0018*launch;return point((s.frac-gridOffset+1)%1)}
-      function transform(){const xs=route.map(p=>p[0]),ys=route.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=32,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}
-      function xy(p,t){return[(p.x-t.minX)*t.s+(t.w-(t.maxX-t.minX)*t.s)/2,(t.maxY-p.y)*t.s+(t.h-(t.maxY-t.minY)*t.s)/2]}
-      function car(x,y,a,colour,code,chosen,out){ctx.save();ctx.translate(x,y);ctx.rotate(-a);ctx.globalAlpha=out?.35:1;ctx.fillStyle='#050a10';ctx.fillRect(-11,-7,5,14);ctx.fillRect(8,-8,4,16);ctx.fillStyle=colour;ctx.fillRect(-7,-4,17,8);ctx.fillRect(8,-2,8,4);ctx.fillRect(11,-8,3,16);ctx.fillStyle='#f5f8ff';ctx.fillRect(0,-1,6,2);if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.strokeRect(-13,-10,30,20)}ctx.restore();ctx.fillStyle=colour;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-15)}
-      function overlayMarker(fraction,label,colour,tr){const p=point(fraction),q=xy(p,tr);ctx.fillStyle=colour;ctx.beginPath();ctx.arc(q[0],q[1],4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2f5f8';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText(label,q[0]+6,q[1]-6)}
-      function overlayZone(start,end,label,colour,tr){ctx.beginPath();for(let i=0;i<=26;i++){const p=point(start+(end-start)*i/26),q=xy(p,tr);i?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle=colour;ctx.globalAlpha=.92;ctx.lineWidth=6;ctx.stroke();ctx.globalAlpha=1;overlayMarker(start,label,colour,tr)}
-      function drawRaceOverlay(tr){if(overlayMode==='straight'){(raceOverlay.straights||[]).forEach((zone,index)=>overlayZone(zone.start,zone.end,index?'Straight':'Straight Mode',index?'#48c8ff':'#71e6a1',tr));return}overlayMarker(0,'START / FINISH','#ffffff',tr);(raceOverlay.sectors||[]).forEach(item=>overlayMarker(item.fraction,item.label,item.colour||'#f4d35e',tr));(raceOverlay.pit||[]).forEach(item=>overlayMarker(item.fraction,item.label,'#b79cff',tr))}
-      function order(){return cars.slice().sort((a,b)=>{const aa=state(a,time),bb=state(b,time);return aa.pos-bb.pos||(bb.lap+bb.frac)-(aa.lap+aa.frac)})}
-      function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);if(!route.length)return;const tr=transform();ctx.strokeStyle='#8094ad';ctx.globalAlpha=.7;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},tr);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;cars.forEach(c=>{const s=state(c,time),p=point(s.frac),q=xy(p,tr);car(q[0],q[1],p.angle,c.colour,c.code,c.code===selected,s.out)})}
-      function panel(){const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),tc=tyres[compound]||'#8292a7',pit=l&&((l.pit_in&&Math.abs(time-l.pit_in)<18)||(l.pit_out&&Math.abs(time-l.pit_out)<18));document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').innerHTML=`<div class="selected">${c.code} <span style="font-size:12px;color:#a5b8ce">P${s.pos}</span></div><div class="team">${c.team}</div><div class="stat"><span>Yarış zamanı</span><b>${fmt(time)}</b></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç</span><b>P${c.grid||'—'}</b></div><div class="stat"><span>Bitiş</span><b>P${c.final_position||c.status}</b></div><div class="stat"><span>Stint</span><b>${l?.stint||'—'}</b></div><div class="stat"><span>Lastik</span><b><i class="tyre" style="--tyre:${tc}">${compound.slice(0,1)}</i> ${compound}</b></div><div class="stat"><span>Pit durumu</span><b style="color:${pit?'#ffd46b':'#81e6ac'}">${pit?'PIT AKIŞI':'PİSTTE'}</b></div><div class="note">Araç konumu, her pilotun gerçek tur başlangıcı ve tur süresiyle senkron hesaplanır. Pist şekli tek temiz telemetri turundan alınır.</div>`}
-      function strip(){document.getElementById('strip').innerHTML=order().map(c=>{const s=state(c,time);return`<button class="pilot ${c.code===selected?'active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;ui()})}
-      function ui(){document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds);draw();panel();strip()}
-      function loop(now){const dt=(now-last)/1000;last=now;if(playing){time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan oynat'}}ui();requestAnimationFrame(loop)}
-      function resize(){const b=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=b.width*d;canvas.height=b.height*d;ctx.setTransform(d,0,0,d,0,0);ui()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=(Number(e.target.value)/1000)*data.total_seconds;ui()};document.getElementById('sub').textContent=(data.event||'Formula 1')+' • '+data.total_laps+' tur • gerçek zaman ölçeği';window.addEventListener('resize',resize);resize();requestAnimationFrame(loop);
-    </script>""".replace('__CLEAN_RACE_PAYLOAD__', packed)
 
 
-def _legacy_premium_race_replay_html(payload):
-    """Akıcı canvas hareketi, seçilebilir araçlar ve portreli yarış mühendisi HUD'u."""
-    packed = fp_ui.json_for_script(payload)
-    return r"""
-    <style>
-      *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.title{font-weight:950;font-size:14px;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;background:#122239;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:500px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px;overflow:hidden}.hero{position:relative;min-height:112px;border-bottom:1px solid #2b4058;margin:-12px -12px 11px;padding:13px;overflow:hidden;background:linear-gradient(110deg,#11161f 0%,color-mix(in srgb,var(--team) 19%,#11161f) 100%)}.portrait{position:absolute;right:7px;bottom:0;height:104px;max-width:40%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 8px 11px rgba(0,0,0,.42));opacity:.94}.identity{position:relative;z-index:1;max-width:67%}.identity h2{margin:0;color:var(--team);font-size:20px;line-height:1.02}.meta{font-size:11px;color:#b6c6d8;margin-top:6px;font-weight:800}.team{font-size:11px;color:#9bafc5;margin-top:4px}.stat{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #26394f;font-size:12px}.stat span{color:#92a7bc}.tyre{display:inline-flex;align-items:center;justify-content:center;height:22px;width:22px;border-radius:50%;border:2px solid var(--tyre);color:var(--tyre);font-weight:950}.strategy-mini{display:flex;height:9px;overflow:hidden;border-radius:99px;background:#08101a;margin:9px 0 2px;gap:2px}.strategy-mini i{display:block;background:var(--tyre);min-width:4px}.strategy-label{font-size:10px;color:#95abc1;margin-bottom:7px}.change-up{color:#7fe4aa}.change-down{color:#ff7683}.controls,.strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn,.pilot{border:1px solid #39516f;border-radius:7px;background:#142239;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}.pilot{border-left:4px solid var(--team);font-size:11px;transition:background .15s,box-shadow .15s}.pilot.active{box-shadow:0 0 0 1px var(--team) inset;background:#1c3049}.slider{accent-color:#ff4051;flex:1;min-width:135px}.clock{font:900 12px ui-monospace,Consolas,monospace}.note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.layout{grid-template-columns:1fr}.map canvas{height:395px}}
-    </style><div class="hud"><div class="top"><div><div class="title">RACE CONTROL // 2026 RACE REPLAY</div><div class="sub" id="sub">Doğrulanmış tur zamanı • telemetri pisti • akıcı konum yeniden kurulumu</div></div><div class="badge">● GERÇEK ZAMAN ÖLÇEĞİ</div></div><div class="layout"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn active" data-speed="1">1× Gerçek</button><button class="btn" data-speed="5">5×</button><button class="btn" data-speed="20">20×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock">00:00</span></div><div class="strip" id="strip"></div><div class="note">Bir araca veya alttaki pilot kartına bas: sağdaki yarış HUD’u o pilota geçer.</div></div><aside class="panel" id="panel"></aside></div></div>
-    <script>
-      const data=__PREMIUM_RACE_PAYLOAD__,cars=data.cars||[],route=data.track||[],canvas=document.getElementById('track'),ctx=canvas.getContext('2d'),tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};let selected=cars[0]?.code||'',playing=true,speed=1,time=0,last=performance.now(),lastHud=0,lastStripKey='';
-      const raceOverlay=data.overlay||{};
-      const replayStyle=document.createElement('style');replayStyle.textContent='.strip{align-content:flex-start}.out-zone{display:none;margin-top:9px;padding:9px;border:1px solid #723442;background:#25131b;border-radius:8px}.out-zone.show{display:block}.out-title{font-size:10px;font-weight:950;color:#ff9aa5;letter-spacing:.09em;margin-bottom:6px}.out-strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.pilot{transition:transform .22s ease,background .15s,box-shadow .15s}.pilot.out{border-left-color:#e84d5b!important;background:#25131b;color:#ffc2c8;opacity:.88}';document.head.appendChild(replayStyle);
-      function fmt(n){n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
-      function lap(c,t){return(c.laps||[]).find(x=>t>=x.start&&t<=x.end)||(c.laps||[]).filter(x=>x.start<=t).slice(-1)[0]||null}
-      function isRetired(c){return /(retired|accident|disqualified|withdrawn|did not finish|dnf|excluded)/.test(String(c.status||'').toLowerCase())}
-      function state(c,t){const l=lap(c,t),retired=isRetired(c),all=c.laps||[],lastEnd=Math.max(0,...all.map(x=>Number(x.end)||0)),completed=all.filter(x=>x.end<=t&&Number.isFinite(x.position)).slice(-1)[0],retiredNow=retired&&t>=lastEnd;if(!l)return{lap:0,frac:0,pos:c.grid||20,out:retiredNow,pit:false,retired:retiredNow};const frac=Math.min(1,Math.max(0,(t-l.start)/(l.end-l.start||1))),pit=!!((l.pit_in&&Math.abs(t-l.pit_in)<15)||(l.pit_out&&Math.abs(t-l.pit_out)<15)),lapPosition=completed?.position||c.grid||20;return{lap:l.lap,frac,pos:lapPosition,out:retiredNow||(t>l.end&&l.lap>=data.total_laps),pit,retired:retiredNow}}
-      function point(frac){const n=route.length;if(!n)return{x:0,y:0,angle:0};const p=(frac%1)*n,i=Math.floor(p),r=p-i,a=route[i],b=route[(i+1)%n];return{x:a[0]+(b[0]-a[0])*r,y:a[1]+(b[1]-a[1])*r,angle:Math.atan2(b[1]-a[1],b[0]-a[0])}}
-      function actualPoint(c,t){const samples=c.points||[];if(samples.length>=2){if(t<=samples[0][0]){const a=samples[0],b=samples[1];return{x:a[1],y:a[2],angle:Math.atan2(b[2]-a[2],b[1]-a[1])}}const lastSample=samples[samples.length-1];if(t>=lastSample[0]){const a=samples[samples.length-2],b=lastSample;return{x:b[1],y:b[2],angle:Math.atan2(b[2]-a[2],b[1]-a[1])}}let low=0,high=samples.length-1;while(low+1<high){const mid=(low+high)>>1;if(samples[mid][0]<=t)low=mid;else high=mid}const a=samples[low],b=samples[high],ratio=Math.max(0,Math.min(1,(t-a[0])/(b[0]-a[0]||1)));return{x:a[1]+(b[1]-a[1])*ratio,y:a[2]+(b[2]-a[2])*ratio,angle:Math.atan2(b[2]-a[2],b[1]-a[1])}}const s=state(c,t),gridOffset=((c.grid||1)-1)*.0018;return point((s.frac-gridOffset+1)%1)}
-      function transform(){const xs=route.map(p=>p[0]),ys=route.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=32,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}
-      function xy(p,t){return[(p.x-t.minX)*t.s+(t.w-(t.maxX-t.minX)*t.s)/2,(t.maxY-p.y)*t.s+(t.h-(t.maxY-t.minY)*t.s)/2]}
-      function f1car(x,y,a,primary,accent,code,chosen,out,pitting){ctx.save();ctx.translate(x,y);ctx.rotate(-a);ctx.scale(.78,.78);ctx.globalAlpha=out?.33:1;ctx.fillStyle='rgba(0,0,0,.38)';ctx.beginPath();ctx.ellipse(0,5,19,8,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#05080d';[[-9,-10,6,6],[6,-10,6,6],[-9,4,6,6],[6,4,6,6]].forEach(w=>ctx.fillRect(...w));ctx.fillStyle='#080c12';ctx.fillRect(-15,-5,5,10);ctx.fillRect(12,-7,4,14);ctx.fillStyle=primary;ctx.beginPath();ctx.moveTo(-11,-4);ctx.lineTo(-2,-7);ctx.lineTo(10,-5);ctx.lineTo(15,0);ctx.lineTo(10,5);ctx.lineTo(-2,7);ctx.lineTo(-11,4);ctx.closePath();ctx.fill();ctx.fillStyle=accent;ctx.fillRect(-16,-8,5,16);ctx.fillRect(12,-10,4,20);ctx.fillRect(-4,-1,17,2);ctx.fillStyle='#111927';ctx.beginPath();ctx.ellipse(1,0,5,4,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle=accent;ctx.lineWidth=1.7;ctx.beginPath();ctx.arc(1,0,5,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#f4f7ff';ctx.fillRect(5,-1,5,2);ctx.fillStyle=primary;ctx.fillRect(-20,-9,5,18);ctx.fillStyle=accent;ctx.fillRect(-21,-10,2,20);if(pitting){ctx.strokeStyle='#ffd44b';ctx.lineWidth=2;ctx.strokeRect(-22,-13,40,26)}if(chosen){ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;ctx.strokeRect(-24,-15,45,30)}ctx.restore();ctx.fillStyle=primary;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-15)}
-      function overlayMarker(fraction,label,colour,tr){const q=xy(point(fraction),tr);ctx.fillStyle=colour;ctx.beginPath();ctx.arc(q[0],q[1],3.7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2f5f8';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText(label,q[0]+6,q[1]-6)}
-      function overlayZone(start,end,label,colour,tr){ctx.beginPath();for(let i=0;i<=24;i++){const q=xy(point(start+(end-start)*i/24),tr);i?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle=colour;ctx.globalAlpha=.9;ctx.lineWidth=5;ctx.stroke();ctx.globalAlpha=1;overlayMarker(start,label,colour,tr)}
-      function drawRaceOverlay(tr){overlayMarker(0,'START / FINISH','#ffffff',tr);(raceOverlay.sectors||[]).forEach(item=>overlayMarker(item.fraction,item.label,item.colour||'#f4d35e',tr));(raceOverlay.pit||[]).forEach(item=>overlayMarker(item.fraction,item.label,'#b79cff',tr));(raceOverlay.straights||[]).forEach((zone,index)=>overlayZone(zone.start,zone.end,index?'OM - Overtake Mode':'SM - Straight Mode',index?'#48c8ff':'#71e6a1',tr))}
-      function order(){return cars.slice().sort((a,b)=>{const aa=state(a,time),bb=state(b,time);return aa.pos-bb.pos||(bb.lap+bb.frac)-(aa.lap+aa.frac)})}
-      function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);if(!route.length)return;const tr=transform();ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},tr);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;drawRaceOverlay(tr);cars.forEach(c=>{const s=state(c,time),p=actualPoint(c,time),q=xy(p,tr);f1car(q[0],q[1],p.angle,c.colour,c.accent||'#fff',c.code,c.code===selected,s.out,s.pit)})}
-      function selection(c){selected=c.code;lastStripKey='';refreshHud(true)}
-      function createStrip(){const host=document.getElementById('strip');host.innerHTML=cars.map(c=>`<button class="pilot" style="--team:${c.colour}" data-c="${c.code}"></button>`).join('');host.insertAdjacentHTML('afterend','<div class="out-zone" id="out-zone"><div class="out-title">OUT / DNF</div><div class="out-strip" id="out-strip"></div></div>');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>selection(cars.find(c=>c.code===b.dataset.c)))}
-      function moveCards(host,list){const before=new Map([...host.children].map(el=>[el.dataset.c,el.getBoundingClientRect()]));list.forEach(c=>host.appendChild(document.querySelector(`.pilot[data-c="${c.code}"]`)));list.forEach(c=>{const el=document.querySelector(`.pilot[data-c="${c.code}"]`),old=before.get(c.code),next=el.getBoundingClientRect();if(old&&(old.left!==next.left||old.top!==next.top)){el.style.transition='none';el.style.transform=`translate(${old.left-next.left}px,${old.top-next.top}px)`;requestAnimationFrame(()=>{el.style.transition='transform .22s ease,background .15s,box-shadow .15s';el.style.transform=''})}})}
-      function updateStrip(){const active=order().filter(c=>!state(c,time).out),retired=cars.filter(c=>state(c,time).out).sort((a,b)=>state(b,time).lap-state(a,time).lap),key=active.map(c=>{const s=state(c,time);return c.code+':'+s.pos+':'+s.lap}).join('|')+'|'+retired.map(c=>c.code).join('|')+'|'+selected;if(key===lastStripKey)return;lastStripKey=key;const host=document.getElementById('strip'),outHost=document.getElementById('out-strip'),zone=document.getElementById('out-zone');moveCards(host,active);retired.forEach(c=>outHost.appendChild(document.querySelector(`.pilot[data-c="${c.code}"]`)));zone.classList.toggle('show',retired.length>0);cars.forEach(c=>{const b=document.querySelector(`.pilot[data-c="${c.code}"]`),s=state(c,time);if(s.out){b.textContent=`OUT · ${c.code} · T${s.lap}`;b.classList.add('out')}else{const rank=active.findIndex(x=>x.code===c.code)+1;b.textContent=`P${rank} · ${c.code} · T${s.lap}`;b.classList.remove('out')}b.classList.toggle('active',c.code===selected)})}
-      function miniStrategy(c,currentLap){const laps=(c.laps||[]).filter(l=>l.lap<=Math.max(1,currentLap)),total=Math.max(1,data.total_laps||1),groups=[];laps.forEach(l=>{if(groups.length&&groups.at(-1).compound===l.compound&&l.lap===groups.at(-1).end+1)groups.at(-1).end=l.lap;else groups.push({compound:l.compound,start:l.lap,end:l.lap})});return groups.map(g=>`<i title="${g.compound} ${g.start}–${g.end}" style="--tyre:${tyres[g.compound]||'#718198'};width:${Math.max(3,(g.end-g.start+1)/total*100)}%"></i>`).join('')}
-      function lastPit(c,currentTime){const found=(c.laps||[]).filter(l=>(l.pit_in&&l.pit_in<=currentTime)||(l.pit_out&&l.pit_out<=currentTime)).slice(-1)[0];return found?'Tur '+found.lap:'Henüz yok'}
-      function panel(){const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),p=c.profile||{},compound=(l?.compound||'—').toUpperCase(),tc=tyres[compound]||'#8292a7',gain=(c.grid&&s.pos)?c.grid-s.pos:0,change=gain>0?`↑ ${gain} SIRA`:gain<0?`↓ ${Math.abs(gain)} SIRA`:'→ DEĞİŞMEDİ',visibleEnd=Math.max(1,s.lap);document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').innerHTML=`<div class="hero" style="--team:${c.colour}"><img class="portrait" src="${p.photo||''}" alt="" onerror="this.style.display='none'"><div class="identity"><h2>${p.name||c.code}</h2><div class="meta">${p.number||'—'} · <img src="https://flagcdn.com/w40/${p.flag||'un'}.png" style="height:11px;vertical-align:middle;border-radius:1px"> ${c.code} · ${p.age||'—'} yaş</div><div class="team">${c.team}</div></div></div><div class="stat"><span>Anlık sıra</span><b>P${s.pos}</b></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Şu ana kadarki değişim</span><b class="${gain>0?'change-up':gain<0?'change-down':''}">${change}</b></div><div class="stat"><span>Stint / lastik</span><b>${l?.stint||'—'} · <i class="tyre" style="--tyre:${tc}">${compound.slice(0,1)}</i> ${compound}</b></div><div class="stat"><span>Son pit</span><b>${lastPit(c,time)}</b></div><div class="stat"><span>Pit durumu</span><b style="color:${s.pit?'#ffd46b':'#81e6ac'}">${s.pit?'PIT AKIŞI':'PİSTTE'}</b></div><div class="strategy-mini">${miniStrategy(c,visibleEnd)}</div><div class="strategy-label">${c.code} • tur 1–${visibleEnd} lastik akışı</div><div class="note">Lastik şeridi yarış ilerledikçe dolar; pit sonrası yeni hamur otomatik eklenir.</div>`}
-      function refreshHud(force=false){const now=performance.now();if(force||now-lastHud>380){lastHud=now;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds);updateStrip();panel()}}
-      function loop(now){const dt=Math.min(.025,Math.max(0,(now-last)/1000));last=now;if(playing){time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan oynat'}}draw();refreshHud();requestAnimationFrame(loop)}
-      function resize(){const b=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=b.width*d;canvas.height=b.height*d;ctx.setTransform(d,0,0,d,0,0);draw();refreshHud(true)}canvas.onclick=e=>{const tr=transform(),r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let found=null,best=30;cars.forEach(c=>{const p=actualPoint(c,time),q=xy(p,tr),distance=Math.hypot(q[0]-mx,q[1]-my);if(distance<best){best=distance;found=c}});if(found)selection(found)};document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=(Number(e.target.value)/1000)*data.total_seconds;lastStripKey='';draw();refreshHud(true)};document.getElementById('sub').textContent=(data.event||'Formula 1')+' • '+data.total_laps+' tur • doğrulanmış tur, sıra, pit ve lastik akışı';window.addEventListener('resize',resize);createStrip();resize();requestAnimationFrame(loop);
-    </script>""".replace('__PREMIUM_RACE_PAYLOAD__', packed)
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
-def build_verified_race_replay_payload(year, event_name):
-    """Alpha 0.6: tek saat, tek temiz pist ve kesintisiz tur zaman çizelgesi.
-
-    FastF1'in ham PositionData akışı yarıştan yarışa farklı başlangıç anları
-    içerebilir. Bu nedenle bu yeniden oynatma motoru ham GPS'i kullanmaz;
-    resmi tur sürelerinden kesintisiz bir saat üretir ve bütün araçları aynı
-    temiz telemetri pistinde hareket ettirir. Böylece araçlar pist dışına
-    fırlamaz veya ilk turda donmuş kalmaz.
-    """
-    try:
-        session = fastf1.get_session(int(year), event_name, 'R')
-        session.load(telemetry=True, weather=False, messages=False)
-        if session.results is None or session.results.empty or session.laps is None or session.laps.empty:
-            return {'ok': False, 'reason': 'Bu yarışın doğrulanmış tur verisi henüz hazır değil.'}
-
-        reference_lap = session.laps.pick_fastest()
-        if reference_lap is None:
-            return {'ok': False, 'reason': 'Pist çizimi için temiz bir referans tur bulunamadı.'}
-        telemetry = reference_lap.get_telemetry()
-        source = telemetry[[key for key in ('Distance', 'X', 'Y') if key in telemetry.columns]].dropna().copy()
-        if not {'Distance', 'X', 'Y'}.issubset(source.columns):
-            return {'ok': False, 'reason': 'Referans turda gerekli pist koordinatları yok.'}
-        source = source.apply(pd.to_numeric, errors='coerce').dropna().sort_values('Distance').drop_duplicates('Distance')
-        if len(source) < 40:
-            return {'ok': False, 'reason': 'Pist çizimi için yeterli temiz telemetri noktası yok.'}
-        distances = np.linspace(float(source['Distance'].min()), float(source['Distance'].max()), 720)
-        track = [[round(float(np.interp(value, source['Distance'], source['X'])), 1), round(float(np.interp(value, source['Distance'], source['Y'])), 1)] for value in distances]
-
-        prepared, total_laps = [], 0
-        for _, result in session.results.iterrows():
-            code = str(result.get('Abbreviation', '')).strip()
-            if not code or code.lower() == 'nan':
-                continue
-            raw_laps = []
-            for _, lap in session.laps.pick_drivers(code).sort_values('LapNumber').iterrows():
-                number = _race_int(lap.get('LapNumber'))
-                duration = _timedelta_seconds(lap.get('LapTime'))
-                if number is None or duration is None or duration <= 0:
-                    continue
-                raw_laps.append({
-                    'lap': int(number), 'duration': float(duration),
-                    'position': _race_position(lap.get('Position')),
-                    'compound': str(lap.get('Compound', '')).upper(),
-                    'stint': int(lap.get('Stint', 0)) if pd.notna(lap.get('Stint')) else 0,
-                    'pit_in': _timedelta_seconds(lap.get('PitInTime')),
-                    'pit_out': _timedelta_seconds(lap.get('PitOutTime')),
-                })
-            if not raw_laps:
-                continue
-            total_laps = max(total_laps, raw_laps[-1]['lap'])
-            team = str(result.get('TeamName', 'Takım'))
-            prepared.append({'code': code, 'team': team, 'result': result, 'raw_laps': raw_laps})
-
-        if not prepared:
-            return {'ok': False, 'reason': 'Bu yarış için geçerli tur geçmişi bulunamadı.'}
-
-        # Her sürücünün saatini kendi ardışık tur sürelerinden kuruyoruz.
-        # Ham zaman damgaları burada bilerek kullanılmaz: Macaristan gibi
-        # seanslarda bu damgalar aynı yarış başlangıcını göstermeyebiliyor.
-        cars = []
-        for item in prepared:
-            elapsed, timeline = 0.0, []
-            previous_position = _race_position(item['result'].get('GridPosition')) or 20
-            for raw in item['raw_laps']:
-                start, end = elapsed, elapsed + max(0.1, raw['duration'])
-                position = raw['position'] or previous_position
-                timeline.append({
-                    'lap': raw['lap'], 'start': round(start, 3), 'end': round(end, 3),
-                    'position': position, 'start_position': previous_position,
-                    'compound': raw['compound'], 'stint': raw['stint'],
-                    # Pit zamanları, tur içi mutlak saat değil; güvenli görsel pencere olarak saklanır.
-                    'pit_in': round(end - min(10.0, raw['duration'] * .12), 3) if raw['pit_in'] is not None else None,
-                    'pit_out': round(start + min(10.0, raw['duration'] * .12), 3) if raw['pit_out'] is not None else None,
-                })
-                elapsed, previous_position = end, position
-            result = item['result']
-            cars.append({
-                'code': item['code'], 'team': item['team'], 'colour': team_colour(item['team']),
-                'accent': TEAM_LIVERY_ACCENTS.get(item['team'], '#f2f7ff'),
-                'profile': race_driver_profile(item['code'], item['team']),
-                'grid': _race_position(result.get('GridPosition')), 'final_position': _race_position(result.get('Position')),
-                'status': str(result.get('Status', 'Finished')), 'laps': timeline,
-            })
-        cars.sort(key=lambda car: car['final_position'] if car['final_position'] is not None else 99)
-        validated_seconds = round(max(lap['end'] for car in cars for lap in car['laps']), 2)
-        valid, reason = validate_stable_replay_payload({
-            'cars': cars,
-            'track': track,
-            'total_seconds': validated_seconds,
-        })
-        if not valid:
-            return {'ok': False, 'reason': reason}
-        total_seconds = max(lap['end'] for car in cars for lap in car['laps'])
-        return {
-            'ok': True, 'event': str(session.event.get('EventName', event_name)), 'track': track,
-            'overlay': build_track_overlay(telemetry, reference_lap, session), 'cars': cars,
-            'total_laps': total_laps, 'total_seconds': round(total_seconds, 2),
-            'replay_source': 'FastF1 doğrulanmış tur, sıra, pit ve lastik verisinden yeniden kurulan yarış akışı',
-            'alpha': '0.6',
-        }
-    except Exception as error:
-        log_data_error('alpha 0.6 race replay', error)
-        return {'ok': False, 'reason': f'Yarış tekrar paketi hazırlanamadı: {error}'}
 
 
-def premium_race_replay_html(payload):
-    """Alpha 0.6 ortak DIV HUD: sadece canvas çizimi her karede güncellenir."""
-    packed = fp_ui.json_for_script(payload)
-    return r'''<!doctype html><html><head><meta charset="utf-8"><style>
-    *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.f1-hud{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.f1-hud__top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.f1-hud__title{font-weight:950;font-size:14px;letter-spacing:.1em}.f1-hud__sub{font-size:11px;color:#91a8c0;margin-top:5px}.f1-hud__badge{border:1px solid #365170;background:#122239;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.f1-hud__grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-top:12px}.f1-hud__track{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.f1-hud__track canvas{width:100%;height:500px;display:block}.f1-hud__panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px;overflow:hidden}.f1-hud__hero{position:relative;min-height:101px;border-bottom:1px solid #2b4058;margin:-12px -12px 11px;padding:13px;overflow:hidden;background:linear-gradient(110deg,#11161f 0%,color-mix(in srgb,var(--team) 18%,#11161f) 100%)}.f1-hud__portrait{position:absolute;right:8px;bottom:0;height:88px;max-width:34%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 8px 11px rgba(0,0,0,.42));opacity:.96}.f1-hud__identity{position:relative;z-index:1;max-width:70%}.f1-hud__identity h2{margin:0;color:var(--team);font-size:20px;line-height:1.02}.f1-hud__meta{font-size:11px;color:#b6c6d8;margin-top:6px;font-weight:800}.f1-hud__team{font-size:11px;color:#9bafc5;margin-top:4px}.f1-hud__stat{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #26394f;font-size:12px}.f1-hud__stat span{color:#92a7bc}.f1-hud__tyre{display:inline-flex;align-items:center;justify-content:center;height:22px;width:22px;border-radius:50%;border:2px solid var(--tyre);color:var(--tyre);font-weight:950}.f1-hud__strategy{display:flex;height:9px;overflow:hidden;border-radius:99px;background:#08101a;margin:9px 0 2px;gap:2px}.f1-hud__strategy i{display:block;background:var(--tyre);min-width:4px}.f1-hud__label{font-size:10px;color:#95abc1;margin-bottom:7px}.f1-hud__controls,.f1-hud__strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.f1-hud__button,.f1-hud__pilot{border:1px solid #39516f;border-radius:7px;background:#142239;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.f1-hud__button.is-active{border-color:#ff4757;background:#3b1822}.f1-hud__pilot{border-left:4px solid var(--team);font-size:11px}.f1-hud__pilot.is-active{box-shadow:0 0 0 1px var(--team) inset;background:#1c3049}.f1-hud__slider{accent-color:#ff4051;flex:1;min-width:135px}.f1-hud__clock{font:900 12px ui-monospace,Consolas,monospace}.f1-hud__note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.f1-hud__grid{grid-template-columns:1fr}.f1-hud__track canvas{height:395px}}
-    </style></head><body><div class="f1-hud" id="race-hud"><div class="f1-hud__top"><div><div class="f1-hud__title">RACE CONTROL // ALPHA 0.6 REPLAY</div><div class="f1-hud__sub" id="sub"></div></div><div class="f1-hud__badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div><div class="f1-hud__grid"><div><div class="f1-hud__track"><canvas id="track"></canvas></div><div class="f1-hud__controls"><button class="f1-hud__button is-active" id="play">❚❚ Duraklat</button><button class="f1-hud__button is-active" data-speed="1">1× Gerçek</button><button class="f1-hud__button" data-speed="5">5×</button><button class="f1-hud__button" data-speed="20">20×</button><input id="range" class="f1-hud__slider" type="range" min="0" max="1000" value="0"><span class="f1-hud__clock" id="clock"></span></div><div class="f1-hud__strip" id="strip"></div><div class="f1-hud__note">Araçların konumu ham canlı GPS değildir: doğrulanmış tur sürelerinden, tek gerçek pist yörüngesinde akıcı biçimde yeniden kurulmuştur.</div></div><aside class="f1-hud__panel" id="panel"></aside></div></div><script>
-    const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],canvas=document.getElementById('track'),ctx=canvas.getContext('2d'),tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};let selected=cars[0]?.code||'',playing=true,speed=1,time=0,last=performance.now(),lastHud=0,lastStrip='';
-    const fmt=n=>{n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
-    function lap(c,t){const a=c.laps||[];for(let i=0;i<a.length;i++)if(t<=a[i].end)return a[i];return a[a.length-1]||null}
-    function state(c,t){const l=lap(c,t),all=c.laps||[];if(!l)return{lap:0,frac:0,pos:c.grid||20,pit:false};const frac=Math.max(0,Math.min(1,(t-l.start)/(l.end-l.start||1))),previous=all[Math.max(0,all.indexOf(l)-1)]?.position||l.start_position||c.grid||20,pos=frac>.985?(l.position||previous):previous,pit=!!((l.pit_in&&Math.abs(t-l.pit_in)<8)||(l.pit_out&&Math.abs(t-l.pit_out)<8));return{lap:l.lap,frac,pos,pit}}
-    function point(frac){const n=route.length;if(!n)return{x:0,y:0,angle:0};const p=((frac%1)+1)%1*n,i=Math.floor(p),r=p-i,a=route[i],b=route[(i+1)%n];return{x:a[0]+(b[0]-a[0])*r,y:a[1]+(b[1]-a[1])*r,angle:Math.atan2(b[1]-a[1],b[0]-a[0])}}
-    function visualPoint(c,t){const s=state(c,t),launch=Math.max(0,1-Math.min(1,t/5)),grid=((c.grid||1)-1)*.0016*launch,spacing=((s.pos||1)-1)*.0009;return point(s.frac-grid-spacing)}
-    function transform(){const xs=route.map(p=>p[0]),ys=route.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=32,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}
-    function xy(p,t){return[(p.x-t.minX)*t.s+(t.w-(t.maxX-t.minX)*t.s)/2,(t.maxY-p.y)*t.s+(t.h-(t.maxY-t.minY)*t.s)/2]}
-    function car(x,y,a,primary,accent,code,chosen,pitting){ctx.save();ctx.translate(x,y);ctx.rotate(-a);ctx.fillStyle='#070b10';ctx.fillRect(-18,-8,5,16);ctx.fillRect(13,-9,4,18);ctx.fillStyle=primary;ctx.fillRect(-12,-5,25,10);ctx.fillRect(9,-3,10,6);ctx.fillRect(15,-10,4,20);ctx.fillStyle=accent;ctx.fillRect(-19,-10,2,20);ctx.fillRect(-4,-1,18,2);ctx.fillStyle='#111927';ctx.beginPath();ctx.ellipse(1,0,5,4,0,0,Math.PI*2);ctx.fill();if(pitting){ctx.strokeStyle='#ffd44b';ctx.lineWidth=2;ctx.strokeRect(-22,-13,42,26)}if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.strokeRect(-24,-15,46,30)}ctx.restore();ctx.fillStyle=primary;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-16)}
-    function marker(f,label,color,tr){const q=xy(point(f),tr);ctx.fillStyle=color;ctx.beginPath();ctx.arc(q[0],q[1],3.7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2f5f8';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText(label,q[0]+6,q[1]-6)}
-    function overlay(tr){const o=data.overlay||{};marker(0,'START / FINISH','#fff',tr);(o.sectors||[]).forEach(x=>marker(x.fraction,x.label,x.colour||'#f4d35e',tr));(o.pit||[]).forEach(x=>marker(x.fraction,x.label,'#b79cff',tr));(o.straights||[]).forEach((z,i)=>{ctx.beginPath();for(let j=0;j<=20;j++){const q=xy(point(z.start+(z.end-z.start)*j/20),tr);j?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle=i?'#48c8ff':'#71e6a1';ctx.lineWidth=5;ctx.stroke()})}
-    function order(){return cars.slice().sort((a,b)=>{const x=state(a,time),y=state(b,time);return x.pos-y.pos||(y.lap+y.frac)-(x.lap+x.frac)})}
-    function draw(){if(!route.length)return;const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);const tr=transform();ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},tr);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;overlay(tr);cars.forEach(c=>{const s=state(c,time),p=visualPoint(c,time),q=xy(p,tr);car(q[0],q[1],p.angle,c.colour,c.accent||'#fff',c.code,c.code===selected,s.pit)})}
-    function miniStrategy(c,current){const groups=[];(c.laps||[]).filter(l=>l.lap<=Math.max(1,current)).forEach(l=>{const last=groups.at(-1);if(last&&last.compound===l.compound&&l.lap===last.end+1)last.end=l.lap;else groups.push({compound:l.compound,start:l.lap,end:l.lap})});return groups.map(g=>`<i style="--tyre:${tyres[g.compound]||'#718198'};width:${Math.max(3,(g.end-g.start+1)/Math.max(1,data.total_laps)*100)}%"></i>`).join('')}
-    function renderPanel(){const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),p=c.profile||{},compound=(l?.compound||'—').toUpperCase(),tc=tyres[compound]||'#8292a7',gain=(c.grid&&s.pos)?c.grid-s.pos:0,move=gain>0?`↑ ${gain} SIRA`:gain<0?`↓ ${Math.abs(gain)} SIRA`:'→ DEĞİŞMEDİ';const host=document.getElementById('panel');host.style.setProperty('--team',c.colour);host.innerHTML=`<div class="f1-hud__hero"><img class="f1-hud__portrait" src="${p.photo||''}" alt="" onerror="this.remove()"><div class="f1-hud__identity"><h2>${p.name||c.code}</h2><div class="f1-hud__meta">${p.number||'—'} · ${c.code} · ${p.age||'—'} yaş</div><div class="f1-hud__team">${c.team}</div></div></div><div class="f1-hud__stat"><span>Anlık sıra</span><b>P${s.pos}</b></div><div class="f1-hud__stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="f1-hud__stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="f1-hud__stat"><span>Şu ana kadarki değişim</span><b>${move}</b></div><div class="f1-hud__stat"><span>Stint / lastik</span><b>${l?.stint||'—'} · <i class="f1-hud__tyre" style="--tyre:${tc}">${compound.slice(0,1)}</i> ${compound}</b></div><div class="f1-hud__strategy">${miniStrategy(c,s.lap)}</div><div class="f1-hud__label">${c.code} · tur 1–${Math.max(1,s.lap)} lastik akışı</div><div class="f1-hud__note">Sıralar resmi tur sonu verisinden gelir; pist üstündeki hareket bu zamanlara bağlı, akıcı bir yeniden kurulumdur.</div>`}
-    function updateStrip(){const list=order(),key=list.map(c=>{const s=state(c,time);return c.code+s.pos+s.lap}).join('|')+selected;if(key===lastStrip)return;lastStrip=key;document.getElementById('strip').innerHTML=list.map(c=>{const s=state(c,time);return`<button class="f1-hud__pilot ${c.code===selected?'is-active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.f1-hud__pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastStrip='';updateHud(true)})}
-    function updateHud(force=false){const now=performance.now();if(force||now-lastHud>300){lastHud=now;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds);updateStrip();renderPanel()}}
-    function loop(now){let dt=Math.min(.035,Math.max(0,(now-last)/1000));last=now;if(document.hidden)dt=0;if(playing){time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan oynat'}}draw();updateHud();requestAnimationFrame(loop)}
-    function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw();updateHud(true)}
-    canvas.onclick=e=>{const tr=transform(),r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let winner=null,best=34;cars.forEach(c=>{const q=xy(visualPoint(c,time),tr),d=Math.hypot(q[0]-mx,q[1]-my);if(d<best){best=d;winner=c}});if(winner){selected=winner.code;lastStrip='';updateHud(true)}};document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('is-active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;lastStrip='';draw();updateHud(true)};document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · '+(data.replay_source||'doğrulanmış yarış akışı');document.addEventListener('visibilitychange',()=>last=performance.now());window.addEventListener('resize',resize);resize();requestAnimationFrame(loop);
-    </script></div></body></html>'''.replace('__PAYLOAD__', packed)
 
 
 @st.cache_data(ttl=604800, show_spinner=False)
@@ -4652,42 +3378,10 @@ MANAGER_TYRES = {
 MANAGER_SAVE_PATH = os.path.join(os.path.dirname(__file__), 'manager_career_save.json')
 
 
-def manager_load_save():
-    """Yerel kariyeri güvenli biçimde geri yükler; bozuk kayıt oyunu açmayı engellemez."""
-    try:
-        if os.path.exists(MANAGER_SAVE_PATH):
-            with open(MANAGER_SAVE_PATH, 'r', encoding='utf-8') as handle:
-                state = json.load(handle)
-                if isinstance(state, dict) and state.get('manager_version') == 2:
-                    return state
-    except Exception as error:
-        log_data_error('manager save load', error)
-    return None
 
 
-def manager_save_state(state):
-    try:
-        with open(MANAGER_SAVE_PATH, 'w', encoding='utf-8') as handle:
-            json.dump(state, handle, ensure_ascii=False, indent=2)
-    except Exception as error:
-        log_data_error('manager save write', error)
 
 
-def manager_new_state(team_name, driver_1, driver_2, engineer):
-    return {
-        'manager_version': 2,
-        'season': 2026,
-        'team': team_name,
-        'drivers': [driver_1, driver_2],
-        'engineer': engineer,
-        'round': 0,
-        'phase': 'garage',
-        'race': None,
-        'season_results': [],
-        'career_history': [],
-        'budget': 72,
-        'upgrades': {'aero': 0, 'reliability': 0, 'pit': 0},
-    }
 
 
 def manager_driver_rating(code, category='race'):
@@ -4700,215 +3394,16 @@ def team_color(team_name):
     return TEAM_DIRECTORY_2026.get(str(team_name), {}).get('color', '#94a3b8')
 
 
-def manager_tyre_visual(compound, life, large=False):
-    tyre = MANAGER_TYRES.get(compound, MANAGER_TYRES['MEDIUM'])
-    size = 86 if large else 56
-    used = max(0, min(100, float(life)))
-    return (
-        f"<div title='{compound}: %{used:.0f} ömür kaldı' style='width:{size}px;height:{size}px;border-radius:50%;"
-        f"background:conic-gradient({tyre['color']} 0 {used}%,#26364d {used}% 100%);padding:6px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center'>"
-        f"<div style='width:100%;height:100%;border-radius:50%;background:#0a111b;border:2px solid #0d1520;display:flex;align-items:center;justify-content:center;color:{tyre['color']};font-weight:950;font-size:{'1.45rem' if large else '.95rem'}'>{tyre['letter']}</div></div>"
-    )
 
 
-def manager_create_race(state, tyre_one, tyre_two):
-    round_name, laps, profile, note = MANAGER_RACE_CALENDAR[state['round'] % len(MANAGER_RACE_CALENDAR)]
-    player_tyres = {state['drivers'][0]: tyre_one, state['drivers'][1]: tyre_two}
-    cars = {}
-    for position, driver in enumerate(game_driver_pool(), start=1):
-        code = driver['code']
-        compound = player_tyres.get(code, ('MEDIUM', 'HARD', 'SOFT')[position % 3])
-        cars[code] = {
-            'team': driver['team'], 'position': position, 'time': position * .16,
-            'tyre': compound, 'life': 100.0, 'stint': 1, 'pit_stops': 0,
-            'pace': 'Dengeli', 'ers': 'Dengeli', 'last_lap': None,
-        }
-    state['race'] = {
-        'name': round_name, 'laps': laps, 'profile': profile, 'note': note, 'lap': 0,
-        'cars': cars, 'log': [f'{round_name} için grid hazır. Başlangıç lastikleri kilitlendi.'],
-        'pending_pits': {}, 'finished': False,
-    }
-    state['phase'] = 'race'
 
 
-def manager_rank_race(race):
-    ordered = sorted(race['cars'], key=lambda code: race['cars'][code]['time'])
-    for position, code in enumerate(ordered, start=1):
-        race['cars'][code]['position'] = position
-    return ordered
 
 
-def manager_advance_race(state, laps=3):
-    race = state.get('race')
-    if not race or race.get('finished'):
-        return
-    start_lap = race['lap']
-    end_lap = min(race['laps'], start_lap + laps)
-    for lap in range(start_lap + 1, end_lap + 1):
-        for driver in game_driver_pool():
-            code = driver['code']
-            car = race['cars'][code]
-            tyre = MANAGER_TYRES[car['tyre']]
-            rating = manager_driver_rating(code, 'race')
-            seed = state['season'] * 100000 + state['round'] * 1000 + lap * 37 + sum(ord(ch) for ch in code)
-            variance = float(np.random.default_rng(seed).normal(0, .18))
-            pace_delta = {'Atak': -.23, 'Dengeli': 0.0, 'Koru': .20}.get(car['pace'], 0.0)
-            ers_delta = {'Saldır': -.12, 'Dengeli': 0.0, 'Şarj Et': .11}.get(car['ers'], 0.0)
-            upgrade_delta = 0.0
-            if code in state['drivers']:
-                upgrade_delta = -state['upgrades']['aero'] * .035
-            tyre_penalty = max(0.0, (58 - car['life']) * .014)
-            lap_time = 88.8 + (100 - rating) * .052 + tyre['pace'] + tyre_penalty + pace_delta + ers_delta + variance + upgrade_delta
-            if code in race['pending_pits']:
-                new_tyre = race['pending_pits'].pop(code)
-                car['tyre'] = new_tyre
-                car['life'] = 100.0
-                car['stint'] += 1
-                car['pit_stops'] += 1
-                lap_time += max(17.2, 20.8 - state['upgrades']['pit'] * .7)
-                race['log'].append(f'Tur {lap}: {code} pitte {new_tyre} lastiğe geçti.')
-            car['time'] += lap_time
-            car['last_lap'] = lap_time
-            car['life'] = max(0.0, car['life'] - tyre['decay'] * (1.22 if car['pace'] == 'Atak' else .86 if car['pace'] == 'Koru' else 1.0))
-        race['lap'] = lap
-        manager_rank_race(race)
-    if race['lap'] >= race['laps']:
-        race['finished'] = True
-        ordered = manager_rank_race(race)
-        result = []
-        for position, code in enumerate(ordered, start=1):
-            result.append({'Sıra': position, 'Pilot': code, 'Takım': race['cars'][code]['team'], 'Puan': F1_GAME_POINTS[position - 1] if position <= len(F1_GAME_POINTS) else 0})
-        state['season_results'].append({'yarış': race['name'], 'sonuç': result})
-        state['log_message'] = f"{race['name']} tamamlandı. Sonuçlar sezon puanına işlendi."
 
 
-def manager_event_name(round_name):
-    '''Kariyer pistini, FastF1 takvimindeki güvenli etkinlik adına çevirir.'''
-    names = {
-        'Bahrain': 'Bahrain Grand Prix',
-        'Monaco': 'Monaco Grand Prix',
-        'Silverstone': 'British Grand Prix',
-        'Hungaroring': 'Hungarian Grand Prix',
-        'Spa': 'Belgian Grand Prix',
-        'Monza': 'Italian Grand Prix',
-        'Singapore': 'Singapore Grand Prix',
-        'Austin': 'United States Grand Prix',
-        'Interlagos': 'São Paulo Grand Prix',
-        'Abu Dhabi': 'Abu Dhabi Grand Prix',
-    }
-    return names.get(str(round_name), str(round_name))
 
 
-def manager_game_track_payload(race, state):
-    '''Oyunda gerçek FastF1 pist yörüngesini kullanır.
-
-    Bu oyun bir simülasyondur; araçlar gerçek GPS değildir. Ama çizilen pist,
-    aynı Grand Prix'nin FastF1 telemetrisinden alınır. Bağlantı yoksa dürüstçe
-    'geçici yörünge' etiketiyle güvenli bir yedek görünüm kullanılır.
-    '''
-    event_name = manager_event_name(race.get('name', ''))
-    outline = {}
-    try:
-        outline = get_track_outline(2026, event_name) or {}
-    except Exception as error:
-        log_data_error('manager game track', error)
-
-    raw_x = outline.get('X', []) if isinstance(outline, dict) else []
-    raw_y = outline.get('Y', []) if isinstance(outline, dict) else []
-    track = []
-    try:
-        for x, y in zip(raw_x, raw_y):
-            x_value, y_value = float(x), float(y)
-            if np.isfinite(x_value) and np.isfinite(y_value):
-                track.append([round(x_value, 2), round(y_value, 2)])
-    except (TypeError, ValueError):
-        track = []
-
-    # FastF1 verisi ilk yüklemede yoksa oyun yine açılır; bunu gerçek pist diye
-    # göstermiyoruz. Bir sonraki girişte get_track_outline önbellekten gelir.
-    source = 'FastF1 telemetri pisti'
-    if len(track) < 50:
-        source = 'Geçici oyun yörüngesi · FastF1 pisti yüklenince otomatik değişir'
-        track = [
-            [0, 18], [10, 2], [36, -5], [62, 2], [78, 20], [86, 44], [78, 70],
-            [60, 82], [37, 76], [24, 62], [11, 73], [-4, 62], [-10, 38], [0, 18],
-        ]
-
-    ordered = manager_rank_race(race)
-    leader_code = ordered[0] if ordered else ''
-    leader_time = float(race['cars'][leader_code]['time']) if leader_code else 0.0
-    player_rows = []
-    for code in selected:
-        car = race['cars'][code]
-        driver = driver_map[code]
-        gap = max(0.0, float(car['time']) - leader_time)
-        player_rows.append(
-            f"<div class='mini-stat' style='border-left:4px solid {team_color(driver['team'])}'>"
-            f"<span>{html_lib.escape(driver['name'])} · P{car['position']}</span>"
-            f"<b>+{gap:.1f} sn · {car['tyre']} · %{car['life']:.0f}</b></div>"
-        )
-    command_rows = []
-    for code in selected:
-        car = race['cars'][code]
-        command_rows.append(
-            f"<div class='mini-stat'><span>{code} komut</span>"
-            f"<b>{html_lib.escape(car['pace'])} · ERS {html_lib.escape(car['ers'])} · Pit {car['pit_stops']}</b></div>"
-        )
-    leaderboard_html = ''.join(
-        f"<div style='display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-left:3px solid {team_color(race['cars'][code]['team'])};border-bottom:1px solid #26374c'><b>P{race['cars'][code]['position']} · {code}</b><span>+{max(0.0, float(race['cars'][code]['time']) - leader_time):.1f} sn · {race['cars'][code]['tyre']} · %{race['cars'][code]['life']:.0f}</span></div>"
-        for code in ordered[:8]
-    )
-    log_html = ''.join(
-        f"<div style='padding:7px 0;border-bottom:1px solid #26374c'>{html_lib.escape(item)}</div>"
-        for item in race['log'][-4:]
-    ) or "<div class='driver-meta'>Henüz yeni pit veya strateji olayı yok.</div>"
-    left, right = st.columns([2, 1])
-    with left:
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid {team['color']}'><div class='hud-label'>PIT WALL // YARIŞ DURUMU</div>"
-            f"<div style='display:flex;gap:9px;flex-wrap:wrap;margin:9px 0'>{''.join(player_rows)}</div>"
-            f"<div class='hud-label' style='margin-top:14px'>AKTİF TALİMATLAR</div><div style='display:flex;gap:9px;flex-wrap:wrap;margin:8px 0'>{''.join(command_rows)}</div>"
-            f"<div class='hud-label' style='margin-top:14px'>SON KARARLAR</div>{log_html}</div>",
-            unsafe_allow_html=True,
-        )
-    with right:
-        st.markdown(
-            f"<div class='hud-card'><div class='hud-label'>CANLI OYUN SIRALAMASI · İLK 8</div>{leaderboard_html}"
-            f"<div class='driver-meta' style='margin-top:8px'>Sıralama gerçek zaman farkıyla güncellenir.</div></div>",
-            unsafe_allow_html=True,
-        )
-    if race['finished']:
-        st.success(state.get('log_message', 'Yarış tamamlandı.'))
-        final_rows = [row for row in state['season_results'][-1]['sonuç'] if row['Pilot'] in selected]
-        st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>YARIŞ SONU HUD</div><div style='display:flex;gap:12px;flex-wrap:wrap'>{''.join(f'<div class="mini-stat"><span>{row["Pilot"]}</span><b>P{row["Sıra"]} · {row["Puan"]} P</b></div>' for row in final_rows)}</div></div>", unsafe_allow_html=True)
-        if state['round'] + 1 < len(MANAGER_RACE_CALENDAR):
-            if st.button('Sonraki yarışa geç', key='manager_v2_next_race', use_container_width=True):
-                state['round'] += 1
-                state['phase'] = 'garage'
-                state['race'] = None
-                st.session_state[state_key] = state
-                manager_save_state(state)
-                st.rerun()
-        else:
-            if st.button('Yeni sezona geç', key='manager_v2_new_season', use_container_width=True):
-                state['career_history'].append({'season': state['season'], 'points': total_points, 'team': state['team']})
-                state['season'] += 1
-                state['round'] = 0
-                state['phase'] = 'garage'
-                state['race'] = None
-                state['season_results'] = []
-                state['budget'] += 18
-                st.session_state[state_key] = state
-                manager_save_state(state)
-                st.rerun()
-    if st.button('Kariyeri sıfırla', key='manager_v2_reset'):
-        st.session_state[state_key] = None
-        try:
-            if os.path.exists(MANAGER_SAVE_PATH):
-                os.remove(MANAGER_SAVE_PATH)
-        except Exception as error:
-            log_data_error('manager save reset', error)
-        st.rerun()
 
 
 def render_paddock_predictor():
@@ -5361,48 +3856,16 @@ def paddock_history_answer_v18(question):
     return ''
 
 
-def paddock_assistant_answer_v18(question, year=2026):
-    """Verified current data first; historic/local answer second; optional OpenAI last."""
-    historic = paddock_history_answer_v18(question)
-    if historic:
-        return {'title': 'F1 tarih bilgisi', 'answer': historic, 'source': 'Yerel F1 dunya sampiyonlari arsivi'}
-    answer = paddock_assistant_answer_v19(question, year)
-    # Existing function returns a clear verified answer for result questions.
-    return answer
 
 
 
 
-def _row_value_v18(row, keys):
-    for key in keys:
-        value = row.get(key, '-')
-        if pd.notnull(value) and str(value).strip() not in {'', '-', '—', 'nan', 'None'}:
-            return str(value)
-    return '-'
-
-
-def _position_v18(value):
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return 99
 
 
 
 
-def render_home_command_hud_v18(event_name, location_name, next_session, latest, drivers, is_live):
-    latest_copy = f"{latest.get('event_name', '-') } // {latest.get('display_name', '-') }" if latest else 'Son tamamlanan seans bekleniyor'
-    leader = drivers[0]['name'] if drivers else 'Veri bekleniyor'
-    cards = [
-        ('SON SEANS', latest_copy, '#2ee6c9'),
-        ('SIRADAKI', f'{location_name} // {next_session}', '#7dd3fc'),
-        ('DURUM', 'CANLI SEANS' if is_live else 'PROGRAM BEKLENIYOR', '#ff385c'),
-        ('SON LIDER', leader, '#f7c948'),
-    ]
-    cols = st.columns(4)
-    for col, (label, value, colour) in zip(cols, cards):
-        with col:
-            st.markdown(f"<div class='hud-card home-command-card' style='border-top:4px solid {colour}'><div class='hud-label'>{label}</div><div style='font-size:1rem;font-weight:900;margin-top:8px;line-height:1.3'>{html_lib.escape(str(value))}</div></div>", unsafe_allow_html=True)
+
+
 
 
 st.markdown(r"""
@@ -5528,46 +3991,6 @@ def _rss_image_v19(item):
     return ''
 
 
-@st.cache_data(ttl=900, show_spinner=False)
-def fetch_f1_news_catalog_v19(limit=30):
-    """A small multi-RSS catalog. It never fabricates articles if providers are down."""
-    sources = [
-        ('Autosport', 'https://www.autosport.com/rss/f1/news/'),
-        ('Sky Sports', 'https://www.skysports.com/rss/12433'),
-        ('Motorsport', 'https://www.motorsport.com/rss/f1/news/'),
-    ]
-    catalog, seen = [], set()
-    for source_name, url in sources:
-        try:
-            request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 FormulaPaddock/1.9'})
-            with urllib.request.urlopen(request, timeout=7) as response:
-                root = ET.fromstring(response.read())
-            for item in root.findall('.//item'):
-                title = _rss_text_v19(item, 'title')
-                link = safe_external_url(_rss_text_v19(item, 'link'))
-                if not title or not link:
-                    continue
-                fingerprint = (title.lower(), link.lower())
-                if fingerprint in seen:
-                    continue
-                seen.add(fingerprint)
-                description = _rss_text_v19(item, 'description')
-                description = re.sub(r'<[^>]*>', ' ', description)
-                description = re.sub(r'\s+', ' ', description).strip()
-                catalog.append({
-                    'title': title,
-                    'link': link,
-                    'date': _rss_text_v19(item, 'pubDate')[:22],
-                    'desc': description[:220] + ('...' if len(description) > 220 else ''),
-                    'source': source_name,
-                    'image': _rss_image_v19(item),
-                })
-                if len(catalog) >= int(limit):
-                    return catalog
-        except Exception as error:
-            log_data_error('news catalog source', error)
-            continue
-    return catalog[:int(limit)]
 
 
 def news_matches_team_v19(item, team_name):
@@ -5587,11 +4010,6 @@ def draft_driver_rating_v19(code):
     return known.get(str(code), 75)
 
 
-def paddock_draft_state_v19():
-    key = 'paddock_draft_state_v19'
-    if key not in st.session_state:
-        st.session_state[key] = {'picks': [], 'budget': 100, 'score': None, 'message': 'Iki pilotluk kadronu sec. Butceyi asma.'}
-    return st.session_state[key], key
 
 
 
@@ -5940,19 +4358,8 @@ def repair_text_v20(value):
     return text
 
 
-def table_column_v20(frame, starts_with):
-    for column in getattr(frame, 'columns', []):
-        if str(column).lower().startswith(starts_with.lower()):
-            return column
-    return None
 
 
-def table_value_v20(row, frame, starts_with, default='-'):
-    column = table_column_v20(frame, starts_with)
-    if not column:
-        return default
-    value = row.get(column, default)
-    return repair_text_v20(value) if value not in (None, '', 'nan') else default
 
 
 def news_item_is_f1_v20(item, link, title, description):
@@ -7112,10 +5519,6 @@ st.markdown(r"""
 # =========================================================
 
 
-def stewarlde_identity_v24(value):
-    """Stable key for merging a historical driver ID with the current grid."""
-    text = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode('ascii')
-    return re.sub(r'[^a-z0-9]+', '', text.casefold())
 
 
 # Jolpica IDs are only used to ask the historical source for a driver's own
@@ -7324,40 +5727,6 @@ st.markdown(r"""
 # =========================================================
 
 
-@st.cache_data(ttl=60 * 60 * 24 * 30, show_spinner=False)
-def fetch_stewarlde_career_record_v25(api_code):
-    """Return exact source totals plus the earliest source race year.
-
-    The result history is paged so long careers are not silently shortened.
-    A field remains empty when Jolpica cannot verify it; we never substitute
-    a hand-written career number.
-    """
-    clean_code = str(api_code or '').strip()
-    empty = {'starts': None, 'wins': None, 'first_gp_date': None}
-    if not clean_code:
-        return empty
-    try:
-        base = 'https://api.jolpi.ca/ergast/f1/drivers/' + urllib.parse.quote(clean_code)
-        starts_payload = _stewarlde_request_json_v23(base + '/results.json?limit=1')
-        wins_payload = _stewarlde_request_json_v23(base + '/results/1.json?limit=1')
-        starts = _stewarlde_safe_int_v21(starts_payload.get('MRData', {}).get('total'), None)
-        wins = _stewarlde_safe_int_v21(wins_payload.get('MRData', {}).get('total'), None)
-        first_gp_date = None
-        if starts and starts > 0:
-            first_dates = []
-            for offset in range(0, starts, 100):
-                page = _stewarlde_request_json_v23(base + f'/results.json?limit=100&offset={offset}')
-                races = page.get('MRData', {}).get('RaceTable', {}).get('Races', [])
-                for race in races:
-                    race_date = str(race.get('date') or '').strip()
-                    if re.fullmatch(r'19\d{2}|20\d{2}', race_date[:4]) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', race_date):
-                        first_dates.append(race_date)
-            if first_dates:
-                first_gp_date = min(first_dates)
-        return {'starts': starts, 'wins': wins, 'first_gp_date': first_gp_date}
-    except Exception as error:
-        log_data_error('stewarlde 2.5 career record', error)
-        return empty
 
 
 
@@ -7701,69 +6070,6 @@ def _career_races_v27(api_code):
     return races, total
 
 
-@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
-def get_driver_career_stats_v27(driver_code):
-    """Career-only totals for comparison HUDs.
-
-    The function intentionally has no FastF1 dependency. A source outage is
-    isolated to this card and returns visible unavailable values.
-    """
-    code = str(driver_code or '').upper().strip()
-    empty = {
-        'verified': False, 'wins': None, 'podiums': None, 'poles': None,
-        'fastest_laps': None, 'starts': None, 'points': None, 'teams': [],
-        'titles': CAREER_TITLES_V27.get(code, 0),
-    }
-    api_code = STEWARDLE_ACTIVE_API_IDS_V24.get(code, '')
-    if not api_code:
-        return empty
-    try:
-        races, starts = _career_races_v27(api_code)
-        wins = podiums = fastest_laps = 0
-        points = 0.0
-        teams = []
-        for race in races:
-            results = race.get('Results', []) or []
-            if not results:
-                continue
-            result = results[0]
-            position = _career_number_v27(result.get('position'))
-            wins += int(position == 1)
-            podiums += int(position in {1, 2, 3})
-            fastest = result.get('FastestLap', {}) or {}
-            fastest_laps += int(str(fastest.get('rank', '')) == '1')
-            points += _career_float_v27(result.get('points')) or 0.0
-            team_name = str((result.get('Constructor', {}) or {}).get('name', '')).strip()
-            if team_name and team_name not in teams:
-                teams.append(team_name)
-
-        # Pole total has its own authoritative endpoint; it does not require
-        # treating a race grid position as a qualifying result.  This endpoint
-        # is optional: if the historical source cannot provide it, the other
-        # verified career totals must remain visible.
-        try:
-            pole_payload = _career_api_json_v27(
-                'https://api.jolpi.ca/ergast/f1/drivers/'
-                + urllib.parse.quote(api_code)
-                + '/qualifying/1.json?limit=1'
-            )
-            poles = _career_number_v27(pole_payload.get('MRData', {}).get('total'))
-        except Exception:
-            poles = None
-        return {
-            'verified': True,
-            'wins': wins,
-            'podiums': podiums,
-            'poles': poles,
-            'fastest_laps': fastest_laps,
-            'starts': starts,
-            'points': points,
-            'teams': teams,
-            'titles': CAREER_TITLES_V27.get(code, 0),
-        }
-    except Exception as error:
-        log_data_error('career comparison source', error)
-        return empty
 
 
 def _career_text_v27(value, suffix=''):
@@ -7776,44 +6082,6 @@ def _career_text_v27(value, suffix=''):
     return text + suffix
 
 
-def _career_panel_v27(info, stats, colour):
-    code = str(info.get('code', '')).upper()
-    portrait = current_driver_portrait(info.get('team', ''), info.get('image', ''))
-    portrait_html = (
-        f"<img src='{html_lib.escape(portrait, quote=True)}' alt='{html_lib.escape(info['name'])}' "
-        "onerror=\"this.style.display='none'\">"
-        if portrait else ''
-    )
-    metric_rows = [
-        ('GALİBİYET', _career_text_v27(stats.get('wins'))),
-        ('DÜNYA ŞAMP.', _career_text_v27(stats.get('titles'))),
-        ('POLE', _career_text_v27(stats.get('poles'))),
-        ('EN HIZLI TUR', _career_text_v27(stats.get('fastest_laps'))),
-        ('GP STARTI', _career_text_v27(stats.get('starts'))),
-        ('KARİYER PUANI', _career_text_v27(stats.get('points'))),
-        ('PODYUM', _career_text_v27(stats.get('podiums'))),
-    ]
-    metrics = ''.join(
-        f"<div class='career-metric-v27'><span>{label}</span><b>{value}</b></div>"
-        for label, value in metric_rows
-    )
-    teams = stats.get('teams', []) or []
-    teams_html = ''.join(
-        f"<span>{html_lib.escape(team)}</span>" for team in teams
-    ) or '<span>Kaynakta doğrulanamadı</span>'
-    source = 'Jolpica tarihî F1 verisi' if stats.get('verified') else 'Kaynak geçici olarak yanıt vermedi'
-    return (
-        f"<section class='career-panel-v27' style='--team:{colour}'>"
-        "<div class='career-hero-v27'>"
-        f"{portrait_html}<div><div class='hud-label'>KARİYER DOSYASI</div>"
-        f"<h3>{html_lib.escape(info['name'])}</h3>"
-        f"<p>{html_lib.escape(code)} · {html_lib.escape(info.get('team', '—'))}</p></div></div>"
-        f"<div class='career-metrics-v27'>{metrics}</div>"
-        "<div class='career-teams-v27'><small>YARIŞTIĞI TAKIMLAR</small>"
-        f"<div>{teams_html}</div></div>"
-        f"<div class='career-source-v27'>● {html_lib.escape(source)}</div>"
-        "</section>"
-    )
 
 
 
