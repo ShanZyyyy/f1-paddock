@@ -5674,13 +5674,8 @@ def directory_driver_by_code(code):
 
 
 def render_page_header(title, subtitle, accent='#2ee6c9'):
-    st.markdown(
-        f"<div class='hud-card' style='border-left:5px solid {accent};margin:6px 0 20px'>"
-        f"<div class='hud-label'>PADDOCK // YENI MERKEZ</div>"
-        f"<div style='font-size:1.7rem;font-weight:950;margin-top:6px'>{html_lib.escape(title)}</div>"
-        f"<div class='history-copy' style='margin-top:6px'>{html_lib.escape(subtitle)}</div></div>",
-        unsafe_allow_html=True,
-    )
+    # redesign: tek noktadan tum merkez sayfalarina F1-TV basligi
+    fp_ui.page_header(title, subtitle, eyebrow="Paddock")
 
 
 def completed_session_options(event):
@@ -6114,7 +6109,7 @@ def paddock_assistant_answer_v19_pro(question, year=2026):
 
 
 def render_paddock_assistant_v20():
-    st.markdown('## Paddock Asistani')
+    fp_ui.page_header("Paddock Asistani", "Sonuc, pole, lastik ve tarihi sorular dogrulanmis F1 verisinden yanitlanir.", eyebrow="Paddock")
     api_ready = bool(configured_openai_api_key())
     accent = '#2ee6c9' if api_ready else '#f7c948'
     mode = 'OPENAI + DOGRULANMIS VERI' if api_ready else 'F1 VERI VE TARIH ARSIVI'
@@ -8194,8 +8189,11 @@ def stewarlde_profile_v25(driver, stats, colour):
 
 
 def render_stewarlde_v25():
-    st.markdown('## 🎮 Stewarlde')
-    st.caption('2010–2026 F1 pilot havuzuyla; kaynak doğrulamalı galibiyet, şampiyonluk, GP startı ve ilk GP yılı bulmacası.')
+    fp_ui.page_header(
+        "Stewardle",
+        "2010–2026 F1 pilot havuzu · kaynak dogrulamali galibiyet, sampiyonluk, GP starti ve ilk GP yili bulmacasi.",
+        eyebrow="Oyunlar",
+    )
     mode = st.radio('Oyun modu', ['Günlük', 'Sınırsız'], horizontal=True, key='stewarlde_mode_v25')
     state_key = 'stewarlde_state_v25'
     day_key = datetime.date.today().isoformat()
@@ -9140,15 +9138,15 @@ def gridmaster_questions_v30(difficulty="Zor"):
 
 def render_game_engine_banner_v30(title, colour):
     profile = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
-    st.markdown(
-        f"<div class='hud-card engine-banner-v30' style='border-left:5px solid {colour}'><div class='hud-label'>PADDOCK OYUN MOTORU 3.0</div>"
-        f"<div class='engine-title-v30'>{html_lib.escape(title)}</div><div class='driver-meta'>XP {profile['xp']} · Tamamlanan oyun {profile['played']} · En iyi seri {profile['best_streak']}</div></div>",
-        unsafe_allow_html=True,
+    fp_ui.page_header(
+        title,
+        f"Paddock Oyun Motoru 3.0 · XP {profile['xp']} · tamamlanan oyun {profile['played']} · en iyi seri {profile['best_streak']}",
+        eyebrow="Oyunlar",
     )
 
 
 def render_gridmaster_v30():
-    st.markdown("## ⚡ GridMaster")
+    fp_ui.page_header("GridMaster", "10 soruluk mucadele · seri carpani · telsiz jokeri · rutbe sistemi.", eyebrow="Oyunlar")
     difficulty = st.segmented_control("Seviye", ["Zor", "Uzman"], default="Zor", key="gridmaster_level_v30") if hasattr(st, 'segmented_control') else st.radio("Seviye", ["Zor", "Uzman"], horizontal=True, key="gridmaster_level_v30")
     questions = gridmaster_questions_v30(difficulty)
     today = datetime.date.today().isoformat()
@@ -9239,8 +9237,11 @@ def render_paddock_draft_game_v30():
 
 def render_paddock_career_alpha_v01():
     """Instant browser prototype while the full Unity WebGL production is prepared."""
-    st.markdown("## 🏎️ Paddock Career — Sürüş Prototipi")
-    st.caption("Alpha 0.3 · Paddock Ring GP · Kuzeye sabit yakın takip · Tam-pist minimap · Fizik tabanlı AI")
+    fp_ui.page_header(
+        "Paddock Career · Surus Prototipi",
+        "Alpha 0.3 · Paddock Ring GP · sabit yakin takip · tam-pist minimap · fizik tabanli AI.",
+        eyebrow="Oyunlar",
+    )
     game_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paddock_ring_alpha.html")
     try:
         with open(game_path, "r", encoding="utf-8") as game_file:
@@ -9253,8 +9254,11 @@ def render_paddock_career_alpha_v01():
 
 
 def render_games_hub_v30():
-    st.markdown("## 🎮 Oyun Merkezi")
-    st.caption("Stewardle doğrulanmış tarihsel motorunda kalır. Diğer oyunlar hızlı Paddock Oyun Motoru 3.0 üzerinde çalışır.")
+    fp_ui.page_header(
+        "Oyun Merkezi",
+        "Stewardle dogrulanmis tarihsel motorunda kalir. Diger oyunlar Paddock Oyun Motoru 3.0 uzerinde calisir.",
+        eyebrow="Oyunlar",
+    )
     games = [
         ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu bul.", "#ff385c", "Stewardle aç", "stewarlde"),
         ("10 SORULUK MÜCADELE", "GridMaster", "Zor sorular, seri çarpanı, telsiz jokeri ve rütbe sistemi.", "#f7c948", "Mücadeleyi aç", "gridmaster"),
@@ -9545,13 +9549,18 @@ elif st.session_state['page'] == 'live':
     curr_event, target_s_name, target_s_time, is_live_now = get_current_or_next_event()
     gp_name = curr_event['EventName'] if 'EventName' in curr_event else "Hungarian Grand Prix"
     
-    st.markdown(f"## 📡 Seans & Yarış Merkezi — {gp_name}")
-    st.info(
-        "💡 **Alpha odağı:** Dereceler ve tamamlanmış yarış tekrarları. Canlı 2D pist, "
-        "doğrulanmış bir konum sağlayıcısı hazır olana kadar kapalı tutulur; site sahte canlı konum üretmez."
+    fp_ui.page_header(
+        "Seans Takibi",
+        f"{gp_name} · Dereceler ve tamamlanmis yaris tekrarlari.",
+        eyebrow="Canli & Yaris",
+    )
+    fp_ui.data_state(
+        "Alpha Odagi",
+        "Canli 2D pist, dogrulanmis bir konum saglayicisi hazir olana kadar kapali tutulur; site sahte canli konum uretmez.",
+        "warning",
     )
 
-    timing_tab, replay_tab = st.tabs(["📊 Dereceler", "🎬 2026 Yarış Tekrarı"])
+    timing_tab, replay_tab = st.tabs(["Dereceler", "2026 Yaris Tekrari"])
     if False:  # Alpha: doğrulanmış canlı konum altyapısı tamamlanana kadar gizli.
         token, openf1_username, openf1_password = get_openf1_access_v19()
         refresh_live = st.button("🔄 Açık canlı veri paketini yenile", key='refresh_live_v19')
@@ -10092,8 +10101,11 @@ elif st.session_state['page'] == 'telemetry':
 
 # SAYFA 4: TAKVİM VE PİSTLER
 elif st.session_state['page'] == 'calendar':
-    st.markdown("## 🏁 Takvim & Pistler")
-    st.caption("Bir yarış seç: pist görünümü, hafta sonu programı ve tamamlanan seans sonuçları aynı yerde.")
+    fp_ui.page_header(
+        "Takvim & Pistler",
+        "Bir yaris sec: pist gorunumu, hafta sonu programi ve tamamlanan seans sonuclari ayni yerde.",
+        eyebrow="Canli & Yaris",
+    )
     calendar_year = st.selectbox("Sezon", [2026, 2025, 2024], index=0, key="calendar_year")
     events = get_calendar_details(calendar_year)
     if not events:
@@ -10226,8 +10238,11 @@ elif st.session_state['page'] == 'calendar':
 
 # SAYFA 5: TAKIMLAR VE PİLOTLAR
 elif st.session_state['page'] == 'teams':
-    st.markdown("## 👥 2026 Takımlar & Pilotlar")
-    st.caption("2026 grid: 11 takım, 22 pilot. Logolar ve pilot portreleri güncel takım renkleriyle gösterilir.")
+    fp_ui.page_header(
+        "2026 Takimlar & Pilotlar",
+        "2026 grid: 11 takim, 22 pilot. Logolar ve pilot portreleri guncel takim renkleriyle.",
+        eyebrow="Sampiyonalar",
+    )
     if 'team_focus' not in st.session_state:
         st.session_state['team_focus'] = 'Mercedes'
 
@@ -10383,9 +10398,12 @@ elif st.session_state['page'] == 'standings':
 
 # SAYFA 7: F2 VE F3
 elif st.session_state['page'] == 'f2f3':
-    st.markdown("## 🏎️ Formula 2 & Formula 3 Takip Merkezi")
-    st.caption("2026 resmî kadroları. F1 ile aynı HUD düzeninde, fakat ayrı veri kaynağı ve ayrı puan merkezleriyle çalışır.")
-    st.markdown("<div class='hud-card' style='border-left:4px solid #00b3ff;margin:8px 0 16px'><div class='hud-label'>JUNIOR PADDOCK // BETA 1.0</div><div class='history-copy' style='margin-top:6px'>Takım ve pilot kartları yerel 2026 kadro dizininden gelir. Sonuç/puan akışı ayrı bir doğrulanmış F2/F3 kaynağı bağlanana kadar F1 puan tablosuyla karıştırılmaz.</div></div>", unsafe_allow_html=True)
+    fp_ui.page_header(
+        "Formula 2 & Formula 3",
+        "2026 resmi kadrolari. F1 ile ayni HUD duzeni, ayri veri kaynagi ve ayri puan merkezleri.",
+        eyebrow="Sampiyonalar",
+    )
+    fp_ui.data_state("Junior Paddock · Beta", "Takim ve pilot kartlari yerel 2026 kadro dizininden gelir. F2/F3 sonuc akisi dogrulanmis kaynak baglanana kadar F1 puan tablosuyla karistirilmaz.", "info")
     f2_grid = {
         'Invicta Racing': 'Rafael Câmara • Joshua Dürksen', 'Hitech': 'Ritomo Miyata • Colton Herta',
         'Campos Racing': 'Noel León • Nikola Tsolov', 'DAMS Lucas Oil': 'Dino Beganovic • Roman Bilinski',
@@ -10403,13 +10421,13 @@ elif st.session_state['page'] == 'f2f3':
     }
     series = st.tabs(["Formula 2", "Formula 3"])
     with series[0]:
-        st.markdown("### F2 // 2026 Grid")
-        st.markdown("<div class='hud-card'><div class='hud-label'>FORMULA 2</div><div class='history-copy'>11 takım • 22 pilot • Sprint ve Feature Race sonuçları F1 puan merkezinden ayrı tutulur.</div></div>", unsafe_allow_html=True)
+        fp_ui.section_title("F2 · 2026 Grid")
+        fp_ui.hud_card("Formula 2", "11 takim · 22 pilot", "Sprint ve Feature Race sonuclari F1 puan merkezinden ayri tutulur.", accent="cyan")
         render_junior_team_hud('f2', f2_grid, '#00b3ff', 'https://www.fiaformula2.com')
         st.link_button("Resmî Formula 2 merkezi ↗", "https://www.fiaformula2.com/", use_container_width=True)
     with series[1]:
-        st.markdown("### F3 // 2026 Grid")
-        st.markdown("<div class='hud-card'><div class='hud-label'>FORMULA 3</div><div class='history-copy'>10 takım • 30 pilot • F3 verileri F1 ve F2 ile karışmadan kendi yarış merkezi altında tutulur.</div></div>", unsafe_allow_html=True)
+        fp_ui.section_title("F3 · 2026 Grid")
+        fp_ui.hud_card("Formula 3", "10 takim · 30 pilot", "F3 verileri F1 ve F2 ile karismadan kendi yaris merkezi altinda tutulur.", accent="amber")
         render_junior_team_hud('f3', f3_grid, '#ffbe2e', 'https://www.fiaformula3.com')
         st.link_button("Resmî Formula 3 merkezi ↗", "https://www.fiaformula3.com/", use_container_width=True)
 
@@ -10458,8 +10476,11 @@ elif st.session_state['page'] == 'paddock_career':
 
 # SAYFA 9: F1 SÖZLÜĞÜ
 elif st.session_state['page'] == 'glossary':
-    st.markdown("## ❓ F1 Sözlüğü")
-    st.caption("2026 kuralları ve telemetri ekranlarımız için hazırlanmış 60 temel terim.")
+    fp_ui.page_header(
+        "F1 Sozlugu",
+        "2026 kurallari ve telemetri ekranlari icin hazirlanmis 60 temel terim.",
+        eyebrow="Paddock",
+    )
     terms = [
         ('2026 Teknolojisi', 'Active Aero', 'Ön ve arka kanadın sürüş koşuluna göre aktif açı değiştirmesidir.', True),
         ('2026 Teknolojisi', 'Corner Mode', 'Virajlarda daha fazla yere basma için kullanılan aktif aero ayarıdır.', True),
