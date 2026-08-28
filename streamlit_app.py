@@ -1535,15 +1535,17 @@ def constructor_hud_html(standings):
     rest = ''.join(card(row) for _, row in standings.iterrows() if int(row['Sıra']) > 3)
     return f"""
     <style>
-        body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}
-        .podium-wrap{{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:end;padding:10px 0 24px}}
-        .podium,.team-card{{position:relative;background:#11161f;border:1px solid #26313f;border-top:4px solid var(--team);border-radius:13px;padding:14px 16px;box-sizing:border-box;overflow:hidden}}
-        .podium{{min-height:180px;text-align:center}} .p1{{min-height:220px;order:0;box-shadow:0 12px 30px rgba(0,0,0,.27)}} .p2{{order:-1}} .p3{{order:1}}
-        .podium img{{height:66px;max-width:130px;object-fit:contain;margin:12px auto 10px;display:block}} .team-card img{{height:42px;max-width:95px;object-fit:contain;margin-bottom:7px;display:block}}
-        .place{{position:absolute;right:12px;top:11px;color:var(--team);font-weight:900;font-size:13px}}
-        .team-name{{color:var(--team);font-size:17px;font-weight:900}} .team-points{{margin-top:7px;font-size:24px;font-weight:900}} .team-points small{{font-size:10px;color:#63748a;letter-spacing:.09em}}
-        .team-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}} .team-card{{min-height:115px}}
-        @media(max-width:760px){{.podium-wrap,.team-grid{{grid-template-columns:1fr}} .p1,.p2,.p3{{order:initial;min-height:150px}}}}
+        body{{margin:0;background:transparent;color:#f2f5f8;font-family:'Saira',system-ui,sans-serif}}
+        .podium-wrap{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end;padding:2px 0 18px}}
+        .podium,.team-card{{position:relative;background:linear-gradient(160deg,#161d28,#11161f);border:1px solid #26313f;
+          border-top:3px solid var(--team);border-radius:5px;padding:14px 16px;box-sizing:border-box;overflow:hidden}}
+        .podium{{min-height:172px;text-align:center}} .p1{{min-height:206px;order:0;box-shadow:0 12px 30px rgba(0,0,0,.35)}} .p2{{order:-1}} .p3{{order:1}}
+        .podium img{{height:60px;max-width:128px;object-fit:contain;margin:10px auto 8px;display:block}} .team-card img{{height:38px;max-width:92px;object-fit:contain;margin-bottom:6px;display:block}}
+        .place{{position:absolute;right:12px;top:10px;color:var(--team);font:800 13px 'JetBrains Mono',monospace}}
+        .team-name{{color:var(--team);font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+        .team-points{{margin-top:6px;font:800 22px 'JetBrains Mono',monospace}} .team-points small{{font:700 9px 'Saira Condensed',sans-serif;color:#63748a;letter-spacing:.14em;margin-left:4px}}
+        .team-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}} .team-card{{min-height:108px}}
+        @media(max-width:440px){{.podium-wrap,.team-grid{{grid-template-columns:1fr}} .p1,.p2,.p3{{order:initial;min-height:132px}}}}
     </style>
     <div class='podium-wrap'>{podium}</div><div class='team-grid'>{rest}</div>
     """
@@ -1581,7 +1583,7 @@ def weekend_overview_hud(event, sessions):
       .weekend-head{{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}}
       .eyebrow{{color:#8ba2bc;font-weight:900;font-size:10px;letter-spacing:.12em}}.race-name{{font-size:22px;font-weight:950;margin-top:5px}}.next{{border:1px solid #36506e;background:#122137;border-radius:8px;padding:8px 10px;color:#b8c9db;font-size:11px;font-weight:800}}
       .weekend-sessions{{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}}.weekend-session{{min-height:70px;padding:10px;border:1px solid #294057;border-top:3px solid var(--accent);border-radius:9px;background:#0d1724}}.weekend-session small,.weekend-session span{{display:block;color:#8da4bc;font-weight:900;font-size:10px;letter-spacing:.07em}}.weekend-session b{{display:block;color:#f3f8ff;margin:7px 0;font-size:12px}}.weekend-session span{{color:var(--accent)}}
-      @media(max-width:760px){{.race-name{{font-size:18px}}.weekend-sessions{{grid-template-columns:repeat(2,1fr)}}.weekend-session:last-child{{grid-column:span 2}}}}
+      @media(max-width:440px){{.race-name{{font-size:18px}}.weekend-sessions{{grid-template-columns:repeat(2,1fr)}}.weekend-session:last-child{{grid-column:span 2}}}}
     </style>
     <div class='weekend-hud'><div class='weekend-head'><div><div class='eyebrow'>RACE WEEKEND // İSTANBUL SAATİ</div><div class='race-name'>{html_lib.escape(str(event.get('EventName', 'Formula 1')))}</div></div><div class='next'>{html_lib.escape(next_text)}</div></div><div class='weekend-sessions'>{''.join(cards)}</div></div>
     """
@@ -1594,13 +1596,30 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds):
     driver = driver_standings.iloc[0]
     team = constructor_standings.iloc[0]
     driver_team = str(driver.get('Takım', ''))
-    driver_colour = team_colour(driver_team)
-    team_colour_value = team_colour(str(team.get('Takım', '')))
+    dc = team_colour(driver_team)
+    tc = team_colour(str(team.get('Takım', '')))
+    d_name = html_lib.escape(str(driver.get('Pilot', '—')))
+    d_pts = html_lib.escape(str(driver.get('Puan', '—')))
+    t_name = html_lib.escape(str(team.get('Takım', '—')))
+    t_pts = html_lib.escape(str(team.get('Puan', '—')))
     return f"""
     <style>
-      body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}.season-snapshot{{display:grid;grid-template-columns:1.1fr 1fr .8fr;gap:10px}}.season-card{{border:1px solid #2b405a;border-top:4px solid var(--accent);border-radius:11px;padding:13px;background:#11161f;min-height:108px}}.season-card small{{display:block;color:#8ea5bc;font-size:10px;font-weight:900;letter-spacing:.1em}}.season-card b{{display:block;font-size:20px;color:var(--accent);margin-top:8px}}.season-card span{{display:block;color:#c2d0df;font-size:12px;margin-top:5px;font-weight:750}}@media(max-width:760px){{.season-snapshot{{grid-template-columns:1fr}}}}
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ss{{display:grid;grid-template-columns:1fr 1fr .72fr;gap:10px}}
+      .ss-c{{border:1px solid #26313f;border-left:3px solid var(--a);border-radius:5px;
+        padding:13px 15px;background:linear-gradient(160deg,#161d28,#11161f);min-height:104px}}
+      .ss-c s{{display:block;font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.16em;
+        text-transform:uppercase;color:#63748a;text-decoration:none}}
+      .ss-c b{{display:block;font:800 22px 'Saira Condensed',sans-serif;text-transform:uppercase;
+        color:var(--a);margin-top:7px;line-height:1}}
+      .ss-c i{{display:block;font:12px 'JetBrains Mono',monospace;color:#9fb0c0;margin-top:8px;font-style:normal}}
+      @media(max-width:430px){{.ss{{grid-template-columns:1fr}}}}
     </style>
-    <div class='season-snapshot'><div class='season-card' style='--accent:{driver_colour}'><small>PİLOT LİDERİ</small><b>{html_lib.escape(str(driver.get('Pilot', '—')))} · {html_lib.escape(str(driver.get('Puan', '—')))} P</b><span>{html_lib.escape(driver_team)} · Şampiyona sırası #1</span></div><div class='season-card' style='--accent:{team_colour_value}'><small>TAKIM LİDERİ</small><b>{html_lib.escape(str(team.get('Takım', '—')))} · {html_lib.escape(str(team.get('Puan', '—')))} P</b><span>Takımlar klasmanında lider</span></div><div class='season-card' style='--accent:#f7c948'><small>TAMAMLANAN YARIŞ</small><b>{len(rounds)}</b><span>Sprint sonuçları puana dahil</span></div></div>
+    <div class='ss'>
+      <div class='ss-c' style='--a:{dc}'><s>Pilot Lideri</s><b>{d_name}</b><i>{d_pts} P · {html_lib.escape(driver_team)}</i></div>
+      <div class='ss-c' style='--a:{tc}'><s>Takım Lideri</s><b>{t_name}</b><i>{t_pts} P · konstruktör #1</i></div>
+      <div class='ss-c' style='--a:#f5c33b'><s>Tamamlanan</s><b>{len(rounds)}</b><i>yarış · sprint dahil</i></div>
+    </div>
     """
 
 
@@ -1644,7 +1663,7 @@ def session_leaderboard_html(table, title):
         .leader-list{{border-top:1px solid #243145}}
         .leader-row{{display:grid;grid-template-columns:45px 1fr 135px 30px;align-items:center;min-height:53px;padding:0 14px;border-top:1px solid #243145;border-left:4px solid var(--team)}}
         .leader-row .rank{{color:#9fb4cb;font-weight:900}} .leader-row .lap{{margin:0;text-align:right}}
-        @media(max-width:760px){{.tops{{grid-template-columns:1fr}} .leader-row{{grid-template-columns:36px 1fr 95px 25px;padding:0 8px}}}}
+        @media(max-width:440px){{.tops{{grid-template-columns:1fr}} .leader-row{{grid-template-columns:36px 1fr 95px 25px;padding:0 8px}}}}
     </style>
     <div class='wrap'><div class='head'>{html_lib.escape(title)}<div class='sub'>TAKIM RENKLERİ • TUR ZAMANI • LASTİK HAMURU</div></div><div class='tops'>{podium}</div><div class='leader-list'>{rest}</div></div>
     """
@@ -2336,7 +2355,7 @@ def race_intelligence_hud_html_v19(info):
     ) or "<span>Hava zaman çizelgesi yok.</span>"
     return f"""
     <style>
-      body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}.hud{{border:1px solid #2c425c;border-radius:13px;background:#11161f;padding:13px}}.head{{font-size:13px;font-weight:950;letter-spacing:.09em}}.sub{{font-size:10px;color:#91a9c0;margin-top:5px}}.tiles{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:11px}}.tile{{border:1px solid #2a405a;border-radius:8px;background:#0d1724;padding:9px}}.tile small{{display:block;color:#8ca3bb;font-weight:800;font-size:10px}}.tile b{{display:block;color:#f4f8ff;margin-top:5px;font-size:13px}}.grid{{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}}.box{{border:1px solid #293e56;border-radius:9px;background:#0d1623;padding:10px;min-height:135px}}.box h4{{margin:0 0 8px;font-size:11px;letter-spacing:.08em}}.msg{{border-left:3px solid #ffd168;padding:6px 7px;background:#19191a;margin:5px 0;font-size:11px;line-height:1.35}}.msg b{{color:#ffd168;margin-right:5px}}.pit{{display:grid;grid-template-columns:1fr 42px 72px 88px;gap:5px;border-top:1px solid #26394e;padding:7px 0;font-size:11px}}.pit b{{color:#f2f5f8}}.pit span{{color:#a9bbcf}}.timeline{{display:flex;gap:7px;overflow:auto;padding-top:8px}}.timeline span{{white-space:nowrap;border:1px solid #2c4059;background:#0c1420;padding:6px 8px;border-radius:6px;font-size:10px;color:#aec1d4}}.muted{{font-size:11px;color:#8da2b8}}@media(max-width:760px){{.tiles{{grid-template-columns:repeat(2,1fr)}}.grid{{grid-template-columns:1fr}}.pit{{grid-template-columns:1fr 38px 58px 76px}}}}
+      body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}.hud{{border:1px solid #2c425c;border-radius:13px;background:#11161f;padding:13px}}.head{{font-size:13px;font-weight:950;letter-spacing:.09em}}.sub{{font-size:10px;color:#91a9c0;margin-top:5px}}.tiles{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:11px}}.tile{{border:1px solid #2a405a;border-radius:8px;background:#0d1724;padding:9px}}.tile small{{display:block;color:#8ca3bb;font-weight:800;font-size:10px}}.tile b{{display:block;color:#f4f8ff;margin-top:5px;font-size:13px}}.grid{{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}}.box{{border:1px solid #293e56;border-radius:9px;background:#0d1623;padding:10px;min-height:135px}}.box h4{{margin:0 0 8px;font-size:11px;letter-spacing:.08em}}.msg{{border-left:3px solid #ffd168;padding:6px 7px;background:#19191a;margin:5px 0;font-size:11px;line-height:1.35}}.msg b{{color:#ffd168;margin-right:5px}}.pit{{display:grid;grid-template-columns:1fr 42px 72px 88px;gap:5px;border-top:1px solid #26394e;padding:7px 0;font-size:11px}}.pit b{{color:#f2f5f8}}.pit span{{color:#a9bbcf}}.timeline{{display:flex;gap:7px;overflow:auto;padding-top:8px}}.timeline span{{white-space:nowrap;border:1px solid #2c4059;background:#0c1420;padding:6px 8px;border-radius:6px;font-size:10px;color:#aec1d4}}.muted{{font-size:11px;color:#8da2b8}}@media(max-width:440px){{.tiles{{grid-template-columns:repeat(2,1fr)}}.grid{{grid-template-columns:1fr}}.pit{{grid-template-columns:1fr 38px 58px 76px}}}}
     </style>
     <div class='hud'><div class='head'>RACE INTELLIGENCE // VERIFIED DATA</div><div class='sub'>HAVA · RESMÎ SPEED TRAP · PİT-LANE GEÇİŞİ · FIA RACE CONTROL</div><div class='tiles'>{tile_html}</div><div class='timeline'>{timeline_html}</div><div class='grid'><div class='box'><h4>FIA RACE CONTROL — TÜRKÇE</h4>{control_html}</div><div class='box'><h4>PIT / LASTİK OLAYLARI</h4>{pit_html}<div class='muted' style='margin-top:8px'>{html_lib.escape(info.get('pit_note', ''))}</div></div></div></div>
     """
@@ -5590,12 +5609,55 @@ def render_paddock_career_alpha_v01():
         st.error("Sürüş paketi yüklenemedi. Oyun dosyasının yayın paketinde bulunduğunu kontrol ediyoruz.")
 
 
+def games_profile_hud_html(profile):
+    xp = int(profile.get('xp', 0))
+    played = int(profile.get('played', 0))
+    streak = int(profile.get('best_streak', 0))
+    ranks = [(0, 'ÇAYLAK', '#9fb0c0'), (150, 'YARIŞÇI', '#38e1d0'),
+             (500, 'UZMAN', '#f5c33b'), (1200, 'ŞAMPİYON', '#e10600')]
+    rank_name, rank_col = ranks[0][1], ranks[0][2]
+    next_xp = ranks[-1][0]
+    for i, (threshold, name, col) in enumerate(ranks):
+        if xp >= threshold:
+            rank_name, rank_col = name, col
+            next_xp = ranks[i + 1][0] if i + 1 < len(ranks) else threshold
+    progress = 100 if xp >= ranks[-1][0] else min(100, round((xp - 0) / max(1, next_xp) * 100))
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .gp{{background:linear-gradient(160deg,#161d28,#11161f);border:1px solid #26313f;
+        border-left:4px solid {rank_col};border-radius:5px;padding:16px 18px}}
+      .gp-top{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}}
+      .gp-eyebrow{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#63748a}}
+      .gp-rank{{font:800 26px 'Saira Condensed',sans-serif;text-transform:uppercase;color:{rank_col};margin-top:4px;line-height:1}}
+      .gp-stats{{display:flex;gap:22px;flex-wrap:wrap}}
+      .gp-stat b{{display:block;font:700 20px 'JetBrains Mono',monospace}}
+      .gp-stat span{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a}}
+      .gp-bar{{height:5px;background:#0c1016;border-radius:99px;margin-top:14px;overflow:hidden}}
+      .gp-bar i{{display:block;height:100%;width:{progress}%;background:{rank_col}}}
+    </style>
+    <div class="gp">
+      <div class="gp-top">
+        <div><div class="gp-eyebrow">Paddock Oyuncu Profili</div><div class="gp-rank">{rank_name}</div></div>
+        <div class="gp-stats">
+          <div class="gp-stat"><b>{xp}</b><span>XP</span></div>
+          <div class="gp-stat"><b>{played}</b><span>Oynanan Oyun</span></div>
+          <div class="gp-stat"><b>{streak}</b><span>En İyi Seri</span></div>
+        </div>
+      </div>
+      <div class="gp-bar"><i></i></div>
+    </div>
+    """
+
+
 def render_games_hub_v30():
     fp_ui.page_header(
         "Oyun Merkezi",
         "Stewardle dogrulanmis tarihsel motorunda kalir. Diger oyunlar Paddock Oyun Motoru 3.0 uzerinde calisir.",
         eyebrow="Oyunlar",
     )
+    _gp = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
+    render_html_hud(games_profile_hud_html(_gp), height=126)
     games = [
         ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu bul.", "#ff385c", "Stewardle aç", "stewarlde"),
         ("10 SORULUK MÜCADELE", "GridMaster", "Zor sorular, seri çarpanı, telsiz jokeri ve rütbe sistemi.", "#f7c948", "Mücadeleyi aç", "gridmaster"),
