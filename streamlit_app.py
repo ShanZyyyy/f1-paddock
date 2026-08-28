@@ -479,57 +479,23 @@ def get_session_summary(year, gp_name, session_code):
 
 
 # 3. OTOMATİK TÜRKÇE ÇEVİRİ MOTORU
+@st.cache_data(ttl=86400, show_spinner=False)
 def translate_to_tr(text):
+    """Gunluk onbellekli. Ayni basliklar tekrar cevrilmez -> hiz limiti sorunu azalir."""
     if not text:
         return ""
     try:
         url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=tr&dt=t&q={urllib.parse.quote(text)}"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=6) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             translated = "".join([item[0] for item in data[0] if item[0]])
-            return translated
-    except Exception:
+            return translated or text
+    except Exception as error:
+        log_data_error('translate_to_tr', error)
         return text
 
 # 4. CANLI F1 HABERLERİ RSS MOTORU
-@st.cache_data(ttl=600)
-def fetch_live_f1_news():
-    news_items = []
-    rss_urls = [
-        "https://www.autosport.com/rss/f1/news/",
-        "https://www.skysports.com/rss/12433"
-    ]
-    
-    for url in rss_urls:
-        try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=5) as response:
-                xml_data = response.read()
-                root = ET.fromstring(xml_data)
-                
-                for item in root.findall('.//item')[:6]:
-                    title = item.find('title').text if item.find('title') is not None else ""
-                    link = item.find('link').text if item.find('link') is not None else "#"
-                    pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ""
-                    desc = item.find('description').text if item.find('description') is not None else ""
-                    
-                    if desc and "<" in desc:
-                        desc = desc.split("<")[0]
-                        
-                    news_items.append({
-                        "title": translate_to_tr(title),
-                        "link": link,
-                        "date": pub_date[:16] if len(pub_date) > 16 else pub_date,
-                        "desc": translate_to_tr(desc[:150] + "..." if len(desc) > 150 else desc)
-                    })
-            if news_items:
-                break
-        except Exception:
-            continue
-            
-    # Akışlar erişilemiyorsa sahte/canlıymış gibi görünen içerik üretme.
-    return news_items
 
 # 5. AKILLI ZAMAN FORMATLAMA
 def format_time(td):
@@ -6188,7 +6154,8 @@ if st.session_state['page'] == 'home':
             st.rerun()
         live_news = []
     else:
-        live_news = fetch_live_f1_news()
+        # Haber merkeziyle ayni dogrulanmis + gunluk-onbellekli Turkce katalog
+        live_news = [localise_news_item_v20(_i) for _i in fetch_f1_news_catalog_v20(8)]
         if st.button('Tum haberleri ve takim filtrelerini ac', key='open_news_centre_v19', use_container_width=True):
             st.session_state['page'] = 'news'
             st.rerun()
@@ -6198,10 +6165,11 @@ if st.session_state['page'] == 'home':
         with _nn[_idx % 2]:
             fp_ui.news_card(
                 _item.get('title', ''),
-                source="F1 Canli Haber Akisi",
+                source=str(_item.get('source', 'F1 Haber')),
                 date=str(_item.get('date', '')),
                 excerpt=str(_item.get('desc', '')),
                 link=safe_external_url(_item.get('link')) or 'https://www.formula1.com/',
+                image=safe_external_url(_item.get('image')),
             )
 
 # SAYFA 2: CANLI SEANS TAKİBİ
