@@ -2453,7 +2453,7 @@ def _api_duration_text(value):
         return '-'
 
 
-@st.cache_data(ttl=2, show_spinner=False)
+@st.cache_data(ttl=15, show_spinner=False)
 def get_openf1_live_snapshot(username, password):
     """Canlı konum, tur, lastik, pit ve delta bilgilerini tek güvenli sunucu çağrısında toplar."""
     token = _openf1_token(username, password)
@@ -2643,7 +2643,7 @@ def _openf1_race_control_v19(records, limit=5):
     return list(reversed(messages))
 
 
-@st.cache_data(ttl=3, show_spinner=False)
+@st.cache_data(ttl=15, show_spinner=False)
 def get_openf1_live_snapshot_v19(explicit_token='', username='', password=''):
     """Canlı konum + tur + lastik + pit + hava + Race Control paketini güvenli biçimde toplar.
 

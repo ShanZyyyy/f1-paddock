@@ -18,7 +18,7 @@ import sys
 from streamlit.testing.v1 import AppTest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APP = os.path.join(ROOT, "app_manager_track_fixed_v2_8_verified_career_and_duel.py")
+APP = os.path.join(ROOT, "streamlit_app.py")
 
 # Router'daki tum sayfa anahtarlari (st.session_state['page'] degerleri)
 PAGES = [
