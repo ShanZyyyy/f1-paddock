@@ -132,6 +132,15 @@ def _root_vars(light=False):
     table = TOKENS_LIGHT if light else TOKENS
     parts = [f"--fp-{key}:{value}" for key, value in table.items()]
     parts += [f"--t-{slug}:{hexv}" for slug, hexv in _team_slug_vars().items()]
+    # Eski degisken adlari — hala ~40 satir inline HUD markup bunlari kullaniyor.
+    # Yeni token'lara baglaniyor ki acik/koyu temada da dogru cevrilsinler.
+    parts += [
+        f"--fp-page:{table['bg-1']}", f"--fp-page2:{table['bg-0']}",
+        f"--fp-panel:{table['bg-2']}", f"--fp-panel2:{table['bg-3']}",
+        f"--fp-muted:{table['text-dim']}",
+        "--fp-shadow:0 12px 30px rgba(0,0,0,.35)",
+        "--fp-glow:rgba(56,225,208,.10)", "--fp-grid:rgba(120,140,160,.05)",
+    ]
     parts.append(f"--fp-f-display:{F_DISPLAY}")
     parts.append(f"--fp-f-body:{F_BODY}")
     parts.append(f"--fp-f-mono:{F_MONO}")

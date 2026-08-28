@@ -50,53 +50,9 @@ def log_data_error(context, error):
 
 
 
-# Streamlit ayarı, dosyadaki ilk Streamlit çağrısından önce olmak zorunda.
-def current_paddock_theme():
-    """Return the active user-selectable visual theme."""
-    return 'Açık' if st.session_state.get('paddock_light_mode_v31', False) else 'Koyu'
-
-
-def hud_theme_override_css():
-    """Propagate the selected theme into isolated Streamlit HUD iframes."""
-    if current_paddock_theme() == 'Açık':
-        return (
-            "html{color-scheme:light}body{background:#edf4fb!important;color:#10233b!important}"
-            ".hud,.r,.panel,.summary,.card,.f1-hud,.f1-hud-shell,.racecenter-card,.rc-ticker,.rc-driver-box,.rc-timer-wide-box,.box,.tile{background:#f8fbff!important;color:#10233b!important;border-color:#bfd0e2!important;box-shadow:0 10px 26px rgba(36,76,120,.10)!important}"
-            ".map,.graph{background:radial-gradient(circle at 50% 45%,#f8fbff,#dce9f6 78%)!important;border-color:#bfd0e2!important}"
-            ".sub,.note,.meta,.stat span,.rc-title-bar,.rc-gap,.time-label{color:#536c86!important}"
-            ".title,.head,.stat b,.hero b,.rc-title-bar span,.time-num{color:#10233b!important}"
-            ".btn,.pilot,.key{background:#e7f0f9!important;color:#17324f!important;border-color:#9fb8cf!important}"
-        )
-    return (
-        "html{color-scheme:dark}body{background:#07090d!important;color:#f2f5f8!important}"
-        ".hud,.r,.panel,.summary,.card,.f1-hud,.f1-hud-shell,.racecenter-card{color:#f2f5f8!important}"
-    )
-
-
+# redesign: HUD render kapisi + tema propagasyonu core/ui.py + core/theme.py'de.
 def render_html_hud(markup, height=150, scrolling=False):
-    """Tüm etkileşimli HUD'lar için tek, güvenli render kapısı.
-
-    Parça HTML ortak ``f1-hud-shell`` DIV'i ile sarılır. Böylece birbirinden
-    bağımsız HUD stilleri Streamlit sayfasını veya diğer kartları bozmaz.
-    """
-    if not isinstance(markup, str) or not markup.strip():
-        st.info('Bu HUD için gösterilecek doğrulanmış veri henüz yok.')
-        return None
-    document = markup.strip()
-    theme_css = '<style>' + hud_theme_override_css() + '</style>'
-    if '<html' not in document.lower():
-        document = (
-            '<!doctype html><html><head><meta charset="utf-8">'
-            '<style>body{margin:0;background:transparent}.f1-hud-shell{width:100%;overflow:hidden}</style>' + theme_css +
-            '</head><body><div class="f1-hud-shell">' + document + '</div></body></html>'
-        )
-    elif '</head>' in document.lower():
-        document = re.sub(r'</head>', theme_css + '</head>', document, count=1, flags=re.IGNORECASE)
-    else:
-        document = theme_css + document
-    if hasattr(st, 'iframe'):
-        return st.iframe(document, height=height)
-    return components.html(document, height=height, scrolling=scrolling)
+    return fp_ui.render_html_hud(markup, height=height, scrolling=scrolling)
 
 
 def render_data_state(title, message, tone='info'):
@@ -1062,36 +1018,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def site_theme_css():
-    """Sabit koyu renkler yerine uygulamanın tamamına tema değişkenlerini uygular."""
-    if current_paddock_theme() == 'Açık':
-        return """
-        <style>
-        .stApp{color:#10223a!important;background:#f4f8fc!important}
-        section[data-testid="stSidebar"]{background:linear-gradient(180deg,#f2f5f8,#e9f0f8)!important;border-right:1px solid #cbd9e8!important}
-        section[data-testid="stSidebar"] *{color:#152943!important}
-        .f1-header,.hud-card,.metric-card,.news-card,.driver-card{background:rgba(255,255,255,.88)!important;border-color:#cdd9e8!important;box-shadow:0 12px 30px rgba(26,58,91,.08)!important}
-        .f1-header h1,.hud-value,.news-title,.metric-card .value{color:#10223a!important}.f1-header p,.history-copy,.driver-meta,.news-desc,.metric-card .title{color:#59708a!important}
-        div[data-testid="stButton"]>button{background:#ffffff!important;color:#142842!important;border-color:#bfd0e3!important}
-        div[data-testid="stButton"]>button:hover{background:#edf5fc!important;border-color:#1677c8!important;color:#0f4d80!important}
-        section[data-testid="stSidebar"] div[data-testid="stButton"]>button{background:linear-gradient(135deg,#ffffff,#edf4fb)!important;color:#17304e!important;border-color:#bfd0e3!important}
-        section[data-testid="stSidebar"] .stExpander{background:rgba(255,255,255,.72)!important;border-color:#c7d6e5!important}
-        div[data-testid="stDataFrame"]{border-color:#cbd9e8!important} [data-testid="stMarkdownContainer"] code{background:#e8eff7!important;color:#124d80!important}
-        </style>
-        """
-    return """
-    <style>
-    .stApp{position:relative;color:#f2f5f8!important;background:#07090d!important}
-    section[data-testid="stSidebar"]{background:linear-gradient(180deg,rgba(10,21,39,.98),rgba(12,26,45,.98))!important;border-right:1px solid #28405e!important}
-    section[data-testid="stSidebar"] div[data-testid="stButton"]>button{min-height:44px!important;padding:8px 12px!important;background:linear-gradient(135deg,rgba(17,34,57,.92),rgba(12,25,43,.92))!important;border:1px solid #304a69!important;border-left:4px solid #3b82c4!important;border-radius:10px!important;color:#eaf4ff!important;font-size:.88rem!important;font-weight:850!important;letter-spacing:.01em!important;transition:transform .18s ease,border-color .18s ease,background .18s ease!important}
-    section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{transform:translateX(3px)!important;border-color:#63c7ff!important;background:linear-gradient(135deg,#162c49,#10213a)!important}
-    section[data-testid="stSidebar"] .stExpander{background:rgba(15,30,51,.66)!important;border:1px solid #2c4665!important;border-radius:10px!important}
-    section[data-testid="stSidebar"] [data-testid="stExpanderDetails"]{padding-top:.25rem!important}
-    </style>
-    """
-
-
-st.markdown(site_theme_css(), unsafe_allow_html=True)
+# redesign: site_theme_css() kaldirildi — tema tamamen core/theme.py'de.
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -4056,45 +3983,17 @@ with st.sidebar:
     )
 
 light_mode_v31 = st.sidebar.toggle(
-    "☀️ Açık görünüm",
+    "Açık görünüm",
     key='paddock_light_mode_v31',
     help="Koyu yarış kontrolü ile aydınlık veri görünümü arasında geçiş yapar.",
 )
-
-if light_mode_v31:
-    theme_v31 = {
-        'page': '#edf4fb', 'page2': '#dce9f5', 'panel': 'rgba(250,253,255,.94)',
-        'panel2': '#f4f8fc', 'text': '#11253c', 'muted': '#58718a', 'line': '#b7cce0',
-        'shadow': 'rgba(31,73,113,.18)', 'grid': 'rgba(36,117,172,.075)', 'glow': 'rgba(30,155,220,.18)',
-    }
-else:
-    theme_v31 = {
-        'page': '#07101a', 'page2': '#091522', 'panel': 'rgba(13,25,41,.94)',
-        'panel2': '#101d2f', 'text': '#f2f5f8', 'muted': '#91a8c0', 'line': '#29445f',
-        'shadow': 'rgba(0,0,0,.38)', 'grid': 'rgba(41,112,156,.075)', 'glow': 'rgba(0,224,255,.12)',
-    }
-
-st.markdown(f"""
-<style>
-:root{{--fp-page:{theme_v31['page']};--fp-page2:{theme_v31['page2']};--fp-panel:{theme_v31['panel']};--fp-panel2:{theme_v31['panel2']};--fp-text:{theme_v31['text']};--fp-muted:{theme_v31['muted']};--fp-line:{theme_v31['line']};--fp-shadow:{theme_v31['shadow']};--fp-grid:{theme_v31['grid']};--fp-glow:{theme_v31['glow']}}}
-[data-testid="stAppViewContainer"]{{background:linear-gradient(135deg,var(--fp-page),var(--fp-page2))!important;color:var(--fp-text)!important;position:relative;isolation:isolate}}
-[data-testid="stAppViewContainer"]::before{{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(var(--fp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--fp-grid) 1px,transparent 1px),radial-gradient(circle at 15% 18%,var(--fp-glow),transparent 28%),radial-gradient(circle at 84% 72%,rgba(225,6,0,.08),transparent 25%);background-size:42px 42px,42px 42px,100% 100%,100% 100%;animation:fp-grid-drift 28s linear infinite}}
-[data-testid="stAppViewContainer"]::after{{content:"";position:fixed;width:38vw;height:38vw;left:-18vw;top:25vh;border:1px solid rgba(50,190,255,.16);border-radius:50%;z-index:-1;pointer-events:none;box-shadow:0 0 90px rgba(20,170,235,.09);animation:fp-orbit 18s ease-in-out infinite alternate}}
-section[data-testid="stSidebar"]{{background:var(--fp-panel)!important;border-right:1px solid var(--fp-line)!important;box-shadow:12px 0 36px var(--fp-shadow)!important}}
-.f1-header,.hud-card,[data-testid="stMetric"],div[data-testid="stExpander"]{{background:linear-gradient(145deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 14px 34px var(--fp-shadow),inset 0 1px 0 rgba(255,255,255,.05)!important;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease!important}}
-.hud-card:hover,[data-testid="stMetric"]:hover{{transform:translateY(-2px);border-color:#28aee9!important;box-shadow:0 18px 42px var(--fp-shadow),0 0 22px var(--fp-glow)!important}}
-.hud-label,.driver-meta,.history-copy,[data-testid="stCaptionContainer"],p{{color:var(--fp-muted)!important}}
-h1,h2,h3,h4,[data-testid="stMetricValue"],.hud-value{{color:var(--fp-text)!important}}
-[data-testid="stAlert"]{{background:var(--fp-panel)!important;border:1px solid var(--fp-line)!important;box-shadow:0 10px 28px var(--fp-shadow)!important}}
-.stTabs [data-baseweb="tab-list"]{{background:var(--fp-panel)!important;border:1px solid var(--fp-line);border-radius:12px;padding:5px;box-shadow:0 9px 24px var(--fp-shadow)}}
-.stTabs [aria-selected="true"]{{background:linear-gradient(135deg,#0879bd,#16b8df)!important;color:white!important;border-radius:8px;box-shadow:0 0 20px rgba(38,187,236,.28)}}
-.status-dot-v31{{display:inline-block;width:8px;height:8px;border-radius:50%;background:#68e7ae;box-shadow:0 0 0 rgba(104,231,174,.5);animation:fp-signal 1.9s ease-out infinite}}
-@keyframes fp-grid-drift{{to{{background-position:42px 42px,42px 42px,0 0,0 0}}}}
-@keyframes fp-orbit{{to{{transform:translate(12vw,-10vh) scale(1.12);opacity:.58}}}}
-@keyframes fp-signal{{0%{{box-shadow:0 0 0 0 rgba(104,231,174,.55)}}70%{{box-shadow:0 0 0 9px rgba(104,231,174,0)}}100%{{box-shadow:0 0 0 0 rgba(104,231,174,0)}}}}
-@media(prefers-reduced-motion:reduce){{[data-testid="stAppViewContainer"]::before,[data-testid="stAppViewContainer"]::after,.status-dot-v31{{animation:none!important}}}}
-</style>
-""", unsafe_allow_html=True)
+# redesign: eski theme_v31 blogu kaldirildi. Tema tamamen core/theme.py'de;
+# fp_ui.inject_shell_theme() dosyanin sonunda acik/koyu'yu isler.
+st.markdown(
+    "<style>.status-dot-v31{display:inline-block;width:8px;height:8px;border-radius:50%;"
+    "background:var(--fp-green);box-shadow:0 0 8px var(--fp-green)}</style>",
+    unsafe_allow_html=True,
+)
 
 _nav_now = st.session_state['page']
 
