@@ -3856,13 +3856,8 @@ st.sidebar.link_button(
     use_container_width=True,
 )
 
-light_mode_v31 = st.sidebar.toggle(
-    "Açık görünüm",
-    key='paddock_light_mode_v31',
-    help="Koyu yarış kontrolü ile aydınlık veri görünümü arasında geçiş yapar.",
-)
-# redesign: eski theme_v31 blogu kaldirildi. Tema tamamen core/theme.py'de;
-# fp_ui.inject_shell_theme() dosyanin sonunda acik/koyu'yu isler.
+# redesign: acik/koyu artik sag-alt kontrol panosunda (istemci tarafi, aninda).
+light_mode_v31 = False
 st.markdown(
     "<style>.status-dot-v31{display:inline-block;width:8px;height:8px;border-radius:50%;"
     "background:var(--fp-green);box-shadow:0 0 8px var(--fp-green)}</style>",
@@ -5641,7 +5636,6 @@ st.markdown(r"""
 st.markdown(f"""
 <style>
 html,body,#root,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"]{{
-  color-scheme:{'light' if light_mode_v31 else 'dark'}!important;
   color:var(--fp-text)!important;
   background-color:var(--fp-page)!important;
   background-image:linear-gradient(var(--fp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--fp-grid) 1px,transparent 1px),radial-gradient(circle at 82% 8%,var(--fp-glow),transparent 31%),linear-gradient(135deg,var(--fp-page),var(--fp-page2))!important;
@@ -5668,6 +5662,7 @@ div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{{b
 # redesign: kabuk temasi (arka plan + slim-rail menu) EN SONDA —
 # eski !important bloklarini yener
 fp_ui.inject_shell_theme()
+fp_ui.control_dock()
 
 if st.session_state['page'] == 'home':
     # redesign: F1 TV yonu — page_header + yaris sonuc basligi + sakin race center
@@ -5747,18 +5742,22 @@ if st.session_state['page'] == 'home':
             _wd['name'] or _w['code'], _wd['team'] or '', _gap, _runners,
         )
 
-    _TYRE_PILL = {'S': '#ff5b5b', 'M': '#ffe14d', 'H': '#e7edf3', 'I': '#4ade80', 'W': '#5db4ff'}
+    # Gercek Pirelli hamur renkleri — yuvarlak lastik rozeti (yan duvar seridi gibi)
+    _TYRE_COL = {'S': '#da291c', 'M': '#ffd100', 'H': '#f0f0f0', 'I': '#43b02a', 'W': '#0067ad'}
     ticker_html_items = ""
     for d in real_drivers:
         colour = DRIVER_TEAMS.get(d["code"], {"color": "#63748a"})["color"]
         letter = (str(d.get("tyre", "")).strip()[:1] or "").upper()
         pill = ""
-        if letter in _TYRE_PILL:
-            pill = (f"<span style='font:700 9px JetBrains Mono,monospace;padding:1px 5px;border-radius:2px;"
-                    f"background:#0c1016;color:{_TYRE_PILL[letter]};border:1px solid {_TYRE_PILL[letter]}44'>{letter}</span>")
+        if letter in _TYRE_COL:
+            _tc = _TYRE_COL[letter]
+            pill = (f"<span style='display:inline-flex;align-items:center;justify-content:center;"
+                    f"width:20px;height:20px;border-radius:50%;border:3px solid {_tc};"
+                    f"background:radial-gradient(circle at 50% 40%,#20262f,#0b0e13);color:{_tc};"
+                    f"font:800 9px JetBrains Mono,monospace;flex:0 0 auto;box-shadow:inset 0 0 4px rgba(0,0,0,.6)'>{letter}</span>")
         ticker_html_items += (
-            f"<div style='flex:0 0 auto;min-width:126px;padding:10px 13px;border-left:3px solid {colour};"
-            f"border-right:1px solid #1b2330;display:flex;flex-direction:column;gap:3px'>"
+            f"<div style='flex:0 0 auto;min-width:130px;padding:10px 13px;border-left:3px solid {colour};"
+            f"border-right:1px solid #1b2330;display:flex;flex-direction:column;gap:4px'>"
             f"<span style='font:700 15px Saira Condensed,sans-serif;letter-spacing:.04em;color:{colour}'>{html_lib.escape(str(d['name']))}</span>"
             f"<span style='font:12px JetBrains Mono,monospace;color:#9fb0c0'>{html_lib.escape(str(d['time']))}</span>"
             f"{pill}</div>"

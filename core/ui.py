@@ -43,10 +43,124 @@ def is_light():
 # TEMA ENJEKSIYONU — her sayfada bir kez, en ustte
 # =====================================================================
 def inject_theme():
-    light = is_light()
     st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
-    st.markdown(theme.page_style(light), unsafe_allow_html=True)
+    st.markdown(theme.page_style(), unsafe_allow_html=True)
     st.markdown(theme.sidebar_style(), unsafe_allow_html=True)
+
+
+_DOCK_STYLE = """
+<style>
+#fp-dock{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;
+  align-items:flex-end;gap:10px;font-family:var(--fp-f-body)}
+#fp-dock-toggle{width:46px;height:46px;border-radius:50%;border:1px solid var(--fp-line);
+  background:linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));color:var(--fp-text);
+  font-size:19px;cursor:pointer;box-shadow:var(--fp-shadow);display:flex;align-items:center;justify-content:center;
+  transition:transform .15s ease,border-color .15s ease}
+#fp-dock-toggle:hover{border-color:var(--fp-red);transform:rotate(35deg)}
+#fp-dock-panel{display:none;flex-direction:column;gap:12px;width:232px;padding:14px;
+  background:linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));border:1px solid var(--fp-line);
+  border-radius:var(--fp-r-md);box-shadow:var(--fp-shadow)}
+#fp-dock.open #fp-dock-panel{display:flex}
+.fp-dock-row{display:flex;flex-direction:column;gap:6px}
+.fp-dock-row > span{font:700 9.5px var(--fp-f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-dock-seg{display:flex;gap:0;border:1px solid var(--fp-line);border-radius:var(--fp-r-sm);overflow:hidden}
+.fp-dock-seg button{flex:1;padding:7px 4px;background:var(--fp-bg-2);border:0;color:var(--fp-text-dim);
+  font:600 12px var(--fp-f-body);cursor:pointer}
+.fp-dock-seg button.on{background:var(--fp-red);color:#fff}
+.fp-dock-music{display:flex;align-items:center;gap:9px}
+.fp-dock-music button{width:34px;height:34px;border-radius:var(--fp-r-sm);border:1px solid var(--fp-line);
+  background:var(--fp-bg-2);color:var(--fp-text);font-size:13px;cursor:pointer;flex:0 0 auto}
+.fp-dock-music input{flex:1;accent-color:var(--fp-red)}
+@media(max-width:600px){#fp-dock{right:10px;bottom:10px}}
+</style>
+<div id="fp-dock">
+  <div id="fp-dock-panel">
+    <div class="fp-dock-row"><span>Görünüm</span>
+      <div class="fp-dock-seg">
+        <button data-theme="dark" id="fp-th-dark">Koyu</button>
+        <button data-theme="light" id="fp-th-light">Açık</button>
+      </div>
+    </div>
+    <div class="fp-dock-row"><span>Ortam müziği</span>
+      <div class="fp-dock-music">
+        <button id="fp-music">▶</button>
+        <input id="fp-vol" type="range" min="0" max="100" value="22" aria-label="Ses">
+      </div>
+    </div>
+  </div>
+  <button id="fp-dock-toggle" aria-label="Ayarlar">⚙</button>
+</div>
+"""
+
+_DOCK_SCRIPT = r"""
+<script>
+(function(){
+  var P = window.parent, D = P.document, R = D.documentElement;
+  var dock = D.getElementById('fp-dock');
+  if(!dock) return;
+
+  /* --- tema --- */
+  function applyTheme(t){
+    if(t==='light') R.setAttribute('data-fp-theme','light'); else R.removeAttribute('data-fp-theme');
+    try{ P.localStorage.setItem('fp-theme', t); }catch(e){}
+    var d=D.getElementById('fp-th-dark'), l=D.getElementById('fp-th-light');
+    if(d) d.classList.toggle('on', t!=='light');
+    if(l) l.classList.toggle('on', t==='light');
+  }
+  var saved='dark';
+  try{ saved = P.localStorage.getItem('fp-theme')||'dark'; }catch(e){}
+  applyTheme(saved);
+  D.querySelectorAll('#fp-dock [data-theme]').forEach(function(b){
+    b.onclick=function(){ applyTheme(b.getAttribute('data-theme')); };
+  });
+
+  /* --- dock ac/kapat --- */
+  var tg = D.getElementById('fp-dock-toggle');
+  if(tg) tg.onclick=function(){ dock.classList.toggle('open'); };
+
+  /* --- ortam muzigi: parent'a bagli AudioContext, iframe yeniden yuklense de yasar --- */
+  var AC = P.AudioContext || P.webkitAudioContext;
+  P.__fpAudio = P.__fpAudio || {ctx:null, master:null, nodes:[], on:false, vol:0.22};
+  var A = P.__fpAudio;
+  var mBtn = D.getElementById('fp-music'), vol = D.getElementById('fp-vol');
+
+  function gain(){ return (A.vol) * 0.06; }
+  function sync(){ if(mBtn) mBtn.textContent = A.on ? '⏸' : '▶'; if(vol) vol.value = Math.round(A.vol*100); }
+
+  function startMusic(){
+    if(!AC) return;
+    A.ctx = new AC();
+    A.master = A.ctx.createGain(); A.master.gain.value = gain(); A.master.connect(A.ctx.destination);
+    var filt = A.ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=640; filt.Q.value=0.5; filt.connect(A.master);
+    var chord = [110.0, 164.81, 220.0, 261.63, 329.63];   /* yumusak Am add9 pad */
+    chord.forEach(function(f,i){
+      var o=A.ctx.createOscillator(); o.type = i%2 ? 'triangle' : 'sine'; o.frequency.value=f;
+      var g=A.ctx.createGain(); g.gain.value=0.0001;
+      o.connect(g); g.connect(filt); o.start();
+      g.gain.setTargetAtTime(0.22/(i+1), A.ctx.currentTime, 5.5);
+      var lfo=A.ctx.createOscillator(); lfo.frequency.value = 0.03 + i*0.017;
+      var lg=A.ctx.createGain(); lg.gain.value = 2.2; lfo.connect(lg); lg.connect(o.detune); lfo.start();
+      A.nodes.push(o, lfo);
+    });
+    A.on = true; sync();
+  }
+  function stopMusic(){
+    A.nodes.forEach(function(n){ try{ n.stop(); }catch(e){} });
+    A.nodes = []; if(A.ctx){ try{ A.ctx.close(); }catch(e){} } A.ctx=null; A.master=null;
+    A.on = false; sync();
+  }
+  if(mBtn) mBtn.onclick=function(){ A.on ? stopMusic() : startMusic(); };
+  if(vol) vol.oninput=function(e){ A.vol = e.target.value/100; if(A.master) A.master.gain.value = gain(); };
+  sync();
+})();
+</script>
+"""
+
+
+def control_dock():
+    """Sag-alt yuzen kontrol panosu: koyu/acik tema + ortam muzigi."""
+    st.markdown(_DOCK_STYLE, unsafe_allow_html=True)
+    components.html(_DOCK_SCRIPT, height=0)
 
 
 def inject_shell_theme():
@@ -58,7 +172,7 @@ def inject_shell_theme():
     bloklarini yensin.
     """
     st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
-    st.markdown(theme.shell_style(is_light()), unsafe_allow_html=True)
+    st.markdown(theme.shell_style(), unsafe_allow_html=True)
 
 
 inject_sidebar_theme = inject_shell_theme  # geriye donuk ad

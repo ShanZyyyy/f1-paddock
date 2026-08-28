@@ -128,26 +128,42 @@ def tone_hex(tone, light=False):
     return table.get(token, table["cyan"])
 
 
-def _root_vars(light=False):
-    table = TOKENS_LIGHT if light else TOKENS
+def _palette_vars(table):
+    """Sadece renk degiskenleri (tema ile degisen)."""
     parts = [f"--fp-{key}:{value}" for key, value in table.items()]
-    parts += [f"--t-{slug}:{hexv}" for slug, hexv in _team_slug_vars().items()]
     # Eski degisken adlari — hala ~40 satir inline HUD markup bunlari kullaniyor.
-    # Yeni token'lara baglaniyor ki acik/koyu temada da dogru cevrilsinler.
     parts += [
         f"--fp-page:{table['bg-1']}", f"--fp-page2:{table['bg-0']}",
         f"--fp-panel:{table['bg-2']}", f"--fp-panel2:{table['bg-3']}",
         f"--fp-muted:{table['text-dim']}",
-        "--fp-shadow:0 12px 30px rgba(0,0,0,.35)",
+    ]
+    return ";".join(parts)
+
+
+def _static_vars():
+    """Tema ile degismeyen: takim renkleri, font, olcek."""
+    parts = [f"--t-{slug}:{hexv}" for slug, hexv in _team_slug_vars().items()]
+    parts += [
+        f"--fp-f-display:{F_DISPLAY}", f"--fp-f-body:{F_BODY}", f"--fp-f-mono:{F_MONO}",
+        "--fp-edge:3px", "--fp-r-sm:3px", "--fp-r-md:5px", "--fp-r-lg:8px",
+        "--fp-shadow:0 12px 30px rgba(0,0,0,.45)",
         "--fp-glow:rgba(56,225,208,.10)", "--fp-grid:rgba(120,140,160,.05)",
     ]
-    parts.append(f"--fp-f-display:{F_DISPLAY}")
-    parts.append(f"--fp-f-body:{F_BODY}")
-    parts.append(f"--fp-f-mono:{F_MONO}")
-    # Ölçek
-    parts += ["--fp-edge:3px", "--fp-r-sm:3px", "--fp-r-md:5px", "--fp-r-lg:8px",
-              "--fp-shadow:0 12px 30px rgba(0,0,0,.45)"]
-    return ":root{" + ";".join(parts) + "}"
+    return ";".join(parts)
+
+
+def _root_vars(light=False):
+    """Tek tema (hud_iframe_style icin). Sayfa CSS'i _root_vars_dual kullanir."""
+    table = TOKENS_LIGHT if light else TOKENS
+    return ":root{" + _palette_vars(table) + ";" + _static_vars() + "}"
+
+
+def _root_vars_dual():
+    """Iki paleti birden yayar. Istemci :root[data-fp-theme] ile aninda gecer."""
+    return (
+        ":root{color-scheme:dark;" + _palette_vars(TOKENS) + ";" + _static_vars() + "}"
+        + ':root[data-fp-theme="light"]{color-scheme:light;' + _palette_vars(TOKENS_LIGHT) + "}"
+    )
 
 
 def _team_slug_vars():
@@ -300,7 +316,7 @@ _FP_COMPONENTS_CSS = r"""
 
 def page_style(light=False):
     """Tam tema — tum sayfalar gecince. `st.markdown(unsafe_allow_html=True)`."""
-    return ("<style>" + _root_vars(light) + _SHELL_CHROME_CSS
+    return ("<style>" + _root_vars_dual() + _SHELL_CHROME_CSS
             + _FP_COMPONENTS_CSS + _SHELL_BG_CSS + _SIDEBAR_CSS + "</style>")
 
 
@@ -463,7 +479,7 @@ def shell_style(light=False):
     sidebar + .fp-* bilesen siniflari (yeni sayfalarin kullandigi).
     Eski Streamlit-kabuk kurallari (_SHELL_CHROME_CSS) burada YOK — henuz
     eski sayfalar var. Dosyanin en sonunda cagrilir ki eski bloklari yensin."""
-    return ("<style>" + _root_vars(light) + _SHELL_BG_CSS + _LEGACY_BRIDGE_CSS
+    return ("<style>" + _root_vars_dual() + _SHELL_BG_CSS + _LEGACY_BRIDGE_CSS
             + _FP_COMPONENTS_CSS + _SIDEBAR_CSS + "</style>")
 
 
