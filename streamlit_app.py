@@ -1605,15 +1605,17 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds):
     return f"""
     <style>
       body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ss{{display:grid;grid-template-columns:1fr 1fr .72fr;gap:10px}}
+      .ss{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}}
       .ss-c{{border:1px solid #26313f;border-left:3px solid var(--a);border-radius:5px;
-        padding:13px 15px;background:linear-gradient(160deg,#161d28,#11161f);min-height:104px}}
-      .ss-c s{{display:block;font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.16em;
-        text-transform:uppercase;color:#63748a;text-decoration:none}}
-      .ss-c b{{display:block;font:800 22px 'Saira Condensed',sans-serif;text-transform:uppercase;
-        color:var(--a);margin-top:7px;line-height:1}}
-      .ss-c i{{display:block;font:12px 'JetBrains Mono',monospace;color:#9fb0c0;margin-top:8px;font-style:normal}}
-      @media(max-width:430px){{.ss{{grid-template-columns:1fr}}}}
+        padding:13px 15px;background:linear-gradient(160deg,#161d28,#11161f);
+        min-height:112px;display:flex;flex-direction:column}}
+      .ss-c s{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.16em;
+        text-transform:uppercase;color:#63748a;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .ss-c b{{font:800 21px 'Saira Condensed',sans-serif;text-transform:uppercase;
+        color:var(--a);margin-top:8px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .ss-c i{{font:12px 'JetBrains Mono',monospace;color:#9fb0c0;margin-top:auto;padding-top:8px;font-style:normal;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      @media(max-width:430px){{.ss{{grid-template-columns:1fr}}.ss-c{{min-height:0}}}}
     </style>
     <div class='ss'>
       <div class='ss-c' style='--a:{dc}'><s>Pilot Lideri</s><b>{d_name}</b><i>{d_pts} P · {html_lib.escape(driver_team)}</i></div>
@@ -5908,19 +5910,21 @@ if st.session_state['page'] == 'home':
 
     fp_ui.render_html_hud(racecenter_html, height=250)
 
-    # redesign: komut seridi -> 4 stat tile
-    _sess_copy = f"{last_session['event_name']} // {last_session['display_name']}" if last_session else 'Son tamamlanan seans bekleniyor'
+    # redesign: komut seridi -> 4 stat tile (deger tek satir + alt satir)
+    _sess_name = last_session['event_name'] if last_session else 'Veri bekleniyor'
+    _sess_sub = last_session['display_name'] if last_session else '—'
     _leader = real_drivers[0]['name'] if real_drivers else 'Veri bekleniyor'
     _cmd = st.columns(4)
     with _cmd[0]:
-        fp_ui.stat_tile("Son Seans", _sess_copy, accent="cyan", mono=False)
+        fp_ui.stat_tile("Son Seans", _sess_name, sub=_sess_sub, accent="cyan", mono=False)
     with _cmd[1]:
-        fp_ui.stat_tile("Siradaki", f"{location_name} · {target_s_name}", accent="purple", mono=False)
+        fp_ui.stat_tile("Siradaki", location_name, sub=target_s_name, accent="purple", mono=False)
     with _cmd[2]:
-        fp_ui.stat_tile("Durum", "CANLI SEANS" if is_live_now else "PROGRAM BEKLENIYOR",
+        fp_ui.stat_tile("Durum", "CANLI SEANS" if is_live_now else "BEKLENIYOR",
+                        sub="program açıklandı" if is_live_now else "seans saati doğrulanıyor",
                         accent="red" if is_live_now else "amber", mono=False)
     with _cmd[3]:
-        fp_ui.stat_tile("Son Lider", _leader, accent="amber", mono=False)
+        fp_ui.stat_tile("Son Lider", _leader, sub="doğrulanmış sonuç", accent="amber", mono=False)
 
 
     if session_summary:

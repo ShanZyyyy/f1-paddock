@@ -217,13 +217,16 @@ _FP_COMPONENTS_CSS = r"""
 /* ---- stat tile ---- */
 .fp-tile{background:var(--fp-bg-2);border:1px solid var(--fp-line-soft);
   border-left:var(--fp-edge) solid var(--accent,var(--fp-cyan));border-radius:var(--fp-r-sm);
-  padding:12px 16px;height:100%}
-.fp-tile .lbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--fp-text-mute)}
+  padding:12px 15px;height:100%;min-height:82px;display:flex;flex-direction:column;justify-content:flex-start}
+.fp-tile .lbl{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text-mute);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:18px;letter-spacing:-.01em;
-  margin-top:6px;color:var(--fp-text);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fp-tile .val.txt{font-family:var(--fp-f-display);font-size:16px;letter-spacing:.01em;
-  text-transform:uppercase;white-space:normal;word-break:normal;overflow:visible}
-.fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:2px}
+  margin-top:7px;color:var(--fp-text);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-tile .val.txt{font-family:var(--fp-f-display);font-size:15.5px;letter-spacing:.01em;text-transform:uppercase;
+  line-height:1.15;white-space:normal;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:auto;padding-top:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ---- data-state ---- */
 .fp-state{border:1px solid var(--fp-line);border-left:var(--fp-edge) solid var(--sc,var(--fp-cyan));
@@ -332,10 +335,11 @@ section[data-testid="stSidebar"] .block-container{padding-top:1rem}
 section[data-testid="stSidebar"] *{color:var(--fp-text)}
 
 /* marka kilidi */
-.fp-brand{display:flex;align-items:center;gap:9px;padding:4px 6px 12px;margin-bottom:2px;border-bottom:1px solid var(--fp-line)}
-.fp-brand .mark{width:26px;height:16px;background:var(--fp-red);clip-path:polygon(0 0,100% 0,78% 100%,0 100%);flex:0 0 auto}
-.fp-brand .txt{font-family:var(--fp-f-display);font-weight:800;font-size:13px;letter-spacing:.09em;text-transform:uppercase;line-height:1}
-.fp-brand .txt s{display:block;font-weight:600;font-size:8.5px;letter-spacing:.22em;color:var(--fp-text-mute);text-decoration:none;margin-top:3px}
+.fp-brand{display:flex;align-items:center;gap:11px;padding:6px 4px 14px;margin-bottom:2px;border-bottom:1px solid var(--fp-line)}
+.fp-brand .mark{flex:0 0 auto;width:36px;height:36px;border:1px solid var(--fp-line);border-radius:8px;
+  background:var(--fp-bg-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M13 11 L27 24 L13 37' fill='none' stroke='%23e10600' stroke-width='6.5' stroke-linecap='square'/%3E%3Cpath d='M24.5 15 L33.5 24 L24.5 33' fill='none' stroke='%23e10600' stroke-width='5' stroke-linecap='square' opacity='.5'/%3E%3C/svg%3E") center/34px 34px no-repeat}
+.fp-brand .txt{font-family:var(--fp-f-display);font-weight:800;font-size:16.5px;letter-spacing:.045em;text-transform:uppercase;line-height:1.02}
+.fp-brand .txt s{display:block;font-weight:600;font-size:9px;letter-spacing:.24em;color:var(--fp-text-mute);text-decoration:none;margin-top:4px}
 
 /* bölüm etiketi */
 .fp-nav-sec{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--fp-text-mute);

@@ -84,7 +84,7 @@ _DOCK_STYLE = """
     <div class="fp-dock-row"><span>Ortam müziği</span>
       <div class="fp-dock-music">
         <button id="fp-music">▶</button>
-        <input id="fp-vol" type="range" min="0" max="100" value="22" aria-label="Ses">
+        <input id="fp-vol" type="range" min="0" max="100" value="35" aria-label="Ses">
       </div>
     </div>
   </div>
@@ -119,27 +119,29 @@ _DOCK_SCRIPT = r"""
   if(tg) tg.onclick=function(){ dock.classList.toggle('open'); };
 
   /* --- ortam muzigi: parent'a bagli AudioContext, iframe yeniden yuklense de yasar --- */
-  var AC = P.AudioContext || P.webkitAudioContext;
-  P.__fpAudio = P.__fpAudio || {ctx:null, master:null, nodes:[], on:false, vol:0.22};
+  var AC = (P.AudioContext || P.webkitAudioContext || window.AudioContext || window.webkitAudioContext);
+  P.__fpAudio = P.__fpAudio || {ctx:null, master:null, nodes:[], on:false, vol:0.35};
   var A = P.__fpAudio;
   var mBtn = D.getElementById('fp-music'), vol = D.getElementById('fp-vol');
 
-  function gain(){ return (A.vol) * 0.06; }
+  function gain(){ return Math.max(0, Math.min(1, A.vol)) * 0.42; }
   function sync(){ if(mBtn) mBtn.textContent = A.on ? '⏸' : '▶'; if(vol) vol.value = Math.round(A.vol*100); }
 
   function startMusic(){
-    if(!AC) return;
+    if(!AC){ if(mBtn) mBtn.textContent='—'; return; }
     A.ctx = new AC();
-    A.master = A.ctx.createGain(); A.master.gain.value = gain(); A.master.connect(A.ctx.destination);
-    var filt = A.ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=640; filt.Q.value=0.5; filt.connect(A.master);
-    var chord = [110.0, 164.81, 220.0, 261.63, 329.63];   /* yumusak Am add9 pad */
+    A.ctx.resume && A.ctx.resume();
+    A.master = A.ctx.createGain(); A.master.gain.value = 0.0001; A.master.connect(A.ctx.destination);
+    A.master.gain.setTargetAtTime(gain(), A.ctx.currentTime, 1.2);           /* yumusak giris */
+    var filt = A.ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=900; filt.Q.value=0.4; filt.connect(A.master);
+    var chord = [110.0, 164.81, 220.0, 277.18];   /* A - E - A - C#  yumusak pad */
     chord.forEach(function(f,i){
-      var o=A.ctx.createOscillator(); o.type = i%2 ? 'triangle' : 'sine'; o.frequency.value=f;
+      var o=A.ctx.createOscillator(); o.type = i===1 ? 'triangle' : 'sine'; o.frequency.value=f;
       var g=A.ctx.createGain(); g.gain.value=0.0001;
       o.connect(g); g.connect(filt); o.start();
-      g.gain.setTargetAtTime(0.22/(i+1), A.ctx.currentTime, 5.5);
-      var lfo=A.ctx.createOscillator(); lfo.frequency.value = 0.03 + i*0.017;
-      var lg=A.ctx.createGain(); lg.gain.value = 2.2; lfo.connect(lg); lg.connect(o.detune); lfo.start();
+      g.gain.setTargetAtTime(0.5/(i+1.6), A.ctx.currentTime, 4.0);
+      var lfo=A.ctx.createOscillator(); lfo.frequency.value = 0.04 + i*0.02;
+      var lg=A.ctx.createGain(); lg.gain.value = 2.5; lfo.connect(lg); lg.connect(o.detune); lfo.start();
       A.nodes.push(o, lfo);
     });
     A.on = true; sync();
@@ -150,7 +152,7 @@ _DOCK_SCRIPT = r"""
     A.on = false; sync();
   }
   if(mBtn) mBtn.onclick=function(){ A.on ? stopMusic() : startMusic(); };
-  if(vol) vol.oninput=function(e){ A.vol = e.target.value/100; if(A.master) A.master.gain.value = gain(); };
+  if(vol) vol.oninput=function(e){ A.vol = e.target.value/100; if(A.master && A.ctx) A.master.gain.setTargetAtTime(gain(), A.ctx.currentTime, 0.1); };
   sync();
 })();
 </script>
@@ -328,7 +330,7 @@ def json_for_script(obj, compact=True):
 def sidebar_brand():
     st.sidebar.markdown(
         "<div class='fp-brand'><span class='mark'></span>"
-        "<span class='txt'>Formula Paddock<s>Race Intelligence</s></span></div>",
+        "<span class='txt'>Formula&nbsp;Paddock<s>Race Intelligence</s></span></div>",
         unsafe_allow_html=True,
     )
 
