@@ -250,6 +250,51 @@ _FP_COMPONENTS_CSS = r"""
 .fp-note{border:1px solid var(--fp-line);border-left:var(--fp-edge) solid var(--nc,var(--fp-cyan));
   background:var(--fp-bg-2);border-radius:var(--fp-r-sm);padding:11px 14px;height:100%;
   font-size:12.5px;color:var(--fp-text-dim);line-height:1.5}
+
+/* =====================================================================
+   MOBIL — telefon ekrani (<= 760px)
+   ===================================================================== */
+@media (max-width: 760px){
+  .block-container{padding:1.4rem 0.9rem 3rem !important}
+  .fp-page-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .fp-page-header h1{font-size:23px}
+  .fp-page-header .sub{font-size:12px;max-width:100%}
+  .fp-badge{align-self:flex-start}
+  .fp-section{font-size:15px;letter-spacing:.04em}
+  .fp-eyebrow{font-size:9.5px}
+
+  .fp-hud{padding:13px}
+  .fp-hud .val{font-size:18px}
+  .fp-tile{padding:10px 12px}
+  .fp-tile .val{font-size:15px}
+  .fp-tile .val.txt{font-size:13px}
+
+  .fp-result{padding:14px 15px;border-left-width:4px}
+  .fp-result .nm{font-size:24px}
+  .fp-result .eb{font-size:9.5px}
+  .fp-result .row{gap:8px}
+  .fp-result .gap,.fp-result .next{font-size:11px}
+
+  .fp-news .ph{height:96px}
+  .fp-news .hl{font-size:14px}
+
+  h1{font-size:23px !important}
+  h2{font-size:19px !important}
+  h3{font-size:16px !important}
+
+  /* HUD iframe'ler ve genis tablolar kendi icinde yatay kayar */
+  [data-testid="stIFrame"]{max-width:100%}
+  /* Streamlit kolonlari dar ekranda dikey yigilir; zorunlu min-width'i gevset */
+  [data-testid="stHorizontalBlock"]{flex-wrap:wrap !important}
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]{
+    min-width:calc(50% - 0.5rem) !important;flex:1 1 calc(50% - 0.5rem) !important;
+  }
+}
+@media (max-width: 480px){
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]{min-width:100% !important;flex-basis:100% !important}
+  .fp-page-header h1{font-size:21px}
+  .fp-result .nm{font-size:21px}
+}
 """
 
 
@@ -364,6 +409,12 @@ _SHELL_BG_CSS = r"""
   background-attachment:fixed !important;
 }
 [data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
+
+/* Sadece <style> iceren markdown kaplari gorunmez bosluk yaratiyordu — gizle */
+.stElementContainer:has(> .stMarkdown [data-testid="stMarkdownContainer"] > style:only-child),
+.stElementContainer:has(> [data-testid="stMarkdown"] > [data-testid="stMarkdownContainer"] > style:only-child){
+  display:none !important;
+}
 """
 
 # ---- ESKI SINIF KOPRUSU --------------------------------------------

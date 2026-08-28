@@ -3882,66 +3882,9 @@ fp_ui.sidebar_section("Genel")
 _nav("Ana Sayfa & Haberler", "home", "home")
 _nav("Haber Merkezi", "newspaper", "news")
 
-# 2. TELEMETRİ SEANS AYARLARI
+# 2. VERİ & ANALİZ
 fp_ui.sidebar_section("Veri & Analiz")
-with st.sidebar.expander("📊 TELEMETRİ SEANS AYARLARI", expanded=(st.session_state['page'] == 'telemetry')):
-    year = st.number_input("Sezon Yılı", min_value=2018, max_value=2026, value=2026)
-
-    # Kapalı expander'ın içi de Streamlit tarafından çalıştırılır. Bu çağrıyı
-    # burada koşulsuz bırakmak, ana sayfayı açarken FastF1'e bağlanıp tüm siteyi
-    # beyaz ekranda bekletiyordu.
-    if st.session_state['telemetry_schedule_requested']:
-        gp_list = get_season_schedule(year)
-        telemetry_schedule_missing = not gp_list
-        if telemetry_schedule_missing:
-            gp_list = ["Takvim verisi bekleniyor"]
-            st.caption("Takvim geçici olarak alınamadı; biraz sonra yeniden deneyebilirsin.")
-    else:
-        gp_list = ["Önce takvim verisini yükle"]
-        telemetry_schedule_missing = True
-        st.caption("Ana sayfanın hızlı açılması için takvim isteğe bağlı yüklenir.")
-        if st.button("📥 Telemetri takvimini yükle", key="load_telemetry_schedule", use_container_width=True):
-            st.session_state['telemetry_schedule_requested'] = True
-            st.rerun()
-    default_gp_idx = 0
-    for idx, gp_item in enumerate(gp_list):
-        if "Hungary" in gp_item or "Hungarian" in gp_item:
-            default_gp_idx = idx
-            break
-
-    gp = st.selectbox("Grand Prix", gp_list, index=default_gp_idx)
-    session_type = st.selectbox("Seans", ["Q", "R", "FP1", "FP2", "FP3"])
-
-    target_q = None
-    q_sub_session = None
-    if session_type == "Q":
-        st.markdown("---")
-        q_sub_session = st.selectbox(
-            "⏱️ Sıralama Elemeleri:",
-            ["Q3 (Final / Pole Mücadelesi)", "Q2", "Q1", "Tüm Sıralama Seansı"]
-        )
-        if "Q3" in q_sub_session:
-            target_q = "Q3"
-        elif "Q2" in q_sub_session:
-            target_q = "Q2"
-        elif "Q1" in q_sub_session:
-            target_q = "Q1"
-
-    st.markdown("---")
-    analiz_turu = st.radio(
-        "📌 Görünüm Seçiniz:",
-        [
-            "🗺️ Kuş Bakışı Pist Dominasyonu",
-            "🏎️ 2D Tur Düellosu",
-            "🛑 Telemetri & Fren Analizi",
-            "📊 Top Speed & SÜRÜCÜ Tablosu",
-            "🛞 Lastik Stratejisi & Stintler"
-        ]
-    )
-    
-    st.markdown("---")
-    if st.button("⚡ Analiz Modunu Çalıştır", use_container_width=True, disabled=telemetry_schedule_missing):
-        st.session_state['page'] = 'telemetry'
+_nav("Telemetri Merkezi", "monitoring", "telemetry")
 
 # 3. SEANS TAKİBİ VE YENİ MERKEZLER
 fp_ui.sidebar_section("Canli & Yaris")
@@ -6185,6 +6128,50 @@ elif st.session_state['page'] == 'telemetry':
         "Tamamlanmis bir seans sec: tur duellosu, fren analizi, lastik stratejisi.",
         eyebrow="Veri & Analiz",
     )
+
+    # --- SEANS SEÇİMİ (artik sayfa govdesinde, sidebar yerine) ---
+    fp_ui.section_title("Seans Ayarlari")
+    if not st.session_state['telemetry_schedule_requested']:
+        fp_ui.data_state("Takvim Istege Bagli", "Sitenin hizli acilmasi icin takvim yalnizca sen istediginde yuklenir.", "info")
+        if st.button("Telemetri takvimini yukle", key="load_telemetry_schedule", use_container_width=True):
+            st.session_state['telemetry_schedule_requested'] = True
+            st.rerun()
+        st.stop()
+
+    _tc = st.columns([1, 2, 1.2])
+    year = _tc[0].number_input("Sezon", min_value=2018, max_value=2026, value=2026, key="tel_year")
+    _gp_list = get_season_schedule(year)
+    if not _gp_list:
+        _gp_list = ["Takvim verisi bekleniyor"]
+        _tc[1].caption("Takvim gecici olarak alinamadi; biraz sonra tekrar dene.")
+    _default_gp_idx = next((i for i, g in enumerate(_gp_list) if "Hungar" in g), 0)
+    gp = _tc[1].selectbox("Grand Prix", _gp_list, index=_default_gp_idx, key="tel_gp")
+    session_type = _tc[2].selectbox("Seans", ["Q", "R", "FP1", "FP2", "FP3"], key="tel_session")
+
+    target_q = None
+    q_sub_session = None
+    if session_type == "Q":
+        q_sub_session = st.selectbox(
+            "Siralama elemesi",
+            ["Q3 (Final / Pole)", "Q2", "Q1", "Tum Siralama Seansi"], key="tel_qsub",
+        )
+        target_q = "Q3" if "Q3" in q_sub_session else "Q2" if "Q2" in q_sub_session else "Q1" if "Q1" in q_sub_session else None
+
+    _MODES = [
+        "🗺️ Kuş Bakışı Pist Dominasyonu",
+        "🏎️ 2D Tur Düellosu",
+        "🛑 Telemetri & Fren Analizi",
+        "📊 Top Speed & SÜRÜCÜ Tablosu",
+        "🛞 Lastik Stratejisi & Stintler",
+    ]
+    _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Duellosu", "Fren Analizi", "Top Speed", "Lastik Stratejisi"]
+    if hasattr(st, "segmented_control"):
+        _picked = st.segmented_control("Gorunum", _MODE_LABELS, default=_MODE_LABELS[0], key="tel_mode")
+    else:
+        _picked = st.radio("Gorunum", _MODE_LABELS, horizontal=True, key="tel_mode")
+    analiz_turu = _MODES[_MODE_LABELS.index(_picked)] if _picked in _MODE_LABELS else _MODES[0]
+
+    st.write("")
     try:
         with st.spinner('Telemetri verileri yükleniyor...'):
             try:
