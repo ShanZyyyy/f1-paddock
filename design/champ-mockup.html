@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Şampiyona Merkezi — Yeni Tasarım Önerisi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Antonio:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0:#07090d;--bg1:#0c1016;--bg2:#11161f;--bg3:#161d28;--bg4:#1e2836;
+  --line:#26313f;--line2:#1b2330;--text:#f2f5f8;--dim:#9fb0c0;--mute:#63748a;
+  --red:#e10600;--cyan:#38e1d0;--amber:#f5c33b;--purple:#b98bff;
+  --f-d:'Saira Condensed',sans-serif;--f-b:'Saira',sans-serif;--f-m:'JetBrains Mono',monospace;
+  --f-x:'Antonio',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:linear-gradient(180deg,var(--bg1),var(--bg0));color:var(--text);font-family:var(--f-b);
+  padding:28px 22px 60px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+.eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute)}
+h1{font-family:var(--f-d);font-weight:800;font-size:32px;text-transform:uppercase;line-height:1;margin-top:6px}
+.sub{color:var(--dim);font-size:13px;margin-top:5px}
+.sec{font-family:var(--f-d);font-weight:700;font-size:18px;letter-spacing:.05em;text-transform:uppercase;
+  padding-left:10px;border-left:3px solid var(--red);margin:2px 0}
+.note{font-family:var(--f-m);font-size:12px;color:var(--mute);border-top:1px dashed var(--line);padding-top:14px}
+.tag{display:inline-block;font-family:var(--f-m);font-size:10px;font-weight:700;letter-spacing:.1em;
+  padding:3px 8px;border-radius:3px;background:var(--bg4);color:var(--amber);margin-left:8px}
+
+/* 1 — SNAPSHOT (yeni) */
+.ss{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.ss-c{border:1px solid var(--line);border-left:3px solid var(--a);border-radius:5px;padding:14px 16px;
+  background:linear-gradient(160deg,var(--bg3),var(--bg2));min-height:120px;display:flex;flex-direction:column}
+.ss-c s{font:700 9.5px var(--f-d);letter-spacing:.16em;text-transform:uppercase;color:var(--mute);text-decoration:none}
+.ss-c .n{font-family:var(--f-x);font-weight:700;font-size:26px;text-transform:uppercase;color:var(--a);
+  margin-top:9px;line-height:.95;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-c i{font-family:var(--f-m);font-size:12px;color:var(--dim);margin-top:auto;padding-top:8px;font-style:normal}
+
+/* 2 — SEKME HUD (yeni, az kırmızı) */
+.tabbar{display:flex;gap:2px;background:var(--bg2);border:1px solid var(--line);border-radius:5px;padding:4px}
+.tabbar button{flex:1;padding:10px 8px;background:transparent;border:0;color:var(--dim);cursor:pointer;
+  font-family:var(--f-d);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;border-radius:3px}
+.tabbar button.on{background:var(--bg4);color:var(--text);box-shadow:inset 0 -2px 0 var(--cyan)}
+.viewseg{display:flex;gap:8px;margin-top:12px}
+.viewseg button{padding:7px 16px;background:var(--bg2);border:1px solid var(--line);color:var(--dim);
+  font:600 12px var(--f-b);border-radius:3px;cursor:pointer}
+.viewseg button.on{border-color:var(--cyan);color:var(--text)}
+
+/* 3 — PİLOT DERİN İSTATİSTİK (transfermarkt tarzı) */
+.dstat{border:1px solid var(--line);border-radius:6px;background:linear-gradient(160deg,var(--bg3),var(--bg2));overflow:hidden}
+.dstat-h{display:flex;align-items:center;gap:14px;padding:16px 18px;border-bottom:1px solid var(--line);
+  border-left:4px solid var(--a)}
+.dstat-h .code{font-family:var(--f-x);font-weight:700;font-size:34px;color:var(--a);line-height:1}
+.dstat-h .who{flex:1}
+.dstat-h .who b{font-family:var(--f-d);font-weight:700;font-size:19px;text-transform:uppercase;letter-spacing:.02em}
+.dstat-h .who span{display:block;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.dstat-h .pick{font:700 11px var(--f-m);color:var(--mute);border:1px solid var(--line);border-radius:3px;padding:6px 10px}
+.dstat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line2)}
+.dstat-grid > div{background:var(--bg2);padding:13px 15px}
+.dstat-grid s{font:700 9px var(--f-d);letter-spacing:.13em;text-transform:uppercase;color:var(--mute);text-decoration:none}
+.dstat-grid b{display:block;font-family:var(--f-m);font-weight:700;font-size:20px;margin-top:6px}
+.dstat-grid b.g{color:var(--cyan)} .dstat-grid b.r{color:var(--red)}
+.circuits{padding:14px 18px}
+.circuits h4{font:700 10px var(--f-d);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:10px}
+.circ-row{display:grid;grid-template-columns:120px 1fr 44px;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line2)}
+.circ-row:last-child{border-bottom:0}
+.circ-row .cn{font:600 12px var(--f-b);color:var(--dim)}
+.circ-row .bar{height:6px;background:var(--bg0);border-radius:99px;overflow:hidden}
+.circ-row .bar i{display:block;height:100%;background:var(--a)}
+.circ-row .cw{font-family:var(--f-m);font-size:12px;font-weight:700;text-align:right}
+
+/* season matrix (aynı kalıyor) */
+.matrix{border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--bg2)}
+.matrix .mh{padding:11px 15px;font-family:var(--f-d);font-weight:700;font-size:12px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line)}
+.mrow{display:grid;grid-template-columns:34px 1fr 60px 46px 46px 46px;align-items:center;gap:8px;
+  padding:9px 15px;border-bottom:1px solid var(--line2);border-left:3px solid var(--a)}
+.mrow:last-child{border-bottom:0}
+.mrow .mp{font-family:var(--f-m);font-weight:700;text-align:center}
+.mrow .md{font-family:var(--f-d);font-weight:700;font-size:14px;letter-spacing:.03em}
+.mrow .md small{color:var(--mute);font-family:var(--f-b);font-weight:600;margin-left:6px;font-size:11px;text-transform:uppercase}
+.mrow .mv{font-family:var(--f-m);font-size:12px;color:var(--dim);text-align:center}
+.mrow .mpts{font-family:var(--f-m);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div>
+    <div class="eyebrow">Şampiyonalar</div>
+    <h1>Şampiyona Merkezi</h1>
+    <div class="sub">Yeni tasarım önerisi — onaylarsan koda geçerim. <span class="tag">MOCKUP</span></div>
+  </div>
+
+  <!-- 1 -->
+  <section>
+    <h2 class="sec">1 · Sezon Özeti (yeniden)</h2>
+    <p class="note" style="margin:12px 0">Eski: "MERCEDES" devasa yazıyordu. Yeni: özel <b>Antonio</b> fontu, ölçülü boyut, 3 eşit kart, değer alta yaslı.</p>
+    <div class="ss">
+      <div class="ss-c" style="--a:var(--cyan)"><s>Pilot Lideri</s><div class="n">Antonelli</div><i>242 P · Mercedes · 3 galibiyet</i></div>
+      <div class="ss-c" style="--a:var(--cyan)"><s>Takım Lideri</s><div class="n">Mercedes</div><i>425 P · +142 fark · 5 podyum</i></div>
+      <div class="ss-c" style="--a:var(--amber)"><s>Kalan Yarış</s><div class="n">7</div><i>maksimum 182 puan dağıtılacak</i></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section>
+    <h2 class="sec">2 · Sekme + Görünüm (az kırmızı)</h2>
+    <p class="note" style="margin:12px 0">Eski: sekmeler tamamen kırmızı, "rezalet". Yeni: nötr koyu, seçili sekmede ince cyan alt-çizgi. Görünüm butonları da sadece kenarlıkla işaretli.</p>
+    <div class="tabbar">
+      <button class="on">🏁 Sezon Tablosu</button>
+      <button>🏭 Takım Puanları</button>
+      <button>📊 Pilot İstatistikleri</button>
+    </div>
+    <div class="viewseg">
+      <button class="on">Sıralama</button>
+      <button>Puan</button>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section>
+    <h2 class="sec">3 · Pilot Derin İstatistik (yeni — "Tamamlanan Pistler" bunun yerine)</h2>
+    <p class="note" style="margin:12px 0">Eski "Tamamlanan Pistler" şeridi kalkar. Yerine seçilebilir pilot kartı: kariyer/sezon özeti + pist bazında galibiyet.</p>
+    <div class="dstat" style="--a:var(--cyan)">
+      <div class="dstat-h">
+        <div class="code">RUS</div>
+        <div class="who"><b>George Russell</b><span>Mercedes · #63 · 27 yaş</span></div>
+        <div class="pick">▾ Pilot seç</div>
+      </div>
+      <div class="dstat-grid">
+        <div><s>Bu Sezon Puan</s><b>183</b></div>
+        <div><s>Galibiyet</s><b class="g">4</b></div>
+        <div><s>Podyum</s><b>9</b></div>
+        <div><s>Pole</s><b>3</b></div>
+        <div><s>Yarış Dışı (DNF)</s><b class="r">2</b></div>
+        <div><s>En İyi Bitiş</s><b>P1</b></div>
+        <div><s>En Kötü Bitiş</s><b>P14</b></div>
+        <div><s>Ort. Grid</s><b>3.8</b></div>
+      </div>
+      <div class="circuits">
+        <h4>Pist Bazında Galibiyet (kariyer)</h4>
+        <div class="circ-row"><span class="cn">Silverstone</span><div class="bar"><i style="width:100%"></i></div><span class="cw">×3</span></div>
+        <div class="circ-row"><span class="cn">Spa-Francorchamps</span><div class="bar"><i style="width:66%"></i></div><span class="cw">×2</span></div>
+        <div class="circ-row"><span class="cn">Las Vegas</span><div class="bar"><i style="width:33%"></i></div><span class="cw">×1</span></div>
+        <div class="circ-row"><span class="cn">Montréal</span><div class="bar"><i style="width:33%"></i></div><span class="cw">×1</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section>
+    <h2 class="sec">4 · Sezon Tablosu (değişmiyor, sadece daha temiz)</h2>
+    <div class="matrix">
+      <div class="mh">2026 Pilot Klasmanı · yarış / sprint sırası</div>
+      <div class="mrow" style="--a:var(--cyan)"><span class="mp">1</span><span class="md">A. Antonelli<small>Mercedes</small></span><span class="mpts">242</span><span class="mv">2/</span><span class="mv">1/1</span><span class="mv">3/</span></div>
+      <div class="mrow" style="--a:var(--red)"><span class="mp">2</span><span class="md">L. Hamilton<small>Ferrari</small></span><span class="mpts">183</span><span class="mv">4/</span><span class="mv">3/2</span><span class="mv">5/</span></div>
+      <div class="mrow" style="--a:var(--cyan)"><span class="mp">3</span><span class="md">G. Russell<small>Mercedes</small></span><span class="mpts">183</span><span class="mv">1/</span><span class="mv">2/</span><span class="mv">2/</span></div>
+      <div class="mrow" style="--a:#ff8000"><span class="mp">4</span><span class="md">L. Norris<small>McLaren</small></span><span class="mpts">159</span><span class="mv">5/</span><span class="mv">20/3</span><span class="mv">1/</span></div>
+    </div>
+  </section>
+
+  <p class="note">Onaylarsan: (1) snapshot Antonio fontuyla yeniden, (2) sekmeler nötrleşir, (3) "Tamamlanan Pistler" → pilot derin-istatistik kartı (Jolpica/Ergast verisi), (4) matris korunur. Font "Antonio" hoşuna gitmezse alternatif önerebilirim.</p>
+
+</div>
+</body>
+</html>
