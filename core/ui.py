@@ -198,10 +198,11 @@ def render_html_hud(markup, height=150, scrolling=False):
     return components.html(document, height=height, scrolling=scrolling)
 
 
-def json_for_script(obj):
+def json_for_script(obj, compact=True):
     """JSON'u satir ici <script> blenda guvenle gomer: </script>, yorum ve
-    satir ayiricilarini escape'ler."""
-    text = _json.dumps(obj, ensure_ascii=False)
+    satir ayiricilarini escape'ler. compact=True -> bosluksuz (buyuk payload)."""
+    seps = (",", ":") if compact else None
+    text = _json.dumps(obj, ensure_ascii=False, separators=seps)
     text = text.replace("</", "<\\/").replace("<!--", "<\\!--")
     text = text.replace(_LINE_SEP, "\\u2028").replace(_PARA_SEP, "\\u2029")
     return text
