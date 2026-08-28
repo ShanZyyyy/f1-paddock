@@ -25,6 +25,7 @@ import openf1_fallback
 # Yeniden yapilandirma (redesign) — tasarim sistemi
 from core import nav as fp_nav
 from core import ui as fp_ui
+from core import plot as fp_plot
 
 
 LOGGER = logging.getLogger("f1_paddock")
@@ -2345,7 +2346,7 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
         {'code': str(driver_1), 'team': str(team_1), 'colour': colour_1, 'lap': str(lap_time_1), 'samples': first, 'sectors': sector_times_1 or []},
         {'code': str(driver_2), 'team': str(team_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': second, 'sectors': sector_times_2 or []},
     ], 'overlay': track_overlay or {}}, ensure_ascii=False, separators=(',', ':'))
-    return r'''<style>*{box-sizing:border-box}body{margin:0;background:#090d14;color:#edf6ff;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2d435e;border-radius:13px;padding:12px;background:#101a2a}.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.title{font-size:13px;font-weight:950;letter-spacing:.09em}.sub{font-size:10px;color:#91a8c0;margin-top:5px}.tag{border:1px solid #35506d;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:900;color:var(--team)}.map{margin-top:10px;border:1px solid #29405a;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#17263d,#070c13 74%)}canvas{width:100%;height:400px;display:block}.sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.sector{border:1px solid #344b67;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#101a29;font:800 11px ui-monospace,Consolas,monospace}.sector small{display:block;color:#9eb4ca;font-family:Inter,Arial,sans-serif;margin-bottom:6px}.win{color:#79e7a7}.lose{color:#ff8793}.bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn{border:1px solid #39516f;border-radius:7px;background:#142239;color:#edf6ff;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}.slider{flex:1;min-width:130px;accent-color:#ff4051}.delta{font:900 12px ui-monospace,Consolas,monospace;margin-left:auto}@media(max-width:650px){canvas{height:330px}.sectors{grid-template-columns:1fr}.delta{width:100%;margin-left:0}}</style><div class="hud"><div class="head"><div><div class="title">2D LAP DUEL // STABLE TIME SYNC</div><div class="sub">AYNI PİST NOKTASINDAKİ GERÇEK ZAMAN DELTASI · SEKTÖR ZAMANLARI</div></div><div id="tags"></div></div><div class="map"><canvas id="duel"></canvas></div><div class="sectors" id="sectors"></div><div class="bottom"><button class="btn" id="play">▶ Oynat</button><button class="btn active" data-rate="1">1×</button><button class="btn" data-rate="2">2×</button><button class="btn" data-rate="4">4×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="delta" id="delta"></span></div></div><script>
+    return r'''<style>*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.title{font-size:13px;font-weight:950;letter-spacing:.09em}.sub{font-size:10px;color:#9fb0c0;margin-top:5px}.tag{border:1px solid #35506d;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:900;color:var(--team)}.map{margin-top:10px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#161d28,#07090d 74%)}canvas{width:100%;height:400px;display:block}.sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 11px ui-monospace,Consolas,monospace}.sector small{display:block;color:#9fb0c0;font-family:Inter,Arial,sans-serif;margin-bottom:6px}.win{color:#79e7a7}.lose{color:#ff8793}.bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn{border:1px solid #2b3a4d;border-radius:7px;background:#161d28;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3a0f12}.slider{flex:1;min-width:130px;accent-color:#ff4051}.delta{font:900 12px ui-monospace,Consolas,monospace;margin-left:auto}@media(max-width:650px){canvas{height:330px}.sectors{grid-template-columns:1fr}.delta{width:100%;margin-left:0}}</style><div class="hud"><div class="head"><div><div class="title">2D LAP DUEL // STABLE TIME SYNC</div><div class="sub">AYNI PİST NOKTASINDAKİ GERÇEK ZAMAN DELTASI · SEKTÖR ZAMANLARI</div></div><div id="tags"></div></div><div class="map"><canvas id="duel"></canvas></div><div class="sectors" id="sectors"></div><div class="bottom"><button class="btn" id="play">▶ Oynat</button><button class="btn active" data-rate="1">1×</button><button class="btn" data-rate="2">2×</button><button class="btn" data-rate="4">4×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="delta" id="delta"></span></div></div><script>
 const data=__PAYLOAD__,drivers=data.drivers||[],canvas=document.getElementById('duel'),ctx=canvas.getContext('2d');let playing=false,rate=1,p=0,last=performance.now(),lastHud=0,view=null;const maxLap=Math.max(...drivers.map(d=>d.samples.lap_seconds||1));function sec(v){const x=String(v||'').split(':');return x.length===2?+x[0]*60+ +x[1]:NaN}function at(a,f){if(!a?.length)return null;const n=Math.max(0,Math.min(a.length-1,f*(a.length-1))),i=Math.floor(n),r=n-i,x=a[i],y=a[Math.min(a.length-1,i+1)];return{x:x.x+(y.x-x.x)*r,y:x.y+(y.y-x.y)*r,speed:x.speed+(y.speed-x.speed)*r,elapsed:x.elapsed+(y.elapsed-x.elapsed)*r}}function transform(){const raw=drivers[0]?.samples.distance||[],xs=raw.map(x=>x.x),ys=raw.map(x=>x.y),w=canvas.clientWidth,h=canvas.clientHeight,pd=28,s=Math.min((w-pd*2)/(Math.max(...xs)-Math.min(...xs)||1),(h-pd*2)/(Math.max(...ys)-Math.min(...ys)||1));return{minX:Math.min(...xs),maxY:Math.max(...ys),w,h,s}}function xy(x,t){return[(x.x-t.minX)*t.s+(t.w-(Math.max(...(drivers[0]?.samples.distance||[]).map(z=>z.x))-t.minX)*t.s)/2,(t.maxY-x.y)*t.s+(t.h-(t.maxY-Math.min(...(drivers[0]?.samples.distance||[]).map(z=>z.y)))*t.s)/2]}function advance(d){return Math.min(1,p*maxLap/(d.samples.lap_seconds||maxLap))}function drawCar(q,n,c,done){ctx.save();ctx.translate(q[0],q[1]);ctx.globalAlpha=done?.5:1;ctx.fillStyle='#060a10';ctx.fillRect(-12,-7,5,14);ctx.fillStyle=c;ctx.fillRect(-8,-4,22,8);ctx.fillRect(12,-8,3,16);ctx.fillStyle='#f3f7ff';ctx.fillRect(-16,-9,3,18);ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(n,q[0],q[1]-15)}function draw(){if(!view)return;ctx.clearRect(0,0,view.w,view.h);const route=drivers[0]?.samples.distance||[];ctx.strokeStyle='#8094ad';ctx.globalAlpha=.7;ctx.lineWidth=3;ctx.beginPath();route.forEach((x,i)=>{const q=xy(x,view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;drivers.forEach(d=>{const a=advance(d),here=at(d.samples.realtime,a),next=at(d.samples.realtime,Math.min(1,a+.004));if(!here||!next)return;const q=xy(here,view),qn=xy(next,view);drawCar(q,d.code,d.colour,a>=.999)})}function update(){const now=performance.now();if(now-lastHud<180)return;lastHud=now;const same=Math.min(advance(drivers[0]),advance(drivers[1])),a=at(drivers[0]?.samples.distance,same),b=at(drivers[1]?.samples.distance,same),raw=(a&&b&&Number.isFinite(a.elapsed)&&Number.isFinite(b.elapsed))?a.elapsed-b.elapsed:null;document.getElementById('delta').textContent=raw===null?'Delta bekleniyor':`Anlık Δ ${Math.abs(raw).toFixed(3)} sn · ${raw<0?drivers[0].code:raw>0?drivers[1].code:'eşit'} önde`;document.getElementById('range').value=Math.round(p*1000)}function sectors(){document.getElementById('tags').innerHTML=drivers.map(d=>`<span class="tag" style="--team:${d.colour}">${d.code} · ${d.lap}</span>`).join(' ');document.getElementById('sectors').innerHTML=[0,1,2].map(i=>{const a=drivers[0].sectors?.[i]||'—',b=drivers[1].sectors?.[i]||'—',d=sec(a)-sec(b),ok=Number.isFinite(d);return`<div class="sector" style="--c:${i===0?'#f4d35e':i===1?'#56cfe1':'#ff7a9f'}"><small>SEKTÖR ${i+1} · ${ok?(d<0?drivers[0].code:d>0?drivers[1].code:'EŞİT'):'—'} önde</small><div class="${ok&&d<=0?'win':'lose'}">${drivers[0].code} ${a}</div><div class="${ok&&d>=0?'win':'lose'}">${drivers[1].code} ${b}</div><div>Δ ${ok?Math.abs(d).toFixed(3)+' sn':'—'}</div></div>`}).join('')}function frame(now){const dt=Math.min(.03,Math.max(0,(now-last)/1000));last=now;if(playing){p+=dt*rate/maxLap;if(p>=1){p=1;playing=false;document.getElementById('play').textContent='↻ Baştan'}}draw();update();requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw()}document.getElementById('play').onclick=()=>{if(p>=1)p=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{rate=+b.dataset.rate;document.querySelectorAll('[data-rate]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{p=+e.target.value/1000;playing=false;draw();update()};window.addEventListener('resize',resize);sectors();resize();requestAnimationFrame(frame);
 </script></div>'''.replace('__PAYLOAD__', packed)
 
@@ -9770,6 +9771,11 @@ elif st.session_state['page'] == 'live':
 
 # SAYFA 3: TELEMETRİ VE DOMİNASYON HARİTASI
 elif st.session_state['page'] == 'telemetry':
+    fp_ui.page_header(
+        "Telemetri Merkezi",
+        "Tamamlanmis bir seans sec: tur duellosu, fren analizi, lastik stratejisi.",
+        eyebrow="Veri & Analiz",
+    )
     try:
         with st.spinner('Telemetri verileri yükleniyor...'):
             try:
@@ -9815,8 +9821,8 @@ elif st.session_state['page'] == 'telemetry':
 
             # --- MOD 1: KUŞ BAKIŞI PİST DOMİNASYON HARİTASI ---
             if analiz_turu == "🗺️ Kuş Bakışı Pist Dominasyonu":
-                st.markdown(f"### 🏁 {session.event['EventName']} — Track Dominance{header_suffix}")
-                
+                fp_ui.section_title(f"{session.event['EventName']} · Pist Dominasyonu{header_suffix}")
+
                 col1, col2 = st.columns(2)
                 d1_idx = drivers_list.index("VER") if "VER" in drivers_list else 0
                 d2_idx = drivers_list.index("NOR") if "NOR" in drivers_list else (1 if len(drivers_list) > 1 else 0)
@@ -9836,35 +9842,16 @@ elif st.session_state['page'] == 'telemetry':
                         tel1 = lap1.get_telemetry()
                         tel2 = lap2.get_telemetry()
 
-                        lap_time1 = format_time(lap1['LapTime'])
-                        lap_time2 = format_time(lap2['LapTime'])
-                        
-                        tyre1 = get_tyre_html(lap1.get('Compound', 'SOFT'))
-                        tyre2 = get_tyre_html(lap2.get('Compound', 'SOFT'))
-
+                        speed_diff = round(tel1['Speed'].max() - tel2['Speed'].max(), 1)
                         m1, m2, m3 = st.columns(3)
                         with m1:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <div class="title">{d1} TURU {tyre1}</div>
-                                <div class="value" style="color:#E10600;">{lap_time1}</div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            fp_ui.stat_tile(f"{d1} turu · {str(lap1.get('Compound', '-'))}",
+                                            format_time(lap1['LapTime']), accent="red")
                         with m2:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <div class="title">{d2} TURU {tyre2}</div>
-                                <div class="value" style="color:#38BDF8;">{lap_time2}</div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            fp_ui.stat_tile(f"{d2} turu · {str(lap2.get('Compound', '-'))}",
+                                            format_time(lap2['LapTime']), accent="cyan")
                         with m3:
-                            speed_diff = round(tel1['Speed'].max() - tel2['Speed'].max(), 1)
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <div class="title">TOP SPEED FARKI</div>
-                                <div class="value">{abs(speed_diff)} km/h</div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            fp_ui.stat_tile("Top speed farki", f"{abs(speed_diff)} km/h", accent="amber")
 
                         st.write("")
 
@@ -9880,7 +9867,7 @@ elif st.session_state['page'] == 'telemetry':
                         points = np.array([x, y]).T.reshape(-1, 1, 2)
                         segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-                        cmap = ListedColormap(['#38BDF8', '#E10600'])
+                        cmap = ListedColormap([fp_plot.A2, fp_plot.A1])
                         norm = plt.Normalize(-1, 1)
                         dominance = np.where(delta_speed[:-1] >= 0, 1, -1)
 
@@ -9893,19 +9880,19 @@ elif st.session_state['page'] == 'telemetry':
                             ax.add_collection(lc)
                             ax.autoscale()
                             ax.set_aspect('equal', 'datalim')
-                            ax.set_facecolor('#0B0E14')
-                            fig.patch.set_facecolor('#0B0E14')
+                            fig.patch.set_facecolor(fp_plot.BG)
+                            ax.set_facecolor(fp_plot.BG)
                             plt.axis('off')
 
                             st.pyplot(fig)
 
-                        st.info(f"🔴 **Kırmızı BÖLGELER:** {driver_options.get(d1, d1)} pilotunun daha hızlı olduğu noktalar.\n\n🔵 **Mavi BÖLGELER:** {driver_options.get(d2, d2)} pilotunun daha hızlı olduğu noktalar.")
-                        st.success("📍 " + get_speed_difference_insight(session, d1, d2, tel1, tel2))
+                        fp_ui.data_state("BOLGE OKUMA", f"Kirmizi bolgeler: {driver_options.get(d1, d1)} daha hizli. Cyan bolgeler: {driver_options.get(d2, d2)} daha hizli.", "info")
+                        fp_ui.data_state("ICGORU", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
             # --- MOD 2: 2D TUR DÜELLOSU ---
             elif analiz_turu == "🏎️ 2D Tur Düellosu":
-                st.markdown(f"### 🏎️ {session.event['EventName']} — 2D Tur Düellosu{header_suffix}")
-                st.caption("İki mod var: Mesafeye göre, aynı virajdaki hız farkını gösterir. Gerçek zaman ise iki turun fiziksel zaman farkını gösterir.")
+                fp_ui.section_title(f"{session.event['EventName']} · 2D Tur Duellosu{header_suffix}")
+                st.caption("Mesafe modu ayni virajdaki hiz farkini; gercek zaman modu iki turun fiziksel zaman farkini gosterir.")
 
                 duel_col_1, duel_col_2 = st.columns(2)
                 default_1 = drivers_list.index("VER") if "VER" in drivers_list else 0
@@ -9948,11 +9935,17 @@ elif st.session_state['page'] == 'telemetry':
                         duel_overlay = build_track_overlay(duel_tel_1, duel_lap_1, session)
                         duel_sectors_1 = [format_time(duel_lap_1.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
                         duel_sectors_2 = [format_time(duel_lap_2.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
-                        metric_1, metric_2, metric_3, metric_4 = st.columns(4)
-                        metric_1.metric(f"{duel_driver_1} turu", format_time(duel_lap_1['LapTime']))
-                        metric_2.metric(f"{duel_driver_2} turu", format_time(duel_lap_2['LapTime']))
-                        metric_3.metric("Tur farkı", f"{gap_seconds:.3f} sn")
-                        metric_4.metric("Önde olan", duel_driver_1 if duel_lap_1['LapTime'] < duel_lap_2['LapTime'] else duel_driver_2)
+                        _mc = st.columns(4)
+                        with _mc[0]:
+                            fp_ui.stat_tile(f"{duel_driver_1} turu", format_time(duel_lap_1['LapTime']), accent="red")
+                        with _mc[1]:
+                            fp_ui.stat_tile(f"{duel_driver_2} turu", format_time(duel_lap_2['LapTime']), accent="cyan")
+                        with _mc[2]:
+                            fp_ui.stat_tile("Tur farki", f"{gap_seconds:.3f} sn", accent="amber")
+                        with _mc[3]:
+                            fp_ui.stat_tile("Onde olan",
+                                            duel_driver_1 if duel_lap_1['LapTime'] < duel_lap_2['LapTime'] else duel_driver_2,
+                                            accent="green", mono=False)
                         render_html_hud(
                             two_driver_duel_html_repaired(
                                 duel_tel_1, duel_tel_2, duel_driver_1, duel_driver_2, team_1, team_2,
@@ -9963,11 +9956,11 @@ elif st.session_state['page'] == 'telemetry':
                             height=620,
                             scrolling=False
                         )
-                        st.success("📍 " + get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2))
+                        fp_ui.data_state("ICGORU", get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2), "success")
 
             # --- MOD 3: DETAYLI TELEMETRİ & FREN ANALİZİ ---
             elif analiz_turu == "🛑 Telemetri & Fren Analizi":
-                st.markdown(f"### 🏁 {session.event['EventName']} — Telemetry Overlay{header_suffix}")
+                fp_ui.section_title(f"{session.event['EventName']} · Telemetri & Fren{header_suffix}")
                 
                 col1, col2 = st.columns(2)
                 d1_idx = drivers_list.index("VER") if "VER" in drivers_list else 0
@@ -9990,22 +9983,15 @@ elif st.session_state['page'] == 'telemetry':
 
                         fig, (ax_speed, ax_brake, ax_throttle, ax_gear) = plt.subplots(4, 1, figsize=(10, 8), sharex=True)
 
-                        for ax in [ax_speed, ax_brake, ax_throttle, ax_gear]:
-                            ax.set_facecolor('#111827')
-                            ax.tick_params(colors='#94A3B8')
-                            ax.xaxis.label.set_color('#94A3B8')
-                            ax.yaxis.label.set_color('#94A3B8')
-                            ax.grid(True, color='#1E293B', linestyle='--', alpha=0.6)
+                        fp_plot.style(fig, ax_speed, ax_brake, ax_throttle, ax_gear)
 
-                        fig.patch.set_facecolor('#0B0E14')
-
-                        ax_speed.plot(tel1['Distance'], tel1['Speed'], label=f"{driver_options.get(d1, d1)}", color='#E10600', linewidth=1.8)
-                        ax_speed.plot(tel2['Distance'], tel2['Speed'], label=f"{driver_options.get(d2, d2)}", color='#38BDF8', linewidth=1.8)
+                        ax_speed.plot(tel1['Distance'], tel1['Speed'], label=f"{driver_options.get(d1, d1)}", color=fp_plot.A1, linewidth=1.8)
+                        ax_speed.plot(tel2['Distance'], tel2['Speed'], label=f"{driver_options.get(d2, d2)}", color=fp_plot.A2, linewidth=1.8)
                         ax_speed.set_ylabel("Hız (km/h)", fontsize=9)
-                        ax_speed.legend(loc="upper right", facecolor='#111827', edgecolor='none', labelcolor='white')
+                        ax_speed.legend(loc="upper right", facecolor=fp_plot.PANEL, edgecolor='none', labelcolor=fp_plot.TEXT)
 
-                        ax_brake.plot(tel1['Distance'], tel1['Brake'], color='#E10600', linewidth=1.5)
-                        ax_brake.plot(tel2['Distance'], tel2['Brake'], color='#38BDF8', linewidth=1.5)
+                        ax_brake.plot(tel1['Distance'], tel1['Brake'], color=fp_plot.A1, linewidth=1.5)
+                        ax_brake.plot(tel2['Distance'], tel2['Brake'], color=fp_plot.A2, linewidth=1.5)
                         ax_brake.set_ylabel("Fren", fontsize=9)
 
                         ax_throttle.plot(tel1['Distance'], tel1['Throttle'], color='#E10600', linewidth=1.5)
@@ -10018,12 +10004,12 @@ elif st.session_state['page'] == 'telemetry':
                         ax_gear.set_xlabel("Pist Mesafesi (Metre)", fontsize=10)
 
                         st.pyplot(fig)
-                        st.info("💡 **Late Braking (Geç Frenleme) İpucu:** Fren grafiğindeki dikey sıçramalara bak. Dikey çizgi daha sağda olan pilot, viraja daha geç fren yaparak girmiş demektir!")
-                        st.success("📍 " + get_speed_difference_insight(session, d1, d2, tel1, tel2))
+                        fp_ui.data_state("GEC FRENLEME IPUCU", "Fren grafigindeki dikey sicramalara bak. Dikey cizgi daha sagda olan pilot viraja daha gec fren yapmis demektir.", "info")
+                        fp_ui.data_state("ICGORU", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
             # --- MOD 3: TOP SPEED & SÜRÜCÜ TABLOSU ---
             elif analiz_turu == "📊 Top Speed & SÜRÜCÜ Tablosu":
-                st.markdown(f"### 🏁 {session.event['EventName']} — Leaderboard{header_suffix}")
+                fp_ui.section_title(f"{session.event['EventName']} · Top Speed Tablosu{header_suffix}")
                 
                 summary_data = []
                 for drv in drivers_list:
@@ -10064,7 +10050,7 @@ elif st.session_state['page'] == 'telemetry':
 
             # --- MOD 4: LASTİK STRATEJİSİ ---
             elif analiz_turu == "🛞 Lastik Stratejisi & Stintler":
-                st.markdown(f"### 🛞 {session.event['EventName']} — Lastik Stratejisi{header_suffix}")
+                fp_ui.section_title(f"{session.event['EventName']} · Lastik Stratejisi{header_suffix}")
                 if session_type != "R":
                     st.info("En anlamlı strateji görünümü yarış seansında oluşur. Bu seans için mevcut stintler gösteriliyor.")
 
@@ -10073,8 +10059,7 @@ elif st.session_state['page'] == 'telemetry':
                     st.warning("Bu seans için stint verisi bulunamadı.")
                 else:
                     compound_colors = {
-                        "SOFT": "#FF1801", "MEDIUM": "#FFE11A", "HARD": "#FFFFFF",
-                        "INTERMEDIATE": "#39B54A", "WET": "#00AEEF"
+                        **fp_plot.COMPOUND
                     }
                     selected_drivers = st.multiselect(
                         "Grafikte gösterilecek pilotlar",
@@ -10083,25 +10068,22 @@ elif st.session_state['page'] == 'telemetry':
                     )
                     chart_data = strategy[strategy['Pilot'].isin(selected_drivers)]
                     figure, axis = plt.subplots(figsize=(12, max(4, len(selected_drivers) * 0.45)))
-                    figure.patch.set_facecolor('#0B0E14')
-                    axis.set_facecolor('#111827')
+                    fp_plot.style(figure, axis)
                     for row_index, driver in enumerate(selected_drivers):
                         driver_stints = chart_data[chart_data['Pilot'] == driver]
                         for _, stint in driver_stints.iterrows():
                             color = compound_colors.get(str(stint['Lastik']).upper(), '#64748B')
                             axis.barh(
                                 row_index, stint['Tur Sayısı'], left=stint['Başlangıç Turu'],
-                                color=color, edgecolor='#0B0E14', height=0.6
+                                color=color, edgecolor=fp_plot.BG, height=0.6
                             )
                             axis.text(
                                 stint['Başlangıç Turu'] + stint['Tur Sayısı'] / 2, row_index,
                                 str(stint['Lastik'])[:1], ha='center', va='center',
-                                color='#0B0E14', fontweight='bold'
+                                color=fp_plot.BG, fontweight='bold'
                             )
                     axis.set_yticks(range(len(selected_drivers)), selected_drivers)
-                    axis.set_xlabel('Tur', color='#94A3B8')
-                    axis.tick_params(colors='#94A3B8')
-                    axis.grid(axis='x', color='#1E293B', linestyle='--', alpha=0.6)
+                    axis.set_xlabel('Tur')
                     st.pyplot(figure, use_container_width=True)
                     st.dataframe(strategy, use_container_width=True, hide_index=True)
 

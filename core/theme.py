@@ -194,10 +194,10 @@ _FP_COMPONENTS_CSS = r"""
   border-left:var(--fp-edge) solid var(--accent,var(--fp-cyan));border-radius:var(--fp-r-sm);
   padding:12px 16px;height:100%}
 .fp-tile .lbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--fp-text-mute)}
-.fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:24px;margin-top:6px;color:var(--fp-text);
-  line-height:1.15;overflow-wrap:anywhere}
+.fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:19px;margin-top:6px;color:var(--fp-text);
+  line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fp-tile .val.txt{font-family:var(--fp-f-display);font-size:16px;letter-spacing:.01em;
-  text-transform:uppercase;word-break:normal}
+  text-transform:uppercase;white-space:normal;word-break:normal;overflow:visible}
 .fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:2px}
 
 /* ---- data-state ---- */
