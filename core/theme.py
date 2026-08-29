@@ -6,7 +6,14 @@ burada tanımlanır; sayfalar kendi ``<style>`` bloğunu YAZMAZ.
 
 Bu modül Streamlit'e bağımlı değildir — saf string üretir, izole test edilebilir.
 `design/preview.html` bu jetonların birebir görsel karşılığıdır.
+
+Performans: `page_style` / `shell_style` / `hud_iframe_style` her Streamlit
+rerun'ında çağrılır ama girdileri sabittir (yalnız `light` bool). Sonuçlar
+`lru_cache` ile bir kez üretilir — rerun başına kilobaytlarca string birleştirme
+tekrarı önlenir.
 """
+
+from functools import lru_cache
 
 # =====================================================================
 # RENK JETONLARI
@@ -142,6 +149,7 @@ def _palette_vars(table):
     return ";".join(parts)
 
 
+@lru_cache(maxsize=1)
 def _static_vars():
     """Tema ile degismeyen: takim renkleri, font, olcek."""
     parts = [f"--t-{slug}:{hexv}" for slug, hexv in _team_slug_vars().items()]
@@ -155,12 +163,14 @@ def _static_vars():
     return ";".join(parts)
 
 
+@lru_cache(maxsize=2)
 def _root_vars(light=False):
     """Tek tema (hud_iframe_style icin). Sayfa CSS'i _root_vars_dual kullanir."""
     table = TOKENS_LIGHT if light else TOKENS
     return ":root{" + _palette_vars(table) + ";" + _static_vars() + "}"
 
 
+@lru_cache(maxsize=1)
 def _root_vars_dual():
     """Iki paleti birden yayar. Istemci :root[data-fp-theme] ile aninda gecer."""
     return (
@@ -320,6 +330,7 @@ _FP_COMPONENTS_CSS = r"""
 """
 
 
+@lru_cache(maxsize=2)
 def page_style(light=False):
     """Tam tema — tum sayfalar gecince. `st.markdown(unsafe_allow_html=True)`."""
     return ("<style>" + _root_vars_dual() + _SHELL_CHROME_CSS
@@ -420,61 +431,84 @@ section[data-testid="stSidebar"] [data-baseweb="select"] button{
 }
 """
 
-# ---- Uygulama arka plani (F1 TV — sakin, animasyonsuz) ---------------
-_SHELL_BG_CSS = r"""
+# ---- Uygulama arka plani (F1 TV — hareketli telemetri + pist silueti) ----
+# NOT: eski "final theme layer" bloğu (streamlit_app.py ~6349) ::before/::after'ı
+# display:none!important ile kapatıyor; bu blok DAHA SONRA enjekte edildiği için
+# display:block!important ile onu yener.
+_FP_CIRCUIT_SVG = (
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800'%3E"
+    "%3Cpath d='M130,600 C130,410 270,300 430,322 C580,343 610,470 745,470 C905,470 940,300 1040,242 "
+    "C1150,180 1120,560 975,620 C840,676 700,596 520,640 C360,678 130,770 130,600 Z' "
+    "fill='none' stroke='%232ee6c9' stroke-width='2.5'/%3E%3C/svg%3E"
+)
+_SHELL_BG_CSS = (r"""
 [data-testid="stAppViewContainer"],.stApp{
   background:
-    radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 9%,transparent), transparent 55%),
+    radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 10%,transparent), transparent 55%),
     linear-gradient(180deg, var(--fp-bg-1), var(--fp-bg-0)) !important;
   background-attachment:fixed !important;
 }
 [data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
 
-/* --- hareketli F1 arka plani: telemetri izgarasi + hiz cizgileri --- */
-@keyframes fp-grid-drift{from{background-position:0 0,0 0}to{background-position:44px 44px,44px 44px}}
-@keyframes fp-speed{0%{transform:translate3d(-30%,0,0)}100%{transform:translate3d(130%,0,0)}}
+@keyframes fp-grid-drift{from{background-position:0 0}to{background-position:46px 46px}}
+@keyframes fp-circuit-float{0%{transform:translate3d(0,0,0) scale(1.04)}50%{transform:translate3d(-2.2%,1.4%,0) scale(1.08)}100%{transform:translate3d(0,0,0) scale(1.04)}}
+@keyframes fp-speed{0%{transform:translate3d(-40%,0,0)}100%{transform:translate3d(140%,0,0)}}
+
+/* katman 1 — telemetri izgarasi (yavas kayar) */
 [data-testid="stAppViewContainer"]::before{
-  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;display:block !important;
   background-image:
-    linear-gradient(color-mix(in srgb,var(--fp-cyan) 8%,transparent) 1px,transparent 1px),
-    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 8%,transparent) 1px,transparent 1px);
-  background-size:44px 44px,44px 44px;
-  opacity:.35;
-  animation:fp-grid-drift 26s linear infinite;
-  mask-image:radial-gradient(120% 90% at 50% 0%,#000 30%,transparent 92%);
+    linear-gradient(color-mix(in srgb,var(--fp-cyan) 7%,transparent) 1px,transparent 1px),
+    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 7%,transparent) 1px,transparent 1px);
+  background-size:46px 46px;
+  opacity:.5;
+  animation:fp-grid-drift 32s linear infinite;
+  mask-image:radial-gradient(130% 100% at 50% -10%,#000 25%,transparent 90%);
 }
+/* katman 2 — buyuk pist silueti (nefes alir gibi suzulur) + kose isigi */
 [data-testid="stAppViewContainer"]::after{
-  content:"";position:fixed;top:0;bottom:0;left:0;width:34vw;z-index:0;pointer-events:none;
-  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fp-red) 22%,transparent) 45%,color-mix(in srgb,var(--fp-cyan) 20%,transparent) 55%,transparent);
-  filter:blur(3px);opacity:.09;
-  animation:fp-speed 15s linear infinite;
+  content:"";position:fixed;inset:-8% -6%;z-index:0;pointer-events:none;display:block !important;
+  background:
+    url('""" + _FP_CIRCUIT_SVG + r"""') no-repeat 62% 34% / min(1180px,116%) auto;
+  opacity:.12;
+  animation:fp-circuit-float 48s ease-in-out infinite;
+}
+/* katman 3 — ara ara gecen hiz isigi (govde uzerinde, ::before'dan sonra) */
+.stApp [data-testid="stMain"]::before{
+  content:"";position:fixed;top:0;bottom:0;left:0;width:36vw;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fp-red) 20%,transparent) 46%,color-mix(in srgb,var(--fp-cyan) 18%,transparent) 56%,transparent);
+  filter:blur(4px);opacity:.08;
+  animation:fp-speed 17s linear infinite;
 }
 [data-testid="stAppViewContainer"] > .main,.stApp [data-testid="stMain"]{position:relative;z-index:1}
+.stApp [data-testid="stMain"] .block-container{position:relative;z-index:1}
 section[data-testid="stSidebar"]{position:relative;overflow:hidden}
 section[data-testid="stSidebar"]::before{
-  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;display:block !important;
   background-image:
     linear-gradient(color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px),
     linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px);
-  background-size:38px 38px,38px 38px;
-  opacity:.4;
-  animation:fp-grid-drift 30s linear infinite;
-  mask-image:linear-gradient(180deg,#000,transparent 78%);
+  background-size:38px 38px;
+  opacity:.42;
+  animation:fp-grid-drift 36s linear infinite;
+  mask-image:linear-gradient(180deg,#000,transparent 80%);
 }
 section[data-testid="stSidebar"] > div{position:relative;z-index:1}
 @media (prefers-reduced-motion:reduce){
   [data-testid="stAppViewContainer"]::before,
   [data-testid="stAppViewContainer"]::after,
+  .stApp [data-testid="stMain"]::before,
   section[data-testid="stSidebar"]::before{animation:none !important}
-  [data-testid="stAppViewContainer"]::after{display:none}
+  .stApp [data-testid="stMain"]::before{display:none}
 }
+""" + r"""
 
 /* Sadece <style> iceren markdown kaplari gorunmez bosluk yaratiyordu — gizle */
 .stElementContainer:has(> .stMarkdown [data-testid="stMarkdownContainer"] > style:only-child),
 .stElementContainer:has(> [data-testid="stMarkdown"] > [data-testid="stMarkdownContainer"] > style:only-child){
   display:none !important;
 }
-"""
+""")
 
 # ---- ESKI SINIF KOPRUSU --------------------------------------------
 # Faz 3 hizlandirici: her sayfanin markup'ini elle degistirmek yerine
@@ -518,10 +552,12 @@ _LEGACY_BRIDGE_CSS = r"""
 """
 
 
+@lru_cache(maxsize=1)
 def sidebar_style():
     return "<style>" + _SIDEBAR_CSS + "</style>"
 
 
+@lru_cache(maxsize=2)
 def shell_style(light=False):
     """Gecis donemi kabuk temasi: :root jetonlari + yeni arka plan + slim-rail
     sidebar + .fp-* bilesen siniflari (yeni sayfalarin kullandigi).
@@ -535,6 +571,7 @@ def shell_style(light=False):
 # İZOLE HUD IFRAME — tema propagasyonu
 # (eski hud_theme_override_css'in yerini alır)
 # =====================================================================
+@lru_cache(maxsize=2)
 def hud_iframe_style(light=False):
     t = TOKENS_LIGHT if light else TOKENS
     scheme = "light" if light else "dark"

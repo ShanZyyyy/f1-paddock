@@ -126,11 +126,11 @@ def lang_toggle():
     """Kenar menu ustunde kucuk TR | EN secici."""
     current = get_lang()
     cols = st.sidebar.columns(2)
-    if cols[0].button("TR", key="fp_lang_tr", use_container_width=True,
+    if cols[0].button("TR", key="fp_lang_tr", width='stretch',
                       type="primary" if current == "tr" else "secondary"):
         set_lang("tr")
         st.rerun()
-    if cols[1].button("EN", key="fp_lang_en", use_container_width=True,
+    if cols[1].button("EN", key="fp_lang_en", width='stretch',
                       type="primary" if current == "en" else "secondary"):
         set_lang("en")
         st.rerun()

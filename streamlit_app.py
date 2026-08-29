@@ -12,7 +12,6 @@ import html as html_lib
 import logging
 import xml.etree.ElementTree as ET
 import streamlit as st
-import streamlit.components.v1 as components
 import fastf1
 import fastf1.plotting
 import matplotlib.pyplot as plt
@@ -876,7 +875,7 @@ def render_junior_team_hud_v19(series, grid, accent, official_base):
                     f"<div class='driver-meta' style='white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{html_lib.escape(' • '.join(drivers))}</div></div>",
                     unsafe_allow_html=True,
                 )
-                if st.button(f"Takımı aç: {team_name}", key=f'v19_{series}_{team_name}', use_container_width=True):
+                if st.button(f"Takımı aç: {team_name}", key=f'v19_{series}_{team_name}', width='stretch'):
                     st.session_state[state_key] = team_name
                     st.rerun()
 
@@ -900,7 +899,7 @@ def render_junior_team_hud_v19(series, grid, accent, official_base):
             unsafe_allow_html=True,
         )
     with head_action:
-        st.link_button('Resmî takım profili ↗', f'{official_base}/en/teams/{team_slug}', use_container_width=True)
+        st.link_button('Resmî takım profili ↗', f'{official_base}/en/teams/{team_slug}', width='stretch')
 
     columns = st.columns(min(3, max(1, len(selected_drivers))))
     for column, driver_name in zip(columns, selected_drivers):
@@ -3136,7 +3135,7 @@ def render_team_manager_game():
             engineer = st.radio('Oyun mühendisi paketi', list(GAME_ENGINEERING_PACKAGES.keys()), format_func=lambda item: GAME_ENGINEERING_PACKAGES[item]['title'], horizontal=True, key='manager_engineer')
             pack = GAME_ENGINEERING_PACKAGES[engineer]
             st.markdown(f"<div class='hud-card' style='border-left:3px solid {team['color']}'><b>{html_lib.escape(pack['title'])}</b><div class='history-copy' style='margin-top:4px'>{html_lib.escape(pack['description'])}</div></div>", unsafe_allow_html=True)
-            if st.button('Kariyer sezonunu başlat', key='manager_start', use_container_width=True):
+            if st.button('Kariyer sezonunu başlat', key='manager_start', width='stretch'):
                 st.session_state[state_key] = {'setup': {'team': team_name, 'driver_1': driver_1, 'driver_2': driver_2, 'engineer': engineer}, 'round': 0, 'results': []}
                 st.rerun()
         return
@@ -3155,7 +3154,7 @@ def render_team_manager_game():
         round_name, track_type = CAREER_ROUNDS[state['round']]
         st.markdown(f"### Sıradaki yarış: {round_name}")
         st.caption(f"Hafta sonu profili: {track_type}. Seçtiğin kadro için bu yarış yalnızca bir kez oluşturulur.")
-        if st.button(f'{round_name} simülasyonunu çalıştır', key='manager_next_round', use_container_width=True):
+        if st.button(f'{round_name} simülasyonunu çalıştır', key='manager_next_round', width='stretch'):
             simulate_career_round(state)
             st.session_state[state_key] = state
             st.rerun()
@@ -3251,7 +3250,7 @@ def render_team_manager_game():
         st.markdown(f"### Yarış sonucu: {latest['round']}")
         result_frame = pd.DataFrame(latest['table'])
         with st.expander('Tüm yarış sıralamasını aç', expanded=False):
-            st.dataframe(result_frame, use_container_width=True, hide_index=True)
+            st.dataframe(result_frame, width='stretch', hide_index=True)
 
         journey_html = ''.join(
             f"<div style='min-width:145px;flex:1;background:#0d1625;border:1px solid #314560;border-radius:9px;padding:10px'>"
@@ -3274,7 +3273,7 @@ def render_team_manager_game():
             for entry in item['drivers']:
                 player_history.append({'Round': item['round'], 'Driver': entry['code'], 'Rank': entry['rank'], 'Points': entry['points']})
         with st.expander('Sezon sonuç tablosunu aç', expanded=False):
-            st.dataframe(pd.DataFrame(player_history), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(player_history), width='stretch', hide_index=True)
         render_manager_season_standings_hud(driver_totals, team_totals, driver_order, team_order, code_to_driver, setup['team'], team['color'])
     if st.button('Reset career', key='manager_reset'):
         st.session_state[state_key] = None
@@ -3335,7 +3334,7 @@ def render_paddock_predictor():
             winner = st.selectbox('Race winner', list(labels), format_func=lambda code: labels[code])
             p2 = st.selectbox('P2', list(labels), format_func=lambda code: labels[code])
             p3 = st.selectbox('P3', list(labels), format_func=lambda code: labels[code])
-            submitted = st.form_submit_button('Lock prediction', use_container_width=True)
+            submitted = st.form_submit_button('Lock prediction', width='stretch')
         if submitted:
             if len({winner, p2, p3}) < 3:
                 st.error('The three podium predictions must be different drivers. Pole may be one of them.')
@@ -3358,7 +3357,7 @@ def render_paddock_predictor():
         score += 8 if len(race_order) > 1 and state['p2'] == race_order[1] else 0
         score += 8 if len(race_order) > 2 and state['p3'] == race_order[2] else 0
         st.success(f"Verified result. Your prediction score: {score} / 41")
-        st.dataframe(race_table.head(10), use_container_width=True, hide_index=True)
+        st.dataframe(race_table.head(10), width='stretch', hide_index=True)
     if st.button('Clear prediction for a new weekend', key='predictor_reset'):
         st.session_state[state_key] = None
         st.rerun()
@@ -3415,9 +3414,9 @@ def render_manager_season_standings_hud(driver_totals, team_totals, driver_order
     with st.expander('Sezon sonu pilot ve tak\u0131m puan tablolar\u0131n\u0131 a\u00e7', expanded=False):
         pilots, teams = st.tabs(['Pilot Puanlar\u0131', 'Tak\u0131m Puanlar\u0131'])
         with pilots:
-            st.dataframe(pd.DataFrame(driver_rows), use_container_width=True, hide_index=True, height=min(760, 78 + 38 * len(driver_rows)))
+            st.dataframe(pd.DataFrame(driver_rows), width='stretch', hide_index=True, height=min(760, 78 + 38 * len(driver_rows)))
         with teams:
-            st.dataframe(pd.DataFrame(team_rows), use_container_width=True, hide_index=True, height=min(540, 78 + 38 * len(team_rows)))
+            st.dataframe(pd.DataFrame(team_rows), width='stretch', hide_index=True, height=min(540, 78 + 38 * len(team_rows)))
 
 
 
@@ -3562,7 +3561,7 @@ def render_pitwall_challenge_game():
         pace = st.selectbox('Tempo', ['Dengeli', 'Atak', 'Koru'], key=f"pitwall_pace_{game['lap']}")
 
     if game['lap'] <= 18:
-        if st.button('Karari uygula ve 3 tur ilerlet', key=f"pitwall_advance_{game['lap']}", use_container_width=True):
+        if st.button('Karari uygula ve 3 tur ilerlet', key=f"pitwall_advance_{game['lap']}", width='stretch'):
             old_tyre = game['tyre']
             pit = decision != 'Pitte kal'
             if pit:
@@ -3594,7 +3593,7 @@ def render_pitwall_challenge_game():
 
     if game['log']:
         with st.expander('Pit duvari karar gecmisi', expanded=False):
-            st.dataframe(pd.DataFrame(game['log']), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(game['log']), width='stretch', hide_index=True)
     if st.button('Bu strateji oturumunu sifirla', key='pitwall_lab_reset'):
         st.session_state.pop(state_key, None)
         st.rerun()
@@ -3710,11 +3709,11 @@ def render_favourites_centre():
     st.markdown(f"<div class='hud-card' style='border-top:4px solid {team['color']}'><div class='hud-label'>FAVORI TAKIM</div><div class='hud-value' style='color:{team['color']}'>{html_lib.escape(team_name)}</div><div class='driver-meta'>{html_lib.escape(driver_name)} secili pilotun.</div></div>", unsafe_allow_html=True)
     cols = st.columns(2)
     with cols[0]:
-        if st.button('Hafta Sonu Merkezine git', key='favourite_weekend', use_container_width=True):
+        if st.button('Hafta Sonu Merkezine git', key='favourite_weekend', width='stretch'):
             st.session_state['page'] = 'weekend'
             st.rerun()
     with cols[1]:
-        if st.button('Pilot karsilastirmasini ac', key='favourite_compare', use_container_width=True):
+        if st.button('Pilot karsilastirmasini ac', key='favourite_compare', width='stretch'):
             st.session_state['page'] = 'compare'
             st.rerun()
     st.markdown('#### Takim kadrosi')
@@ -3851,7 +3850,7 @@ def render_paddock_assistant_v20():
     columns = st.columns(4)
     for col, question in zip(columns, examples):
         with col:
-            if st.button(question, key='assistant_v19_' + question, use_container_width=True):
+            if st.button(question, key='assistant_v19_' + question, width='stretch'):
                 st.session_state['paddock_pending_v19'] = question
                 st.rerun()
 
@@ -3937,7 +3936,7 @@ def render_games_hub():
             label, title, copy, colour, button_text, page = card
             with col:
                 st.markdown(f"<div class='hud-card game-choice-v19' style='border-top:4px solid {colour}'><div class='hud-label'>{label}</div><div style='font-size:1.26rem;font-weight:950;margin-top:7px'>{title}</div><div class='history-copy' style='margin-top:8px'>{copy}</div></div>", unsafe_allow_html=True)
-                if st.button(button_text, key='games_v19_' + page, use_container_width=True):
+                if st.button(button_text, key='games_v19_' + page, width='stretch'):
                     st.session_state['page'] = page
                     st.rerun()
     render_data_trust_hud()
@@ -4290,7 +4289,7 @@ def render_race_story_centre_v20():
     st.markdown('#### Puan alanlar')
     points = package.get('points', [])
     if points:
-        st.dataframe(pd.DataFrame(points).rename(columns={'position':'Sıra', 'code':'Pilot', 'team':'Takım', 'points':'Puan'}), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(points).rename(columns={'position':'Sıra', 'code':'Pilot', 'team':'Takım', 'points':'Puan'}), width='stretch', hide_index=True)
     with st.expander('Tam yarış sonucu', expanded=False):
         render_html_hud(session_leaderboard_html(table, f'{selected} // YARIŞ SONUCU'), height=leaderboard_component_height(table), scrolling=False)
 
@@ -4322,15 +4321,15 @@ def render_learning_centre_v20():
     st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>SANA ÖNERİ</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(watch_copy[watch])}</div></div>", unsafe_allow_html=True)
     buttons = st.columns(3)
     with buttons[0]:
-        if st.button('Hafta Sonu Merkezini aç', key='learn_weekend_v20', use_container_width=True):
+        if st.button('Hafta Sonu Merkezini aç', key='learn_weekend_v20', width='stretch'):
             st.session_state['page'] = 'weekend'
             st.rerun()
     with buttons[1]:
-        if st.button('Yarış Hikâyesini aç', key='learn_story_v20', use_container_width=True):
+        if st.button('Yarış Hikâyesini aç', key='learn_story_v20', width='stretch'):
             st.session_state['page'] = 'story'
             st.rerun()
     with buttons[2]:
-        if st.button('60+ terimlik sözlüğe git', key='learn_glossary_v20', use_container_width=True):
+        if st.button('60+ terimlik sözlüğe git', key='learn_glossary_v20', width='stretch'):
             st.session_state['page'] = 'glossary'
             st.rerun()
 
@@ -4530,7 +4529,7 @@ def paddock_draft_card_v22(driver, selectable, disabled, key):
         unsafe_allow_html=True,
     )
     if selectable:
-        return st.button('Kadroyu sec', key=key, disabled=disabled, use_container_width=True)
+        return st.button('Kadroyu sec', key=key, disabled=disabled, width='stretch')
     return False
 
 
@@ -4564,7 +4563,7 @@ def render_paddock_draft_game_v22():
             team_filter = st.selectbox('Takima gore filtrele', ['Tum takimlar'] + list(TEAM_DIRECTORY_2026.keys()), key='draft_filter_v22')
         with controls_b:
             st.write('')
-            if st.button('Pazari yenile', key='draft_market_refresh_v22', use_container_width=True):
+            if st.button('Pazari yenile', key='draft_market_refresh_v22', width='stretch'):
                 state['market_seed'] = int(state.get('market_seed', 1)) + 1
                 state['message'] = 'Pazar sirasi yenilendi. Tum 22 pilot yeniden siralandi.'
                 st.session_state[state_key] = state
@@ -4596,7 +4595,7 @@ def render_paddock_draft_game_v22():
         for column, driver in zip(columns, chosen):
             with column:
                 paddock_draft_card_v22(driver, selectable=False, disabled=False, key='')
-                if st.button('Pilotu kadrodan cikar', key='draft_remove_v22_' + driver['code'], use_container_width=True):
+                if st.button('Pilotu kadrodan cikar', key='draft_remove_v22_' + driver['code'], width='stretch'):
                     state['picks'] = [code for code in state['picks'] if code != driver['code']]
                     state['score'] = None
                     state['message'] = driver['name'] + ' serbest birakildi; butce kadroya geri dondu.'
@@ -4611,7 +4610,7 @@ def render_paddock_draft_game_v22():
             unsafe_allow_html=True,
         )
         if state.get('score') is None:
-            if st.button('Bes yarislk mini sezonu simule et', key='draft_simulate_v22', use_container_width=True):
+            if st.button('Bes yarislk mini sezonu simule et', key='draft_simulate_v22', width='stretch'):
                 seed = sum(ord(letter) for code in state['picks'] for letter in code) + int(state['season']) * 31
                 score = int(sum(driver['rating'] for driver in chosen) + synergy + (seed % 27))
                 sponsor = max(8, min(32, 8 + (score - 160) // 3))
@@ -4623,7 +4622,7 @@ def render_paddock_draft_game_v22():
         else:
             grade = 'A' if state['score'] >= 205 else 'B' if state['score'] >= 180 else 'C'
             st.success(f"Mini sezon sonucu: {state['score']} puan \u00b7 Takim notu: {grade} \u00b7 Sonraki butce bonusu: +{state['sponsor_bonus']} M")
-            if st.button('Yeni draft sezonuna gec', key='draft_next_season_v22', use_container_width=True):
+            if st.button('Yeni draft sezonuna gec', key='draft_next_season_v22', width='stretch'):
                 state = {
                     'picks': [],
                     'budget_limit': min(220, int(state['budget_limit']) + int(state['sponsor_bonus'])),
@@ -4843,7 +4842,7 @@ def render_stewarlde_v25():
         used = set(game['guesses'])
         options = [driver for driver in drivers if driver['identity'] not in used]
         pick = st.selectbox('Pilot tahminin', options, format_func=lambda item: f"{item['name']} — {item['team']} ({item['latest_season']})", key=f"stewarlde_pick_v25_{mode}_{game['round']}_{len(game['guesses'])}")
-        if st.button('Tahmini gönder', type='primary', use_container_width=True, key=f"stewarlde_submit_v25_{mode}_{game['round']}_{len(game['guesses'])}"):
+        if st.button('Tahmini gönder', type='primary', width='stretch', key=f"stewarlde_submit_v25_{mode}_{game['round']}_{len(game['guesses'])}"):
             game['guesses'].append(pick['identity'])
             game['finished'] = pick['identity'] == target['identity'] or len(game['guesses']) >= 6
             st.session_state[state_key] = game
@@ -4884,7 +4883,7 @@ def render_stewarlde_v25():
         colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
         st.markdown(stewarlde_profile_v25(target, target_stats or {}, colour), unsafe_allow_html=True)
         if mode == 'Sınırsız':
-            if st.button('Yeni rastgele pilot', key=f"stewarlde_next_v25_{game['round']}", use_container_width=True):
+            if st.button('Yeni rastgele pilot', key=f"stewarlde_next_v25_{game['round']}", width='stretch'):
                 st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'] + 1, 'guesses': [], 'finished': False}
                 st.rerun()
         elif st.button('Günlük tahminleri temizle', key=f"stewarlde_reset_v25_{day_key}"):
@@ -5723,7 +5722,7 @@ def render_drivers_page_v33():
                     f"<div class='driver-meta'>{html_lib.escape(code)} · {html_lib.escape(team or '—')}{' · 2026' if is_2026 else ''}</div></div>",
                     unsafe_allow_html=True,
                 )
-                if st.button("Profili aç", key=f"drv_{api}", use_container_width=True):
+                if st.button("Profili aç", key=f"drv_{api}", width='stretch'):
                     st.session_state['driver_view_v33'] = api
                     st.session_state['_scroll_driver'] = True
                     st.rerun()
@@ -6065,7 +6064,7 @@ def render_pit_wall_v30(team_name=None, compact=False):
             st.markdown(_pit_wall_card_v30("PİLOT MÜHENDİSİ", pair[1], team["color"], pair[0]), unsafe_allow_html=True)
     source = safe_external_url(people.get("source", ""))
     if source and not compact:
-        st.link_button("Takım kaynağını aç ↗", source, use_container_width=True)
+        st.link_button("Takım kaynağını aç ↗", source, width='stretch')
 
 
 def render_team_personnel_hud(team_name, section='all'):
@@ -6187,7 +6186,7 @@ def render_gridmaster_v30():
             st.info(f"Telsiz: Doğru cevap {len(answer_text)} karakterden oluşuyor ve '{answer_text[0]}' ile başlıyor.")
         selected = st.radio("Cevabın", question['options'], index=None, key=f"grid_pick_v30_{today}_{difficulty}_{state['index']}", disabled=state['feedback'] is not None)
         if state['feedback'] is None:
-            if st.button("Cevabı kilitle", type="primary", use_container_width=True, disabled=selected is None, key=f"grid_lock_v30_{state['index']}"):
+            if st.button("Cevabı kilitle", type="primary", width='stretch', disabled=selected is None, key=f"grid_lock_v30_{state['index']}"):
                 correct = str(selected) == str(question['answer'])
                 gained = int(question['points'] * min(3.0, 1.0 + state['streak'] * .25)) if correct else 0
                 state['streak'] = state['streak'] + 1 if correct else 0
@@ -6203,7 +6202,7 @@ def render_gridmaster_v30():
                 st.success(f"Doğru! +{feedback['gained']} puan. Seri devam ediyor.")
             else:
                 st.error(f"Yanlış. Doğru cevap: {question['answer']}")
-            if st.button("Sonraki soru →" if state['index'] < 9 else "Sonucu gör →", type="primary", use_container_width=True, key=f"grid_next_v30_{state['index']}"):
+            if st.button("Sonraki soru →" if state['index'] < 9 else "Sonucu gör →", type="primary", width='stretch', key=f"grid_next_v30_{state['index']}"):
                 state['index'] += 1
                 state['feedback'] = None
                 state['radio_used'] = False
@@ -6218,8 +6217,8 @@ def render_gridmaster_v30():
     else:
         rank = "PIT WALL ELİT" if state['score'] >= 2400 else "BAŞ MÜHENDİS" if state['score'] >= 1600 else "YARIŞ MÜHENDİSİ" if state['score'] >= 900 else "ÇAYLAK ANALİST"
         st.success(f"10 soru tamamlandı · {state['score']} puan · En iyi seri {state['best']} · Rütbe: {rank}")
-        st.dataframe(pd.DataFrame(state['answers']), use_container_width=True, hide_index=True)
-        if st.button("Yeni 10 soruluk mücadele", use_container_width=True, key="grid_reset_v30"):
+        st.dataframe(pd.DataFrame(state['answers']), width='stretch', hide_index=True)
+        if st.button("Yeni 10 soruluk mücadele", width='stretch', key="grid_reset_v30"):
             st.session_state.pop(state_key, None)
             st.rerun()
 
@@ -6258,7 +6257,7 @@ def render_paddock_career_alpha_v01():
     try:
         with open(game_path, "r", encoding="utf-8") as game_file:
             game_markup = game_file.read()
-        components.html(game_markup, height=790, scrolling=False)
+        fp_ui._embed_html(game_markup, height=790, scrolling=False)
         st.info("Kontroller: W gaz · S fren · A/D direksiyon · Space ERS · E DRS · P pit isteği · R sıfırla")
     except OSError as error:
         log_data_error("Paddock Career prototype", error)
@@ -6324,7 +6323,7 @@ def render_games_hub_v30():
             label, title, description, colour, button_text, page = game
             with column:
                 st.markdown(f"<div class='hud-card game-card-v24' style='border-top:5px solid {colour}'><div class='hud-label'>{label}</div><div class='game-card-title-v24'>{title}</div><div class='history-copy' style='margin-top:8px'>{description}</div></div>", unsafe_allow_html=True)
-                if st.button(button_text, key=f"games_v30_{page}", use_container_width=True):
+                if st.button(button_text, key=f"games_v30_{page}", width='stretch'):
                     st.session_state['page'] = page
                     st.rerun()
     st.markdown("---")
@@ -6390,7 +6389,7 @@ if st.session_state['page'] == 'home':
             "Site guvenli modda aninda acildi. Yaris merkezi ve haberleri yalnizca sen istediginde dogrulanmis kaynaktan yukler.",
             "success",
         )
-        if st.button("⚡ Yarış merkezi verilerini yükle", key="load_home_data", use_container_width=True):
+        if st.button("⚡ Yarış merkezi verilerini yükle", key="load_home_data", width='stretch'):
             st.session_state['home_data_requested'] = True
             st.rerun()
 
@@ -6586,21 +6585,21 @@ if st.session_state['page'] == 'home':
                     fp_ui.mini_note(_insight, _si_tones[(_start + _j) % len(_si_tones)])
 
     if is_live_now:
-        if st.button(f"CANLI TAKIP: {target_s_name.upper()} SEANSI BASLADI — TIKLA VE INCELE", use_container_width=True):
+        if st.button(f"CANLI TAKIP: {target_s_name.upper()} SEANSI BASLADI — TIKLA VE INCELE", width='stretch'):
             st.session_state['page'] = 'live'
 
     st.write("")
     fp_ui.section_title("Paddock Live News · Turkce")
     if not st.session_state['news_requested']:
         st.caption("Haber akisi ilk acilista siteyi bekletmez.")
-        if st.button("Haber akisini getir", key="load_live_news", use_container_width=True):
+        if st.button("Haber akisini getir", key="load_live_news", width='stretch'):
             st.session_state['news_requested'] = True
             st.rerun()
         live_news = []
     else:
         # Haber merkeziyle ayni dogrulanmis + gunluk-onbellekli Turkce katalog
         live_news = [localise_news_item_v20(_i) for _i in fetch_f1_news_catalog_v20(8)]
-        if st.button('Tum haberleri ve takim filtrelerini ac', key='open_news_centre_v19', use_container_width=True):
+        if st.button('Tum haberleri ve takim filtrelerini ac', key='open_news_centre_v19', width='stretch'):
             st.session_state['page'] = 'news'
             st.rerun()
 
@@ -6703,7 +6702,7 @@ elif st.session_state['page'] == 'live':
                     if res.empty:
                         st.info(f"{target_s_name} için doğrulanmış sonuç henüz oluşmadı.")
                     else:
-                        st.dataframe(res, use_container_width=True, height=620, hide_index=True)
+                        st.dataframe(res, width='stretch', height=620, hide_index=True)
                 except Exception:
                     st.warning(f"Seans verisi henüz FastF1'e düşmedi ({target_s_name}).")
             else:
@@ -6840,7 +6839,7 @@ elif st.session_state['page'] == 'live':
                             )
                             st.dataframe(
                                 strategy,
-                                use_container_width=True,
+                                width='stretch',
                                 hide_index=True,
                                 height=620,
                                 column_config={'Lastik': st.column_config.TextColumn('Lastik')},
@@ -6854,7 +6853,7 @@ elif st.session_state['page'] == 'telemetry':
     fp_ui.section_title("Seans Ayarlari")
     if not st.session_state['telemetry_schedule_requested']:
         fp_ui.data_state("Takvim Istege Bagli", "Sitenin hizli acilmasi icin takvim yalnizca sen istediginde yuklenir.", "info")
-        if st.button("Telemetri takvimini yukle", key="load_telemetry_schedule", use_container_width=True):
+        if st.button("Telemetri takvimini yukle", key="load_telemetry_schedule", width='stretch'):
             st.session_state['telemetry_schedule_requested'] = True
             st.rerun()
         st.stop()
@@ -7160,7 +7159,7 @@ elif st.session_state['page'] == 'telemetry':
 
                 if summary_data:
                     df_summary = pd.DataFrame(summary_data).sort_values(by="_saniye", ascending=True).drop(columns="_saniye")
-                    st.dataframe(df_summary, use_container_width=True)
+                    st.dataframe(df_summary, width='stretch')
                     st.caption("Resmî Speed Trap / I1 / I2 FastF1'in ilgili seans ölçüm alanından gelir. Telemetri Maks. Hız ise turdaki en yüksek örneklenmiş hızdır; ikisi aynı şey değildir.")
                 else:
                     st.warning("Veri çekilemedi.")
@@ -7201,8 +7200,8 @@ elif st.session_state['page'] == 'telemetry':
                             )
                     axis.set_yticks(range(len(selected_drivers)), selected_drivers)
                     axis.set_xlabel('Tur')
-                    st.pyplot(figure, use_container_width=True)
-                    st.dataframe(strategy, use_container_width=True, hide_index=True)
+                    st.pyplot(figure, width='stretch')
+                    st.dataframe(strategy, width='stretch', hide_index=True)
 
     except Exception as e:
         st.error(f"Veriler çekilirken hata oluştu: {e}")
@@ -7228,7 +7227,7 @@ elif st.session_state['page'] == 'calendar':
             now = datetime.datetime.now(datetime.timezone.utc)
             status = "✅ Tamamlandı" if race_time < now else f"⏱️ {max(0, (race_time - now).days)} gün kaldı"
             with column:
-                if st.button(f"🏎️ {event_name}\n{status}", key=f"calendar_{calendar_year}_{event_name}", use_container_width=True):
+                if st.button(f"🏎️ {event_name}\n{status}", key=f"calendar_{calendar_year}_{event_name}", width='stretch'):
                     st.session_state['calendar_event'] = event_name
                     st.rerun()
 
@@ -7250,7 +7249,7 @@ elif st.session_state['page'] == 'calendar':
             st.metric(item['title'], local_time, item['status'])
 
     map_key = f"track_map_{calendar_year}_{selected_event['EventName']}"
-    if st.button("🗺️ Pist görünümünü aç", use_container_width=True):
+    if st.button("🗺️ Pist görünümünü aç", width='stretch'):
         st.session_state[map_key] = True
     if st.session_state.get(map_key):
         with st.spinner("Pist çizimi hazırlanıyor..."):
@@ -7262,7 +7261,7 @@ elif st.session_state['page'] == 'calendar':
             axis.set_facecolor('#07090d')
             figure.patch.set_facecolor('#07090d')
             axis.axis('off')
-            st.pyplot(figure, use_container_width=True)
+            st.pyplot(figure, width='stretch')
         else:
             st.info("Bu pistin çizimi için tamamlanmış bir seans verisi henüz bulunamadı.")
 
@@ -7325,7 +7324,7 @@ elif st.session_state['page'] == 'calendar':
           <div style='color:#94A3B8;font-size:.86rem;margin-top:6px'>Formula 1'in Türkiye için resmî yayıncı listesinde beIN SPORTS yer alır.</div>
         </div>
         """, unsafe_allow_html=True)
-        st.link_button("Türkiye yayın bilgisi →", "https://www.beinsports.com.tr/", use_container_width=True)
+        st.link_button("Türkiye yayın bilgisi →", "https://www.beinsports.com.tr/", width='stretch')
     with watch_global:
         st.markdown("""
         <div class='hud-card'>
@@ -7336,9 +7335,9 @@ elif st.session_state['page'] == 'calendar':
         """, unsafe_allow_html=True)
         global_a, global_b = st.columns(2)
         with global_a:
-            st.link_button("F1 TV uygunluğu →", "https://www.formula1.com/en/subscribe-to-f1-tv", use_container_width=True)
+            st.link_button("F1 TV uygunluğu →", "https://www.formula1.com/en/subscribe-to-f1-tv", width='stretch')
         with global_b:
-            st.link_button("Resmî yayıncı listesi →", "https://www.formula1.com/en/information/f1-broadcast-information.45y3LNsT1D6VoK0ZmX8ciJ", use_container_width=True)
+            st.link_button("Resmî yayıncı listesi →", "https://www.formula1.com/en/information/f1-broadcast-information.45y3LNsT1D6VoK0ZmX8ciJ", width='stretch')
 
 # SAYFA 5: TAKIMLAR VE PİLOTLAR
 elif st.session_state['page'] == 'teams':
@@ -7361,7 +7360,7 @@ elif st.session_state['page'] == 'teams':
                     f"<div class='driver-meta'>{team['drivers'][0][1]} · {team['drivers'][1][1]}</div></div>",
                     unsafe_allow_html=True
                 )
-                if st.button(f"{team_name}\n{team['drivers'][0][1]} • {team['drivers'][1][1]}", key=f"team_{team_name}", use_container_width=True):
+                if st.button(f"{team_name}\n{team['drivers'][0][1]} • {team['drivers'][1][1]}", key=f"team_{team_name}", width='stretch'):
                     st.session_state['team_focus'] = team_name
                     st.session_state['_scroll_team'] = True
                     st.rerun()
@@ -7461,11 +7460,11 @@ elif st.session_state['page'] == 'standings':
             _mm = st.session_state['championship_matrix_mode']
             with sort_button:
                 if st.button(("● " if _mm != 'puan' else "○ ") + "Siralama", key='championship_show_positions',
-                             use_container_width=True):
+                             width='stretch'):
                     st.session_state['championship_matrix_mode'] = 'sıralama'
             with points_button:
                 if st.button(("● " if _mm == 'puan' else "○ ") + "Puan", key='championship_show_points',
-                             use_container_width=True):
+                             width='stretch'):
                     st.session_state['championship_matrix_mode'] = 'puan'
 
             show_points = st.session_state['championship_matrix_mode'] == 'puan'
@@ -7535,12 +7534,12 @@ elif st.session_state['page'] == 'f2f3':
         fp_ui.section_title("F2 · 2026 Grid")
         fp_ui.hud_card("Formula 2", "11 takim · 22 pilot", "Sprint ve Feature Race sonuclari F1 puan merkezinden ayri tutulur.", accent="cyan")
         render_junior_team_hud('f2', f2_grid, '#00b3ff', 'https://www.fiaformula2.com')
-        st.link_button("Resmî Formula 2 merkezi ↗", "https://www.fiaformula2.com/", use_container_width=True)
+        st.link_button("Resmî Formula 2 merkezi ↗", "https://www.fiaformula2.com/", width='stretch')
     with series[1]:
         fp_ui.section_title("F3 · 2026 Grid")
         fp_ui.hud_card("Formula 3", "10 takim · 30 pilot", "F3 verileri F1 ve F2 ile karismadan kendi yaris merkezi altinda tutulur.", accent="amber")
         render_junior_team_hud('f3', f3_grid, '#ffbe2e', 'https://www.fiaformula3.com')
-        st.link_button("Resmî Formula 3 merkezi ↗", "https://www.fiaformula3.com/", use_container_width=True)
+        st.link_button("Resmî Formula 3 merkezi ↗", "https://www.fiaformula3.com/", width='stretch')
 
 elif st.session_state['page'] == 'weekend':
     render_weekend_centre()

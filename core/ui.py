@@ -29,6 +29,18 @@ def _esc(value):
     return _html.escape(str(value if value is not None else ""))
 
 
+def _embed_html(markup, height=0, scrolling=False):
+    """Tek HTML/JS gomme kapisi.
+
+    Gorunur icerik -> `st.iframe` (yeni API, deprecate degil).
+    height<=0 olan yalniz-JS yan etkileri (dock scripti, scroll_to) sifir
+    ayak izi gerektirdiginden `components.html`'te kalir — `st.iframe` 0
+    yuksekligi kabul etmiyor."""
+    if height and height > 0 and hasattr(st, "iframe"):
+        return st.iframe(markup, height=height)
+    return components.html(markup, height=height, scrolling=scrolling)
+
+
 def _accent(name):
     if name in _ACCENTS:
         return _ACCENTS[name]
@@ -194,7 +206,7 @@ _DOCK_SCRIPT = r"""
 def control_dock():
     """Sag-alt yuzen kontrol panosu: koyu/acik tema + ortam muzigi."""
     st.markdown(_DOCK_CSS + _dock_markup(), unsafe_allow_html=True)
-    components.html(_DOCK_SCRIPT, height=0)
+    _embed_html(_DOCK_SCRIPT, height=0)
 
 
 def anchor(anchor_id):
@@ -204,7 +216,7 @@ def anchor(anchor_id):
 
 def scroll_to(anchor_id):
     """Verilen id'li ogeye yumusak kaydirir (rerun sonrasi)."""
-    components.html(
+    _embed_html(
         "<script>setTimeout(function(){var e=window.parent.document.getElementById('"
         + str(anchor_id).replace("'", "") +
         "');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},60);</script>",
@@ -356,9 +368,7 @@ def render_html_hud(markup, height=150, scrolling=False):
         document = _re.sub(r"</head>", theme_css + "</head>", document, count=1, flags=_re.IGNORECASE)
     else:
         document = theme_css + document
-    if hasattr(st, "iframe"):
-        return st.iframe(document, height=height)
-    return components.html(document, height=height, scrolling=scrolling)
+    return _embed_html(document, height=height, scrolling=scrolling)
 
 
 def json_for_script(obj, compact=True):
@@ -397,6 +407,6 @@ def nav_button(label, icon, page_key, current_page):
         label,
         key=f"nav_{page_key}",
         icon=f":material/{icon}:" if icon else None,
-        use_container_width=True,
+        width='stretch',
         type="primary" if is_active else "secondary",
     )
