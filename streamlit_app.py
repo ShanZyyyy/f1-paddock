@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import time
 import functools
 import datetime
 import urllib.request
@@ -171,18 +172,17 @@ html, body, #root {
 
 # Uyarıları küresel olarak kapatmayın; gerçek sorunları görünür bırakın.
 
-# FastF1 Dahili Önbellek Klasörü
+# FastF1 önbelleği + matplotlib teması: PAHALI ve DEĞİŞMEZ kurulum.
+# Streamlit her etkileşimde tüm betiği baştan çalıştırır; bu blok yalnız
+# oturumda bir kez koşsun (setup_mpl rcParams'ı her rerun'da yeniden yazıyordu).
 cache_dir = os.path.join(os.path.dirname(__file__), 'cache')
-os.makedirs(cache_dir, exist_ok=True)
-fastf1.Cache.enable_cache(cache_dir)
-
-# Kullanıcının lisanslı ses dosyasını koyacağı klasör. Dosya yoksa ses butonu
-# tarayıcının nötr sesini kullanır; resmî takım telsizi uygulamayla gelmez.
 assets_dir = os.path.join(os.path.dirname(__file__), 'assets')
-os.makedirs(assets_dir, exist_ok=True)
-
-# FastF1 Stil
-fastf1.plotting.setup_mpl()
+if not st.session_state.get('_fp_runtime_ready'):
+    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(assets_dir, exist_ok=True)
+    fastf1.Cache.enable_cache(cache_dir)
+    fastf1.plotting.setup_mpl()
+    st.session_state['_fp_runtime_ready'] = True
 
 # SAYFA OTURUM DURUMU
 if 'page' not in st.session_state:
@@ -509,12 +509,34 @@ def _translate_to_tr_raw(text):
 
 
 def translate_to_tr(text):
-    """Gunluk onbellekli. Ayni basliklar tekrar cevrilmez -> hiz limiti sorunu azalir."""
+    """Gunluk onbellekli. Basarili ceviri 24s yasar; hata orijinal metni dondurur.
+
+    Devre kesici: ucretsiz Google endpoint'i arka arkaya 429 verirse (haber
+    sayfasi tek rerun'da ~16 cagri yapiyor) 5 dakika boyunca agi hic denemeyiz
+    — sayfa Ingilizce basliklarla aninda acilir."""
     if not text:
         return ""
     try:
-        return _translate_to_tr_raw(text)
+        breaker = st.session_state.get('_tr_breaker_until', 0)
+    except Exception:
+        breaker = 0
+    if breaker and time.time() < breaker:
+        return text
+    try:
+        out = _translate_to_tr_raw(text)
+        try:
+            st.session_state['_tr_fail_streak'] = 0
+        except Exception:
+            pass
+        return out
     except Exception as error:
+        try:
+            streak = st.session_state.get('_tr_fail_streak', 0) + 1
+            st.session_state['_tr_fail_streak'] = streak
+            if streak >= 3:
+                st.session_state['_tr_breaker_until'] = time.time() + 300
+        except Exception:
+            pass
         log_data_error('translate_to_tr', error)
         return text
 
@@ -4058,9 +4080,11 @@ def news_item_is_f1_v20(item, link, title, description):
     return '/f1/' in haystack or 'formula 1' in haystack or 'formula1' in haystack or haystack.startswith('f1 ')
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
 def translate_news_text_v20(text):
-    # Kendi önbelleği yok: başarılı çeviri zaten _translate_to_tr_raw'da
-    # günlük önbelleğe giriyor; başarısız çeviri (İngilizce metin) donup kalmıyor.
+    # 30 dk önbellek: başarılı çeviri _translate_to_tr_raw'da zaten 24s yaşıyor;
+    # buradaki kısa TTL, çeviri BAŞARISIZ olduğunda (İngilizce metin) her
+    # rerun'da ~16 doomed ağ çağrısını engeller. En fazla 30 dk bayat kalır.
     clean = repair_text_v20(text).strip()
     if not clean:
         return ''
