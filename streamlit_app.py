@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import functools
 import datetime
 import urllib.request
 import urllib.parse
@@ -49,6 +50,35 @@ def safe_external_url(value, allowed_hosts=None):
 def log_data_error(context, error):
     """Ekranı kırmadan, geliştiricinin gerçek hatayı terminal günlüklerinde görmesini sağlar."""
     LOGGER.warning("%s | %s | %s", context, type(error).__name__, str(error)[:420])
+
+
+def cache_data_safe(ttl, *, on_error=None, label=None, show_spinner=False):
+    """`st.cache_data` — ama SADECE başarı önbelleğe alınır.
+
+    Sarılan fonksiyon, veri gelmediğinde sentinel döndürmek yerine exception
+    FIRLATMALIDIR. Böylece geçici bir ağ/kaynak hatası TTL boyunca "veri yok"
+    olarak donup kalmaz; bir sonraki çağrı yeniden dener. Hata anında
+    `on_error` (çağrılabilirse çağrılır) değeri döner ve önbelleğe YAZILMAZ.
+
+        @cache_data_safe(ttl=900, on_error=lambda: ([], []), label='top drivers')
+        def get_real_top_drivers(...):
+            ...  # başarısızlıkta raise
+    """
+    def decorator(raw):
+        cached = st.cache_data(ttl=ttl, show_spinner=show_spinner)(raw)
+
+        @functools.wraps(raw)
+        def wrapper(*args, **kwargs):
+            try:
+                return cached(*args, **kwargs)
+            except Exception as error:  # noqa: BLE001 — bilinçli genel yakalama
+                log_data_error(label or getattr(raw, '__name__', 'data'), error)
+                return on_error() if callable(on_error) else on_error
+
+        wrapper.clear = getattr(cached, 'clear', lambda: None)
+        return wrapper
+
+    return decorator
 
 
 
@@ -274,213 +304,218 @@ def get_latest_completed_session(year):
     return None
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@cache_data_safe(ttl=900, on_error=lambda: ([], []), label='top drivers')
 def get_real_top_drivers(year, gp_name, session_code):
-    """Sahte veri üretmez; Q seansında Q3 turunu ve o turun lastiğini kullanır."""
-    try:
-        sess = fastf1.get_session(int(year), gp_name, session_code)
-        sess.load(telemetry=False, weather=False, messages=False)
-        results = sess.results
-        if results is None or results.empty:
-            return [], []
+    """Sahte veri üretmez; Q seansında Q3 turunu ve o turun lastiğini kullanır.
 
-        # LED serit tum kadroyu gosterir; ilk 5 degil, tamami sirali.
-        results = results.sort_values('Position', na_position='last').head(30)
-        drivers_data = []
-        race_finish_times = {}
-        race_leader_finish = None
-        if session_code == 'R':
-            for race_code in results['Abbreviation'].dropna().astype(str):
-                driver_laps = sess.laps.pick_drivers(race_code).dropna(subset=['Time'])
-                if not driver_laps.empty:
-                    race_finish_times[race_code] = driver_laps.sort_values('LapNumber').iloc[-1]['Time']
-            if not results.empty:
-                race_leader_finish = race_finish_times.get(str(results.iloc[0].get('Abbreviation', '')).strip())
-
-        for _, row in results.iterrows():
-            code = str(row.get('Abbreviation', '')).strip()
-            if not code or code == 'nan':
-                continue
-            position = int(float(row['Position'])) if pd.notnull(row.get('Position')) else len(drivers_data) + 1
-            laps = sess.laps.pick_drivers(code)
-            chosen_lap = None
-
-            if session_code == 'Q' and pd.notnull(row.get('Q3')):
-                q3_laps = laps[laps['LapTime'] == row['Q3']]
-                if not q3_laps.empty:
-                    chosen_lap = q3_laps.iloc[0]
-            if chosen_lap is None and not laps.empty:
-                chosen_lap = laps.pick_fastest()
-
-            if session_code == 'R':
-                # Sonuç paketleri bazı yarışlarda P2+ için toplam yarış süresini
-                # yazabiliyor. Bu durumda resmî tur bitiş saatinden gerçek farkı
-                # tekrar hesaplarız; asla +59:59 gibi uydurma bir fark göstermeyiz.
-                official_result_time = row.get('Time')
-                status = str(row.get('Status', '')).strip()
-                official_seconds = _timedelta_seconds(official_result_time)
-                status_lower = status.lower()
-                is_lapped_or_retired = any(token in status_lower for token in ('lap', 'retired', 'accident', 'disqualified', 'withdrawn'))
-                if position == 1 and pd.notnull(official_result_time):
-                    shown_time = format_time(official_result_time)
-                elif is_lapped_or_retired:
-                    shown_time = status or '—'
-                else:
-                    finish_time = _timedelta_seconds(race_finish_times.get(code))
-                    calculated_gap = finish_time - _timedelta_seconds(race_leader_finish) if finish_time is not None and race_leader_finish is not None else None
-                    gap = official_seconds
-                    if gap is None or gap < 0 or gap > 900:
-                        gap = calculated_gap
-                    shown_time = '+' + format_time(pd.to_timedelta(gap, unit='s')) if gap is not None and 0 <= gap <= 900 else (status if status and status_lower != 'nan' else '—')
-            else:
-                lap_time = chosen_lap['LapTime'] if chosen_lap is not None else row.get('Time')
-                if pd.notnull(lap_time):
-                    if not drivers_data:
-                        shown_time = format_time(lap_time)
-                    else:
-                        leader_lap = drivers_data[0].get('_lap_time')
-                        shown_time = '+' + format_time(lap_time - leader_lap) if pd.notnull(leader_lap) else format_time(lap_time)
-                else:
-                    shown_time = str(row.get('Status', '—'))
-
-            drivers_data.append({
-                'name': f'{position}. {code}',
-                'time': shown_time,
-                'code': code,
-                'tyre': str(chosen_lap.get('Compound', '')) if chosen_lap is not None else '',
-                '_lap_time': chosen_lap['LapTime'] if chosen_lap is not None else pd.NaT,
-            })
-        if not drivers_data:
-            return [], []
-
-        for driver in drivers_data:
-            driver.pop('_lap_time', None)
-
-        leader = drivers_data[0]
-        headline = 'Seans Lideri'
-        if session_code == 'Q':
-            headline = 'Pole Pozisyonu'
-        elif session_code == 'R':
-            headline = 'Yarış Lideri'
-        summary = [f"{headline}: {leader['code']}"]
-        if leader['tyre']:
-            summary.append(f"En hızlı tur lastiği: {leader['tyre'].title()}")
-        if len(drivers_data) > 1:
-            summary.append(
-                f"En yakın rakip: {drivers_data[1]['code']} ({drivers_data[1]['time']})"
-            )
-        return drivers_data, summary
-    except Exception:
+    Kaynak hatası önbelleğe alınmaz (`cache_data_safe`): boş sonuç yerine
+    bir sonraki çağrıda yeniden denenir."""
+    sess = fastf1.get_session(int(year), gp_name, session_code)
+    sess.load(telemetry=False, weather=False, messages=False)
+    results = sess.results
+    if results is None or results.empty:
         return [], []
 
+    # LED serit tum kadroyu gosterir; ilk 5 degil, tamami sirali.
+    results = results.sort_values('Position', na_position='last').head(30)
+    drivers_data = []
+    race_finish_times = {}
+    race_leader_finish = None
+    if session_code == 'R':
+        for race_code in results['Abbreviation'].dropna().astype(str):
+            driver_laps = sess.laps.pick_drivers(race_code).dropna(subset=['Time'])
+            if not driver_laps.empty:
+                race_finish_times[race_code] = driver_laps.sort_values('LapNumber').iloc[-1]['Time']
+        if not results.empty:
+            race_leader_finish = race_finish_times.get(str(results.iloc[0].get('Abbreviation', '')).strip())
 
-@st.cache_data(ttl=900, show_spinner=False)
+    for _, row in results.iterrows():
+        code = str(row.get('Abbreviation', '')).strip()
+        if not code or code == 'nan':
+            continue
+        position = int(float(row['Position'])) if pd.notnull(row.get('Position')) else len(drivers_data) + 1
+        laps = sess.laps.pick_drivers(code)
+        chosen_lap = None
+
+        if session_code == 'Q' and pd.notnull(row.get('Q3')):
+            q3_laps = laps[laps['LapTime'] == row['Q3']]
+            if not q3_laps.empty:
+                chosen_lap = q3_laps.iloc[0]
+        if chosen_lap is None and not laps.empty:
+            chosen_lap = laps.pick_fastest()
+
+        if session_code == 'R':
+            # Sonuç paketleri bazı yarışlarda P2+ için toplam yarış süresini
+            # yazabiliyor. Bu durumda resmî tur bitiş saatinden gerçek farkı
+            # tekrar hesaplarız; asla +59:59 gibi uydurma bir fark göstermeyiz.
+            official_result_time = row.get('Time')
+            status = str(row.get('Status', '')).strip()
+            official_seconds = _timedelta_seconds(official_result_time)
+            status_lower = status.lower()
+            is_lapped_or_retired = any(token in status_lower for token in ('lap', 'retired', 'accident', 'disqualified', 'withdrawn'))
+            if position == 1 and pd.notnull(official_result_time):
+                shown_time = format_time(official_result_time)
+            elif is_lapped_or_retired:
+                shown_time = status or '—'
+            else:
+                finish_time = _timedelta_seconds(race_finish_times.get(code))
+                calculated_gap = finish_time - _timedelta_seconds(race_leader_finish) if finish_time is not None and race_leader_finish is not None else None
+                gap = official_seconds
+                if gap is None or gap < 0 or gap > 900:
+                    gap = calculated_gap
+                shown_time = '+' + format_time(pd.to_timedelta(gap, unit='s')) if gap is not None and 0 <= gap <= 900 else (status if status and status_lower != 'nan' else '—')
+        else:
+            lap_time = chosen_lap['LapTime'] if chosen_lap is not None else row.get('Time')
+            if pd.notnull(lap_time):
+                if not drivers_data:
+                    shown_time = format_time(lap_time)
+                else:
+                    leader_lap = drivers_data[0].get('_lap_time')
+                    shown_time = '+' + format_time(lap_time - leader_lap) if pd.notnull(leader_lap) else format_time(lap_time)
+            else:
+                shown_time = str(row.get('Status', '—'))
+
+        drivers_data.append({
+            'name': f'{position}. {code}',
+            'time': shown_time,
+            'code': code,
+            'tyre': str(chosen_lap.get('Compound', '')) if chosen_lap is not None else '',
+            '_lap_time': chosen_lap['LapTime'] if chosen_lap is not None else pd.NaT,
+        })
+    if not drivers_data:
+        return [], []
+
+    for driver in drivers_data:
+        driver.pop('_lap_time', None)
+
+    leader = drivers_data[0]
+    headline = 'Seans Lideri'
+    if session_code == 'Q':
+        headline = 'Pole Pozisyonu'
+    elif session_code == 'R':
+        headline = 'Yarış Lideri'
+    summary = [f"{headline}: {leader['code']}"]
+    if leader['tyre']:
+        summary.append(f"En hızlı tur lastiği: {leader['tyre'].title()}")
+    if len(drivers_data) > 1:
+        summary.append(
+            f"En yakın rakip: {drivers_data[1]['code']} ({drivers_data[1]['time']})"
+        )
+    return drivers_data, summary
+
+
+@cache_data_safe(ttl=900, on_error=list, label='session summary')
 def get_session_summary(year, gp_name, session_code):
     """Sonucun tekrarı yerine seansın doğrulanmış dikkat çeken anlarını verir."""
-    try:
-        session = fastf1.get_session(int(year), gp_name, session_code)
-        session.load(laps=False, telemetry=False, weather=False, messages=True)
-        results = session.results
-        if results is None or results.empty:
-            return []
-        summary = []
-        messages = getattr(session, 'race_control_messages', None)
-        if messages is not None and not getattr(messages, 'empty', True):
-            keywords = ('RED FLAG', 'SAFETY CAR', 'VIRTUAL SAFETY', 'CRASH', 'STOPPED', 'SPUN',
-                        'YELLOW', 'PENALTY', 'REPRIMAND', 'DISQUALIFIED', 'DRIVE THROUGH', 'STOP AND GO')
-            seen_incidents = set()
-            for _, row in messages.iloc[::-1].iterrows():
-                message = str(row.get('Message', '')).strip()
-                if message and any(word in message.upper() for word in keywords):
-                    car_match = re.search(r'CAR\s+(\d+)\s*\(([^)]+)\)', message.upper())
-                    driver_label = f"{car_match.group(2)} (#{car_match.group(1)})" if car_match else 'Bir pilot'
-                    upper = message.upper()
-                    pen = re.search(r'(\d+)\s*SECOND', upper)
-                    if 'YELLOW FLAG INFRINGEMENT' in upper:
-                        clean = f"⚠️ {driver_label} için sarı bayrak ihlali incelemesi başlatıldı."
-                        incident_key = f"yellow-{driver_label}"
-                    elif 'DISQUALIFIED' in upper:
-                        clean = f"⛔ {driver_label} diskalifiye edildi."
-                        incident_key = f"dsq-{driver_label}"
-                    elif 'PENALTY' in upper or 'DRIVE THROUGH' in upper or 'STOP AND GO' in upper:
-                        reason = 'kural ihlali'
-                        for tag, label in (('TRACK LIMITS', 'pist sınırları'), ('CAUSING A COLLISION', 'çarpışmaya sebep olma'),
-                                           ('UNSAFE RELEASE', 'güvensiz bırakma'), ('SPEEDING', 'pit hız limiti'),
-                                           ('IGNORING', 'bayrak/işaret ihlali'), ('FALSE START', 'erken start')):
-                            if tag in upper:
-                                reason = label
-                                break
-                        amount = f" · {pen.group(1)} sn ceza" if pen else (" · geç-git cezası" if 'DRIVE THROUGH' in upper else "")
-                        clean = f"🟥 {driver_label} — {reason}{amount}."
-                        incident_key = f"pen-{driver_label}-{reason}"
-                    elif 'REPRIMAND' in upper:
-                        clean = f"🟨 {driver_label} kınama (reprimand) aldı."
-                        incident_key = f"repr-{driver_label}"
-                    elif 'RED FLAG' in upper:
-                        clean = '🚩 Seans kırmızı bayrakla durduruldu.'
-                        incident_key = 'red-flag'
-                    elif 'VIRTUAL SAFETY' in upper:
-                        clean = '🟡 Sanal Güvenlik Aracı (VSC) uygulandı.'
-                        incident_key = 'vsc'
-                    elif 'SAFETY CAR' in upper:
-                        clean = '🚗 Güvenlik Aracı piste çıktı.'
-                        incident_key = 'safety-car'
-                    elif 'SPUN' in upper:
-                        clean = f"↪️ {driver_label} spin attı."
-                        incident_key = f"spin-{driver_label}"
-                    elif 'CRASH' in upper or 'STOPPED' in upper:
-                        clean = f"⚠️ {driver_label} ile ilgili pistte olay kaydedildi."
-                        incident_key = f"incident-{driver_label}"
-                    else:
-                        continue
-                    if incident_key not in seen_incidents:
-                        seen_incidents.add(incident_key)
-                        summary.append(clean)
-                if len(summary) >= 4:
-                    break
-
-        ordered = results.sort_values('Position', na_position='last').copy()
-        if session_code == 'Q':
-            q3_teams = ordered[pd.to_numeric(ordered.get('Position'), errors='coerce') <= 10].groupby('TeamName').size()
-            double_q3 = q3_teams[q3_teams >= 2]
-            for team_name in double_q3.index[:1]:
-                summary.append(f"📈 {team_name}, iki pilotuyla Q3'e kaldı.")
-        elif session_code in ['R', 'S']:
-            if 'GridPosition' in ordered.columns:
-                ordered['gain'] = pd.to_numeric(ordered['GridPosition'], errors='coerce') - pd.to_numeric(ordered['Position'], errors='coerce')
-                biggest_gain = ordered.sort_values('gain', ascending=False).iloc[0]
-                if pd.notnull(biggest_gain.get('gain')) and biggest_gain['gain'] >= 4:
-                    summary.append(f"⬆️ {biggest_gain.get('Abbreviation', 'Bir pilot')}, start yerine göre {int(biggest_gain['gain'])} sıra kazandı.")
-            # yarisi tamamlayamayanlar
-            if 'Status' in ordered.columns:
-                _dnf = []
-                for _, row in ordered.iterrows():
-                    _st = str(row.get('Status', '')).strip()
-                    if _st and _st.lower() != 'finished' and not _st.startswith('+') and 'lap' not in _st.lower():
-                        _dnf.append(str(row.get('Abbreviation', '')).strip())
-                if _dnf:
-                    _names = ', '.join(d for d in _dnf[:3] if d)
-                    _extra = f" +{len(_dnf) - 3}" if len(_dnf) > 3 else ""
-                    summary.append(f"🔧 Yarışı tamamlayamayan: {_names}{_extra}.")
-
-        return summary[:5]
-    except Exception:
+    session = fastf1.get_session(int(year), gp_name, session_code)
+    session.load(laps=False, telemetry=False, weather=False, messages=True)
+    results = session.results
+    if results is None or results.empty:
         return []
+    summary = []
+    messages = getattr(session, 'race_control_messages', None)
+    if messages is not None and not getattr(messages, 'empty', True):
+        keywords = ('RED FLAG', 'SAFETY CAR', 'VIRTUAL SAFETY', 'CRASH', 'STOPPED', 'SPUN',
+                    'YELLOW', 'PENALTY', 'REPRIMAND', 'DISQUALIFIED', 'DRIVE THROUGH', 'STOP AND GO')
+        seen_incidents = set()
+        for _, row in messages.iloc[::-1].iterrows():
+            message = str(row.get('Message', '')).strip()
+            if message and any(word in message.upper() for word in keywords):
+                car_match = re.search(r'CAR\s+(\d+)\s*\(([^)]+)\)', message.upper())
+                driver_label = f"{car_match.group(2)} (#{car_match.group(1)})" if car_match else 'Bir pilot'
+                upper = message.upper()
+                pen = re.search(r'(\d+)\s*SECOND', upper)
+                if 'YELLOW FLAG INFRINGEMENT' in upper:
+                    clean = f"⚠️ {driver_label} için sarı bayrak ihlali incelemesi başlatıldı."
+                    incident_key = f"yellow-{driver_label}"
+                elif 'DISQUALIFIED' in upper:
+                    clean = f"⛔ {driver_label} diskalifiye edildi."
+                    incident_key = f"dsq-{driver_label}"
+                elif 'PENALTY' in upper or 'DRIVE THROUGH' in upper or 'STOP AND GO' in upper:
+                    reason = 'kural ihlali'
+                    for tag, label in (('TRACK LIMITS', 'pist sınırları'), ('CAUSING A COLLISION', 'çarpışmaya sebep olma'),
+                                       ('UNSAFE RELEASE', 'güvensiz bırakma'), ('SPEEDING', 'pit hız limiti'),
+                                       ('IGNORING', 'bayrak/işaret ihlali'), ('FALSE START', 'erken start')):
+                        if tag in upper:
+                            reason = label
+                            break
+                    amount = f" · {pen.group(1)} sn ceza" if pen else (" · geç-git cezası" if 'DRIVE THROUGH' in upper else "")
+                    clean = f"🟥 {driver_label} — {reason}{amount}."
+                    incident_key = f"pen-{driver_label}-{reason}"
+                elif 'REPRIMAND' in upper:
+                    clean = f"🟨 {driver_label} kınama (reprimand) aldı."
+                    incident_key = f"repr-{driver_label}"
+                elif 'RED FLAG' in upper:
+                    clean = '🚩 Seans kırmızı bayrakla durduruldu.'
+                    incident_key = 'red-flag'
+                elif 'VIRTUAL SAFETY' in upper:
+                    clean = '🟡 Sanal Güvenlik Aracı (VSC) uygulandı.'
+                    incident_key = 'vsc'
+                elif 'SAFETY CAR' in upper:
+                    clean = '🚗 Güvenlik Aracı piste çıktı.'
+                    incident_key = 'safety-car'
+                elif 'SPUN' in upper:
+                    clean = f"↪️ {driver_label} spin attı."
+                    incident_key = f"spin-{driver_label}"
+                elif 'CRASH' in upper or 'STOPPED' in upper:
+                    clean = f"⚠️ {driver_label} ile ilgili pistte olay kaydedildi."
+                    incident_key = f"incident-{driver_label}"
+                else:
+                    continue
+                if incident_key not in seen_incidents:
+                    seen_incidents.add(incident_key)
+                    summary.append(clean)
+            if len(summary) >= 4:
+                break
+
+    ordered = results.sort_values('Position', na_position='last').copy()
+    if session_code == 'Q':
+        q3_teams = ordered[pd.to_numeric(ordered.get('Position'), errors='coerce') <= 10].groupby('TeamName').size()
+        double_q3 = q3_teams[q3_teams >= 2]
+        for team_name in double_q3.index[:1]:
+            summary.append(f"📈 {team_name}, iki pilotuyla Q3'e kaldı.")
+    elif session_code in ['R', 'S']:
+        if 'GridPosition' in ordered.columns:
+            ordered['gain'] = pd.to_numeric(ordered['GridPosition'], errors='coerce') - pd.to_numeric(ordered['Position'], errors='coerce')
+            biggest_gain = ordered.sort_values('gain', ascending=False).iloc[0]
+            if pd.notnull(biggest_gain.get('gain')) and biggest_gain['gain'] >= 4:
+                summary.append(f"⬆️ {biggest_gain.get('Abbreviation', 'Bir pilot')}, start yerine göre {int(biggest_gain['gain'])} sıra kazandı.")
+        # yarisi tamamlayamayanlar
+        if 'Status' in ordered.columns:
+            _dnf = []
+            for _, row in ordered.iterrows():
+                _st = str(row.get('Status', '')).strip()
+                if _st and _st.lower() != 'finished' and not _st.startswith('+') and 'lap' not in _st.lower():
+                    _dnf.append(str(row.get('Abbreviation', '')).strip())
+            if _dnf:
+                _names = ', '.join(d for d in _dnf[:3] if d)
+                _extra = f" +{len(_dnf) - 3}" if len(_dnf) > 3 else ""
+                summary.append(f"🔧 Yarışı tamamlayamayan: {_names}{_extra}.")
+
+    return summary[:5]
 
 
 # 3. OTOMATİK TÜRKÇE ÇEVİRİ MOTORU
 @st.cache_data(ttl=86400, show_spinner=False)
+def _translate_to_tr_raw(text):
+    """Sadece BAŞARILI çeviri günlük önbelleğe girer; hata firlatirsa çağıran
+    orijinal metni gösterir ve bir sonraki denemede tekrar çevrilir."""
+    url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=tr&dt=t&q={urllib.parse.quote(text)}"
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=6) as resp:
+        data = json.loads(resp.read().decode('utf-8'))
+    translated = "".join([item[0] for item in data[0] if item[0]])
+    if not translated:
+        raise ValueError('empty translation')
+    return translated
+
+
 def translate_to_tr(text):
     """Gunluk onbellekli. Ayni basliklar tekrar cevrilmez -> hiz limiti sorunu azalir."""
     if not text:
         return ""
     try:
-        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=tr&dt=t&q={urllib.parse.quote(text)}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            translated = "".join([item[0] for item in data[0] if item[0]])
-            return translated or text
+        return _translate_to_tr_raw(text)
     except Exception as error:
         log_data_error('translate_to_tr', error)
         return text
@@ -1055,25 +1090,24 @@ st.markdown("""
 # redesign: site_theme_css() kaldirildi — tema tamamen core/theme.py'de.
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@cache_data_safe(ttl=3600, on_error=list, label='season schedule')
 def get_season_schedule(year):
-    try:
-        schedule = fastf1.get_event_schedule(year, include_testing=False)
-        schedule = schedule[schedule['RoundNumber'] > 0]
-        return schedule['EventName'].dropna().astype(str).tolist()
-    except Exception as error:
-        log_data_error('season schedule', error)
-        return []
+    schedule = fastf1.get_event_schedule(year, include_testing=False)
+    schedule = schedule[schedule['RoundNumber'] > 0]
+    names = schedule['EventName'].dropna().astype(str).tolist()
+    if not names:
+        raise RuntimeError('boş sezon takvimi')
+    return names
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@cache_data_safe(ttl=3600, on_error=list, label='calendar details')
 def get_calendar_details(year):
-    try:
-        schedule = fastf1.get_event_schedule(int(year), include_testing=False)
-        schedule = schedule[schedule['RoundNumber'] > 0].copy()
-        return schedule.to_dict('records')
-    except Exception:
-        return []
+    schedule = fastf1.get_event_schedule(int(year), include_testing=False)
+    schedule = schedule[schedule['RoundNumber'] > 0].copy()
+    records = schedule.to_dict('records')
+    if not records:
+        raise RuntimeError('boş takvim')
+    return records
 
 
 def event_session_cards(event):
@@ -1111,66 +1145,63 @@ def event_session_cards(event):
     return items
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@cache_data_safe(ttl=900, on_error=lambda: (pd.DataFrame(), pd.DataFrame()), label='session results table')
 def get_session_results_table(year, event_name, session_code):
     """Seans türüne göre yalnızca anlamlı sonuç sütunlarını gösterir.
 
     Antrenmanların resmî sonuç tablosunda pozisyon ve zaman boş olabilir. Bu
     yüzden FP seanslarında hızlı turlardan kendi sıralamamızı üretiriz.
     """
-    try:
-        session = fastf1.get_session(int(year), event_name, session_code)
-        session.load(telemetry=False, weather=False, messages=False)
-        results = session.results
-        laps = session.laps.copy() if session.laps is not None else pd.DataFrame()
+    session = fastf1.get_session(int(year), event_name, session_code)
+    session.load(telemetry=False, weather=False, messages=False)
+    results = session.results
+    laps = session.laps.copy() if session.laps is not None else pd.DataFrame()
 
-        if session_code in ['FP1', 'FP2', 'FP3']:
-            practice_rows = []
-            team_by_driver = {}
-            if results is not None and not results.empty:
-                for _, row in results.iterrows():
-                    team_by_driver[str(row.get('Abbreviation', ''))] = str(row.get('TeamName', '—'))
+    if session_code in ['FP1', 'FP2', 'FP3']:
+        practice_rows = []
+        team_by_driver = {}
+        if results is not None and not results.empty:
+            for _, row in results.iterrows():
+                team_by_driver[str(row.get('Abbreviation', ''))] = str(row.get('TeamName', '—'))
 
-            for driver in sorted(laps['Driver'].dropna().astype(str).unique()) if not laps.empty else []:
-                driver_laps = laps.pick_drivers(driver)
-                fastest = driver_laps.pick_fastest()
-                if fastest is None or pd.isnull(fastest.get('LapTime')):
-                    continue
-                practice_rows.append({
-                    'Pilot': driver,
-                    'Takım': team_by_driver.get(driver, '—'),
-                    'En Hızlı Tur': format_time(fastest['LapTime']),
-                    'Lastik': str(fastest.get('Compound', '—')).title(),
-                    '_lap_seconds': fastest['LapTime'].total_seconds(),
-                })
+        for driver in sorted(laps['Driver'].dropna().astype(str).unique()) if not laps.empty else []:
+            driver_laps = laps.pick_drivers(driver)
+            fastest = driver_laps.pick_fastest()
+            if fastest is None or pd.isnull(fastest.get('LapTime')):
+                continue
+            practice_rows.append({
+                'Pilot': driver,
+                'Takım': team_by_driver.get(driver, '—'),
+                'En Hızlı Tur': format_time(fastest['LapTime']),
+                'Lastik': str(fastest.get('Compound', '—')).title(),
+                '_lap_seconds': fastest['LapTime'].total_seconds(),
+            })
 
-            if not practice_rows:
-                return pd.DataFrame(), laps
-            table = pd.DataFrame(practice_rows).sort_values('_lap_seconds').reset_index(drop=True)
-            table.insert(0, 'Sıra', table.index + 1)
-            return table.drop(columns=['_lap_seconds']), laps
-
-        if results is None or results.empty:
+        if not practice_rows:
             return pd.DataFrame(), laps
+        table = pd.DataFrame(practice_rows).sort_values('_lap_seconds').reset_index(drop=True)
+        table.insert(0, 'Sıra', table.index + 1)
+        return table.drop(columns=['_lap_seconds']), laps
 
-        if session_code == 'Q':
-            columns = [column for column in ['Position', 'Abbreviation', 'TeamName', 'Q1', 'Q2', 'Q3'] if column in results.columns]
-        elif session_code in ['R', 'S']:
-            columns = [column for column in ['Position', 'Abbreviation', 'TeamName', 'Time', 'Status', 'Points'] if column in results.columns]
-        else:
-            columns = [column for column in ['Position', 'Abbreviation', 'TeamName', 'Time', 'Status'] if column in results.columns]
+    if results is None or results.empty:
+        return pd.DataFrame(), laps
 
-        table = results[columns].copy().sort_values('Position', na_position='last')
-        for column in ['Time', 'Q1', 'Q2', 'Q3']:
-            if column in table.columns:
-                table[column] = table[column].apply(lambda value: format_time(value) if pd.notnull(value) else '—')
-        table = table.rename(columns={
-            'Position': 'Sıra', 'Abbreviation': 'Pilot', 'TeamName': 'Takım',
-            'Time': 'Zaman', 'Status': 'Durum', 'Points': 'Puan'
-        })
-        return table.fillna('—'), laps
-    except Exception:
-        return pd.DataFrame(), pd.DataFrame()
+    if session_code == 'Q':
+        columns = [column for column in ['Position', 'Abbreviation', 'TeamName', 'Q1', 'Q2', 'Q3'] if column in results.columns]
+    elif session_code in ['R', 'S']:
+        columns = [column for column in ['Position', 'Abbreviation', 'TeamName', 'Time', 'Status', 'Points'] if column in results.columns]
+    else:
+        columns = [column for column in ['Position', 'Abbreviation', 'TeamName', 'Time', 'Status'] if column in results.columns]
+
+    table = results[columns].copy().sort_values('Position', na_position='last')
+    for column in ['Time', 'Q1', 'Q2', 'Q3']:
+        if column in table.columns:
+            table[column] = table[column].apply(lambda value: format_time(value) if pd.notnull(value) else '—')
+    table = table.rename(columns={
+        'Position': 'Sıra', 'Abbreviation': 'Pilot', 'TeamName': 'Takım',
+        'Time': 'Zaman', 'Status': 'Durum', 'Points': 'Puan'
+    })
+    return table.fillna('—'), laps
 
 
 def translate_race_control_message(message):
@@ -1201,48 +1232,45 @@ def translate_race_control_message(message):
     return text
 
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@cache_data_safe(ttl=1800, on_error=list, label='session story')
 def get_session_story(year, event_name, session_code):
     """Seans sonucunu ve varsa Race Control notlarını kısa, doğrulanabilir hikâyeye çevirir."""
-    try:
-        session = fastf1.get_session(int(year), event_name, session_code)
-        session.load(telemetry=False, weather=False, messages=True)
-        results = session.results.copy() if session.results is not None else pd.DataFrame()
-        story = []
-        if not results.empty:
-            results = results.sort_values('Position', na_position='last')
-            leader = results.iloc[0]
-            code = str(leader.get('Abbreviation', '')).strip()
-            team = str(leader.get('TeamName', '')).strip()
-            if session_code == 'Q' and code:
-                story.append({'kind': 'POLE', 'text': f"Pole pozisyonu {code} tarafından alındı ({team})."})
-                if 'Q3' in results.columns:
-                    q3 = results[results['Q3'].notna()]
-                    team_counts = q3.groupby('TeamName')['Abbreviation'].count() if not q3.empty else pd.Series(dtype=int)
-                    for listed_team, count in team_counts.items():
-                        if int(count) >= 2:
-                            story.append({'kind': 'Q3', 'text': f"{listed_team}, iki pilotuyla Q3'e kaldı."})
-            elif session_code in ['FP1', 'FP2', 'FP3'] and code:
-                story.append({'kind': 'PACE', 'text': f"Seansın en hızlı pilotu {code} ({team}) oldu."})
-            elif session_code in ['R', 'S'] and code:
-                story.append({'kind': 'WIN', 'text': f"Seansı {code} ({team}) kazandı."})
+    session = fastf1.get_session(int(year), event_name, session_code)
+    session.load(telemetry=False, weather=False, messages=True)
+    results = session.results.copy() if session.results is not None else pd.DataFrame()
+    story = []
+    if not results.empty:
+        results = results.sort_values('Position', na_position='last')
+        leader = results.iloc[0]
+        code = str(leader.get('Abbreviation', '')).strip()
+        team = str(leader.get('TeamName', '')).strip()
+        if session_code == 'Q' and code:
+            story.append({'kind': 'POLE', 'text': f"Pole pozisyonu {code} tarafından alındı ({team})."})
+            if 'Q3' in results.columns:
+                q3 = results[results['Q3'].notna()]
+                team_counts = q3.groupby('TeamName')['Abbreviation'].count() if not q3.empty else pd.Series(dtype=int)
+                for listed_team, count in team_counts.items():
+                    if int(count) >= 2:
+                        story.append({'kind': 'Q3', 'text': f"{listed_team}, iki pilotuyla Q3'e kaldı."})
+        elif session_code in ['FP1', 'FP2', 'FP3'] and code:
+            story.append({'kind': 'PACE', 'text': f"Seansın en hızlı pilotu {code} ({team}) oldu."})
+        elif session_code in ['R', 'S'] and code:
+            story.append({'kind': 'WIN', 'text': f"Seansı {code} ({team}) kazandı."})
 
-        messages = getattr(session, 'race_control_messages', None)
-        if isinstance(messages, pd.DataFrame) and not messages.empty:
-            text_column = next((column for column in ['Message', 'Text'] if column in messages.columns), None)
-            if text_column:
-                recent = messages[text_column].dropna().astype(str).tolist()
-                seen = set()
-                for item in reversed(recent):
-                    translated = translate_race_control_message(item)
-                    if translated and translated not in seen:
-                        seen.add(translated)
-                        story.append({'kind': 'RACE CONTROL', 'text': translated})
-                    if len([entry for entry in story if entry['kind'] == 'RACE CONTROL']) >= 3:
-                        break
-        return story[:5]
-    except Exception:
-        return []
+    messages = getattr(session, 'race_control_messages', None)
+    if isinstance(messages, pd.DataFrame) and not messages.empty:
+        text_column = next((column for column in ['Message', 'Text'] if column in messages.columns), None)
+        if text_column:
+            recent = messages[text_column].dropna().astype(str).tolist()
+            seen = set()
+            for item in reversed(recent):
+                translated = translate_race_control_message(item)
+                if translated and translated not in seen:
+                    seen.add(translated)
+                    story.append({'kind': 'RACE CONTROL', 'text': translated})
+                if len([entry for entry in story if entry['kind'] == 'RACE CONTROL']) >= 3:
+                    break
+    return story[:5]
 
 
 COUNTRY_FLAGS = {
@@ -1313,30 +1341,39 @@ def clean_position_value(value):
 
 
 
-@st.cache_data(ttl=21600, show_spinner=False)
 def get_championship_round_v19(year, event_name):
-    """Bir GP'yi ayrı önbelleğe alır; tek bir yarışın hatası tüm Puan Merkezi'ni kilitlemez."""
-    output = {'ok': False, 'race': [], 'sprint': []}
+    """Bir GP'yi ayrı önbelleğe alır; tek bir yarışın hatası tüm Puan Merkezi'ni kilitlemez.
+
+    Geçici hata artık önbelleğe alınmaz — o GP bir sonraki açılışta yeniden denenir."""
     try:
-        race = fastf1.get_session(int(year), event_name, 'R')
-        race.load(laps=False, telemetry=False, weather=False, messages=False)
-        results = race.results
-        if results is None or results.empty:
-            return output
-        for _, row in results.iterrows():
-            code = str(row.get('Abbreviation', '')).strip()
-            if not code or code == 'nan':
-                continue
-            position = pd.to_numeric(row.get('Position'), errors='coerce')
-            output['race'].append({
-                'code': code,
-                'team': str(row.get('TeamName', '—')).strip(),
-                'position': str(int(position)) if pd.notna(position) else 'DNF',
-                'points': points_value(row.get('Points', 0)),
-            })
-        output['ok'] = bool(output['race'])
-    except Exception:
-        return output
+        return _championship_round_raw_v33(int(year), event_name)
+    except Exception as error:
+        log_data_error('championship round', error)
+        return {'ok': False, 'race': [], 'sprint': []}
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def _championship_round_raw_v33(year, event_name):
+    output = {'ok': False, 'race': [], 'sprint': []}
+    race = fastf1.get_session(int(year), event_name, 'R')
+    race.load(laps=False, telemetry=False, weather=False, messages=False)
+    results = race.results
+    if results is None or results.empty:
+        raise RuntimeError(f'{event_name}: doğrulanmış yarış sonucu henüz yok')
+    for _, row in results.iterrows():
+        code = str(row.get('Abbreviation', '')).strip()
+        if not code or code == 'nan':
+            continue
+        position = pd.to_numeric(row.get('Position'), errors='coerce')
+        output['race'].append({
+            'code': code,
+            'team': str(row.get('TeamName', '—')).strip(),
+            'position': str(int(position)) if pd.notna(position) else 'DNF',
+            'points': points_value(row.get('Points', 0)),
+        })
+    output['ok'] = bool(output['race'])
+    if not output['ok']:
+        raise RuntimeError(f'{event_name}: sonuç satırı ayrıştırılamadı')
 
     try:
         sprint = fastf1.get_session(int(year), event_name, 'S')
@@ -4006,17 +4043,20 @@ def news_item_is_f1_v20(item, link, title, description):
     return '/f1/' in haystack or 'formula 1' in haystack or 'formula1' in haystack or haystack.startswith('f1 ')
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
 def translate_news_text_v20(text):
+    # Kendi önbelleği yok: başarılı çeviri zaten _translate_to_tr_raw'da
+    # günlük önbelleğe giriyor; başarısız çeviri (İngilizce metin) donup kalmıyor.
     clean = repair_text_v20(text).strip()
     if not clean:
         return ''
     return repair_text_v20(translate_to_tr(clean))
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@cache_data_safe(ttl=900, on_error=list, label='news catalog v2')
 def fetch_f1_news_catalog_v20(limit=30):
-    """Turkish-first feed. English sources only fill the gap and are translated on display."""
+    """Turkish-first feed. English sources only fill the gap and are translated on display.
+
+    Tüm kaynaklar düşerse boş liste önbelleğe alınmaz; sonraki açılış yeniden dener."""
     sources = [
         ('Motorsport Türkiye', 'https://tr.motorsport.com/rss/', 'tr'),
         ('Autosport', 'https://www.autosport.com/rss/f1/news/', 'en'),
@@ -4058,6 +4098,8 @@ def fetch_f1_news_catalog_v20(limit=30):
                     return catalog
         except Exception as error:
             log_data_error('news catalog v2', error)
+    if not catalog:
+        raise RuntimeError('hiçbir haber kaynağı yanıt vermedi')
     return catalog[:int(limit)]
 
 
@@ -4900,8 +4942,10 @@ def _replay_overlay_v26(payload):
 
 
 @st.cache_data(ttl=21600, show_spinner=False)
-def build_stable_race_replay_payload(year, event_name):
-    """Load compact OpenF1 history first and use heavy FastF1 only as fallback."""
+def _race_replay_payload_raw_v33(year, event_name):
+    """Yalnızca BAŞARILI paket önbelleğe alınır. Veri hazır değilse / geçici
+    hata varsa `RuntimeError` firlatir (önbelleğe girmez), böylece yarıştan
+    hemen sonra 'hazır değil' cevabı 6 saat donup kalmaz."""
     openf1_payload = openf1_fallback.build_race_replay(int(year), str(event_name))
     if isinstance(openf1_payload, dict) and openf1_payload.get('ok'):
         valid, reason = validate_stable_replay_payload(openf1_payload)
@@ -4917,11 +4961,21 @@ def build_stable_race_replay_payload(year, event_name):
     payload = _build_stable_race_replay_payload_v25(year, event_name)
     if not isinstance(payload, dict) or not payload.get('ok'):
         fastf1_reason = payload.get('reason', '') if isinstance(payload, dict) else ''
-        return {'ok': False, 'reason': ' · '.join(item for item in (openf1_reason, fastf1_reason) if item)}
+        raise RuntimeError(' · '.join(item for item in (openf1_reason, fastf1_reason) if item)
+                           or 'Yarış tekrar paketi henüz hazır değil.')
     payload = _replay_overlay_v26(payload)
     payload['version'] = '3.2-fastf1-fallback'
     payload['replay_source'] = 'FastF1 doğrulanmış tur, sıra, pit ve lastik kayıtları.'
     return payload
+
+
+def build_stable_race_replay_payload(year, event_name):
+    """OpenF1 hızlı geçmişi önce, ağır FastF1 yalnızca yedek."""
+    try:
+        return _race_replay_payload_raw_v33(year, event_name)
+    except Exception as error:
+        log_data_error('stable race replay', error)
+        return {'ok': False, 'reason': str(error)}
 
 
 def stable_race_replay_html(payload):
