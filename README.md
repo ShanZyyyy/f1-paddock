@@ -67,6 +67,9 @@ tests/fixtures/          # sabit örnek veri
 
 ## Dağıtım (Streamlit Community Cloud)
 
-Ana dosya yolu: **`streamlit_app.py`**. (Eski ad
-`app_manager_track_fixed_v2_8_verified_career_and_duel.py` idi — Cloud
-ayarında güncellenmeli.)
+Ana dosya yolu: **`streamlit_app.py`**.
+
+Eski ad `app_manager_track_fixed_v2_8_verified_career_and_duel.py` artık
+tek satırlık bir uyumluluk kabuğu (`import streamlit_app`) — Cloud ayarı
+güncellenene kadar uygulama kesintisiz çalışır. Ayarı güncelledikten sonra
+bu dosya silinebilir.
