@@ -386,7 +386,8 @@ def get_session_summary(year, gp_name, session_code):
         summary = []
         messages = getattr(session, 'race_control_messages', None)
         if messages is not None and not getattr(messages, 'empty', True):
-            keywords = ('RED FLAG', 'SAFETY CAR', 'VIRTUAL SAFETY', 'CRASH', 'STOPPED', 'SPUN', 'YELLOW')
+            keywords = ('RED FLAG', 'SAFETY CAR', 'VIRTUAL SAFETY', 'CRASH', 'STOPPED', 'SPUN',
+                        'YELLOW', 'PENALTY', 'REPRIMAND', 'DISQUALIFIED', 'DRIVE THROUGH', 'STOP AND GO')
             seen_incidents = set()
             for _, row in messages.iloc[::-1].iterrows():
                 message = str(row.get('Message', '')).strip()
@@ -394,9 +395,27 @@ def get_session_summary(year, gp_name, session_code):
                     car_match = re.search(r'CAR\s+(\d+)\s*\(([^)]+)\)', message.upper())
                     driver_label = f"{car_match.group(2)} (#{car_match.group(1)})" if car_match else 'Bir pilot'
                     upper = message.upper()
+                    pen = re.search(r'(\d+)\s*SECOND', upper)
                     if 'YELLOW FLAG INFRINGEMENT' in upper:
                         clean = f"⚠️ {driver_label} için sarı bayrak ihlali incelemesi başlatıldı."
                         incident_key = f"yellow-{driver_label}"
+                    elif 'DISQUALIFIED' in upper:
+                        clean = f"⛔ {driver_label} diskalifiye edildi."
+                        incident_key = f"dsq-{driver_label}"
+                    elif 'PENALTY' in upper or 'DRIVE THROUGH' in upper or 'STOP AND GO' in upper:
+                        reason = 'kural ihlali'
+                        for tag, label in (('TRACK LIMITS', 'pist sınırları'), ('CAUSING A COLLISION', 'çarpışmaya sebep olma'),
+                                           ('UNSAFE RELEASE', 'güvensiz bırakma'), ('SPEEDING', 'pit hız limiti'),
+                                           ('IGNORING', 'bayrak/işaret ihlali'), ('FALSE START', 'erken start')):
+                            if tag in upper:
+                                reason = label
+                                break
+                        amount = f" · {pen.group(1)} sn ceza" if pen else (" · geç-git cezası" if 'DRIVE THROUGH' in upper else "")
+                        clean = f"🟥 {driver_label} — {reason}{amount}."
+                        incident_key = f"pen-{driver_label}-{reason}"
+                    elif 'REPRIMAND' in upper:
+                        clean = f"🟨 {driver_label} kınama (reprimand) aldı."
+                        incident_key = f"repr-{driver_label}"
                     elif 'RED FLAG' in upper:
                         clean = '🚩 Seans kırmızı bayrakla durduruldu.'
                         incident_key = 'red-flag'
@@ -417,7 +436,7 @@ def get_session_summary(year, gp_name, session_code):
                     if incident_key not in seen_incidents:
                         seen_incidents.add(incident_key)
                         summary.append(clean)
-                if len(summary) >= 2:
+                if len(summary) >= 4:
                     break
 
         ordered = results.sort_values('Position', na_position='last').copy()
@@ -426,13 +445,25 @@ def get_session_summary(year, gp_name, session_code):
             double_q3 = q3_teams[q3_teams >= 2]
             for team_name in double_q3.index[:1]:
                 summary.append(f"📈 {team_name}, iki pilotuyla Q3'e kaldı.")
-        elif session_code in ['R', 'S'] and 'GridPosition' in ordered.columns:
-            ordered['gain'] = pd.to_numeric(ordered['GridPosition'], errors='coerce') - pd.to_numeric(ordered['Position'], errors='coerce')
-            biggest_gain = ordered.sort_values('gain', ascending=False).iloc[0]
-            if pd.notnull(biggest_gain.get('gain')) and biggest_gain['gain'] >= 4:
-                summary.append(f"⬆️ {biggest_gain.get('Abbreviation', 'Bir pilot')}, start yerine göre {int(biggest_gain['gain'])} sıra kazandı.")
+        elif session_code in ['R', 'S']:
+            if 'GridPosition' in ordered.columns:
+                ordered['gain'] = pd.to_numeric(ordered['GridPosition'], errors='coerce') - pd.to_numeric(ordered['Position'], errors='coerce')
+                biggest_gain = ordered.sort_values('gain', ascending=False).iloc[0]
+                if pd.notnull(biggest_gain.get('gain')) and biggest_gain['gain'] >= 4:
+                    summary.append(f"⬆️ {biggest_gain.get('Abbreviation', 'Bir pilot')}, start yerine göre {int(biggest_gain['gain'])} sıra kazandı.")
+            # yarisi tamamlayamayanlar
+            if 'Status' in ordered.columns:
+                _dnf = []
+                for _, row in ordered.iterrows():
+                    _st = str(row.get('Status', '')).strip()
+                    if _st and _st.lower() != 'finished' and not _st.startswith('+'):
+                        _dnf.append(str(row.get('Abbreviation', '')).strip())
+                if _dnf:
+                    _names = ', '.join(d for d in _dnf[:3] if d)
+                    _extra = f" +{len(_dnf) - 3}" if len(_dnf) > 3 else ""
+                    summary.append(f"🔧 Yarışı tamamlayamayan: {_names}{_extra}.")
 
-        return summary[:3]
+        return summary[:5]
     except Exception:
         return []
 
@@ -6043,11 +6074,14 @@ if st.session_state['page'] == 'home':
     if session_summary:
         st.write("")
         fp_ui.section_title("Bu Seansta Ne Oldu?")
-        _si_cols = st.columns(len(session_summary))
-        _si_tones = ["cyan", "amber", "pink", "purple"]
-        for _i, (_col, _insight) in enumerate(zip(_si_cols, session_summary)):
-            with _col:
-                fp_ui.mini_note(_insight, _si_tones[_i % len(_si_tones)])
+        _si_tones = ["cyan", "amber", "pink", "purple", "green"]
+        _per_row = 3 if len(session_summary) > 2 else len(session_summary)
+        for _start in range(0, len(session_summary), _per_row):
+            _row = session_summary[_start:_start + _per_row]
+            _cols = st.columns(_per_row)
+            for _j, _insight in enumerate(_row):
+                with _cols[_j]:
+                    fp_ui.mini_note(_insight, _si_tones[(_start + _j) % len(_si_tones)])
 
     if is_live_now:
         if st.button(f"CANLI TAKIP: {target_s_name.upper()} SEANSI BASLADI — TIKLA VE INCELE", use_container_width=True):
