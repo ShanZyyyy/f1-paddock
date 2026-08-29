@@ -1,0 +1,149 @@
+# -*- coding: utf-8 -*-
+"""Altin veri testleri — ag YOK.
+
+Sabit fixture ve saf fonksiyonlar uzerinden hesap mantigini dogrular.
+smoke_test.py "sayfa patliyor mu" sorusuna bakar; bu dosya "sayilar dogru mu".
+
+    .venv/Scripts/python -m pytest tests/test_data_logic.py -q
+"""
+
+import json
+import os
+
+import pytest
+
+import streamlit_app as app
+from core import i18n
+
+FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+
+
+# --------------------------------------------------------------------------
+# is_dnf_status — Alonso DNF=104 hatasinin kok nedeni buydu
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("status, expected", [
+    ("Finished", False),
+    ("finished", False),
+    ("", False),
+    (None, False),
+    ("+1 Lap", False),
+    ("+2 Laps", False),
+    ("Lapped", False),
+    ("Accident", True),
+    ("Collision", True),
+    ("Engine", True),
+    ("Retired", True),
+    ("Disqualified", True),
+    ("Withdrew", True),
+    ("Power Unit", True),
+])
+def test_is_dnf_status(status, expected):
+    assert app.is_dnf_status(status) is expected
+
+
+# --------------------------------------------------------------------------
+# aggregate_driver_career_v33 — sabit 5 yarislik fixture
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def career():
+    with open(os.path.join(FIXTURES, "career_sample.json"), encoding="utf-8") as handle:
+        rows = [(race, result) for race, result in json.load(handle)]
+    return app.aggregate_driver_career_v33(rows)
+
+
+def test_career_totals(career):
+    assert career["ok"] is True
+    assert career["starts"] == 5
+    assert career["points"] == 68.0          # 25 + 18 + 0 + 25 + 0
+    assert career["wins"] == 2
+    assert career["podiums"] == 3            # P1, P2, P1
+    assert career["poles"] == 2              # grid == 1 iki kez
+    assert career["fastest_laps"] == 1
+    assert career["dnf"] == 1                # yalniz "Accident"
+    assert career["best"] == 1
+    assert career["worst"] == 11             # "+1 Lap" bitisi DNF degil, sayilir
+    assert career["avg_grid"] == 2.4         # (1+3+2+1+5)/5
+
+
+def test_career_circuit_wins(career):
+    circuit_wins = dict(career["circuit_wins"])
+    assert circuit_wins["Bahrain International Circuit"] == 2
+
+
+def test_career_seasons_and_teams(career):
+    assert career["first_season"] == "2023"
+    assert career["last_season"] == "2024"
+    teams = {name: (lo, hi) for name, lo, hi in career["teams"]}
+    assert teams["Alpha F1"] == (2023, 2023)
+    assert teams["Beta F1"] == (2024, 2024)
+    by_year = {season["year"]: season for season in career["seasons"]}
+    assert by_year["2023"]["races"] == 3
+    assert by_year["2023"]["wins"] == 1
+    assert by_year["2024"]["points"] == 25.0
+    # yarislar yeni -> eski
+    assert career["races"][0]["year"] == "2024"
+
+
+# --------------------------------------------------------------------------
+# _pos_chip_v33 — Pilotlar timing HUD renk mantigi
+# --------------------------------------------------------------------------
+def test_pos_chip_podium_points_dnf():
+    assert app._pos_chip_v33("1", False)[2] == "P1"
+    assert app._pos_chip_v33("3", False)[2] == "P3"
+    assert app._pos_chip_v33("7", False)[2] == "P7"
+    assert app._pos_chip_v33("18", False)[2] == "P18"
+    assert app._pos_chip_v33("5", True)[2] == "DNF"
+    assert app._pos_chip_v33("", False)[2] == "—"
+    # podium ve puan disi farkli renk
+    assert app._pos_chip_v33("2", False)[1] != app._pos_chip_v33("15", False)[1]
+
+
+def test_num_v33():
+    assert app._num_v33(25) == "25"
+    assert app._num_v33(18.0) == "18"
+    assert app._num_v33(7.5) == "7.5"
+    assert app._num_v33(None) == "0"
+    assert app._num_v33("x") == "0"
+
+
+# --------------------------------------------------------------------------
+# points_value / format_time
+# --------------------------------------------------------------------------
+def test_points_value():
+    assert app.points_value(25) == 25.0
+    assert app.points_value(None) == 0.0
+    assert app.points_value("nan") == 0.0
+    assert app.points_value("12") == 12.0
+
+
+# --------------------------------------------------------------------------
+# safe_external_url — XSS / acik yonlendirme kapisi
+# --------------------------------------------------------------------------
+def test_safe_external_url():
+    assert app.safe_external_url("https://www.autosport.com/f1/news/x").startswith("https://")
+    assert app.safe_external_url("javascript:alert(1)") == ""
+    assert app.safe_external_url("") == ""
+    assert app.safe_external_url("ftp://example.com/x") == ""
+    assert app.safe_external_url("https://evil.com", allowed_hosts=["autosport.com"]) == ""
+    assert app.safe_external_url("https://autosport.com/x", allowed_hosts=["autosport.com"]) != ""
+
+
+# --------------------------------------------------------------------------
+# translate_race_control_message — anlam kaybetmeden TR
+# --------------------------------------------------------------------------
+def test_translate_race_control_message():
+    assert "Güvenlik aracı" in app.translate_race_control_message("SAFETY CAR DEPLOYED")
+    assert "Kırmızı bayrak" in app.translate_race_control_message("RED FLAG")
+    assert app.translate_race_control_message("") == ""
+
+
+# --------------------------------------------------------------------------
+# i18n
+# --------------------------------------------------------------------------
+def test_i18n_switch():
+    i18n.set_lang("tr")
+    assert i18n.t("nav.drivers") == "Pilotlar"
+    i18n.set_lang("en")
+    assert i18n.t("nav.drivers") == "Drivers"
+    assert i18n.t("does.not.exist") == "does.not.exist"
+    i18n.set_lang("tr")

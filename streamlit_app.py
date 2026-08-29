@@ -484,8 +484,7 @@ def get_session_summary(year, gp_name, session_code):
         if 'Status' in ordered.columns:
             _dnf = []
             for _, row in ordered.iterrows():
-                _st = str(row.get('Status', '')).strip()
-                if _st and _st.lower() != 'finished' and not _st.startswith('+') and 'lap' not in _st.lower():
+                if is_dnf_status(row.get('Status', '')):
                     _dnf.append(str(row.get('Abbreviation', '')).strip())
             if _dnf:
                 _names = ', '.join(d for d in _dnf[:3] if d)
@@ -1306,11 +1305,28 @@ def round_key(event):
 
 
 def points_value(value):
-    """FastF1'in boş/NA puanlarını güvenli şekilde sıfır yapar."""
+    """FastF1'in boş/NA puanlarını güvenli şekilde sıfır yapar ('nan' metni dahil)."""
     try:
-        return 0.0 if pd.isnull(value) else float(value)
+        result = 0.0 if pd.isnull(value) else float(value)
+        return 0.0 if pd.isnull(result) else result
     except Exception:
         return 0.0
+
+
+def is_dnf_status(status):
+    """Yarışı bitirememe (DNF) durumu mu?
+
+    'Finished' bitirmedir. '+1 Lap' / '+2 Laps' geride kalmıştır ama YARIŞI
+    BİTİRMİŞTİR (DNF değil). 'Lapped' de bitiştir. Diğer her şey (Accident,
+    Engine, Collision, Retired, Withdrew, Disqualified...) DNF sayılır.
+    Boş durum bilinmiyor kabul edilir -> DNF değil.
+    """
+    text = str(status or '').strip().lower()
+    if not text or text == 'finished':
+        return False
+    if text.startswith('+') or 'lap' in text:
+        return False
+    return True
 
 
 
@@ -2891,7 +2907,7 @@ def build_stable_race_replay_payload(year, event_name):
                 continue
             result = item['result']
             status = str(result.get('Status', 'Finished')).strip()
-            finished_like = status.lower() in {'finished', 'lapped'} or status.startswith('+')
+            finished_like = not is_dnf_status(status)
             cars.append({'code': item['code'], 'team': item['team'], 'colour': team_colour(item['team']),
                          'accent': TEAM_LIVERY_ACCENTS.get(item['team'], '#f2f7ff'),
                          'profile': race_driver_profile(item['code'], item['team']),
@@ -5257,7 +5273,7 @@ def get_driver_deep_stats_v32(driver_code, scope="season", season="2026"):
             poles += 1
         if grid:
             grids.append(grid)
-        is_dnf = bool(status) and status.lower() != 'finished' and not status.startswith('+') and 'lap' not in status.lower()
+        is_dnf = is_dnf_status(status)
         if is_dnf:
             dnf += 1
         elif pos:
@@ -5313,7 +5329,15 @@ def _driver_full_profile_raw_v33(api_code):
     rows = _career_verified_rows_v28(api_code)
     if not rows:
         raise LookupError('no verified career rows for ' + str(api_code))
+    return aggregate_driver_career_v33(rows)
 
+
+def aggregate_driver_career_v33(rows):
+    """Ergast/Jolpica sonuç satırlarından (race, result) tam profil sözlüğü üretir.
+
+    Saf fonksiyon — ağ yok. `rows`: [(race_dict, result_dict), ...].
+    Testlerde sabit fixture ile doğrulanır.
+    """
     wins = podiums = poles = fastest = dnf = 0
     points = 0.0
     finishes, grids = [], []
@@ -5330,7 +5354,7 @@ def _driver_full_profile_raw_v33(api_code):
         status = str(res.get('status', '')).strip()
         pts = _career_float_v27(res.get('points')) or 0.0
         team_name = str((res.get('Constructor', {}) or {}).get('name', '')).strip()
-        is_dnf = bool(status) and status.lower() != 'finished' and not status.startswith('+') and 'lap' not in status.lower()
+        is_dnf = is_dnf_status(status)
 
         points += pts
         if grid == 1:
