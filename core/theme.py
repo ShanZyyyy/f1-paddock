@@ -422,9 +422,6 @@ section[data-testid="stSidebar"] [data-baseweb="select"] button{
 
 # ---- Uygulama arka plani (F1 TV — sakin, animasyonsuz) ---------------
 _SHELL_BG_CSS = r"""
-/* eski animasyonlu grid + yorunge halkasini kapat */
-[data-testid="stAppViewContainer"]::before,
-[data-testid="stAppViewContainer"]::after{content:none !important;display:none !important;animation:none !important}
 [data-testid="stAppViewContainer"],.stApp{
   background:
     radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 9%,transparent), transparent 55%),
@@ -432,6 +429,45 @@ _SHELL_BG_CSS = r"""
   background-attachment:fixed !important;
 }
 [data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
+
+/* --- hareketli F1 arka plani: telemetri izgarasi + hiz cizgileri --- */
+@keyframes fp-grid-drift{from{background-position:0 0,0 0}to{background-position:44px 44px,44px 44px}}
+@keyframes fp-speed{0%{transform:translate3d(-30%,0,0)}100%{transform:translate3d(130%,0,0)}}
+[data-testid="stAppViewContainer"]::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--fp-cyan) 8%,transparent) 1px,transparent 1px),
+    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 8%,transparent) 1px,transparent 1px);
+  background-size:44px 44px,44px 44px;
+  opacity:.35;
+  animation:fp-grid-drift 26s linear infinite;
+  mask-image:radial-gradient(120% 90% at 50% 0%,#000 30%,transparent 92%);
+}
+[data-testid="stAppViewContainer"]::after{
+  content:"";position:fixed;top:0;bottom:0;left:0;width:34vw;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fp-red) 22%,transparent) 45%,color-mix(in srgb,var(--fp-cyan) 20%,transparent) 55%,transparent);
+  filter:blur(3px);opacity:.09;
+  animation:fp-speed 15s linear infinite;
+}
+[data-testid="stAppViewContainer"] > .main,.stApp [data-testid="stMain"]{position:relative;z-index:1}
+section[data-testid="stSidebar"]{position:relative;overflow:hidden}
+section[data-testid="stSidebar"]::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px),
+    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px);
+  background-size:38px 38px,38px 38px;
+  opacity:.4;
+  animation:fp-grid-drift 30s linear infinite;
+  mask-image:linear-gradient(180deg,#000,transparent 78%);
+}
+section[data-testid="stSidebar"] > div{position:relative;z-index:1}
+@media (prefers-reduced-motion:reduce){
+  [data-testid="stAppViewContainer"]::before,
+  [data-testid="stAppViewContainer"]::after,
+  section[data-testid="stSidebar"]::before{animation:none !important}
+  [data-testid="stAppViewContainer"]::after{display:none}
+}
 
 /* Sadece <style> iceren markdown kaplari gorunmez bosluk yaratiyordu — gizle */
 .stElementContainer:has(> .stMarkdown [data-testid="stMarkdownContainer"] > style:only-child),

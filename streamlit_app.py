@@ -5406,6 +5406,134 @@ def driver_profile_header_html(name, code, nation, number, prof, colour, titles=
     """
 
 
+def _num_v33(value):
+    try:
+        return ('%g' % round(float(value), 1))
+    except (TypeError, ValueError):
+        return '0'
+
+
+def _pos_chip_v33(pos_text, dnf):
+    """Yaris sonucu cipi -> (arka, yazi, etiket)."""
+    if dnf:
+        return ('#2a1418', '#ff5f6d', 'DNF')
+    t = str(pos_text or '').strip()
+    if not t or t in ('—', '-'):
+        return ('#161d28', '#9fb0c0', '—')
+    if t.isdigit():
+        p = int(t)
+        if p == 1:
+            return ('#3a2f00', '#ffd100', 'P1')
+        if p <= 3:
+            return ('#08301f', '#38e1d0', 'P%d' % p)
+        if p <= 10:
+            return ('#0c2036', '#5cc8ff', 'P%d' % p)
+        return ('#161d28', '#c9d6e2', 'P%d' % p)
+    return ('#161d28', '#c9d6e2', html_lib.escape(t))
+
+
+def driver_seasons_hud_html(seasons, colour):
+    """Sezon dokumu -> timing-tower seridi."""
+    if not seasons:
+        return ''
+    pmax = max((s.get('points') or 0) for s in seasons) or 1
+    rows = ''
+    for s in seasons:
+        pts = s.get('points') or 0
+        best = ('P%d' % s['best']) if s.get('best') else '—'
+        rows += (
+            "<div class='row'>"
+            f"<span class='yr'>{html_lib.escape(str(s.get('year', '')))}</span>"
+            f"<span class='tm'>{html_lib.escape(str(s.get('team', '') or '—'))}</span>"
+            f"<span class='n'>{s.get('races', 0)}</span>"
+            f"<span class='bw'><i style='width:{round(pts / pmax * 100)}%'></i>"
+            f"<em>{_num_v33(pts)}</em></span>"
+            f"<span class='n g'>{s.get('wins', 0)}</span>"
+            f"<span class='n'>{best}</span>"
+            "</div>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .tt{{border:1px solid #26313f;border-radius:6px;overflow:hidden;background:#11161f}}
+      .hd,.row{{display:grid;grid-template-columns:60px 1.5fr 40px 1.1fr 42px 50px;gap:10px;align-items:center;padding:9px 15px}}
+      .hd{{background:#161d28;border-bottom:1px solid #26313f}}
+      .hd span{{font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a}}
+      .row{{border-bottom:1px solid #1b2330}}
+      .row:last-child{{border-bottom:0}}
+      .row:nth-child(odd){{background:#131a24}}
+      .yr{{font:700 13px 'JetBrains Mono',monospace;color:{colour}}}
+      .tm{{font:600 12px 'Saira',sans-serif;color:#c9d6e2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .n{{font:700 12px 'JetBrains Mono',monospace;text-align:right}}
+      .n.g{{color:#38e1d0}}
+      .bw{{position:relative;height:16px;background:#07090d;border-radius:3px;overflow:hidden}}
+      .bw i{{position:absolute;left:0;top:0;bottom:0;background:{colour};opacity:.45}}
+      .bw em{{position:absolute;right:6px;top:0;line-height:16px;font:700 10px 'JetBrains Mono',monospace;font-style:normal}}
+      @media(max-width:440px){{.hd,.row{{grid-template-columns:40px 1fr 30px 1fr 30px 38px;gap:6px;padding:8px 10px}}.tm{{font-size:11px}}}}
+    </style>
+    <div class="tt">
+      <div class="hd"><span>Sezon</span><span>Takım</span><span>Yrş</span><span>Puan</span><span>Gal</span><span>En İyi</span></div>
+      {rows}
+    </div>
+    """
+
+
+def driver_races_hud_html(races, colour):
+    """Bir sezonun yaris-yaris sonuclari -> TV timing ekrani."""
+    if not races:
+        return ''
+    rows = ''
+    for r in races:
+        grid = r.get('grid') or 0
+        pos_text = str(r.get('pos', '—'))
+        bg, fg, label = _pos_chip_v33(pos_text, r.get('dnf'))
+        delta = "<em class='eq'>·</em>"
+        if grid and pos_text.isdigit():
+            d = grid - int(pos_text)
+            if d > 0:
+                delta = f"<em class='up'>▲{d}</em>"
+            elif d < 0:
+                delta = f"<em class='dn'>▼{-d}</em>"
+            else:
+                delta = "<em class='eq'>=</em>"
+        rows += (
+            "<div class='row'>"
+            f"<span class='rd'>{r.get('round') or '—'}</span>"
+            f"<span class='rc'>{html_lib.escape(str(r.get('race', '')))}</span>"
+            f"<span class='gr'>{grid or '—'}</span>"
+            f"<span class='chip' style='background:{bg};color:{fg}'>{label}</span>"
+            f"<span class='dl'>{delta}</span>"
+            f"<span class='pt'>{_num_v33(r.get('points') or 0)}</span>"
+            f"<span class='stt'>{html_lib.escape(str(r.get('status', '')))}</span>"
+            "</div>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .tt{{border:1px solid #26313f;border-radius:6px;overflow:hidden;background:#11161f}}
+      .hd,.row{{display:grid;grid-template-columns:30px 1.7fr 34px 50px 42px 40px 1fr;gap:9px;align-items:center;padding:8px 15px}}
+      .hd{{background:#161d28;border-bottom:1px solid #26313f}}
+      .hd span{{font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#63748a}}
+      .row{{border-bottom:1px solid #1b2330}}
+      .row:last-child{{border-bottom:0}}
+      .row:nth-child(odd){{background:#131a24}}
+      .rd{{font:700 11px 'JetBrains Mono',monospace;color:#63748a;text-align:center}}
+      .rc{{font:600 12px 'Saira',sans-serif;color:#e8eef4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .gr{{font:700 12px 'JetBrains Mono',monospace;text-align:right;color:#9fb0c0}}
+      .chip{{font:800 11px 'JetBrains Mono',monospace;text-align:center;padding:3px 0;border-radius:4px;letter-spacing:.02em}}
+      .dl{{text-align:center;font:700 11px 'JetBrains Mono',monospace}}
+      .dl .up{{color:#38e1d0;font-style:normal}} .dl .dn{{color:#ff5f6d;font-style:normal}} .dl .eq{{color:#55657a;font-style:normal}}
+      .pt{{font:700 12px 'JetBrains Mono',monospace;text-align:right;color:{colour}}}
+      .stt{{font:500 11px 'Saira',sans-serif;color:#7f8ea0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      @media(max-width:440px){{.hd .h-stt,.stt{{display:none}}.hd,.row{{grid-template-columns:24px 1.4fr 26px 46px 34px 34px;gap:6px;padding:8px 10px}}}}
+    </style>
+    <div class="tt">
+      <div class="hd"><span>#</span><span>Yarış</span><span>Grd</span><span>Sonuç</span><span>Δ</span><span>Puan</span><span class="h-stt">Durum</span></div>
+      {rows}
+    </div>
+    """
+
+
 def _drivers_directory_v33():
     """2026 grid + tarihi pilot havuzu -> [(code, name, api, nation, number, team, colour, is_2026)]."""
     try:
@@ -5449,18 +5577,14 @@ def render_drivers_page_v33():
             prof = get_driver_full_profile_v33(api)
         _titles = _driver_titles_v33(api, code)
         render_html_hud(driver_profile_header_html(name, code, nation or _info.get('team', ''), number, prof, colour, _titles),
-                        height=340)
+                        height=430)
 
         if prof.get('ok'):
             if prof.get('seasons'):
                 st.write("")
                 fp_ui.section_title("Sezon Dökümü")
-                _sdf = pd.DataFrame([{
-                    'Sezon': s['year'], 'Takım': s['team'], 'Yarış': s['races'],
-                    'Puan': s['points'], 'Galibiyet': s['wins'],
-                    'En İyi': f"P{s['best']}" if s['best'] else '—',
-                } for s in prof['seasons']])
-                st.dataframe(_sdf, use_container_width=True, hide_index=True)
+                render_html_hud(driver_seasons_hud_html(prof['seasons'], colour),
+                                height=min(760, 52 + 34 * len(prof['seasons'])))
 
             _cols = st.columns([1, 1])
             with _cols[0]:
@@ -5494,14 +5618,11 @@ def render_drivers_page_v33():
             _years = sorted({r['year'] for r in prof['races'] if r['year']}, reverse=True)
             fp_ui.section_title("Yarış-Yarış Sonuçlar")
             _yr = st.selectbox("Sezon", _years, index=0, key="drivers_race_year_v33") if _years else None
-            _year_races = [r for r in prof['races'] if r['year'] == _yr]
-            _rdf = pd.DataFrame([{
-                'Tur': r['round'] or '—', 'Yarış': r['race'], 'Grid': r['grid'] or '—',
-                'Sonuç': ('DNF' if r['dnf'] else f"P{r['pos']}" if str(r['pos']).isdigit() else r['pos']),
-                'Puan': r['points'], 'Durum': r['status'],
-            } for r in sorted(_year_races, key=lambda r: r['round'])])
+            _year_races = sorted((r for r in prof['races'] if r['year'] == _yr),
+                                 key=lambda r: r['round'])
             st.caption(f"{_yr} · {len(_year_races)} yarış")
-            st.dataframe(_rdf, use_container_width=True, hide_index=True, height=min(430, 44 + 35 * max(1, len(_year_races))))
+            render_html_hud(driver_races_hud_html(_year_races, colour),
+                            height=min(940, 60 + 35 * max(1, len(_year_races))))
 
         if st.session_state.pop('_scroll_driver', False):
             fp_ui.scroll_to("fp-driver-detail")
