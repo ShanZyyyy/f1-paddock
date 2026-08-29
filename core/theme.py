@@ -99,12 +99,14 @@ FONT_LINK = (
     '<link href="https://fonts.googleapis.com/css2?'
     'family=Saira+Condensed:wght@500;600;700;800&'
     'family=Saira:wght@400;500;600;700&'
+    'family=Antonio:wght@400;600;700&'
     'family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">'
 )
 
 F_DISPLAY = "'Saira Condensed','Arial Narrow',system-ui,sans-serif"
 F_BODY = "'Saira',system-ui,-apple-system,'Segoe UI',sans-serif"
 F_MONO = "'JetBrains Mono','Consolas',ui-monospace,monospace"
+F_XCOND = "'Antonio','Saira Condensed','Arial Narrow',sans-serif"
 
 
 def team_color(name):
@@ -145,6 +147,7 @@ def _static_vars():
     parts = [f"--t-{slug}:{hexv}" for slug, hexv in _team_slug_vars().items()]
     parts += [
         f"--fp-f-display:{F_DISPLAY}", f"--fp-f-body:{F_BODY}", f"--fp-f-mono:{F_MONO}",
+        f"--fp-f-x:{F_XCOND}",
         "--fp-edge:3px", "--fp-r-sm:3px", "--fp-r-md:5px", "--fp-r-lg:8px",
         "--fp-shadow:0 12px 30px rgba(0,0,0,.45)",
         "--fp-glow:rgba(56,225,208,.10)", "--fp-grid:rgba(120,140,160,.05)",
@@ -453,12 +456,17 @@ _LEGACY_BRIDGE_CSS = r"""
 .history-copy,.driver-meta,.news-desc,.metric-card .title{color:var(--fp-text-dim) !important}
 .new-badge,.term-badge{background:var(--fp-bg-4) !important;color:var(--fp-text-dim) !important;border:1px solid var(--fp-line) !important}
 
-/* tablar — eski mavi gradyan yerine kirmizi */
+/* tablar — notr koyu, secili sekmede ince cyan alt-cizgi (az kirmizi) */
 .stTabs [data-baseweb="tab-list"]{background:var(--fp-bg-2) !important;border:1px solid var(--fp-line) !important;
   border-radius:var(--fp-r-sm) !important;padding:4px !important;gap:2px !important;box-shadow:none !important}
-.stTabs [data-baseweb="tab"]{color:var(--fp-text-dim) !important;border-radius:var(--fp-r-sm) !important}
-.stTabs [aria-selected="true"]{background:var(--fp-red) !important;color:#fff !important;
-  border-radius:var(--fp-r-sm) !important;box-shadow:none !important}
+.stTabs [data-baseweb="tab"]{color:var(--fp-text-dim) !important;border-radius:var(--fp-r-sm) !important;
+  font-family:var(--fp-f-display) !important;font-weight:700 !important;letter-spacing:.04em}
+.stTabs button[aria-selected="true"]{background:var(--fp-bg-4) !important;color:var(--fp-text) !important;
+  border-radius:var(--fp-r-sm) !important}
+/* secim gostergesi (React Aria) + eski baseweb highlight -> cyan, kirmizi degil */
+.stTabs .react-aria-SelectionIndicator,
+.stTabs [data-baseweb="tab-highlight"]{background:var(--fp-cyan) !important}
+.stTabs [data-baseweb="tab-border"]{background:var(--fp-line) !important}
 
 /* dataframe */
 [data-testid="stDataFrame"],[data-testid="stTable"]{border:1px solid var(--fp-line) !important;border-radius:var(--fp-r-sm)}

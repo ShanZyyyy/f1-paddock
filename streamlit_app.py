@@ -1604,25 +1604,34 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds):
     d_pts = html_lib.escape(str(driver.get('Puan', '—')))
     t_name = html_lib.escape(str(team.get('Takım', '—')))
     t_pts = html_lib.escape(str(team.get('Puan', '—')))
+    # takim ligindeki fark
+    gap = ''
+    try:
+        if len(constructor_standings) > 1:
+            gap = f"+{int(float(team.get('Puan', 0)) - float(constructor_standings.iloc[1].get('Puan', 0)))} fark"
+    except (TypeError, ValueError):
+        gap = ''
+    remaining = max(0, 24 - len(rounds))
     return f"""
     <style>
       body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
       .ss{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}}
       .ss-c{{border:1px solid #26313f;border-left:3px solid var(--a);border-radius:5px;
-        padding:13px 15px;background:linear-gradient(160deg,#161d28,#11161f);
-        min-height:112px;display:flex;flex-direction:column}}
+        padding:14px 16px;background:linear-gradient(160deg,#161d28,#11161f);
+        min-height:118px;display:flex;flex-direction:column}}
       .ss-c s{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.16em;
         text-transform:uppercase;color:#63748a;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .ss-c b{{font:800 21px 'Saira Condensed',sans-serif;text-transform:uppercase;
-        color:var(--a);margin-top:8px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .ss-c b{{font-family:'Antonio','Saira Condensed',sans-serif;font-weight:700;font-size:26px;
+        text-transform:uppercase;letter-spacing:.01em;color:var(--a);margin-top:9px;line-height:.95;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .ss-c i{{font:12px 'JetBrains Mono',monospace;color:#9fb0c0;margin-top:auto;padding-top:8px;font-style:normal;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       @media(max-width:430px){{.ss{{grid-template-columns:1fr}}.ss-c{{min-height:0}}}}
     </style>
     <div class='ss'>
       <div class='ss-c' style='--a:{dc}'><s>Pilot Lideri</s><b>{d_name}</b><i>{d_pts} P · {html_lib.escape(driver_team)}</i></div>
-      <div class='ss-c' style='--a:{tc}'><s>Takım Lideri</s><b>{t_name}</b><i>{t_pts} P · konstruktör #1</i></div>
-      <div class='ss-c' style='--a:#f5c33b'><s>Tamamlanan</s><b>{len(rounds)}</b><i>yarış · sprint dahil</i></div>
+      <div class='ss-c' style='--a:{tc}'><s>Takım Lideri</s><b>{t_name}</b><i>{t_pts} P{(' · ' + gap) if gap else ''}</i></div>
+      <div class='ss-c' style='--a:#f5c33b'><s>Kalan Yarış</s><b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>
     </div>
     """
 
@@ -5127,6 +5136,135 @@ def get_driver_career_stats_v28(driver_code):
         return empty
 
 
+@st.cache_data(ttl=60 * 60 * 6, show_spinner=False)
+def get_driver_deep_stats_v32(driver_code, scope="season", season="2026"):
+    """Sampiyona Merkezi pilot derin-istatistik karti icin.
+
+    scope='season' -> yalniz o sezon; 'career' -> tum kariyer + pist bazinda galibiyet.
+    Her sayi, pilotun kendi sonuc satirindan hesaplanir; kaynak yoksa verified=False.
+    """
+    code = str(driver_code or '').upper().strip()
+    api_code = STEWARDLE_ACTIVE_API_IDS_V24.get(code, '')
+    if not api_code:
+        return {'verified': False}
+    try:
+        rows = _career_verified_rows_v28(api_code)
+    except Exception as error:
+        log_data_error('driver deep stats', error)
+        return {'verified': False}
+    if not rows:
+        return {'verified': False}
+    if scope == "season":
+        rows = [(r, res) for r, res in rows if str(r.get('season', '')).strip() == str(season)]
+    if not rows:
+        return {'verified': True, 'empty': True}
+
+    wins = podiums = poles = fastest_laps = dnf = 0
+    points = 0.0
+    finishes, grids, circuit_wins = [], [], {}
+    for race, res in rows:
+        pos = _career_number_v27(res.get('position'))
+        grid = _career_number_v27(res.get('grid'))
+        status = str(res.get('status', '')).strip()
+        points += _career_float_v27(res.get('points')) or 0.0
+        if grid == 1:
+            poles += 1
+        if grid:
+            grids.append(grid)
+        is_dnf = bool(status) and status.lower() != 'finished' and not status.startswith('+')
+        if is_dnf:
+            dnf += 1
+        elif pos:
+            finishes.append(pos)
+            if pos == 1:
+                wins += 1
+                circ = str((race.get('Circuit', {}) or {}).get('circuitName', '')).strip()
+                if circ:
+                    circuit_wins[circ] = circuit_wins.get(circ, 0) + 1
+            if pos in (1, 2, 3):
+                podiums += 1
+        if str((res.get('FastestLap', {}) or {}).get('rank', '')).strip() == '1':
+            fastest_laps += 1
+
+    return {
+        'verified': True, 'empty': False, 'races': len(rows), 'points': round(points, 1),
+        'wins': wins, 'podiums': podiums, 'poles': poles, 'fastest_laps': fastest_laps, 'dnf': dnf,
+        'best': min(finishes) if finishes else None,
+        'worst': max(finishes) if finishes else None,
+        'avg_grid': round(sum(grids) / len(grids), 1) if grids else None,
+        'circuit_wins': sorted(circuit_wins.items(), key=lambda pair: -pair[1])[:6],
+    }
+
+
+def driver_deep_stats_hud_html(name, code, team, stats, scope, colour):
+    if not stats.get('verified'):
+        return ("<div style='padding:16px;color:#9fb0c0;font-family:Saira,sans-serif'>"
+                "Bu pilot icin dogrulanmis kariyer verisi su an alinamadi.</div>")
+    if stats.get('empty'):
+        return (f"<div style='padding:16px;color:#9fb0c0;font-family:Saira,sans-serif'>"
+                f"{html_lib.escape(str(name))} icin bu sezona ait tamamlanmis yaris kaydi yok.</div>")
+
+    def cell(label, value, cls=''):
+        return (f"<div><s>{html_lib.escape(label)}</s>"
+                f"<b class='{cls}'>{html_lib.escape(str(value if value is not None else '—'))}</b></div>")
+
+    best = f"P{stats['best']}" if stats.get('best') else '—'
+    worst = f"P{stats['worst']}" if stats.get('worst') else '—'
+    scope_label = 'Bu Sezon' if scope == 'season' else 'Kariyer'
+    grid = [
+        cell(f"{scope_label} Puan", stats['points']),
+        cell("Galibiyet", stats['wins'], 'g'),
+        cell("Podyum", stats['podiums']),
+        cell("Pole (grid P1)", stats['poles']),
+        cell("Yaris Disi (DNF)", stats['dnf'], 'r'),
+        cell("En Iyi Bitis", best),
+        cell("En Kotu Bitis", worst),
+        cell("Ort. Grid", stats['avg_grid']),
+    ]
+    circ_rows = ''
+    if scope == 'career' and stats.get('circuit_wins'):
+        top = stats['circuit_wins'][0][1] or 1
+        for circ, n in stats['circuit_wins']:
+            pct = round(n / top * 100)
+            circ_rows += (f"<div class='cr'><span class='cn'>{html_lib.escape(circ)}</span>"
+                          f"<span class='bar'><i style='width:{pct}%'></i></span>"
+                          f"<span class='cw'>×{n}</span></div>")
+        circ_rows = f"<div class='circ'><h4>Pist Bazinda Galibiyet (kariyer)</h4>{circ_rows}</div>"
+
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ds{{border:1px solid #26313f;border-radius:6px;background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
+      .dh{{display:flex;align-items:center;gap:14px;padding:15px 18px;border-bottom:1px solid #26313f;border-left:4px solid {colour}}}
+      .dh .c{{font-family:'Antonio','Saira Condensed',sans-serif;font-weight:700;font-size:32px;color:{colour};line-height:1}}
+      .dh .w{{flex:1}}
+      .dh .w b{{font:700 18px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .dh .w span{{display:block;font-size:11px;color:#9fb0c0;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}}
+      .g{{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1b2330}}
+      .g > div{{background:#11161f;padding:12px 15px}}
+      .g s{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a;text-decoration:none}}
+      .g b{{display:block;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:19px;margin-top:6px}}
+      .g b.g{{color:#38e1d0}} .g b.r{{color:#e10600}}
+      .circ{{padding:13px 18px}}
+      .circ h4{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#63748a;margin-bottom:9px}}
+      .cr{{display:grid;grid-template-columns:130px 1fr 40px;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1b2330}}
+      .cr:last-child{{border-bottom:0}}
+      .cr .cn{{font:600 12px 'Saira',sans-serif;color:#9fb0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .cr .bar{{height:6px;background:#07090d;border-radius:99px;overflow:hidden}}
+      .cr .bar i{{display:block;height:100%;background:{colour}}}
+      .cr .cw{{font:700 12px 'JetBrains Mono',monospace;text-align:right}}
+      @media(max-width:440px){{.g{{grid-template-columns:repeat(2,1fr)}}.cr{{grid-template-columns:96px 1fr 34px}}}}
+    </style>
+    <div class="ds">
+      <div class="dh"><span class="c">{html_lib.escape(str(code))}</span>
+        <span class="w"><b>{html_lib.escape(str(name))}</b><span>{html_lib.escape(str(team))} · {stats['races']} yaris</span></span>
+      </div>
+      <div class="g">{''.join(grid)}</div>
+      {circ_rows}
+    </div>
+    """
+
+
 def _career_panel_v28(info, stats, colour):
     code = str(info.get('code', '')).upper()
     portrait = current_driver_portrait(info.get('team', ''), info.get('image', ''))
@@ -6770,25 +6908,23 @@ elif st.session_state['page'] == 'standings':
     elif not driver_standings.empty:
         render_html_hud(
             championship_snapshot_hud(driver_standings, constructor_standings, completed_rounds),
-            height=150,
+            height=160,
             scrolling=False,
         )
-        round_labels = " · ".join(round_info['badge'] for round_info in completed_rounds)
-        fp_ui.hud_card("Tamamlanan Pistler", round_labels,
-                       "Sprint hafta sonlarinda hucre: yaris sirasi / sprint sirasi", accent="cyan")
         st.write("")
-        driver_tab, team_tab = st.tabs(["Sezon Tablosu", "Takim Puanlari"])
+        driver_tab, team_tab, stat_tab = st.tabs(["Sezon Tablosu", "Takim Puanlari", "Pilot Istatistikleri"])
         with driver_tab:
             if 'championship_matrix_mode' not in st.session_state:
                 st.session_state['championship_matrix_mode'] = 'sıralama'
             sort_button, points_button = st.columns(2)
+            _mm = st.session_state['championship_matrix_mode']
             with sort_button:
-                if st.button("Siralama", key='championship_show_positions', use_container_width=True,
-                             type="primary" if st.session_state['championship_matrix_mode'] != 'puan' else "secondary"):
+                if st.button(("● " if _mm != 'puan' else "○ ") + "Siralama", key='championship_show_positions',
+                             use_container_width=True):
                     st.session_state['championship_matrix_mode'] = 'sıralama'
             with points_button:
-                if st.button("Puan", key='championship_show_points', use_container_width=True,
-                             type="primary" if st.session_state['championship_matrix_mode'] == 'puan' else "secondary"):
+                if st.button(("● " if _mm == 'puan' else "○ ") + "Puan", key='championship_show_points',
+                             use_container_width=True):
                     st.session_state['championship_matrix_mode'] = 'puan'
 
             show_points = st.session_state['championship_matrix_mode'] == 'puan'
@@ -6808,6 +6944,22 @@ elif st.session_state['page'] == 'standings':
             render_html_hud(
                 constructor_hud_html(constructor_standings),
                 height=constructor_hud_component_height(constructor_standings),
+                scrolling=False,
+            )
+        with stat_tab:
+            _codes = [str(r.get('Pilot', '')).strip() for _, r in driver_standings.iterrows() if str(r.get('Pilot', '')).strip()]
+            _team_of = {str(r.get('Pilot', '')).strip(): str(r.get('Takım', '')).strip() for _, r in driver_standings.iterrows()}
+            _sc1, _sc2 = st.columns([2, 1])
+            _pick = _sc1.selectbox("Pilot", _codes, format_func=lambda c: f"{directory_driver_by_code(c)['name']} ({c})", key="champ_stat_driver")
+            _scope_label = _sc2.radio("Kapsam", ["Bu Sezon", "Kariyer"], horizontal=True, key="champ_stat_scope")
+            _scope = "career" if _scope_label == "Kariyer" else "season"
+            _info = directory_driver_by_code(_pick)
+            _dstats = get_driver_deep_stats_v32(_pick, _scope, "2026")
+            _dcol = team_colour(_team_of.get(_pick) or _info.get('team') or '')
+            _rows_n = len(_dstats.get('circuit_wins', [])) if _scope == 'career' else 0
+            render_html_hud(
+                driver_deep_stats_hud_html(_info['name'], _pick, _team_of.get(_pick) or _info.get('team') or '—', _dstats, _scope, _dcol),
+                height=(255 if (_dstats.get('verified') and not _dstats.get('empty')) else 90) + _rows_n * 33 + (36 if _rows_n else 0),
                 scrolling=False,
             )
     st.write("")
