@@ -23,7 +23,6 @@ import pandas as pd
 import openf1_fallback
 
 # Yeniden yapilandirma (redesign) — tasarim sistemi
-from core import nav as fp_nav
 from core import ui as fp_ui
 from core import plot as fp_plot
 from core import i18n as fp_i18n
@@ -2662,8 +2661,6 @@ def paddock_assistant_answer_v19(question, year=None):
         else:
             sentence = f"{driver}, {latest['display_name']} seansını {position} tamamladı."
         return {'title': f"{driver} sonucu", 'answer': sentence, 'source': source}
-    if False and driver and row and any(token in text for token in ['kacinci', 'sira', 'siralama', 'nerede bitir', 'pozisyon']):
-        return {'title': f"{driver} sonucu", 'answer': f"{driver}, son tamamlanan {latest['display_name']} seansını P{row.get('Sıra', '—')} ile bitirdi.", 'source': source}
     if driver and row and any(token in text for token in ['lastik', 'hamur']):
         tyre = row.get('Lastik')
         if tyre and tyre != '—':
@@ -2832,8 +2829,11 @@ def _race_position(value):
 
 
 @st.cache_data(ttl=604800, show_spinner=False)
-def build_stable_race_replay_payload(year, event_name):
-    """Tek ortak SessionTime saatiyle doğrulanmış, akıcı yarış tekrar paketi.
+def _build_stable_race_replay_payload_v25(year, event_name):
+    """FastF1-yalnız yedek kurucu (v2.5). Dışarıdan `build_stable_race_replay_payload`
+    (aşağıda, OpenF1 önce) çağrılır; bu, o fonksiyonun FastF1 yedeğidir.
+
+    Tek ortak SessionTime saatiyle doğrulanmış, akıcı yarış tekrar paketi.
 
     FastF1'in `Time`, `LapStartTime`, `PitInTime` ve `PitOutTime` alanları aynı
     seans saatini kullanır. Bu nedenle tüm araçların saati ayrı ayrı sıfırlanmaz.
@@ -4961,7 +4961,6 @@ st.markdown(r"""
 # =========================================================
 
 
-_build_stable_race_replay_payload_v25 = build_stable_race_replay_payload
 _two_driver_duel_html_repaired_v25 = two_driver_duel_html_repaired
 
 
@@ -5490,7 +5489,7 @@ def driver_profile_header_html(name, code, nation, number, prof, colour, titles=
       .pt .no{{font-family:'JetBrains Mono',monospace;font-weight:700;color:{colour};font-size:16px}}
       .pg{{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#1b2330}}
       .pg > div{{background:#11161f;padding:12px 14px}}
-      .pg s{{font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#63748a;text-decoration:none}}
+      .pg s{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
       .pg b{{display:block;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;margin-top:6px}}
       .pg b.g{{color:#38e1d0}} .pg b.r{{color:#e10600}}
       @media(max-width:640px){{.pg{{grid-template-columns:repeat(3,1fr)}}}}
@@ -5559,7 +5558,7 @@ def driver_seasons_hud_html(seasons, colour):
       .tt{{border:1px solid #26313f;border-radius:6px;overflow:hidden;background:#11161f}}
       .hd,.row{{display:grid;grid-template-columns:60px 1.5fr 40px 1.1fr 42px 50px;gap:10px;align-items:center;padding:9px 15px}}
       .hd{{background:#161d28;border-bottom:1px solid #26313f}}
-      .hd span{{font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a}}
+      .hd span{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8a9bb0}}
       .row{{border-bottom:1px solid #1b2330}}
       .row:last-child{{border-bottom:0}}
       .row:nth-child(odd){{background:#131a24}}
@@ -5614,7 +5613,7 @@ def driver_races_hud_html(races, colour):
       .tt{{border:1px solid #26313f;border-radius:6px;overflow:hidden;background:#11161f}}
       .hd,.row{{display:grid;grid-template-columns:30px 1.7fr 34px 50px 42px 40px 1fr;gap:9px;align-items:center;padding:8px 15px}}
       .hd{{background:#161d28;border-bottom:1px solid #26313f}}
-      .hd span{{font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#63748a}}
+      .hd span{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8a9bb0}}
       .row{{border-bottom:1px solid #1b2330}}
       .row:last-child{{border-bottom:0}}
       .row:nth-child(odd){{background:#131a24}}
@@ -5798,7 +5797,7 @@ def driver_deep_stats_hud_html(name, code, team, stats, scope, colour):
       .dh .w span{{display:block;font-size:11px;color:#9fb0c0;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}}
       .g{{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1b2330}}
       .g > div{{background:#11161f;padding:12px 15px}}
-      .g s{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a;text-decoration:none}}
+      .g s{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
       .g b{{display:block;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:19px;margin-top:6px}}
       .g b.g{{color:#38e1d0}} .g b.r{{color:#e10600}}
       .circ{{padding:13px 18px}}
@@ -6311,7 +6310,7 @@ def games_profile_hud_html(profile):
       .gp-rank{{font:800 26px 'Saira Condensed',sans-serif;text-transform:uppercase;color:{rank_col};margin-top:4px;line-height:1}}
       .gp-stats{{display:flex;gap:22px;flex-wrap:wrap}}
       .gp-stat b{{display:block;font:700 20px 'JetBrains Mono',monospace}}
-      .gp-stat span{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a}}
+      .gp-stat span{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8a9bb0}}
       .gp-bar{{height:5px;background:#0c1016;border-radius:99px;margin-top:14px;overflow:hidden}}
       .gp-bar i{{display:block;height:100%;width:{progress}%;background:{rank_col}}}
     </style>
@@ -6370,28 +6369,28 @@ st.markdown(r"""
 
 # Final authoritative theme layer. This comes after legacy visual patches so
 # light/dark mode cannot be overwritten by an older hard-coded dark selector.
-st.markdown(f"""
+st.markdown(r"""
 <style>
-html,body,#root,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"]{{
+html,body,#root,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"]{
   color:var(--fp-text)!important;
   background-color:var(--fp-page)!important;
   background-image:linear-gradient(var(--fp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--fp-grid) 1px,transparent 1px),radial-gradient(circle at 82% 8%,var(--fp-glow),transparent 31%),linear-gradient(135deg,var(--fp-page),var(--fp-page2))!important;
   background-size:44px 44px,44px 44px,100% 100%,100% 100%!important;
   animation:none!important;
-}}
-[data-testid="stHeader"]{{background:color-mix(in srgb,var(--fp-page) 92%,transparent)!important}}
-section[data-testid="stSidebar"]{{background:linear-gradient(180deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:8px 0 24px var(--fp-shadow)!important}}
-section[data-testid="stSidebar"] *,section[data-testid="stSidebar"] p,section[data-testid="stSidebar"] label{{color:var(--fp-text)!important}}
-.nav-section-v29{{color:var(--fp-muted)!important;background:linear-gradient(90deg,color-mix(in srgb,#e10600 12%,var(--fp-panel)),transparent)!important}}
-section[data-testid="stSidebar"] div[data-testid="stButton"]>button{{background:linear-gradient(90deg,var(--fp-panel2),var(--fp-panel))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 5px 13px var(--fp-shadow)!important;transition:border-color .14s ease,transform .14s ease!important}}
-section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:#259ad4!important;transform:translateX(1px)!important}}
-section[data-testid="stSidebar"] [data-testid="stExpander"]{{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}}
-.f1-header,.hud-card,.metric-card,.news-card,.driver-card,.career-panel-v28,.career-metric-v28,[data-testid="stMetric"],[data-testid="stAlert"],div[data-testid="stExpander"]{{background:linear-gradient(145deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 10px 26px var(--fp-shadow)!important}}
-.f1-header h1,.hud-value,.news-title,.metric-card .value,.career-metric-v28 b,h1,h2,h3,h4{{color:var(--fp-text)!important}}
-.f1-header p,.history-copy,.driver-meta,.news-desc,.metric-card .title,.career-hero-v28 p,.career-source-v28,[data-testid="stCaptionContainer"]{{color:var(--fp-muted)!important}}
-div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}}
-.status-dot-v31{{animation:none!important;box-shadow:0 0 9px rgba(104,231,174,.7)!important}}
-*{{scrollbar-color:var(--fp-line) var(--fp-panel2)}}
+}
+[data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-page) 92%,transparent)!important}
+section[data-testid="stSidebar"]{background:linear-gradient(180deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:8px 0 24px var(--fp-shadow)!important}
+section[data-testid="stSidebar"] *,section[data-testid="stSidebar"] p,section[data-testid="stSidebar"] label{color:var(--fp-text)!important}
+.nav-section-v29{color:var(--fp-muted)!important;background:linear-gradient(90deg,color-mix(in srgb,#e10600 12%,var(--fp-panel)),transparent)!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"]>button{background:linear-gradient(90deg,var(--fp-panel2),var(--fp-panel))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 5px 13px var(--fp-shadow)!important;transition:border-color .14s ease,transform .14s ease!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:#259ad4!important;transform:translateX(1px)!important}
+section[data-testid="stSidebar"] [data-testid="stExpander"]{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}
+.f1-header,.hud-card,.metric-card,.news-card,.driver-card,.career-panel-v28,.career-metric-v28,[data-testid="stMetric"],[data-testid="stAlert"],div[data-testid="stExpander"]{background:linear-gradient(145deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 10px 26px var(--fp-shadow)!important}
+.f1-header h1,.hud-value,.news-title,.metric-card .value,.career-metric-v28 b,h1,h2,h3,h4{color:var(--fp-text)!important}
+.f1-header p,.history-copy,.driver-meta,.news-desc,.metric-card .title,.career-hero-v28 p,.career-source-v28,[data-testid="stCaptionContainer"]{color:var(--fp-muted)!important}
+div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}
+.status-dot-v31{animation:none!important;box-shadow:0 0 9px rgba(104,231,174,.7)!important}
+*{scrollbar-color:var(--fp-line) var(--fp-panel2)}
 </style>
 """, unsafe_allow_html=True)
 
