@@ -13,7 +13,7 @@ import os
 import pytest
 
 import streamlit_app as app
-from core import i18n
+from core import i18n, theme, ui
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 
@@ -147,3 +147,23 @@ def test_i18n_switch():
     assert i18n.t("nav.drivers") == "Drivers"
     assert i18n.t("does.not.exist") == "does.not.exist"
     i18n.set_lang("tr")
+
+
+# --------------------------------------------------------------------------
+# safe_html — XSS gomme kapisi
+# --------------------------------------------------------------------------
+def test_safe_html():
+    assert ui.safe_html("<script>alert(1)</script>") == "&lt;script&gt;alert(1)&lt;/script&gt;"
+    assert ui.safe_html(None) == ""
+    assert '"' not in ui.safe_html('a"b', quote=True)
+
+
+# --------------------------------------------------------------------------
+# tema CSS ureticileri lru_cache'li ve kararli (her rerun'da yeniden uretilmiyor)
+# --------------------------------------------------------------------------
+def test_theme_css_cached_and_stable():
+    a = theme.shell_style()
+    b = theme.shell_style()
+    assert a is b                        # ayni nesne -> lru_cache calisiyor
+    assert "data:image/svg" in a         # pist silueti gomulu
+    assert theme.page_style() is theme.page_style()

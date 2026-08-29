@@ -29,6 +29,14 @@ def _esc(value):
     return _html.escape(str(value if value is not None else ""))
 
 
+def safe_html(value, *, quote=False):
+    """Dış/kullanıcı verisini `unsafe_allow_html=True` markup'ına gömmeden önce
+    kaçış uygula. KURAL: `st.markdown(f"<div>...{X}...", unsafe_allow_html=True)`
+    içindeki HER dinamik değer (pilot/takım adı, haber başlığı, arama metni,
+    API alanı) `safe_html(X)`'ten geçmeli. `quote=True` -> attribute değeri."""
+    return _html.escape(str(value if value is not None else ""), quote=quote)
+
+
 def _embed_html(markup, height=0, scrolling=False):
     """Tek HTML/JS gomme kapisi.
 

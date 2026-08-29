@@ -46,9 +46,39 @@ def safe_external_url(value, allowed_hosts=None):
         return ''
 
 
+_DATA_ERROR_LOG = []          # son N veri-kaynağı hatası (süreç ömrü boyunca)
+_DATA_ERROR_COUNT = {"n": 0}  # toplam sayaç
+
+
 def log_data_error(context, error):
-    """Ekranı kırmadan, geliştiricinin gerçek hatayı terminal günlüklerinde görmesini sağlar."""
+    """Ekranı kırmadan gerçek hatayı terminal günlüğüne + hafif bir tanılama
+    tamponuna yazar (``?debug=1`` ile kenar menüde görülür)."""
     LOGGER.warning("%s | %s | %s", context, type(error).__name__, str(error)[:420])
+    try:
+        _DATA_ERROR_COUNT["n"] += 1
+        _DATA_ERROR_LOG.append("{} · {} · {}".format(
+            datetime.datetime.now().strftime("%H:%M:%S"),
+            str(context)[:48],
+            type(error).__name__,
+        ))
+        del _DATA_ERROR_LOG[:-40]
+    except Exception:
+        pass
+
+
+def render_data_diagnostics_panel():
+    """Kenar menü altında, yalnızca ``?debug=1`` sorgu parametresiyle görünür."""
+    try:
+        debug_on = str(st.query_params.get("debug", "")) in ("1", "true", "yes")
+    except Exception:
+        debug_on = False
+    if not debug_on:
+        return
+    with st.sidebar.expander(f"🩺 Veri tanılama · {_DATA_ERROR_COUNT['n']} hata", expanded=False):
+        if not _DATA_ERROR_LOG:
+            st.caption("Bu oturumda kaydedilmiş veri hatası yok.")
+        else:
+            st.code("\n".join(reversed(_DATA_ERROR_LOG)), language="text")
 
 
 def cache_data_safe(ttl, *, on_error=None, label=None, show_spinner=False):
@@ -4046,6 +4076,7 @@ with st.sidebar.expander("⭐ Hızlı Favori", expanded=False):
     st.caption(f"Favorin: {favourite_team} — {favourite_driver}")
 
 st.sidebar.caption("Formula Paddock · Bağımsız F1 veri ve oyun merkezi")
+render_data_diagnostics_panel()
 
 # ==========================================
 # SAYFA 1: ANA SAYFA & DİNAMİK RACECENTER
