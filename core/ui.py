@@ -117,38 +117,71 @@ _DOCK_SCRIPT = r"""
   var tg = D.getElementById('fp-dock-toggle');
   if(tg) tg.onclick=function(){ dock.classList.toggle('open'); };
 
-  /* --- ortam muzigi: parent'a bagli AudioContext, iframe yeniden yuklense de yasar --- */
+  /* --- ortam muzigi: parent'a bagli AudioContext, iframe yeniden yuklense de yasar ---
+     Telifsiz, tamamen tarayicida uretilen lo-fi ambient yatak:
+     akor ilerlemesi (Am7 - Fmaj7 - Cmaj7 - G) + yumusak bas + arpej + delay.  */
   var AC = (P.AudioContext || P.webkitAudioContext || window.AudioContext || window.webkitAudioContext);
-  P.__fpAudio = P.__fpAudio || {ctx:null, master:null, nodes:[], on:false, vol:0.35};
+  P.__fpAudio = P.__fpAudio || {ctx:null, master:null, timer:null, step:0, next:0, on:false, vol:0.35};
   var A = P.__fpAudio;
   var mBtn = D.getElementById('fp-music'), vol = D.getElementById('fp-vol');
 
-  function gain(){ return Math.max(0, Math.min(1, A.vol)) * 0.42; }
+  var PROG = [ [57,60,64,67], [53,57,60,65], [48,52,55,59], [55,59,62,67] ]; /* MIDI: Am7 Fmaj7 Cmaj7 G */
+  function mtof(n){ return 440 * Math.pow(2, (n - 69) / 12); }
+  function gain(){ return Math.max(0, Math.min(1, A.vol)) * 0.5; }
   function sync(){ if(mBtn) mBtn.textContent = A.on ? '⏸' : '▶'; if(vol) vol.value = Math.round(A.vol*100); }
 
   function startMusic(){
     if(!AC){ if(mBtn) mBtn.textContent='—'; return; }
-    A.ctx = new AC();
-    A.ctx.resume && A.ctx.resume();
-    A.master = A.ctx.createGain(); A.master.gain.value = 0.0001; A.master.connect(A.ctx.destination);
-    A.master.gain.setTargetAtTime(gain(), A.ctx.currentTime, 1.2);           /* yumusak giris */
-    var filt = A.ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=900; filt.Q.value=0.4; filt.connect(A.master);
-    var chord = [110.0, 164.81, 220.0, 277.18];   /* A - E - A - C#  yumusak pad */
-    chord.forEach(function(f,i){
-      var o=A.ctx.createOscillator(); o.type = i===1 ? 'triangle' : 'sine'; o.frequency.value=f;
-      var g=A.ctx.createGain(); g.gain.value=0.0001;
-      o.connect(g); g.connect(filt); o.start();
-      g.gain.setTargetAtTime(0.5/(i+1.6), A.ctx.currentTime, 4.0);
-      var lfo=A.ctx.createOscillator(); lfo.frequency.value = 0.04 + i*0.02;
-      var lg=A.ctx.createGain(); lg.gain.value = 2.5; lfo.connect(lg); lg.connect(o.detune); lfo.start();
-      A.nodes.push(o, lfo);
-    });
+    var ctx = new AC(); A.ctx = ctx; ctx.resume && ctx.resume();
+    var master = ctx.createGain(); master.gain.value = 0.0001; A.master = master;
+    var lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1500; lp.Q.value=0.5;
+    var dl = ctx.createDelay(1.0); dl.delayTime.value = 0.375;
+    var fb = ctx.createGain(); fb.gain.value = 0.30;
+    var wet = ctx.createGain(); wet.gain.value = 0.22;
+    lp.connect(master); lp.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(master);
+    master.connect(ctx.destination);
+    master.gain.setTargetAtTime(gain(), ctx.currentTime, 1.6);
+
+    var tempo = 64, beat = 60/tempo, stepDur = beat/2;   /* 8'lik adimlar */
+    A.step = 0; A.next = ctx.currentTime + 0.15;
+
+    function voice(freq, t, dur, type, peak){
+      if(!A.ctx) return;
+      var o = ctx.createOscillator(); o.type = type || 'sine'; o.frequency.value = freq;
+      var g = ctx.createGain(); g.gain.value = 0.0001;
+      o.connect(g); g.connect(lp);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.start(t); o.stop(t + dur + 0.06);
+    }
+
+    function schedule(){
+      if(!A.ctx) return;
+      while(A.next < ctx.currentTime + 0.35){
+        var s = A.step, chord = PROG[Math.floor(s/8) % PROG.length], inBar = s % 8;
+        if(inBar === 0){
+          chord.forEach(function(n,i){ voice(mtof(n), A.next, beat*4*1.05, i===0?'sine':'triangle', 0.05/(i*0.6+1)); });
+        }
+        if(inBar % 2 === 0){ voice(mtof(chord[0]-12), A.next, beat*0.95, 'sine', 0.13); }
+        if(inBar !== 3 && inBar !== 6){
+          var pool = chord.concat([chord[1]+12, chord[2]+12]);
+          voice(mtof(pool[(s*3) % pool.length] + 12), A.next, stepDur*1.7, 'triangle', 0.032);
+        }
+        A.next += stepDur; A.step++;
+      }
+      A.timer = P.setTimeout(schedule, 70);
+    }
+    schedule();
     A.on = true; sync();
   }
   function stopMusic(){
-    A.nodes.forEach(function(n){ try{ n.stop(); }catch(e){} });
-    A.nodes = []; if(A.ctx){ try{ A.ctx.close(); }catch(e){} } A.ctx=null; A.master=null;
-    A.on = false; sync();
+    if(A.timer){ P.clearTimeout(A.timer); A.timer = null; }
+    var c = A.ctx;
+    if(A.master && c){ try{ A.master.gain.setTargetAtTime(0.0001, c.currentTime, 0.4); }catch(e){} }
+    A.ctx = null; A.master = null; A.on = false;
+    if(c){ setTimeout(function(){ try{ c.close(); }catch(e){} }, 900); }
+    sync();
   }
   if(mBtn) mBtn.onclick=function(){ A.on ? stopMusic() : startMusic(); };
   if(vol) vol.oninput=function(e){ A.vol = e.target.value/100; if(A.master && A.ctx) A.master.gain.setTargetAtTime(gain(), A.ctx.currentTime, 0.1); };
