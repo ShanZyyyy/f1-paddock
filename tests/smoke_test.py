@@ -23,7 +23,7 @@ APP = os.path.join(ROOT, "streamlit_app.py")
 # Router'daki tum sayfa anahtarlari (st.session_state['page'] degerleri)
 PAGES = [
     "home", "news", "telemetry", "live", "calendar", "weekend", "story",
-    "compare", "learn", "favourites", "teams", "standings", "f2f3",
+    "compare", "drivers", "learn", "favourites", "teams", "standings", "f2f3",
     "assistant", "glossary", "games", "stewarlde", "gridmaster",
     "team_manager", "predictor", "draft", "paddock_career",
 ]

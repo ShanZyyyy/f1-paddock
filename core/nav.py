@@ -24,6 +24,7 @@ SECTIONS = [
         ("Hafta Sonu Merkezi", "flag", "weekend"),
         ("Yaris Hikayesi", "menu_book", "story"),
         ("Pilot Karsilastirma", "compare_arrows", "compare"),
+        ("Pilotlar", "badge", "drivers"),
     ]),
     ("Sampiyonalar", [
         ("2026 Takimlar & Pilotlar", "groups", "teams"),

@@ -164,6 +164,21 @@ def control_dock():
     components.html(_DOCK_SCRIPT, height=0)
 
 
+def anchor(anchor_id):
+    """Sayfaya gorunmez bir kaydirma hedefi koyar."""
+    st.markdown(f"<div id='{_esc(anchor_id)}' style='scroll-margin-top:70px'></div>", unsafe_allow_html=True)
+
+
+def scroll_to(anchor_id):
+    """Verilen id'li ogeye yumusak kaydirir (rerun sonrasi)."""
+    components.html(
+        "<script>setTimeout(function(){var e=window.parent.document.getElementById('"
+        + str(anchor_id).replace("'", "") +
+        "');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},60);</script>",
+        height=0,
+    )
+
+
 def inject_shell_theme():
     """Faz 2 gecis donemi kabuk temasi: :root jetonlari + yeni sakin arka plan
     + slim-rail sidebar (menu + expander'lar).

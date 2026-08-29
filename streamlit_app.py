@@ -456,7 +456,7 @@ def get_session_summary(year, gp_name, session_code):
                 _dnf = []
                 for _, row in ordered.iterrows():
                     _st = str(row.get('Status', '')).strip()
-                    if _st and _st.lower() != 'finished' and not _st.startswith('+'):
+                    if _st and _st.lower() != 'finished' and not _st.startswith('+') and 'lap' not in _st.lower():
                         _dnf.append(str(row.get('Abbreviation', '')).strip())
                 if _dnf:
                     _names = ', '.join(d for d in _dnf[:3] if d)
@@ -3949,6 +3949,7 @@ _navk("calendar_month", "calendar")
 _navk("flag", "weekend")
 _navk("menu_book", "story")
 _navk("compare_arrows", "compare")
+_navk("badge", "drivers")
 
 fp_ui.sidebar_section(T("section.paddock"))
 _navk("school", "learn")
@@ -5202,7 +5203,7 @@ def get_driver_deep_stats_v32(driver_code, scope="season", season="2026"):
             poles += 1
         if grid:
             grids.append(grid)
-        is_dnf = bool(status) and status.lower() != 'finished' and not status.startswith('+')
+        is_dnf = bool(status) and status.lower() != 'finished' and not status.startswith('+') and 'lap' not in status.lower()
         if is_dnf:
             dnf += 1
         elif pos:
@@ -5225,6 +5226,285 @@ def get_driver_deep_stats_v32(driver_code, scope="season", season="2026"):
         'avg_grid': round(sum(grids) / len(grids), 1) if grids else None,
         'circuit_wins': sorted(circuit_wins.items(), key=lambda pair: -pair[1])[:6],
     }
+
+
+@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)
+def get_driver_full_profile_v33(api_code):
+    """Pilotlar sayfasi icin tam profil: kariyer + sezon + yaris-yaris.
+
+    Her sayi pilotun kendi Ergast/Jolpica sonuc satirindan gelir; kaynak
+    yoksa {'ok': False}. Tur/pozisyon uydurulmaz.
+    """
+    if not api_code:
+        return {'ok': False}
+    try:
+        rows = _career_verified_rows_v28(api_code)
+    except Exception as error:
+        log_data_error('driver full profile', error)
+        return {'ok': False}
+    if not rows:
+        return {'ok': False}
+
+    wins = podiums = poles = fastest = dnf = 0
+    points = 0.0
+    finishes, grids = [], []
+    circ_wins, teams_years, seasons = {}, {}, {}
+    race_rows = []
+    for race, res in rows:
+        year = str(race.get('season', '')).strip()
+        rnd = _career_number_v27(race.get('round'))
+        rname = str(race.get('raceName', '')).strip()
+        circ = str((race.get('Circuit', {}) or {}).get('circuitName', '')).strip()
+        pos = _career_number_v27(res.get('position'))
+        pos_text = str(res.get('positionText', '')).strip()
+        grid = _career_number_v27(res.get('grid'))
+        status = str(res.get('status', '')).strip()
+        pts = _career_float_v27(res.get('points')) or 0.0
+        team_name = str((res.get('Constructor', {}) or {}).get('name', '')).strip()
+        is_dnf = bool(status) and status.lower() != 'finished' and not status.startswith('+') and 'lap' not in status.lower()
+
+        points += pts
+        if grid == 1:
+            poles += 1
+        if grid:
+            grids.append(grid)
+        if str((res.get('FastestLap', {}) or {}).get('rank', '')).strip() == '1':
+            fastest += 1
+        if is_dnf:
+            dnf += 1
+        elif pos:
+            finishes.append(pos)
+            if pos == 1:
+                wins += 1
+                if circ:
+                    circ_wins[circ] = circ_wins.get(circ, 0) + 1
+            if pos in (1, 2, 3):
+                podiums += 1
+
+        if team_name and year:
+            yr = int(year)
+            lo, hi = teams_years.get(team_name, (yr, yr))
+            teams_years[team_name] = (min(lo, yr), max(hi, yr))
+
+        s = seasons.setdefault(year, {'year': year, 'team': team_name, 'points': 0.0,
+                                      'wins': 0, 'races': 0, 'best': None})
+        s['points'] += pts
+        s['races'] += 1
+        s['team'] = team_name or s['team']
+        if pos == 1:
+            s['wins'] += 1
+        if pos and (s['best'] is None or pos < s['best']):
+            s['best'] = pos
+
+        race_rows.append({
+            'year': year, 'round': rnd or 0, 'race': rname, 'circuit': circ,
+            'grid': grid, 'pos': (pos_text if pos_text else '—'),
+            'points': round(pts, 1), 'status': status, 'dnf': is_dnf,
+        })
+
+    race_rows.sort(key=lambda r: (r['year'], r['round']), reverse=True)
+    season_list = sorted(seasons.values(), key=lambda s: s['year'], reverse=True)
+    for s in season_list:
+        s['points'] = round(s['points'], 1)
+
+    return {
+        'ok': True, 'starts': len(rows), 'points': round(points, 1),
+        'wins': wins, 'podiums': podiums, 'poles': poles, 'fastest_laps': fastest, 'dnf': dnf,
+        'best': min(finishes) if finishes else None,
+        'worst': max(finishes) if finishes else None,
+        'avg_grid': round(sum(grids) / len(grids), 1) if grids else None,
+        'first_season': season_list[-1]['year'] if season_list else '',
+        'last_season': season_list[0]['year'] if season_list else '',
+        'teams': sorted(((n, y[0], y[1]) for n, y in teams_years.items()), key=lambda t: t[1]),
+        'circuit_wins': sorted(circ_wins.items(), key=lambda p: -p[1]),
+        'seasons': season_list,
+        'races': race_rows,
+    }
+
+
+_NATION_FLAG_V33 = {
+    'british': 'gb', 'english': 'gb', 'german': 'de', 'dutch': 'nl', 'spanish': 'es', 'french': 'fr',
+    'italian': 'it', 'finnish': 'fi', 'australian': 'au', 'mexican': 'mx', 'canadian': 'ca',
+    'monegasque': 'mc', 'thai': 'th', 'japanese': 'jp', 'american': 'us', 'brazilian': 'br',
+    'danish': 'dk', 'chinese': 'cn', 'austrian': 'at', 'argentine': 'ar', 'argentinian': 'ar',
+    'new zealander': 'nz', 'belgian': 'be', 'swiss': 'ch', 'polish': 'pl', 'russian': 'ru',
+    'swedish': 'se', 'portuguese': 'pt', 'indian': 'in', 'venezuelan': 've', 'colombian': 'co',
+}
+
+
+def driver_profile_header_html(name, code, nation, number, prof, colour):
+    flag = _NATION_FLAG_V33.get(str(nation or '').strip().lower(), '')
+    flag_img = (f"<img src='https://flagcdn.com/w40/{flag}.png' alt='' "
+                f"style='width:26px;height:17px;object-fit:cover;border-radius:2px;vertical-align:middle'>") if flag else ''
+    span = f"{prof.get('first_season', '')}–{prof.get('last_season', '')}" if prof.get('ok') else '—'
+    last_team = prof['seasons'][0]['team'] if prof.get('ok') and prof.get('seasons') else '—'
+    num = str(number or '').lstrip('#').strip()
+    no_html = f"<span class='no'>#{html_lib.escape(num)}</span>" if num else ''
+    meta = " · ".join(p for p in [html_lib.escape(str(nation or '')), span, html_lib.escape(str(last_team))] if p and p != '—')
+
+    def s(label, value, cls=''):
+        return (f"<div><s>{html_lib.escape(label)}</s>"
+                f"<b class='{cls}'>{html_lib.escape(str(value if value is not None else '—'))}</b></div>")
+
+    if not prof.get('ok'):
+        grid = "<div style='padding:16px;color:#9fb0c0'>Bu pilot için doğrulanmış kariyer kaydı şu an alınamadı.</div>"
+    else:
+        best = f"P{prof['best']}" if prof.get('best') else '—'
+        worst = f"P{prof['worst']}" if prof.get('worst') else '—'
+        grid = "<div class='pg'>" + ''.join([
+            s('Yarış', prof['starts']), s('Puan', prof['points']),
+            s('Galibiyet', prof['wins'], 'g'), s('Podyum', prof['podiums']),
+            s('Pole (grid P1)', prof['poles']), s('En Hızlı Tur', prof['fastest_laps']),
+            s('Yarış Dışı', prof['dnf'], 'r'), s('En İyi / En Kötü', f"{best} / {worst}"),
+            s('Ort. Grid', prof['avg_grid']), s('Şampiyonluk', prof.get('titles', 0), 'g'),
+        ]) + "</div>"
+
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ph{{border:1px solid #26313f;border-radius:6px;background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
+      .pt{{display:flex;align-items:center;gap:16px;padding:18px 20px;border-bottom:1px solid #26313f;border-left:4px solid {colour}}}
+      .pt .c{{font-family:'Antonio','Saira Condensed',sans-serif;font-weight:700;font-size:40px;color:{colour};line-height:1}}
+      .pt .w{{flex:1;min-width:0}}
+      .pt .w b{{font:800 22px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
+      .pt .w span{{display:block;font-size:12px;color:#9fb0c0;margin-top:3px}}
+      .pt .no{{font-family:'JetBrains Mono',monospace;font-weight:700;color:{colour};font-size:16px}}
+      .pg{{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#1b2330}}
+      .pg > div{{background:#11161f;padding:12px 14px}}
+      .pg s{{font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#63748a;text-decoration:none}}
+      .pg b{{display:block;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;margin-top:6px}}
+      .pg b.g{{color:#38e1d0}} .pg b.r{{color:#e10600}}
+      @media(max-width:640px){{.pg{{grid-template-columns:repeat(3,1fr)}}}}
+      @media(max-width:400px){{.pg{{grid-template-columns:repeat(2,1fr)}}}}
+    </style>
+    <div class="ph">
+      <div class="pt"><span class="c">{html_lib.escape(str(code))}</span>
+        <span class="w"><b>{html_lib.escape(str(name))}</b>
+          <span>{flag_img} {meta} {no_html}</span>
+        </span>
+      </div>
+      {grid}
+    </div>
+    """
+
+
+def _drivers_directory_v33():
+    """2026 grid + tarihi pilot havuzu -> [(code, name, api, nation, number, team, colour, is_2026)]."""
+    try:
+        _db = {str(r.get('api_code', '')).strip(): r for r in _load_stewarlde_database_v29()}
+    except Exception as error:
+        log_data_error('drivers directory db', error)
+        _db = {}
+    out, seen = [], set()
+    for team_name, team in TEAM_DIRECTORY_2026.items():
+        colour = team.get('color', '#63748a')
+        for name, code, number, _img in team['drivers']:
+            api = STEWARDLE_ACTIVE_API_IDS_V24.get(code, str(code).lower())
+            nation = str((_db.get(api) or {}).get('nation', '')).strip()
+            out.append((code, name, api, nation, str(number).lstrip('#'), team_name, colour, True))
+            seen.add(api)
+    for api, row in _db.items():
+        if not api or api in seen:
+            continue
+        seen.add(api)
+        out.append((str(row.get('code', api)).upper()[:3] or api[:3].upper(),
+                    row.get('name', api), api, str(row.get('nation', '')).strip(),
+                    '', row.get('team', ''), '#8a9bb0', False))
+    return out
+
+
+def render_drivers_page_v33():
+    fp_ui.page_header(T("page.drivers.title"), T("page.drivers.sub"), eyebrow=T("section.live"))
+    directory = _drivers_directory_v33()
+    by_api = {d[2]: d for d in directory}
+    selected = st.session_state.get('driver_view_v33')
+
+    if selected and selected in by_api:
+        code, name, api, nation, number, team, colour, is_2026 = by_api[selected]
+        if st.button("← Pilot listesine dön", key="drivers_back_v33"):
+            st.session_state.pop('driver_view_v33', None)
+            st.rerun()
+        fp_ui.anchor("fp-driver-detail")
+        _info = directory_driver_by_code(code)
+        colour = team_colour(team) if team else colour
+        with st.spinner("Kariyer kaydı okunuyor…"):
+            prof = get_driver_full_profile_v33(api)
+        render_html_hud(driver_profile_header_html(name, code, nation or _info.get('team', ''), number, prof, colour),
+                        height=340)
+
+        if prof.get('ok'):
+            if prof.get('seasons'):
+                st.write("")
+                fp_ui.section_title("Sezon Dökümü")
+                _sdf = pd.DataFrame([{
+                    'Sezon': s['year'], 'Takım': s['team'], 'Yarış': s['races'],
+                    'Puan': s['points'], 'Galibiyet': s['wins'],
+                    'En İyi': f"P{s['best']}" if s['best'] else '—',
+                } for s in prof['seasons']])
+                st.dataframe(_sdf, use_container_width=True, hide_index=True)
+
+            _cols = st.columns([1, 1])
+            with _cols[0]:
+                if prof.get('circuit_wins'):
+                    fp_ui.section_title("Pist Bazında Galibiyet")
+                    _top = prof['circuit_wins'][0][1] or 1
+                    _bars = ''.join(
+                        f"<div style='display:grid;grid-template-columns:150px 1fr 34px;gap:9px;align-items:center;padding:5px 0'>"
+                        f"<span style='font:600 12px Saira,sans-serif;color:#9fb0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{html_lib.escape(c)}</span>"
+                        f"<span style='height:6px;background:#07090d;border-radius:99px;overflow:hidden'>"
+                        f"<i style='display:block;height:100%;width:{round(n / _top * 100)}%;background:{colour}'></i></span>"
+                        f"<span style='font:700 12px JetBrains Mono,monospace;text-align:right'>×{n}</span></div>"
+                        for c, n in prof['circuit_wins'][:8]
+                    )
+                    st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_bars}</div>", unsafe_allow_html=True)
+                else:
+                    fp_ui.section_title("Pist Bazında Galibiyet")
+                    fp_ui.data_state("Galibiyet Yok", "Bu pilotun doğrulanmış kayıtlarında Grand Prix galibiyeti bulunmuyor.", "info")
+            with _cols[1]:
+                if prof.get('teams'):
+                    fp_ui.section_title("Takımlar")
+                    _tg = ''.join(
+                        f"<div style='display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #1b2330'>"
+                        f"<b style='font:700 13px Saira Condensed,sans-serif;text-transform:uppercase;color:{team_colour(tn)}'>{html_lib.escape(tn)}</b>"
+                        f"<span style='font:12px JetBrains Mono,monospace;color:#9fb0c0'>{y0}{'–' + str(y1) if y1 != y0 else ''}</span></div>"
+                        for tn, y0, y1 in prof['teams']
+                    )
+                    st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_tg}</div>", unsafe_allow_html=True)
+
+            st.write("")
+            fp_ui.section_title(f"Yarış-Yarış Sonuçlar ({len(prof['races'])})")
+            _rdf = pd.DataFrame([{
+                'Sezon': r['year'], 'Yarış': r['race'], 'Grid': r['grid'] or '—',
+                'Sonuç': ('DNF' if r['dnf'] else f"P{r['pos']}" if str(r['pos']).isdigit() else r['pos']),
+                'Puan': r['points'], 'Durum': r['status'],
+            } for r in prof['races']])
+            st.dataframe(_rdf, use_container_width=True, hide_index=True, height=430)
+
+        if st.session_state.pop('_scroll_driver', False):
+            fp_ui.scroll_to("fp-driver-detail")
+        return
+
+    # --- DIZIN GORUNUMU ---
+    only_2026 = st.toggle("Yalnızca 2026 gridi", value=True, key="drivers_only_2026_v33")
+    q = st.text_input("Pilot ara", placeholder="Örn. Verstappen, HAM, Alonso", key="drivers_q_v33").strip().lower()
+    shown = [d for d in directory if (d[7] or not only_2026) and (not q or q in d[1].lower() or q in d[0].lower())]
+    shown.sort(key=lambda d: (not d[7], d[1]))
+    st.caption(f"{len(shown)} pilot")
+    for i in range(0, len(shown), 3):
+        cols = st.columns(3)
+        for col, d in zip(cols, shown[i:i + 3]):
+            code, name, api, nation, number, team, colour, is_2026 = d
+            with col:
+                st.markdown(
+                    f"<div class='hud-card' style='border-left:3px solid {team_colour(team) if team else colour};padding:11px 13px;min-height:74px'>"
+                    f"<div style='font:800 15px Saira Condensed,sans-serif;text-transform:uppercase;letter-spacing:.03em'>{html_lib.escape(name)}</div>"
+                    f"<div class='driver-meta'>{html_lib.escape(code)} · {html_lib.escape(team or '—')}{' · 2026' if is_2026 else ''}</div></div>",
+                    unsafe_allow_html=True,
+                )
+                if st.button("Profili aç", key=f"drv_{api}", use_container_width=True):
+                    st.session_state['driver_view_v33'] = api
+                    st.session_state['_scroll_driver'] = True
+                    st.rerun()
 
 
 def driver_deep_stats_hud_html(name, code, team, stats, scope, colour):
@@ -6861,11 +7141,14 @@ elif st.session_state['page'] == 'teams':
                 )
                 if st.button(f"{team_name}\n{team['drivers'][0][1]} • {team['drivers'][1][1]}", key=f"team_{team_name}", use_container_width=True):
                     st.session_state['team_focus'] = team_name
+                    st.session_state['_scroll_team'] = True
                     st.rerun()
 
     selected_team_name = st.session_state['team_focus']
     selected_team = TEAM_DIRECTORY_2026[selected_team_name]
-    st.markdown("---")
+    st.write("")
+    fp_ui.anchor("fp-team-detail")
+    fp_ui.section_title(f"{selected_team_name} · 2026 Takım Dosyası")
     logo_url = OFFICIAL_TEAM_LOGOS.get(selected_team_name) or get_official_team_logo(selected_team['slug'])
     header_left, header_middle, header_right = st.columns([.85, 2.55, 1.35])
     with header_left:
@@ -6875,7 +7158,6 @@ elif st.session_state['page'] == 'teams':
             unsafe_allow_html=True,
         )
     with header_middle:
-        st.markdown(f"<div class='hud-label'>2026 TAKIM DOSYASI</div><div style='font-size:2rem;font-weight:900;color:#f8fbff;margin-top:2px'>{selected_team_name}</div>", unsafe_allow_html=True)
         st.markdown(f"<div class='history-copy' style='margin-top:8px'>{TEAM_HISTORY.get(selected_team_name, '')}</div>", unsafe_allow_html=True)
         st.link_button("Resmî takım profili ↗", f"https://www.formula1.com/en/teams/{selected_team['slug']}")
     with header_right:
@@ -6911,6 +7193,9 @@ elif st.session_state['page'] == 'teams':
         key=f"driver_profile_{selected_team_name}",
     )
     render_driver_profile_hud(selected_team_name, profile_driver)
+
+    if st.session_state.pop('_scroll_team', False):
+        fp_ui.scroll_to("fp-team-detail")
 
 # SAYFA 6: ŞAMPİYONA MERKEZİ
 elif st.session_state['page'] == 'standings':
@@ -7043,6 +7328,9 @@ elif st.session_state['page'] == 'story':
 
 elif st.session_state['page'] == 'compare':
     render_driver_comparison_centre()
+
+elif st.session_state['page'] == 'drivers':
+    render_drivers_page_v33()
 
 elif st.session_state['page'] == 'learn':
     render_learning_centre()
