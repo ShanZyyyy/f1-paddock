@@ -101,6 +101,22 @@ STRINGS = {
     "eyebrow.paddock": {"tr": "Paddock", "en": "Paddock"},
     "common.source": {"tr": "Kaynak", "en": "Source"},
     "common.loading": {"tr": "Yükleniyor…", "en": "Loading…"},
+
+    # ---- Pilotlar sayfasi ----
+    "drivers.back": {"tr": "← Pilot listesine dön", "en": "← Back to driver list"},
+    "drivers.only_2026": {"tr": "Yalnızca 2026 gridi", "en": "2026 grid only"},
+    "drivers.search": {"tr": "Pilot ara", "en": "Search driver"},
+    "drivers.open_profile": {"tr": "Profili aç", "en": "Open profile"},
+    "drivers.season_breakdown": {"tr": "Sezon Dökümü", "en": "Season Breakdown"},
+    "drivers.race_by_race": {"tr": "Yarış-Yarış Sonuçlar", "en": "Race-by-Race Results"},
+    "drivers.circuit_wins": {"tr": "Pist Bazında Galibiyet", "en": "Wins by Circuit"},
+    "drivers.teams": {"tr": "Takımlar", "en": "Teams"},
+    "drivers.season": {"tr": "Sezon", "en": "Season"},
+    "drivers.reading_career": {"tr": "Kariyer kaydı okunuyor…", "en": "Reading career record…"},
+    "drivers.count": {"tr": "{n} pilot", "en": "{n} drivers"},
+    "drivers.no_wins_title": {"tr": "Galibiyet Yok", "en": "No Wins"},
+    "drivers.no_wins_body": {"tr": "Bu pilotun doğrulanmış kayıtlarında Grand Prix galibiyeti bulunmuyor.",
+                             "en": "This driver has no Grand Prix win in the verified records."},
 }
 
 

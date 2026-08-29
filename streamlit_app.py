@@ -5698,13 +5698,13 @@ def render_drivers_page_v33():
 
     if selected and selected in by_api:
         code, name, api, nation, number, team, colour, is_2026 = by_api[selected]
-        if st.button("← Pilot listesine dön", key="drivers_back_v33"):
+        if st.button(T("drivers.back"), key="drivers_back_v33"):
             st.session_state.pop('driver_view_v33', None)
             st.rerun()
         fp_ui.anchor("fp-driver-detail")
         _info = directory_driver_by_code(code)
         colour = team_colour(team) if team else colour
-        with st.spinner("Kariyer kaydı okunuyor…"):
+        with st.spinner(T("drivers.reading_career")):
             prof = get_driver_full_profile_v33(api)
         _titles = _driver_titles_v33(api, code)
         render_html_hud(driver_profile_header_html(name, code, nation or _info.get('team', ''), number, prof, colour, _titles),
@@ -5713,14 +5713,14 @@ def render_drivers_page_v33():
         if prof.get('ok'):
             if prof.get('seasons'):
                 st.write("")
-                fp_ui.section_title("Sezon Dökümü")
+                fp_ui.section_title(T("drivers.season_breakdown"))
                 render_html_hud(driver_seasons_hud_html(prof['seasons'], colour),
                                 height=min(760, 52 + 34 * len(prof['seasons'])))
 
             _cols = st.columns([1, 1])
             with _cols[0]:
                 if prof.get('circuit_wins'):
-                    fp_ui.section_title("Pist Bazında Galibiyet")
+                    fp_ui.section_title(T("drivers.circuit_wins"))
                     _top = prof['circuit_wins'][0][1] or 1
                     _bars = ''.join(
                         f"<div style='display:grid;grid-template-columns:150px 1fr 34px;gap:9px;align-items:center;padding:5px 0'>"
@@ -5732,11 +5732,11 @@ def render_drivers_page_v33():
                     )
                     st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_bars}</div>", unsafe_allow_html=True)
                 else:
-                    fp_ui.section_title("Pist Bazında Galibiyet")
-                    fp_ui.data_state("Galibiyet Yok", "Bu pilotun doğrulanmış kayıtlarında Grand Prix galibiyeti bulunmuyor.", "info")
+                    fp_ui.section_title(T("drivers.circuit_wins"))
+                    fp_ui.data_state(T("drivers.no_wins_title"), T("drivers.no_wins_body"), "info")
             with _cols[1]:
                 if prof.get('teams'):
-                    fp_ui.section_title("Takımlar")
+                    fp_ui.section_title(T("drivers.teams"))
                     _tg = ''.join(
                         f"<div style='display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #1b2330'>"
                         f"<b style='font:700 13px Saira Condensed,sans-serif;text-transform:uppercase;color:{team_colour(tn)}'>{html_lib.escape(tn)}</b>"
@@ -5747,8 +5747,8 @@ def render_drivers_page_v33():
 
             st.write("")
             _years = sorted({r['year'] for r in prof['races'] if r['year']}, reverse=True)
-            fp_ui.section_title("Yarış-Yarış Sonuçlar")
-            _yr = st.selectbox("Sezon", _years, index=0, key="drivers_race_year_v33") if _years else None
+            fp_ui.section_title(T("drivers.race_by_race"))
+            _yr = st.selectbox(T("drivers.season"), _years, index=0, key="drivers_race_year_v33") if _years else None
             _year_races = sorted((r for r in prof['races'] if r['year'] == _yr),
                                  key=lambda r: r['round'])
             st.caption(f"{_yr} · {len(_year_races)} yarış")
@@ -5760,11 +5760,11 @@ def render_drivers_page_v33():
         return
 
     # --- DIZIN GORUNUMU ---
-    only_2026 = st.toggle("Yalnızca 2026 gridi", value=True, key="drivers_only_2026_v33")
-    q = st.text_input("Pilot ara", placeholder="Örn. Verstappen, HAM, Alonso", key="drivers_q_v33").strip().lower()
+    only_2026 = st.toggle(T("drivers.only_2026"), value=True, key="drivers_only_2026_v33")
+    q = st.text_input(T("drivers.search"), placeholder="Örn. Verstappen, HAM, Alonso", key="drivers_q_v33").strip().lower()
     shown = [d for d in directory if (d[7] or not only_2026) and (not q or q in d[1].lower() or q in d[0].lower())]
     shown.sort(key=lambda d: (not d[7], d[1]))
-    st.caption(f"{len(shown)} pilot")
+    st.caption(T("drivers.count", n=len(shown)))
     for i in range(0, len(shown), 3):
         cols = st.columns(3)
         for col, d in zip(cols, shown[i:i + 3]):
@@ -5776,7 +5776,7 @@ def render_drivers_page_v33():
                     f"<div class='driver-meta'>{html_lib.escape(code)} · {html_lib.escape(team or '—')}{' · 2026' if is_2026 else ''}</div></div>",
                     unsafe_allow_html=True,
                 )
-                if st.button("Profili aç", key=f"drv_{api}", width='stretch'):
+                if st.button(T("drivers.open_profile"), key=f"drv_{api}", width='stretch'):
                     st.session_state['driver_view_v33'] = api
                     st.session_state['_scroll_driver'] = True
                     st.rerun()
