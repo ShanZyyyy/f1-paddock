@@ -6355,7 +6355,6 @@ html,body,#root,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"]{
   background-size:44px 44px,44px 44px,100% 100%,100% 100%!important;
   animation:none!important;
 }}
-[data-testid="stAppViewContainer"]::before,[data-testid="stAppViewContainer"]::after{{display:none!important;animation:none!important}}
 [data-testid="stHeader"]{{background:color-mix(in srgb,var(--fp-page) 92%,transparent)!important}}
 section[data-testid="stSidebar"]{{background:linear-gradient(180deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:8px 0 24px var(--fp-shadow)!important}}
 section[data-testid="stSidebar"] *,section[data-testid="stSidebar"] p,section[data-testid="stSidebar"] label{{color:var(--fp-text)!important}}

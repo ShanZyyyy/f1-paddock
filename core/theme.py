@@ -432,16 +432,16 @@ section[data-testid="stSidebar"] [data-baseweb="select"] button{
 """
 
 # ---- Uygulama arka plani (F1 TV — hareketli telemetri + pist silueti) ----
-# NOT: eski "final theme layer" bloğu (streamlit_app.py ~6349) ::before/::after'ı
-# display:none!important ile kapatıyor; bu blok DAHA SONRA enjekte edildiği için
-# display:block!important ile onu yener.
+# Tam URL-encoded SVG => tirnak/parantez/bosluk sorunu yok.
 _FP_CIRCUIT_SVG = (
-    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800'%3E"
-    "%3Cpath d='M130,600 C130,410 270,300 430,322 C580,343 610,470 745,470 C905,470 940,300 1040,242 "
-    "C1150,180 1120,560 975,620 C840,676 700,596 520,640 C360,678 130,770 130,600 Z' "
-    "fill='none' stroke='%232ee6c9' stroke-width='2.5'/%3E%3C/svg%3E"
+    "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20"
+    "viewBox%3D%270%200%201200%20800%27%3E%3Cpath%20d%3D%27M130%2C600%20C130%2C410%20270%2C300%20"
+    "430%2C322%20C580%2C343%20610%2C470%20745%2C470%20C905%2C470%20940%2C300%201040%2C242%20"
+    "C1150%2C180%201120%2C560%20975%2C620%20C840%2C676%20700%2C596%20520%2C640%20C360%2C678%20"
+    "130%2C770%20130%2C600%20Z%27%20fill%3D%27none%27%20stroke%3D%27%232ee6c9%27%20"
+    "stroke-width%3D%272.5%27%2F%3E%3C%2Fsvg%3E"
 )
-_SHELL_BG_CSS = (r"""
+_SHELL_BG_CSS = r"""
 [data-testid="stAppViewContainer"],.stApp{
   background:
     radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 10%,transparent), transparent 55%),
@@ -451,46 +451,51 @@ _SHELL_BG_CSS = (r"""
 [data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
 
 @keyframes fp-grid-drift{from{background-position:0 0}to{background-position:46px 46px}}
-@keyframes fp-circuit-float{0%{transform:translate3d(0,0,0) scale(1.04)}50%{transform:translate3d(-2.2%,1.4%,0) scale(1.08)}100%{transform:translate3d(0,0,0) scale(1.04)}}
+@keyframes fp-circuit-float{0%{transform:translate3d(0,0,0) scale(1.04)}50%{transform:translate3d(-2.2%,1.6%,0) scale(1.08)}100%{transform:translate3d(0,0,0) scale(1.04)}}
 @keyframes fp-speed{0%{transform:translate3d(-40%,0,0)}100%{transform:translate3d(140%,0,0)}}
 
 /* katman 1 — telemetri izgarasi (yavas kayar) */
 [data-testid="stAppViewContainer"]::before{
-  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;display:block !important;
+  content:"" !important;position:fixed !important;inset:0 !important;z-index:0 !important;
+  pointer-events:none !important;display:block !important;
   background-image:
     linear-gradient(color-mix(in srgb,var(--fp-cyan) 7%,transparent) 1px,transparent 1px),
-    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 7%,transparent) 1px,transparent 1px);
-  background-size:46px 46px;
-  opacity:.5;
-  animation:fp-grid-drift 32s linear infinite;
-  mask-image:radial-gradient(130% 100% at 50% -10%,#000 25%,transparent 90%);
+    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 7%,transparent) 1px,transparent 1px) !important;
+  background-size:46px 46px !important;
+  opacity:.55 !important;
+  animation:fp-grid-drift 32s linear infinite !important;
+  -webkit-mask-image:radial-gradient(135% 105% at 50% -12%,#000 22%,transparent 88%);
+  mask-image:radial-gradient(135% 105% at 50% -12%,#000 22%,transparent 88%);
 }
-/* katman 2 — buyuk pist silueti (nefes alir gibi suzulur) + kose isigi */
+/* katman 2 — buyuk pist silueti (nefes alir gibi suzulur) */
 [data-testid="stAppViewContainer"]::after{
-  content:"";position:fixed;inset:-8% -6%;z-index:0;pointer-events:none;display:block !important;
-  background:
-    url('""" + _FP_CIRCUIT_SVG + r"""') no-repeat 62% 34% / min(1180px,116%) auto;
-  opacity:.12;
-  animation:fp-circuit-float 48s ease-in-out infinite;
+  content:"" !important;position:fixed !important;inset:-9% -7% !important;z-index:0 !important;
+  pointer-events:none !important;display:block !important;
+  background:transparent url("__FP_CIRCUIT__") no-repeat 66% 40% !important;
+  background-size:min(1240px,118%) auto !important;
+  opacity:.16 !important;
+  animation:fp-circuit-float 52s ease-in-out infinite !important;
 }
-/* katman 3 — ara ara gecen hiz isigi (govde uzerinde, ::before'dan sonra) */
+/* katman 3 — ara ara gecen hiz isigi (ana govde uzerinde) */
 .stApp [data-testid="stMain"]::before{
-  content:"";position:fixed;top:0;bottom:0;left:0;width:36vw;z-index:0;pointer-events:none;
-  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fp-red) 20%,transparent) 46%,color-mix(in srgb,var(--fp-cyan) 18%,transparent) 56%,transparent);
-  filter:blur(4px);opacity:.08;
+  content:"";position:fixed;top:0;bottom:0;left:0;width:38vw;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fp-red) 22%,transparent) 46%,color-mix(in srgb,var(--fp-cyan) 20%,transparent) 56%,transparent);
+  filter:blur(4px);opacity:.10;
   animation:fp-speed 17s linear infinite;
 }
 [data-testid="stAppViewContainer"] > .main,.stApp [data-testid="stMain"]{position:relative;z-index:1}
 .stApp [data-testid="stMain"] .block-container{position:relative;z-index:1}
 section[data-testid="stSidebar"]{position:relative;overflow:hidden}
 section[data-testid="stSidebar"]::before{
-  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;display:block !important;
+  content:"" !important;position:absolute !important;inset:0 !important;z-index:0 !important;
+  pointer-events:none !important;display:block !important;
   background-image:
     linear-gradient(color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px),
-    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px);
-  background-size:38px 38px;
-  opacity:.42;
-  animation:fp-grid-drift 36s linear infinite;
+    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px) !important;
+  background-size:38px 38px !important;
+  opacity:.42 !important;
+  animation:fp-grid-drift 36s linear infinite !important;
+  -webkit-mask-image:linear-gradient(180deg,#000,transparent 80%);
   mask-image:linear-gradient(180deg,#000,transparent 80%);
 }
 section[data-testid="stSidebar"] > div{position:relative;z-index:1}
@@ -501,14 +506,13 @@ section[data-testid="stSidebar"] > div{position:relative;z-index:1}
   section[data-testid="stSidebar"]::before{animation:none !important}
   .stApp [data-testid="stMain"]::before{display:none}
 }
-""" + r"""
 
 /* Sadece <style> iceren markdown kaplari gorunmez bosluk yaratiyordu — gizle */
 .stElementContainer:has(> .stMarkdown [data-testid="stMarkdownContainer"] > style:only-child),
 .stElementContainer:has(> [data-testid="stMarkdown"] > [data-testid="stMarkdownContainer"] > style:only-child){
   display:none !important;
 }
-""")
+""".replace("__FP_CIRCUIT__", _FP_CIRCUIT_SVG)
 
 # ---- ESKI SINIF KOPRUSU --------------------------------------------
 # Faz 3 hizlandirici: her sayfanin markup'ini elle degistirmek yerine
