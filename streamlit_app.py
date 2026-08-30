@@ -199,6 +199,30 @@ html, body, #root {
     min-height: 100vh !important;
     overflow: visible !important;
 }
+
+/* KRITIK TEMA — tam tema (theme.page_style / shell_style) dosyanin sonunda
+   enjekte edildiginden, ilk boyama sirasinda sidebar birkac kare stilsiz
+   ("eski HUD") gorunuyordu. Asagidaki kucuk alt kume o pencerede zemini ve
+   marka kilidini dogru gosterir; tam tema geldiginde ayni degerleri tekrar
+   yazar. Koyu = varsayilan; acik tema kullanicilari icin :root guardi var. */
+:root:not([data-fp-theme="light"]) [data-testid="stApp"],
+:root:not([data-fp-theme="light"]) [data-testid="stAppViewContainer"]{
+    background:#0c1016 !important;
+}
+:root:not([data-fp-theme="light"]) section[data-testid="stSidebar"]{
+    background:linear-gradient(180deg,#11161f,#0c1016) !important;
+    border-right:1px solid #26313f;
+}
+section[data-testid="stSidebar"] *{color:#f2f5f8}
+.fp-brand{display:flex;align-items:center;gap:11px;padding:6px 4px 14px;
+    margin-bottom:2px;border-bottom:1px solid #26313f}
+.fp-brand .txt{font-weight:800;font-size:16.5px;letter-spacing:.045em;
+    text-transform:uppercase;line-height:1.02;
+    font-family:'Saira Condensed','Arial Narrow',system-ui,sans-serif}
+.fp-brand .txt s{display:block;font-weight:600;font-size:9px;letter-spacing:.24em;
+    color:#63748a;text-decoration:none;margin-top:4px}
+.fp-nav-sec{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+    color:#63748a;padding:16px 6px 4px}
 </style>
 """, unsafe_allow_html=True)
 
@@ -3920,22 +3944,25 @@ def render_news_centre_v20():
         f"</div></div>",
         unsafe_allow_html=True,
     )
-    remaining = localized[1:]
-    for start in range(0, len(remaining), 3):
-        columns = st.columns(3)
-        for column, item in zip(columns, remaining[start:start + 3]):
-            with column:
-                image = safe_external_url(item.get('image'))
-                media = (
-                    f"<img class='news-thumb-v19' src='{html_lib.escape(image, quote=True)}' alt='' onerror=\"this.style.display='none'\">"
-                    if image else "<div class='news-thumb-v19 news-thumb-empty-v19'>F1</div>"
-                )
-                st.markdown(
-                    f"<div class='news-card news-card-v20'>{media}<div class='news-date'>{html_lib.escape(item.get('source', 'Kaynak'))} · {html_lib.escape(item.get('date', ''))}</div>"
-                    f"<div class='news-title'>{html_lib.escape(item.get('title', ''))}</div><div class='news-desc'>{html_lib.escape(item.get('desc', ''))}</div>"
-                    f"<a href='{html_lib.escape(item.get('link', '#'), quote=True)}' target='_blank' rel='noopener noreferrer' class='news-link'>Haberi aç ↗</a></div>",
-                    unsafe_allow_html=True,
-                )
+    cards = []
+    for item in localized[1:]:
+        image = safe_external_url(item.get('image'))
+        media = (
+            f"<img class='news-thumb-v19' src='{html_lib.escape(image, quote=True)}' alt='' onerror=\"this.style.display='none'\">"
+            if image else "<div class='news-thumb-v19 news-thumb-empty-v19'>F1</div>"
+        )
+        cards.append(
+            f"<div class='news-card news-card-v20'>{media}<div class='news-date'>{html_lib.escape(item.get('source', 'Kaynak'))} · {html_lib.escape(item.get('date', ''))}</div>"
+            f"<div class='news-title'>{html_lib.escape(item.get('title', ''))}</div><div class='news-desc'>{html_lib.escape(item.get('desc', ''))}</div>"
+            f"<a href='{html_lib.escape(item.get('link', '#'), quote=True)}' target='_blank' rel='noopener noreferrer' class='news-link'>Haberi aç ↗</a></div>"
+        )
+    if cards:
+        # TEK CSS grid — satirdaki tum kartlar esit yukseklik (st.columns'un
+        # sutun-bazli esitsizligi yok). Bkz. fp_ui.news_grid.
+        st.markdown(
+            "<div class='news-grid-v20'>" + "".join(cards) + "</div>",
+            unsafe_allow_html=True,
+        )
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -4108,7 +4135,9 @@ section[data-testid="stSidebar"] div[data-testid="stButton"]{width:100%!importan
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button{width:100%!important;min-height:50px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;text-align:left!important;padding:0 16px!important;border-radius:11px!important}
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button p{width:100%!important;margin:0!important;text-align:left!important;line-height:1.15!important;font-size:.88rem!important}
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:50px!important;display:flex!important;align-items:center!important;text-align:left!important}
-.news-feature-v20{display:grid;grid-template-columns:minmax(240px,.9fr) minmax(0,1.1fr);gap:18px;align-items:stretch;padding:16px;border:1px solid #325174;border-left:5px solid #ff385c;border-radius:15px;background:linear-gradient(135deg,#101c2d,#111a28);margin:18px 0}.news-feature-image-v20{width:100%;height:230px;object-fit:cover;border-radius:11px;border:1px solid #29435f;background:#0b1422}.news-feature-copy-v20{display:flex;flex-direction:column;gap:9px;justify-content:center}.news-feature-title-v20{font-size:1.45rem;font-weight:950;line-height:1.22;color:#f6f9ff}.news-card-v20{min-height:355px!important}.story-lead-v20{padding:18px;border:1px solid #3a526f;border-left:5px solid #ff385c;border-radius:14px;background:linear-gradient(135deg,#131b2a,#0f1928);margin:16px 0}.story-lead-title-v20{font-size:1.38rem;font-weight:950;line-height:1.3;margin:7px 0}.story-metric-v20{min-height:112px}.story-metric-value-v20{font-size:1.23rem;font-weight:950;margin-top:8px}.story-note-v20{border:1px solid #314964;border-left:4px solid #ff385c;border-radius:10px;background:#111b2a;padding:12px;margin-bottom:8px;line-height:1.5}.learning-hero-v20{border-top:5px solid #f7c948;margin-bottom:18px}.learning-step-v20{min-height:170px;position:relative;overflow:hidden}.learning-number-v20{font-size:2.7rem;font-weight:950;line-height:1;color:rgba(255,255,255,.14);margin-bottom:9px}
+.news-feature-v20{display:grid;grid-template-columns:minmax(240px,.9fr) minmax(0,1.1fr);gap:18px;align-items:stretch;padding:16px;border:1px solid #325174;border-left:5px solid #ff385c;border-radius:15px;background:linear-gradient(135deg,#101c2d,#111a28);margin:18px 0}.news-feature-image-v20{width:100%;height:230px;object-fit:cover;border-radius:11px;border:1px solid #29435f;background:#0b1422}.news-feature-copy-v20{display:flex;flex-direction:column;gap:9px;justify-content:center}.news-feature-title-v20{font-size:1.45rem;font-weight:950;line-height:1.22;color:#f6f9ff}.news-card-v20{min-height:0!important;display:flex;flex-direction:column;gap:6px}.news-card-v20 .news-desc{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}.news-card-v20 .news-link{margin-top:auto}.news-grid-v20{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px;align-items:stretch}.story-lead-v20{padding:18px;border:1px solid #3a526f;border-left:5px solid #ff385c;border-radius:14px;background:linear-gradient(135deg,#131b2a,#0f1928);margin:16px 0}.story-lead-title-v20{font-size:1.38rem;font-weight:950;line-height:1.3;margin:7px 0}.story-metric-v20{min-height:112px}.story-metric-value-v20{font-size:1.23rem;font-weight:950;margin-top:8px}.story-note-v20{border:1px solid #314964;border-left:4px solid #ff385c;border-radius:10px;background:#111b2a;padding:12px;margin-bottom:8px;line-height:1.5}.learning-hero-v20{border-top:5px solid #f7c948;margin-bottom:18px}.learning-step-v20{min-height:170px;position:relative;overflow:hidden}.learning-number-v20{font-size:2.7rem;font-weight:950;line-height:1;color:rgba(255,255,255,.14);margin-bottom:9px}
+@media(max-width:900px){.news-grid-v20{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.news-grid-v20{grid-template-columns:1fr}}
 @media(max-width:800px){.news-feature-v20{grid-template-columns:1fr}.news-feature-image-v20{height:190px}.story-metric-value-v20{font-size:1.05rem}.learning-step-v20{min-height:auto}.stButton>button{min-height:46px!important}}
 </style>
 """, unsafe_allow_html=True)
@@ -6268,17 +6297,17 @@ def _router_page_home():
             st.session_state['page'] = 'news'
             st.rerun()
 
-    _nn = st.columns(2)
-    for _idx, _item in enumerate(live_news):
-        with _nn[_idx % 2]:
-            fp_ui.news_card(
-                _item.get('title', ''),
-                source=str(_item.get('source', 'F1 Haber')),
-                date=str(_item.get('date', '')),
-                excerpt=str(_item.get('desc', '')),
-                link=safe_external_url(_item.get('link')) or 'https://www.formula1.com/',
-                image=safe_external_url(_item.get('image')),
-            )
+    fp_ui.news_grid([
+        {
+            'title': _item.get('title', ''),
+            'source': str(_item.get('source', 'F1 Haber')),
+            'date': str(_item.get('date', '')),
+            'excerpt': str(_item.get('desc', '')),
+            'link': safe_external_url(_item.get('link')) or 'https://www.formula1.com/',
+            'image': safe_external_url(_item.get('image')),
+        }
+        for _item in live_news
+    ])
 
 # SAYFA 2: CANLI SEANS TAKİBİ
 

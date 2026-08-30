@@ -287,6 +287,12 @@ _FP_COMPONENTS_CSS = r"""
 @media(max-width:760px){.fp-notes-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.fp-notes-grid{grid-template-columns:1fr}}
 
+/* ---- haber kart grid'i (st.columns yerine — satirdaki kartlar esit yukseklik) ---- */
+.fp-news-grid{display:grid;grid-template-columns:repeat(var(--per,2),1fr);gap:14px;
+  margin:6px 0 2px;align-items:stretch}
+.fp-news-grid .fp-news{height:100%}
+@media(max-width:760px){.fp-news-grid{grid-template-columns:1fr}}
+
 /* =====================================================================
    MOBIL — telefon ekrani (<= 760px)
    ===================================================================== */

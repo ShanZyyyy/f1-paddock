@@ -329,8 +329,7 @@ def notes_grid(items, per_row=3):
     )
 
 
-def news_card(title, source="", date="", excerpt="", link="", image=""):
-    """Tek haber karti. link/image cagiran tarafta safe_external_url'den gecmeli."""
+def _news_card_markup(title, source="", date="", excerpt="", link="", image=""):
     meta = " · ".join(p for p in [source, date] if p)
     if image:
         ph = f"<div class='ph'><img src='{_html.escape(image, quote=True)}' alt='' onerror=\"this.parentElement.textContent='F1'\"></div>"
@@ -338,11 +337,39 @@ def news_card(title, source="", date="", excerpt="", link="", image=""):
         ph = "<div class='ph'>F1</div>"
     lk = (f"<a class='lk' href='{_html.escape(link, quote=True)}' target='_blank' rel='noopener noreferrer'>"
           f"Haberi Ac &#8599;</a>") if link else ""
-    st.markdown(
+    return (
         f"<div class='fp-news'>{ph}<div class='bd'>"
         f"<span class='src'>{_esc(meta)}</span>"
         f"<div class='hl'>{_esc(title)}</div>"
-        f"<div class='ex'>{_esc(excerpt)}</div>{lk}</div></div>",
+        f"<div class='ex'>{_esc(excerpt)}</div>{lk}</div></div>"
+    )
+
+
+def news_card(title, source="", date="", excerpt="", link="", image=""):
+    """Tek haber karti. link/image cagiran tarafta safe_external_url'den gecmeli."""
+    st.markdown(_news_card_markup(title, source, date, excerpt, link, image),
+                unsafe_allow_html=True)
+
+
+def news_grid(items, per_row=2):
+    """Haber kartlarini TEK CSS grid'inde cizer — ayni satirdaki kartlar esit
+    yukseklik olur (`st.columns`'un sutunlari ayri yiginladigi icin olusan
+    esitsiz kart sorunu yok). `notes_grid` ile ayni desen.
+
+    ``items`` = [{title, source, date, excerpt, link, image}, ...]
+    link/image cagiran tarafta `safe_external_url`'den gecmeli."""
+    cards = [i for i in items if str((i or {}).get("title", "")).strip()]
+    if not cards:
+        return
+    cells = "".join(
+        _news_card_markup(
+            c.get("title", ""), c.get("source", ""), c.get("date", ""),
+            c.get("excerpt", ""), c.get("link", ""), c.get("image", ""),
+        )
+        for c in cards
+    )
+    st.markdown(
+        f"<div class='fp-news-grid' style='--per:{int(per_row)}'>{cells}</div>",
         unsafe_allow_html=True,
     )
 
