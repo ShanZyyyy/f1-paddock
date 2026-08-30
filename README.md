@@ -65,6 +65,23 @@ tests/fixtures/          # sabit örnek veri
   (ağ hataları uygulamanın kendi `cache_data_safe` / try-except'i tarafından
   ele alınır, regresyon sayılmaz).
 
+## Haber çevirisi (DeepL — opsiyonel ama önerilir)
+
+İngilizce haber kaynakları `DEEPL_API_KEY` tanımlıysa DeepL ile Türkçeye
+çevrilir; tanımlı değilse ücretsiz Google endpoint'i (güvenilmez) denenir,
+o da olmazsa başlıklar İngilizce kalır.
+
+1. https://www.deepl.com/pro-api → **DeepL API Free** ile kaydol (aylık
+   500.000 karakter ücretsiz; kimlik doğrulama için kart isteyebilir ama
+   ücretsiz sınırda ücret çıkmaz). Anahtar `xxxxxxxx-xxxx-...:fx` biçiminde.
+2. **Yerel:** `.streamlit/secrets.toml` (git'e girmez):
+   ```toml
+   DEEPL_API_KEY = "buraya-anahtar:fx"
+   ```
+3. **Streamlit Cloud:** uygulama → Settings → Secrets → aynı satırı yapıştır.
+
+Anahtar eklenince haber bölümü başlığı otomatik "· Türkçe" olur.
+
 ## Dağıtım (Streamlit Community Cloud)
 
 Ana dosya yolu: **`streamlit_app.py`**.

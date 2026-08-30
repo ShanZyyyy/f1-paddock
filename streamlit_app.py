@@ -526,10 +526,36 @@ def get_session_summary(year, gp_name, session_code):
 
 
 # 3. OTOMATİK TÜRKÇE ÇEVİRİ MOTORU
+def deepl_configured():
+    """DeepL API anahtarı tanımlı mı? (Streamlit Secrets veya ortam değişkeni)"""
+    return bool(_secret_or_environment('DEEPL_API_KEY'))
+
+
+@st.cache_data(ttl=60 * 60 * 24 * 7, show_spinner=False)
+def _deepl_translate_raw(text):
+    """DeepL API (ücretsiz plan da dahil). Anahtar yoksa / hata varsa firlatir.
+    Başarılı çeviri 1 hafta önbellekte kalır — aynı başlık tekrar çevrilmez."""
+    key = _secret_or_environment('DEEPL_API_KEY')
+    if not key:
+        raise RuntimeError('DEEPL_API_KEY tanımlı değil')
+    host = 'api-free.deepl.com' if key.strip().endswith(':fx') else 'api.deepl.com'
+    body = urllib.parse.urlencode({'text': text, 'target_lang': 'TR'}).encode('utf-8')
+    req = urllib.request.Request(
+        f'https://{host}/v2/translate', data=body,
+        headers={'Authorization': f'DeepL-Auth-Key {key}',
+                 'Content-Type': 'application/x-www-form-urlencoded',
+                 'User-Agent': 'FormulaPaddock/1.0'})
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        payload = json.loads(resp.read().decode('utf-8'))
+    out = ((payload.get('translations') or [{}])[0].get('text') or '').strip()
+    if not out:
+        raise ValueError('DeepL boş çeviri döndü')
+    return out
+
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def _translate_to_tr_raw(text):
-    """Sadece BAŞARILI çeviri günlük önbelleğe girer; hata firlatirsa çağıran
-    orijinal metni gösterir ve bir sonraki denemede tekrar çevrilir."""
+    """Yedek: ücretsiz Google endpoint'i. Sadece BAŞARILI çeviri önbelleğe girer."""
     url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=tr&dt=t&q={urllib.parse.quote(text)}"
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(req, timeout=6) as resp:
@@ -541,11 +567,11 @@ def _translate_to_tr_raw(text):
 
 
 def translate_to_tr(text):
-    """Gunluk onbellekli. Basarili ceviri 24s yasar; hata orijinal metni dondurur.
+    """DeepL anahtarı varsa DeepL, yoksa ücretsiz Google. Başarılı çeviri
+    önbellekte yaşar; hata orijinal metni döndürür.
 
-    Devre kesici: ucretsiz Google endpoint'i arka arkaya 429 verirse (haber
-    sayfasi tek rerun'da ~16 cagri yapiyor) 5 dakika boyunca agi hic denemeyiz
-    — sayfa Ingilizce basliklarla aninda acilir."""
+    Devre kesici: kaynak arka arkaya 3 kez patlarsa (haber sayfası tek
+    rerun'da ~16 çağrı yapıyor) 5 dakika boyunca ağı hiç denemeyiz."""
     if not text:
         return ""
     try:
@@ -554,8 +580,9 @@ def translate_to_tr(text):
         breaker = 0
     if breaker and time.time() < breaker:
         return text
+    _use_deepl = deepl_configured()
     try:
-        out = _translate_to_tr_raw(text)
+        out = _deepl_translate_raw(text) if _use_deepl else _translate_to_tr_raw(text)
         try:
             st.session_state['_tr_fail_streak'] = 0
         except Exception:
@@ -569,7 +596,7 @@ def translate_to_tr(text):
                 st.session_state['_tr_breaker_until'] = time.time() + 300
         except Exception:
             pass
-        log_data_error('translate_to_tr', error)
+        log_data_error('translate_to_tr (deepl)' if _use_deepl else 'translate_to_tr', error)
         return text
 
 # 4. CANLI F1 HABERLERİ RSS MOTORU
@@ -3865,7 +3892,7 @@ def render_news_centre_v20():
     render_page_header(T('page.news.title'), T('page.news.sub'))
     teams = ['Genel F1'] + list(TEAM_DIRECTORY_2026.keys())
     selected = st.selectbox('\u0130zlemek istedi\u011fin ak\u0131\u015f', teams, key='news_team_filter_v20')
-    with st.spinner('Türkçe haber akışı hazırlanıyor...'):
+    with st.spinner('Haber akışı hazırlanıyor...'):
         raw_news = fetch_f1_news_catalog_v20(30)
     filtered = [item for item in raw_news if news_matches_team_v19(item, selected)]
     localized = [localise_news_item_v20(item) for item in filtered]
@@ -6220,21 +6247,14 @@ def _router_page_home():
     if session_summary:
         st.write("")
         fp_ui.section_title("Bu Seansta Ne Oldu?")
-        _si_tones = ["cyan", "amber", "pink", "purple", "green"]
-        _per_row = 3 if len(session_summary) > 2 else len(session_summary)
-        for _start in range(0, len(session_summary), _per_row):
-            _row = session_summary[_start:_start + _per_row]
-            _cols = st.columns(_per_row)
-            for _j, _insight in enumerate(_row):
-                with _cols[_j]:
-                    fp_ui.mini_note(_insight, _si_tones[(_start + _j) % len(_si_tones)])
+        fp_ui.notes_grid(session_summary, per_row=3 if len(session_summary) > 2 else len(session_summary))
 
     if is_live_now:
         if st.button(f"CANLI TAKIP: {target_s_name.upper()} SEANSI BASLADI — TIKLA VE INCELE", width='stretch'):
             st.session_state['page'] = 'live'
 
     st.write("")
-    fp_ui.section_title("Paddock Live News · Turkce")
+    fp_ui.section_title("Paddock Live News · Türkçe" if deepl_configured() else "Paddock Live News")
     if not st.session_state['news_requested']:
         st.caption("Haber akisi ilk acilista siteyi bekletmez.")
         if st.button("Haber akisini getir", key="load_live_news", width='stretch'):

@@ -138,6 +138,16 @@ def test_translate_race_control_message():
 
 
 # --------------------------------------------------------------------------
+# DeepL çeviri: anahtar yoksa devreye girmez, ham çağrı hata verir
+# --------------------------------------------------------------------------
+def test_deepl_translate_without_key(monkeypatch):
+    monkeypatch.setattr(app, "_secret_or_environment", lambda name: "")
+    assert app.deepl_configured() is False
+    with pytest.raises(Exception):
+        app._deepl_translate_raw("Hello world")   # anahtar yok -> hemen hata, ağ yok
+
+
+# --------------------------------------------------------------------------
 # i18n
 # --------------------------------------------------------------------------
 def test_i18n_switch():

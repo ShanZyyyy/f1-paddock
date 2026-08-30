@@ -230,7 +230,7 @@ _FP_COMPONENTS_CSS = r"""
 /* ---- stat tile ---- */
 .fp-tile{background:var(--fp-bg-2);border:1px solid var(--fp-line-soft);
   border-left:var(--fp-edge) solid var(--accent,var(--fp-cyan));border-radius:var(--fp-r-sm);
-  padding:12px 15px;height:100%;min-height:82px;display:flex;flex-direction:column;justify-content:flex-start}
+  padding:12px 15px;height:100%;min-height:96px;display:flex;flex-direction:column;justify-content:flex-start}
 .fp-tile .lbl{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text-mute);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:18px;letter-spacing:-.01em;
@@ -238,8 +238,8 @@ _FP_COMPONENTS_CSS = r"""
 .fp-tile .val.txt{font-family:var(--fp-f-display);font-size:15.5px;letter-spacing:.01em;text-transform:uppercase;
   line-height:1.15;white-space:normal;overflow:hidden;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:auto;padding-top:4px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:auto;padding-top:4px;line-height:1.3;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
 /* ---- data-state ---- */
 .fp-state{border:1px solid var(--fp-line);border-left:var(--fp-edge) solid var(--sc,var(--fp-cyan));
@@ -282,6 +282,10 @@ _FP_COMPONENTS_CSS = r"""
 .fp-note{border:1px solid var(--fp-line);border-left:var(--fp-edge) solid var(--nc,var(--fp-cyan));
   background:var(--fp-bg-2);border-radius:var(--fp-r-sm);padding:11px 14px;height:100%;
   font-size:12.5px;color:var(--fp-text-dim);line-height:1.5}
+.fp-notes-grid{display:grid;grid-template-columns:repeat(var(--per,3),1fr);gap:10px;margin:4px 0 2px}
+.fp-notes-grid .fp-note{height:100%}
+@media(max-width:760px){.fp-notes-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.fp-notes-grid{grid-template-columns:1fr}}
 
 /* =====================================================================
    MOBIL — telefon ekrani (<= 760px)

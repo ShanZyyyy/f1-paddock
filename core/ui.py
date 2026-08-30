@@ -312,6 +312,23 @@ def mini_note(text, accent="cyan"):
     )
 
 
+def notes_grid(items, per_row=3):
+    """Birden çok mini notu TEK CSS grid'inde çizer — hepsi eşit yükseklik,
+    st.columns'un eşitsiz kart sorunu olmadan."""
+    items = [i for i in items if str(i).strip()]
+    if not items:
+        return
+    tones = ("cyan", "amber", "pink", "purple", "green")
+    cells = "".join(
+        f"<div class='fp-note' style='--nc:{_accent(tones[i % len(tones)])}'>{_esc(t)}</div>"
+        for i, t in enumerate(items)
+    )
+    st.markdown(
+        f"<div class='fp-notes-grid' style='--per:{int(per_row)}'>{cells}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def news_card(title, source="", date="", excerpt="", link="", image=""):
     """Tek haber karti. link/image cagiran tarafta safe_external_url'den gecmeli."""
     meta = " · ".join(p for p in [source, date] if p)
