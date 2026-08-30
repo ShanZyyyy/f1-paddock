@@ -114,7 +114,6 @@ def cache_data_safe(ttl, *, on_error=None, label=None, show_spinner=False):
     return decorator
 
 
-
 # redesign: HUD render kapisi + tema propagasyonu core/ui.py + core/theme.py'de.
 def render_html_hud(markup, height=150, scrolling=False):
     return fp_ui.render_html_hud(markup, height=height, scrolling=scrolling)
@@ -347,7 +346,6 @@ def get_current_or_next_event():
     last_time = pd.to_datetime(last_event.get('Session5DateUtc'))
     last_time = last_time.tz_localize('UTC') if last_time.tzinfo is None else last_time.tz_convert('UTC')
     return pd.Series(last_event), "Yarış", last_time, False
-
 
 
 # ==========================================
@@ -909,11 +907,9 @@ def current_driver_portrait(team_name, old_image_path):
     )
 
 
-
 # Verified team leadership is kept separate from the game engineer packages.
 # Individual race-engineer assignments are not a stable public roster, so the
 # game never invents a real person's identity or photo for that role.
-
 
 
 # Takım sayfasındaki kısa biyografiler, sezon sonucu değil kariyer dosyasıdır.
@@ -939,9 +935,6 @@ def driver_age(driver_code):
     born = datetime.date.fromisoformat(birthday)
     today = datetime.date.today()
     return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
-
-
-
 
 
 # 9. CSS TASARIMI
@@ -1294,9 +1287,6 @@ def get_session_story(year, event_name, session_code):
     return story[:5]
 
 
-
-
-
 def round_badge(event):
     """Geniş tabloda okunabilen ülke bayrağı + pist kısa adı."""
     country = str(event.get('Country', ''))
@@ -1336,8 +1326,6 @@ def is_dnf_status(status):
     return True
 
 
-
-
 def format_finish_position(value):
     """Sıra verisini P14.0 değil, okunabilir Türkçe sonuç biçimine dönüştürür."""
     try:
@@ -1360,8 +1348,6 @@ def clean_position_value(value):
         pass
     text = str(value or '').strip().upper()
     return text if text else '—'
-
-
 
 
 def get_championship_round_v19(year, event_name):
@@ -1505,10 +1491,6 @@ def get_championship_data_v19(year):
         pd.DataFrame(points_matrix_rows),
         rounds,
     )
-
-
-
-
 
 
 def canonical_team_name(team_name):
@@ -1752,8 +1734,6 @@ def leaderboard_component_height(table):
     return min(1540, max(360, 210 + max(0, row_count - 3) * 54))
 
 
-
-
 def _duel_samples_v18(telemetry, sample_count=360):
     """2D düello için her mesafede gerçek geçen zamanı da taşıyan örnekler üretir."""
     columns = ['X', 'Y', 'Distance', 'Speed', 'Time']
@@ -1915,10 +1895,6 @@ def build_track_overlay(telemetry, lap=None, session=None):
         return empty
 
 
-
-
-
-
 def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, team_1, team_2, colour_1, colour_2, lap_time_1, lap_time_2, lap_seconds_1, lap_seconds_2, track_overlay=None, sector_times_1=None, sector_times_2=None):
     """İki turu ortak gerçek-zaman saatinde ve tek, önbellekli canvas dönüşümünde oynatır."""
     first, second = _duel_samples_v18(telemetry_1), _duel_samples_v18(telemetry_2)
@@ -1927,23 +1903,201 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
         {'code': str(driver_1), 'team': str(team_1), 'colour': colour_1, 'lap': str(lap_time_1), 'samples': first, 'sectors': sector_times_1 or []},
         {'code': str(driver_2), 'team': str(team_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': second, 'sectors': sector_times_2 or []},
     ], 'overlay': track_overlay or {}})
-    return r'''<style>*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.title{font-size:13px;font-weight:950;letter-spacing:.09em}.sub{font-size:10px;color:#9fb0c0;margin-top:5px}.tag{border:1px solid #35506d;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:900;color:var(--team)}.map{margin-top:10px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#161d28,#07090d 74%)}canvas{width:100%;height:400px;display:block}.sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 11px ui-monospace,Consolas,monospace}.sector small{display:block;color:#9fb0c0;font-family:Inter,Arial,sans-serif;margin-bottom:6px}.win{color:#79e7a7}.lose{color:#ff8793}.bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn{border:1px solid #2b3a4d;border-radius:7px;background:#161d28;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3a0f12}.slider{flex:1;min-width:130px;accent-color:#ff4051}.delta{font:900 12px ui-monospace,Consolas,monospace;margin-left:auto}@media(max-width:650px){canvas{height:330px}.sectors{grid-template-columns:1fr}.delta{width:100%;margin-left:0}}</style><div class="hud"><div class="head"><div><div class="title">2D LAP DUEL // STABLE TIME SYNC</div><div class="sub">AYNI PİST NOKTASINDAKİ GERÇEK ZAMAN DELTASI · SEKTÖR ZAMANLARI</div></div><div id="tags"></div></div><div class="map"><canvas id="duel"></canvas></div><div class="sectors" id="sectors"></div><div class="bottom"><button class="btn" id="play">▶ Oynat</button><button class="btn active" data-rate="1">1×</button><button class="btn" data-rate="2">2×</button><button class="btn" data-rate="4">4×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="delta" id="delta"></span></div></div><script>
-const data=__PAYLOAD__,drivers=data.drivers||[],canvas=document.getElementById('duel'),ctx=canvas.getContext('2d');let playing=false,rate=1,p=0,last=performance.now(),lastHud=0,view=null;const maxLap=Math.max(...drivers.map(d=>d.samples.lap_seconds||1));function sec(v){const x=String(v||'').split(':');return x.length===2?+x[0]*60+ +x[1]:NaN}function at(a,f){if(!a?.length)return null;const n=Math.max(0,Math.min(a.length-1,f*(a.length-1))),i=Math.floor(n),r=n-i,x=a[i],y=a[Math.min(a.length-1,i+1)];return{x:x.x+(y.x-x.x)*r,y:x.y+(y.y-x.y)*r,speed:x.speed+(y.speed-x.speed)*r,elapsed:x.elapsed+(y.elapsed-x.elapsed)*r}}function transform(){const raw=drivers[0]?.samples.distance||[],xs=raw.map(x=>x.x),ys=raw.map(x=>x.y),w=canvas.clientWidth,h=canvas.clientHeight,pd=28,s=Math.min((w-pd*2)/(Math.max(...xs)-Math.min(...xs)||1),(h-pd*2)/(Math.max(...ys)-Math.min(...ys)||1));return{minX:Math.min(...xs),maxY:Math.max(...ys),w,h,s}}function xy(x,t){return[(x.x-t.minX)*t.s+(t.w-(Math.max(...(drivers[0]?.samples.distance||[]).map(z=>z.x))-t.minX)*t.s)/2,(t.maxY-x.y)*t.s+(t.h-(t.maxY-Math.min(...(drivers[0]?.samples.distance||[]).map(z=>z.y)))*t.s)/2]}function advance(d){return Math.min(1,p*maxLap/(d.samples.lap_seconds||maxLap))}function drawCar(q,n,c,done){ctx.save();ctx.translate(q[0],q[1]);ctx.globalAlpha=done?.5:1;ctx.fillStyle='#060a10';ctx.fillRect(-12,-7,5,14);ctx.fillStyle=c;ctx.fillRect(-8,-4,22,8);ctx.fillRect(12,-8,3,16);ctx.fillStyle='#f3f7ff';ctx.fillRect(-16,-9,3,18);ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(n,q[0],q[1]-15)}function draw(){if(!view)return;ctx.clearRect(0,0,view.w,view.h);const route=drivers[0]?.samples.distance||[];ctx.strokeStyle='#8094ad';ctx.globalAlpha=.7;ctx.lineWidth=3;ctx.beginPath();route.forEach((x,i)=>{const q=xy(x,view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;drivers.forEach(d=>{const a=advance(d),here=at(d.samples.realtime,a),next=at(d.samples.realtime,Math.min(1,a+.004));if(!here||!next)return;const q=xy(here,view),qn=xy(next,view);drawCar(q,d.code,d.colour,a>=.999)})}function update(){const now=performance.now();if(now-lastHud<180)return;lastHud=now;const same=Math.min(advance(drivers[0]),advance(drivers[1])),a=at(drivers[0]?.samples.distance,same),b=at(drivers[1]?.samples.distance,same),raw=(a&&b&&Number.isFinite(a.elapsed)&&Number.isFinite(b.elapsed))?a.elapsed-b.elapsed:null;document.getElementById('delta').textContent=raw===null?'Delta bekleniyor':`Anlık Δ ${Math.abs(raw).toFixed(3)} sn · ${raw<0?drivers[0].code:raw>0?drivers[1].code:'eşit'} önde`;document.getElementById('range').value=Math.round(p*1000)}function sectors(){document.getElementById('tags').innerHTML=drivers.map(d=>`<span class="tag" style="--team:${d.colour}">${d.code} · ${d.lap}</span>`).join(' ');document.getElementById('sectors').innerHTML=[0,1,2].map(i=>{const a=drivers[0].sectors?.[i]||'—',b=drivers[1].sectors?.[i]||'—',d=sec(a)-sec(b),ok=Number.isFinite(d);return`<div class="sector" style="--c:${i===0?'#f4d35e':i===1?'#56cfe1':'#ff7a9f'}"><small>SEKTÖR ${i+1} · ${ok?(d<0?drivers[0].code:d>0?drivers[1].code:'EŞİT'):'—'} önde</small><div class="${ok&&d<=0?'win':'lose'}">${drivers[0].code} ${a}</div><div class="${ok&&d>=0?'win':'lose'}">${drivers[1].code} ${b}</div><div>Δ ${ok?Math.abs(d).toFixed(3)+' sn':'—'}</div></div>`}).join('')}function frame(now){const dt=Math.min(.03,Math.max(0,(now-last)/1000));last=now;if(playing){p+=dt*rate/maxLap;if(p>=1){p=1;playing=false;document.getElementById('play').textContent='↻ Baştan'}}draw();update();requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw()}document.getElementById('play').onclick=()=>{if(p>=1)p=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat'};document.querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{rate=+b.dataset.rate;document.querySelectorAll('[data-rate]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{p=+e.target.value/1000;playing=false;draw();update()};window.addEventListener('resize',resize);sectors();resize();requestAnimationFrame(frame);
-</script></div>'''.replace('__PAYLOAD__', packed)
+    return r'''<style>
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}
+.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.title{font-size:13px;font-weight:950;letter-spacing:.09em}
+.sub{font-size:10px;color:#9fb0c0;margin-top:5px}
+.tag{border:1px solid #35506d;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:900;color:var(--team)}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.legend span{border:1px solid #35506d;border-radius:99px;padding:4px 8px;font:800 9.5px Inter,Arial,sans-serif;color:#c2d4e6;background:#101f34}
+.map{margin-top:9px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+canvas{width:100%;height:392px;display:block}
+.sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 11px ui-monospace,Consolas,monospace}
+.sector small{display:block;color:#9fb0c0;font-family:Inter,Arial,sans-serif;margin-bottom:6px}
+.win{color:#79e7a7}.lose{color:#ff8793}
+.bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.btn{border:1px solid #2b3a4d;border-radius:7px;background:#161d28;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}
+.btn.active{border-color:#ff4757;background:#3a0f12}
+.slider{flex:1;min-width:130px;accent-color:#ff4051}
+.delta{font:900 12px ui-monospace,Consolas,monospace;margin-left:auto}
+@media(max-width:650px){canvas{height:320px}.sectors{grid-template-columns:1fr}.delta{width:100%;margin-left:0}}
+</style>
+<div class="hud">
+  <div class="head">
+    <div><div class="title">2D TUR DUELLOSU</div><div class="sub">IKI TUR ORTAK ZAMAN EKSENINDE - AYNI PIST NOKTASINDAKI DELTA</div></div>
+    <div id="tags"></div>
+  </div>
+  <div class="legend"><span>START / BITIS</span><span style="border-color:#45c8ff;color:#8fd8ff">SM duzluk</span><span style="border-color:#71e6a1;color:#9af0c4">OM gecis sansi</span><span style="border-color:#f4d35e;color:#f4d35e">sektor</span></div>
+  <div class="map"><canvas id="duel"></canvas></div>
+  <div class="sectors" id="sectors"></div>
+  <div class="bottom">
+    <button class="btn" id="play">Oynat</button>
+    <button class="btn active" data-rate="1">1x</button><button class="btn" data-rate="2">2x</button>
+    <button class="btn" data-rate="4">4x</button><button class="btn" data-rate="8">8x</button>
+    <input id="range" class="slider" type="range" min="0" max="1000" value="0">
+    <span class="delta" id="delta">D --</span>
+  </div>
+</div>
+<script>
+"use strict";
+(function(){
+const D=__PAYLOAD__, cars=(D.drivers||[]).filter(function(c){return c&&c.samples;}), O=D.overlay||{};
+const cv=document.getElementById('duel'), ctx=cv.getContext('2d');
+const $=function(id){return document.getElementById(id);};
+let playing=false, rate=1, p=0, last=performance.now(), lastHud=0, V=null, raf=0;
+
+const line=(cars[0]&&cars[0].samples.distance)||[];
+const maxLap=Math.max.apply(null,[1].concat(cars.map(function(c){return +c.samples.lap_seconds||1;})));
+
+let B={mnx:0,mxx:1,mny:0,mxy:1};
+if(line.length){
+  let a=1e18,b=-1e18,d=1e18,e=-1e18;
+  for(let i=0;i<line.length;i++){const q=line[i];
+    if(q.x<a)a=q.x; if(q.x>b)b=q.x; if(q.y<d)d=q.y; if(q.y>e)e=q.y;}
+  B={mnx:a,mxx:b,mny:d,mxy:e};
+}
+function fit(){
+  const r=cv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1);
+  cv.width=Math.max(2,r.width*dpr); cv.height=Math.max(2,r.height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const pad=34, spanX=(B.mxx-B.mnx)||1, spanY=(B.mxy-B.mny)||1;
+  const s=Math.min((r.width-pad*2)/spanX,(r.height-pad*2)/spanY);
+  V={s:s, w:r.width, h:r.height,
+     ox:(r.width-spanX*s)/2 - B.mnx*s,
+     oy:(r.height-spanY*s)/2 + B.mxy*s};
+  draw();
+}
+function T(q){ return [q.x*V.s+V.ox, -q.y*V.s+V.oy]; }
+
+function lerp(arr,f){
+  if(!arr||!arr.length) return null;
+  const n=Math.max(0,Math.min(arr.length-1, f*(arr.length-1)));
+  const i=n|0, r=n-i, x=arr[i], y=arr[Math.min(arr.length-1,i+1)];
+  return {x:x.x+(y.x-x.x)*r, y:x.y+(y.y-x.y)*r,
+          speed:x.speed+(y.speed-x.speed)*r, elapsed:x.elapsed+(y.elapsed-x.elapsed)*r};
+}
+function adv(c){ return Math.min(1, p*maxLap/(+c.samples.lap_seconds||maxLap)); }
+function sec(v){ const x=String(v||'').split(':'); return x.length===2 ? (+x[0]*60 + +x[1]) : NaN; }
+
+function drawCar(sx,sy,ang,code,col,done){
+  ctx.save(); ctx.translate(sx,sy); ctx.rotate(ang);
+  ctx.globalAlpha=done?0.5:1;
+  ctx.fillStyle='#05080d';
+  [[-13,-11,7,6],[-13,5,7,6],[8,-12,7,7],[8,5,7,7]].forEach(function(w){ctx.beginPath();ctx.roundRect(w[0],w[1],w[2],w[3],2);ctx.fill();});
+  const g=ctx.createLinearGradient(-16,0,18,0);
+  g.addColorStop(0,'#0b0f16'); g.addColorStop(.5,col); g.addColorStop(1,'#0b0f16');
+  ctx.fillStyle=g;
+  ctx.beginPath();
+  ctx.moveTo(19,0);ctx.lineTo(9,-4.6);ctx.lineTo(-10,-5.4);ctx.lineTo(-13,-3.6);
+  ctx.lineTo(-13,3.6);ctx.lineTo(-10,5.4);ctx.lineTo(9,4.6);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#0c141d'; ctx.beginPath(); ctx.ellipse(2,0,5,3.6,0,0,7); ctx.fill();
+  ctx.strokeStyle='#243444'; ctx.lineWidth=1.3; ctx.beginPath(); ctx.arc(3,0,4.6,-1.1,1.1); ctx.stroke();
+  ctx.fillStyle='#eef4fa'; ctx.fillRect(16,-13,3,26);
+  ctx.fillStyle=col; ctx.fillRect(15,-13,1.5,26);
+  ctx.fillStyle=done?'#7f8c9b':'#eef4fa'; ctx.fillRect(-18,-10,3,20);
+  ctx.globalAlpha=1; ctx.restore();
+  ctx.fillStyle=col; ctx.font='900 10px Inter,Arial,sans-serif'; ctx.textAlign='center';
+  ctx.fillText(code, sx, sy-18);
+}
+
+function drawOverlay(){
+  if(!line.length) return;
+  const mark=function(f,label,c){ const q=lerp(line,f); if(!q)return; const s=T(q);
+    ctx.fillStyle=c; ctx.beginPath(); ctx.arc(s[0],s[1],3.6,0,7); ctx.fill();
+    ctx.fillStyle='#eef4fa'; ctx.font='800 9px Inter,Arial,sans-serif'; ctx.textAlign='left';
+    ctx.fillText(label,s[0]+6,s[1]-5); };
+  const zone=function(z,label,c){ if(!Number.isFinite(z.start)||!Number.isFinite(z.end))return;
+    ctx.beginPath();
+    for(let i=0;i<=26;i++){ const q=lerp(line, z.start+(z.end-z.start)*i/26); if(!q)break;
+      const s=T(q); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); }
+    ctx.strokeStyle=c; ctx.lineWidth=6; ctx.globalAlpha=.85; ctx.stroke(); ctx.globalAlpha=1;
+    mark(z.start,label,c); };
+  (O.straights||[]).forEach(function(z,i){ zone(z, i?'OM':'SM', i?'#71e6a1':'#45c8ff'); });
+  mark(0,'START / BITIS','#ffffff');
+  (O.sectors||[]).forEach(function(x){ mark(x.fraction,x.label,x.colour||'#f4d35e'); });
+  (O.pit||[]).forEach(function(x){ mark(x.fraction,x.label,'#b79cff'); });
+}
+
+function draw(){
+  if(!V) return;
+  ctx.clearRect(0,0,V.w,V.h);
+  if(!line.length){ ctx.fillStyle='#9fb0c0'; ctx.font='700 12px Inter,Arial,sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Bu tur icin konum telemetrisi yok.', V.w/2, V.h/2); return; }
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath(); for(let i=0;i<line.length;i++){ const s=T(line[i]); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); } ctx.closePath();
+  ctx.strokeStyle='#1b222d'; ctx.lineWidth=24; ctx.stroke();
+  ctx.strokeStyle='#39424e'; ctx.lineWidth=16; ctx.stroke();
+  ctx.setLineDash([9,16]); ctx.strokeStyle='rgba(255,255,255,.10)'; ctx.lineWidth=2; ctx.stroke(); ctx.setLineDash([]);
+  drawOverlay();
+  for(let k=0;k<cars.length;k++){
+    const c=cars[k], a=adv(c);
+    const here=lerp(c.samples.realtime, a), nxt=lerp(c.samples.realtime, Math.min(1,a+0.006));
+    if(!here||!nxt) continue;
+    const s=T(here), sn=T(nxt);
+    drawCar(s[0], s[1], Math.atan2(sn[1]-s[1], sn[0]-s[0]), c.code, c.colour, a>=0.999);
+  }
+}
+
+function updateHud(){
+  const t=performance.now(); if(t-lastHud<160) return; lastHud=t;
+  let raw=null;
+  if(cars.length>=2){
+    const f=Math.min(adv(cars[0]),adv(cars[1]));
+    const a=lerp(cars[0].samples.distance,f), b=lerp(cars[1].samples.distance,f);
+    if(a&&b&&Number.isFinite(a.elapsed)&&Number.isFinite(b.elapsed)) raw=a.elapsed-b.elapsed;
+  }
+  $('delta').textContent = raw===null ? 'D --'
+    : 'D '+Math.abs(raw).toFixed(3)+' sn - '+(raw<0?cars[0].code:raw>0?cars[1].code:'esit')+' onde';
+  $('range').value = Math.round(p*1000);
+}
+
+function buildStatic(){
+  $('tags').innerHTML = cars.map(function(c){return '<span class="tag" style="--team:'+c.colour+'">'+c.code+' - '+c.lap+'</span>';}).join(' ');
+  if(cars.length<2){ $('sectors').innerHTML=''; return; }
+  $('sectors').innerHTML=[0,1,2].map(function(i){
+    const a=(cars[0].sectors||[])[i]||'-', b=(cars[1].sectors||[])[i]||'-';
+    const d=sec(a)-sec(b), ok=Number.isFinite(d);
+    const c=i===0?'#f4d35e':i===1?'#56cfe1':'#ff7a9f';
+    return '<div class="sector" style="--c:'+c+'"><small>SEKTOR '+(i+1)+' - '+(ok?(d<0?cars[0].code:d>0?cars[1].code:'ESIT'):'-')+' onde</small>'
+      +'<div class="'+(ok&&d<=0?'win':'lose')+'">'+cars[0].code+' '+a+'</div>'
+      +'<div class="'+(ok&&d>=0?'win':'lose')+'">'+cars[1].code+' '+b+'</div>'
+      +'<div>D '+(ok?Math.abs(d).toFixed(3)+' sn':'-')+'</div></div>';
+  }).join('');
+}
+
+function tick(t){
+  t=t||performance.now();
+  const dt=Math.min(0.05, Math.max(0,(t-last)/1000)); last=t;
+  if(playing){
+    p += dt*rate/maxLap;
+    if(p>=1){ p=1; playing=false; $('play').textContent='Bastan'; }
+  }
+  draw(); updateHud();
+}
+function loop(t){ tick(t); raf=requestAnimationFrame(loop); }
+
+$('play').onclick=function(){ if(p>=1) p=0; playing=!playing; $('play').textContent=playing?'Duraklat':'Oynat'; };
+document.querySelectorAll('[data-rate]').forEach(function(b){ b.onclick=function(){
+  rate=+b.dataset.rate;
+  document.querySelectorAll('[data-rate]').forEach(function(x){ x.classList.toggle('active',x===b); });
+}; });
+$('range').oninput=function(e){ p=+e.target.value/1000; playing=false; $('play').textContent='Oynat'; draw(); updateHud(); };
+window.addEventListener('resize',fit);
+document.addEventListener('visibilitychange',function(){ if(document.hidden) playing=false; });
+
+buildStatic(); fit();
+raf=requestAnimationFrame(loop);
+setInterval(function(){ if(performance.now()-last>60) tick(); }, 40);
+})();
+</script>'''.replace('__PAYLOAD__', packed)
 
 
 def two_driver_duel_html_repaired(*args, **kwargs):
-    """2D d\u00fcello: tek ara\u00e7 modeli, \u00f6n kanat ve entegre pist katmanlar\u0131."""
-    markup = two_driver_duel_html_stable(*args, **kwargs)
-    old_car = "function drawCar(q,n,c,done){ctx.save();ctx.translate(q[0],q[1]);ctx.globalAlpha=done?.5:1;ctx.fillStyle='#060a10';ctx.fillRect(-12,-7,5,14);ctx.fillStyle=c;ctx.fillRect(-8,-4,22,8);ctx.fillRect(12,-8,3,16);ctx.fillStyle='#f3f7ff';ctx.fillRect(-16,-9,3,18);ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(n,q[0],q[1]-15)}"
-    new_car = "function drawCar(q,a,n,c,done){ctx.save();ctx.translate(q[0],q[1]);ctx.rotate(a);ctx.globalAlpha=done?.5:1;ctx.fillStyle='#05080d';[[-9,-10,6,5],[-9,5,6,5],[7,-10,6,5],[7,5,6,5]].forEach(w=>ctx.fillRect(...w));ctx.fillStyle=c;ctx.fillRect(-10,-5,23,10);ctx.fillRect(10,-3,8,6);ctx.fillStyle='#111a27';ctx.beginPath();ctx.ellipse(1,0,5,4,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f3f7ff';ctx.fillRect(17,-10,3,20);ctx.fillRect(14,-8,8,3);ctx.fillRect(14,5,8,3);ctx.fillStyle='#dce8f7';ctx.fillRect(5,-1,6,2);ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(n,q[0],q[1]-15)}"
-    markup = markup.replace(old_car, new_car).replace("drawCar(q,d.code,d.colour,a>=.999)", "drawCar(q,Math.atan2(qn[1]-q[1],qn[0]-q[0]),d.code,d.colour,a>=.999)")
-    overlay = "function drawOverlay(){const o=data.overlay||{},route=drivers[0]?.samples?.distance||[];if(!route.length)return;const mark=(f,label,col)=>{const p=at(route,f);if(!p)return;const q=xy(p,view);ctx.fillStyle=col;ctx.beginPath();ctx.arc(q[0],q[1],3.5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2f5f8';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText(label,q[0]+6,q[1]-6)};const zone=(z,label,col)=>{ctx.beginPath();for(let i=0;i<=24;i++){const p=at(route,z.start+(z.end-z.start)*i/24),q=xy(p,view);i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])}ctx.strokeStyle=col;ctx.lineWidth=5;ctx.globalAlpha=.92;ctx.stroke();ctx.globalAlpha=1;mark(z.start,label,col)};mark(0,'START / FINISH','#ffffff');(o.sectors||[]).forEach(x=>mark(x.fraction,x.label,x.colour||'#f4d35e'));(o.pit||[]).forEach(x=>mark(x.fraction,x.label,'#b79cff'));(o.straights||[]).forEach((z,i)=>zone(z,i===0?'SM - Straight Mode':'OM - Overtake Mode',i===0?'#45c8ff':'#71e6a1'))}"
-    markup = markup.replace("function draw(){if(!view)return;", overlay + "function draw(){if(!view)return;")
-    markup = markup.replace("ctx.globalAlpha=1;drivers.forEach(d=>{const a=advance(d)", "ctx.globalAlpha=1;drawOverlay();drivers.forEach(d=>{const a=advance(d)")
-    return markup
-
-
+    """Clean self-contained duel HUD; old .replace() patch layers removed."""
+    return two_driver_duel_html_stable(*args, **kwargs)
 
 
 def _openf1_credentials():
@@ -1974,19 +2128,11 @@ def _openf1_token(username, password):
         return ''
 
 
-
-
-
-
 def _api_duration_text(value):
     try:
         return format_time(pd.to_timedelta(float(value), unit='s'))
     except (TypeError, ValueError):
         return '-'
-
-
-
-
 
 
 # =========================================================
@@ -2108,8 +2254,6 @@ def _openf1_race_control_v19(records, limit=5):
         if len(messages) >= limit:
             break
     return list(reversed(messages))
-
-
 
 
 def _openf1_utc_v19(value):
@@ -2649,12 +2793,6 @@ def paddock_assistant_answer_v19(question, year=None):
     return {'title': 'Paddock Veri Asistanı', 'answer': 'Şu an son tamamlanan seansın doğrulanmış sonuçlarını okuyabiliyorum. Örnek: “Alonso kaçıncı oldu?”, “Pole kim?”, “Son seansta ne oldu?”', 'source': source}
 
 
-
-
-
-
-
-
 def stewarlde_drivers():
     """Resmî 2026 gridinden türeyen, internet gerektirmeyen oyun havuzu."""
     rows = []
@@ -2668,16 +2806,6 @@ def stewarlde_drivers():
                 'photo': current_driver_portrait(team, old_image_path),
             })
     return sorted(rows, key=lambda item: item['name'])
-
-
-
-
-
-
-
-
-
-
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -2724,17 +2852,11 @@ def _timedelta_seconds(value):
         return None
 
 
-
-
-
-
 def _race_int(value):
     try:
         return int(float(value))
     except (TypeError, ValueError):
         return None
-
-
 
 
 def race_driver_profile(driver_code, team_name):
@@ -2754,18 +2876,6 @@ def race_driver_profile(driver_code, team_name):
 def _race_position(value):
     position = _race_int(value)
     return position if position is not None and 1 <= position <= 30 else None
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @st.cache_data(ttl=604800, show_spinner=False)
@@ -2902,9 +3012,6 @@ def _build_stable_race_replay_payload_v25(year, event_name):
     except Exception as error:
         log_data_error('stable race replay', error)
         return {'ok': False, 'reason': f'Yarış tekrar paketi hazırlanamadı: {error}'}
-
-
-
 
 
 # Shared replay HUD: portrait, tyre history, pits and track-mode overlays.
@@ -3114,12 +3221,6 @@ def render_weekend_centre():
     render_html_hud(session_leaderboard_html(table, f'{selected_name} // {selected["title"].upper()}'), height=leaderboard_component_height(table), scrolling=False)
 
 
-
-
-
-
-
-
 def render_favourites_centre():
     render_page_header(T('page.favourites.title'), T('page.favourites.sub'))
     _fcols = st.columns(2)
@@ -3159,7 +3260,6 @@ def render_favourites_centre():
 # =========================================================
 
 
-
 def paddock_history_answer_v18(question):
     """Stable historic F1 answer set; no API key or network needed."""
     normal = _normalise_question_v19(question)
@@ -3177,18 +3277,6 @@ def paddock_history_answer_v18(question):
     return ''
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 st.markdown(r"""
 <style>
 /* 1.8 safe visual pass: CSS only, no layers, no animations, no request loop. */
@@ -3202,13 +3290,10 @@ st.markdown(r"""
 """, unsafe_allow_html=True)
 
 
-
-
 # =========================================================
 # 1.9 PROFESSIONAL NEWS + AI KNOWLEDGE + GAME PATCH
 # Additive patch. It does not change replay, telemetry or FastF1 loading.
 # =========================================================
-
 
 
 def _ascii_question_v19(question):
@@ -3305,8 +3390,6 @@ def _rss_image_v19(item):
     return ''
 
 
-
-
 def news_matches_team_v19(item, team_name):
     if team_name == 'Genel F1':
         return True
@@ -3348,10 +3431,6 @@ def repair_text_v20(value):
         except (UnicodeError, UnicodeEncodeError):
             return text
     return text
-
-
-
-
 
 
 def news_item_is_f1_v20(item, link, title, description):
@@ -3683,7 +3762,6 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:5
 # =========================================================
 
 
-
 def _stewarlde_safe_int_v21(value, fallback=0):
     try:
         return int(value)
@@ -3748,8 +3826,6 @@ def fetch_stewarlde_historic_roster_v21(season):
         return []
 
 
-
-
 def stewarlde_cell_v21(value, target, numeric=False):
     if str(value) == str(target):
         return 'match', '\u2713'
@@ -3759,16 +3835,6 @@ def stewarlde_cell_v21(value, target, numeric=False):
         except (TypeError, ValueError):
             pass
     return 'miss', '\u2014'
-
-
-
-
-
-
-
-
-
-
 
 
 # Keep all existing page routes and engines intact; only the renderer names change.
@@ -3815,22 +3881,10 @@ st.markdown(r"""
 # =========================================================
 
 
-
-
-
-
-
-
-
-
-
-
 def stewarlde_numeric_cell_v23(value, target):
     if value is None or target is None:
         return 'miss', '\u2014'
     return stewarlde_cell_v21(value, target, True)
-
-
 
 
 def stewarlde_target_index_v23(length, mode, round_number):
@@ -3840,10 +3894,6 @@ def stewarlde_target_index_v23(length, mode, round_number):
     if mode == 'G\u00fcnl\u00fck':
         return (day * 31 + 17) % length
     return (day * 19 + int(round_number) * 37 + 11) % length
-
-
-
-
 
 
 st.markdown(r"""
@@ -3857,7 +3907,6 @@ st.markdown(r"""
 """, unsafe_allow_html=True)
 
 
-
 # =========================================================
 # 2.4 GAME ENGINE STABILITY PATCH
 # Canonical driver identities, source-only career statistics and one shared
@@ -3865,25 +3914,9 @@ st.markdown(r"""
 # =========================================================
 
 
-
-
 # Jolpica IDs are only used to ask the historical source for a driver's own
 # results. If an ID is unavailable, the game shows an honest dash -- never a
 # guessed career total.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 st.markdown(r"""
@@ -3894,16 +3927,10 @@ st.markdown(r"""
 """, unsafe_allow_html=True)
 
 
-
-
 # =========================================================
 # 2.5 STEWARDLE CAREER RECORD PATCH
 # A seventh, source-verified "first GP year" field. No guessed career data.
 # =========================================================
-
-
-
-
 
 
 def stewarlde_date_cell_v25(value, target):
@@ -4070,15 +4097,10 @@ st.markdown(r"""
 """, unsafe_allow_html=True)
 
 
-
-
 # =========================================================
 # 2.6 REPLAY + NAVIGATION HUD PATCH
 # Focused patch: keeps the existing pages and data engines intact.
 # =========================================================
-
-
-_two_driver_duel_html_repaired_v25 = two_driver_duel_html_repaired
 
 
 def _replay_overlay_v26(payload):
@@ -4161,25 +4183,6 @@ let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=r
 </script></div></body></html>""".replace('__PAYLOAD__', packed)
 
 
-def two_driver_duel_html_repaired(*args, **kwargs):
-    """Keep all telemetry-derived track markers permanently visible in the duel HUD."""
-    markup = _two_driver_duel_html_repaired_v25(*args, **kwargs)
-    legend = (
-        "<div class='duel-mode-legend-v26'><span>SM · Straight Mode</span>"
-        "<span>OM · Overtake olasılığı</span><span>PIT IN / OUT · şematik</span></div>"
-    )
-    css = (
-        "<style>.duel-mode-legend-v26{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 0}"
-        ".duel-mode-legend-v26 span{border:1px solid #35506d;border-radius:99px;padding:5px 8px;"
-        "font:850 10px Inter,Arial,sans-serif;color:#bfd2e5;background:#102038}</style>"
-    )
-    if 'duel-mode-legend-v26' not in markup:
-        markup = markup.replace('</style>', css + '</style>', 1)
-        markup = markup.replace("<div class='map'>", legend + "<div class='map'>", 1)
-        markup = markup.replace('<div class="map">', legend + '<div class="map">', 1)
-    return markup
-
-
 st.markdown(r"""
 <style>
 /* One calm navigation grid. This does not use animation, fixed overlays or JS. */
@@ -4193,7 +4196,6 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:5
 """, unsafe_allow_html=True)
 
 
-
 # =========================================================
 # 2.7 CAREER COMPARISON CENTRE
 # This deliberately replaces only the comparison page. It does not load a
@@ -4201,8 +4203,6 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:5
 # profile. Career results are read from Jolpica's historical F1 database and
 # cached locally; unavailable source fields are shown as "—", never guessed.
 # =========================================================
-
-
 
 
 @st.cache_data(ttl=60 * 60 * 12, show_spinner=False)
@@ -4254,8 +4254,6 @@ def _career_races_v27(api_code):
     return races, total
 
 
-
-
 def _career_text_v27(value, suffix=''):
     if value is None:
         return '—'
@@ -4264,10 +4262,6 @@ def _career_text_v27(value, suffix=''):
     else:
         text = f'{int(value):,}' if isinstance(value, int) else str(value)
     return text + suffix
-
-
-
-
 
 
 st.markdown(r"""
@@ -5099,39 +5093,6 @@ def render_driver_comparison_centre():
     st.caption('Kariyer istatistikleri yalnızca seçilen sürücünün tarihî yarış sonucu satırlarından hesaplanır. Kaynak yanıt vermezse istatistik uydurulmaz; “—” görünür.')
 
 
-# The existing duel already follows real telemetry. This layer replaces only the
-# car glyph and time interpolation so there is no new data source or page flow.
-_two_driver_duel_html_repaired_v28 = two_driver_duel_html_repaired
-
-
-def two_driver_duel_html_repaired(*args, **kwargs):
-    markup = _two_driver_duel_html_repaired_v28(*args, **kwargs)
-    old_at_start = 'function at(a,f){'
-    old_at_end = 'function transform()'
-    at_start = markup.find(old_at_start)
-    at_end = markup.find(old_at_end, at_start)
-    if at_start >= 0 and at_end > at_start:
-        smooth_at = r"""function at(a,f){if(!a?.length)return null;const p=Math.max(0,Math.min(1,Number(f)||0));const last=a[a.length-1]||{};if(Number.isFinite(last.elapsed)&&last.elapsed>0){const goal=p*last.elapsed;let lo=0,hi=a.length-1;while(lo<hi){const mid=Math.floor((lo+hi)/2);if((a[mid].elapsed||0)<goal)lo=mid+1;else hi=mid}const i=Math.max(0,lo-1),x=a[i],y=a[Math.min(a.length-1,lo)],span=(y.elapsed||0)-(x.elapsed||0),r=span?Math.max(0,Math.min(1,(goal-(x.elapsed||0))/span)):0;return{x:x.x+(y.x-x.x)*r,y:x.y+(y.y-x.y)*r,distance:x.distance+(y.distance-x.distance)*r,elapsed:goal}}const n=p*(a.length-1),i=Math.floor(n),r=n-i,x=a[i],y=a[Math.min(a.length-1,i+1)];return{x:x.x+(y.x-x.x)*r,y:x.y+(y.y-x.y)*r,distance:x.distance+(y.distance-x.distance)*r,elapsed:x.elapsed+(y.elapsed-x.elapsed)*r}}"""
-        markup = markup[:at_start] + smooth_at + markup[at_end:]
-
-    old_car_start = 'function drawCar(q,a,n,c,done){'
-    old_car_end = 'function drawOverlay'
-    car_start = markup.find(old_car_start)
-    car_end = markup.find(old_car_end, car_start)
-    if car_start >= 0 and car_end > car_start:
-        f1_car = r"""function drawCar(q,a,n,c,done){ctx.save();ctx.translate(q[0],q[1]);ctx.rotate(a);ctx.scale(.82,.82);ctx.globalAlpha=done?.52:1;ctx.shadowColor=c;ctx.shadowBlur=10;ctx.fillStyle='#05080d';[[-12,-11,7,6],[-12,5,7,6],[7,-11,7,6],[7,5,7,6]].forEach(w=>ctx.fillRect(...w));ctx.shadowBlur=0;ctx.fillStyle=c;ctx.fillRect(-10,-5,23,10);ctx.fillRect(-2,-7,10,14);ctx.fillRect(7,-3,12,6);ctx.fillStyle='#101924';ctx.beginPath();ctx.ellipse(-1,0,5.5,4.5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#dce9f8';ctx.fillRect(-18,-11,4,22);ctx.fillRect(-15,-9,7,4);ctx.fillRect(-15,5,7,4);ctx.fillStyle='#f2f5f8';ctx.fillRect(18,-13,4,26);ctx.fillRect(14,-10,9,4);ctx.fillRect(14,6,9,4);ctx.fillStyle='#89a4bd';ctx.fillRect(0,-1,8,2);ctx.restore();ctx.fillStyle=c;ctx.font='900 10px Arial';ctx.textAlign='center';ctx.fillText(n,q[0],q[1]-17)}"""
-        markup = markup[:car_start] + f1_car + markup[car_end:]
-
-    markup = markup.replace('Math.min(.03,Math.max(0,(now-last)/1000))', 'Math.min(.018,Math.max(0,(now-last)/1000))')
-    spec = "<div class='duel-car-spec-v28'><span>TAKIM RENKLERİ</span><span>ÖN KANAT</span><span>HALO</span><span>ARKA KANAT</span></div>"
-    style = "<style>.duel-car-spec-v28{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 4px}.duel-car-spec-v28 span{font:850 9px Inter,Arial,sans-serif;letter-spacing:.7px;color:#bcd2e8;border:1px solid #35506d;border-radius:99px;background:#0e1b2d;padding:5px 8px}</style>"
-    if 'duel-car-spec-v28' not in markup:
-        markup = markup.replace('</style>', style + '</style>', 1)
-        markup = markup.replace("<div class='map'>", spec + "<div class='map'>", 1)
-        markup = markup.replace('<div class="map">', spec + '<div class="map">', 1)
-    return markup
-
-
 st.markdown(r"""
 <style>
 .career-panel-v28{min-height:492px;border:1px solid #2b4664;border-top:5px solid var(--team);border-radius:16px;padding:18px;background:linear-gradient(145deg,#111d31,#0b1524);box-shadow:0 14px 30px rgba(0,0,0,.18)}
@@ -5147,7 +5108,6 @@ st.markdown(r"""
 # Stewardle keeps its verified historical engine. The other games use this
 # zero-network layer so Community Cloud never waits for an API to draw them.
 # =========================================================
-
 
 
 def _pit_wall_card_v30(label, name, colour, detail=""):
@@ -5359,7 +5319,6 @@ def _router_page_home():
     except Exception as _hero_err:  # noqa: BLE001 — hero asla sayfayı düşürmesin
         log_data_error('hero', _hero_err)
         fp_ui.page_header("Formula Paddock", T("page.home.sub"), eyebrow="Formula Paddock")
-
 
 
 # SAYFA 2: CANLI SEANS TAKİBİ
