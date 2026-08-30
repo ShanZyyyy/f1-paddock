@@ -504,7 +504,15 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
   height:0 !important;min-height:0 !important;pointer-events:none}
 [data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],#MainMenu{
   display:none !important}
-.stApp [data-testid="stMain"] .block-container{padding-top:5.8rem !important;max-width:1200px}
+.stApp [data-testid="stMain"] .block-container{padding-top:5.8rem;max-width:1200px}
+
+/* açılış hero'su tam genişlik + tepeye kadar (fp-hero-mark işaretinden sonraki konteyner) */
+[data-testid="stElementContainer"]:has(.fp-hero-mark){display:none !important}
+[data-testid="stElementContainer"]:has(.fp-hero-mark) + [data-testid="stElementContainer"]{
+  width:100vw !important;max-width:none !important;margin-left:calc(50% - 50vw) !important}
+[data-testid="stElementContainer"]:has(.fp-hero-mark) + [data-testid="stElementContainer"] iframe{
+  width:100vw !important;display:block}
+.stApp [data-testid="stMain"] .block-container:has(.fp-hero-mark){padding-top:0 !important}
 
 .fp-tb{position:fixed;inset:0 0 auto 0;z-index:1000000;font-family:var(--fp-f-body)}
 .fp-tb-bar{display:flex;align-items:center;gap:clamp(1rem,3vw,2.4rem);height:60px;

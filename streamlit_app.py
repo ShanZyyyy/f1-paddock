@@ -26,6 +26,7 @@ import openf1_fallback
 from core import ui as fp_ui
 from core import plot as fp_plot
 from core import i18n as fp_i18n
+from core import hero as fp_hero
 from core.i18n import t as T
 from core.f1_constants import *  # noqa: F401,F403 — statik F1 veri sabitleri
 from views import glossary as _view_glossary
@@ -6075,6 +6076,17 @@ fp_ui.control_dock()
 # =========================================================
 
 def _router_page_home():
+    # Açılış hero'su: duman + FORMULA PADDOCK + gerçek sıradaki-seans sayacı.
+    # (iframe içinde sessionStorage ile: sert yenilemede oynar, rerun'da dinlenme)
+    try:
+        _hev, _hsn, _hst, _hlive = get_current_or_next_event()
+        fp_hero.render(
+            str(_hev.get('Location') or _hev.get('EventName') or '').strip(),
+            str(_hsn or ''), _hst, bool(_hlive),
+        )
+    except Exception as _hero_err:  # noqa: BLE001 — hero asla sayfayı düşürmesin
+        log_data_error('hero', _hero_err)
+
     # redesign: F1 TV yonu — page_header + yaris sonuc basligi + sakin race center
     fp_ui.page_header(T("page.home.title"), T("page.home.sub"), eyebrow="Formula Paddock")
 
