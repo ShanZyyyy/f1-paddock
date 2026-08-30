@@ -200,31 +200,20 @@ html, body, #root {
     overflow: visible !important;
 }
 
-/* KRITIK TEMA — tam tema (theme.page_style / shell_style) dosyanin sonunda
-   enjekte edildiginden, ilk boyama sirasinda sidebar birkac kare stilsiz
-   ("eski HUD") gorunuyordu. Asagidaki kucuk alt kume o pencerede zemini ve
-   marka kilidini dogru gosterir; tam tema geldiginde ayni degerleri tekrar
-   yazar. Koyu = varsayilan; acik tema kullanicilari icin :root guardi var. */
+/* KRITIK ZEMIN — tam tema (theme.shell_style) dosyanin sonunda enjekte
+   edildiginden, ilk boyamada ana govde beyaz/stilsiz parlarabiliyordu.
+   Koyu = varsayilan; acik tema kullanicilari icin :root guardi var.
+   Sol menunun slim-rail temasi icin: fp_ui.inject_rail_theme() (asagida). */
 :root:not([data-fp-theme="light"]) [data-testid="stApp"],
 :root:not([data-fp-theme="light"]) [data-testid="stAppViewContainer"]{
     background:#0c1016 !important;
 }
-:root:not([data-fp-theme="light"]) section[data-testid="stSidebar"]{
-    background:linear-gradient(180deg,#11161f,#0c1016) !important;
-    border-right:1px solid #26313f;
-}
-section[data-testid="stSidebar"] *{color:#f2f5f8}
-.fp-brand{display:flex;align-items:center;gap:11px;padding:6px 4px 14px;
-    margin-bottom:2px;border-bottom:1px solid #26313f}
-.fp-brand .txt{font-weight:800;font-size:16.5px;letter-spacing:.045em;
-    text-transform:uppercase;line-height:1.02;
-    font-family:'Saira Condensed','Arial Narrow',system-ui,sans-serif}
-.fp-brand .txt s{display:block;font-weight:600;font-size:9px;letter-spacing:.24em;
-    color:#63748a;text-decoration:none;margin-top:4px}
-.fp-nav-sec{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
-    color:#63748a;padding:16px 6px 4px}
 </style>
 """, unsafe_allow_html=True)
+
+# Slim-rail sol menü temasını EN BAŞTA da bir kez enjekte et — yoksa açılışta
+# menü birkaç kare eski stille görünüyor (tam tema dosya sonunda geliyor).
+fp_ui.inject_rail_theme()
 
 # Uyarıları küresel olarak kapatmayın; gerçek sorunları görünür bırakın.
 

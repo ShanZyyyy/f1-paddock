@@ -251,6 +251,23 @@ def inject_shell_theme():
     background_fx()
 
 
+def inject_rail_theme():
+    """Kritik sol-menu temasi — EN BASTA (set_page_config'ten hemen sonra).
+
+    `inject_shell_theme` dosyanin sonunda calistigi icin, ilk boyamada
+    sidebar birkac kare eski (slim-rail oncesi) stille goruruyordu. Bu,
+    :root jetonlari + slim-rail sidebar CSS'ini bir kez daha ONE alir.
+    Idempotent: `_SIDEBAR_CSS` selektorleri (`[class*=st-key-nav_]`) eski
+    monolit sidebar bloklarindan daha spesifik oldugu icin, o bloklar
+    sonradan yuklense bile bu kurallar kazanir; tam tema geldiginde ayni
+    kurallari yeniden yazar."""
+    st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
+    st.markdown(
+        "<style>" + theme._root_vars_dual() + theme._SIDEBAR_CSS + "</style>",
+        unsafe_allow_html=True,
+    )
+
+
 def background_fx():
     """Sayfanin en arkasina canli pist arka planini (#fp-bgfx) enjekte eder.
     Kendini cizen tur + iki arac (SMIL animateMotion). CSS'i shell_style icinde."""
