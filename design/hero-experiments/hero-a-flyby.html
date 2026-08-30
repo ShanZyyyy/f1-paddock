@@ -382,13 +382,17 @@ function settle(){stage.classList.add('play','settled');Smoke.start();}
 
 (function run(){
   if(prefersReduce||seen){ settle(); return; }
-  var started=false;
-  function go(){ if(started)return; started=true; requestAnimationFrame(playSequence); }
-  if(document.fonts&&document.fonts.load){
-    document.fonts.load('700 1rem Antonio').then(go,go);
-    setTimeout(go,600);
-  } else go();
+  requestAnimationFrame(function(){ centerLogo(); playSequence(); });
+  /* font geç yüklenirse merkez ölçümünü bir kez tazele (animasyon henüz gecikmede) */
+  setTimeout(function(){
+    if(stage.classList.contains('play')&&!stage.classList.contains('settled')) centerLogo();
+  },260);
 })();
+
+/* güvenlik ağı: 4 sn içinde sahne hiç açılmadıysa direkt son hâle geç */
+setTimeout(function(){
+  if(!stage.classList.contains('play')) settle();
+},4000);
 
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&Smoke.ok)Smoke.start();});
 
