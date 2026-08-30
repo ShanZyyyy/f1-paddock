@@ -8,7 +8,6 @@ Tum gorsel dil `core/theme.py`'den gelir.
 import html as _html
 import json as _json
 import re as _re
-import time as _time
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -596,12 +595,14 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 /* hero sayfasında dikey scroll'u kes — ana ekran = tam hero */
 .stApp [data-testid="stMain"]:has(.fp-hero-mark){overflow:hidden !important}
 
-/* görünmez navigasyon butonları (JS bunları tıklar — reload yok) */
+/* görünmez navigasyon butonları — JS `.click()` eder (reload yok).
+   visibility:hidden a11y ağacından + tab sırasından + innerText'ten çıkarır
+   ama programatik .click() yine çalışır. */
 [class*="st-key-njp_"],[class*="st-key-njl_"]{
-  position:absolute !important;width:1px !important;height:1px !important;
-  padding:0 !important;margin:-1px !important;overflow:hidden !important;
-  clip:rect(0 0 0 0) !important;white-space:nowrap !important;border:0 !important;
-  opacity:0 !important;pointer-events:none !important}
+  position:absolute !important;top:0 !important;left:0 !important;
+  width:1px !important;height:1px !important;overflow:hidden !important;
+  margin:0 !important;padding:0 !important;border:0 !important;
+  visibility:hidden !important;pointer-events:none !important}
 
 .fp-tb{position:fixed;inset:0 0 auto 0;z-index:1000000;font-family:var(--fp-f-body)}
 .fp-tb-bar{position:relative;display:flex;align-items:center;gap:clamp(.7rem,2vw,1.6rem);height:60px;
@@ -699,8 +700,9 @@ _TOPBAR_ACTIVE_JS = """
       a.classList.toggle('on',(a.getAttribute('href')||'')==='?p='+k);
     });
   }
-  function paint(){
-    try{ markActive(curPage()); D.body.classList.remove('fp-tb-busy'); }catch(e){}
+  function busy(on){
+    try{ D.body.classList.toggle('fp-tb-busy', !!on); }catch(e){}
+    if(on){ clearTimeout(PW.__fpBusyT); PW.__fpBusyT=setTimeout(function(){busy(false);},2500); }
   }
 
   // Görünmez Streamlit butonunu tıkla -> aynı-oturum RERUN (reload yok).
@@ -713,35 +715,33 @@ _TOPBAR_ACTIVE_JS = """
     }catch(e){}
     return false;
   }
-
-  function bind(){
-    try{
-      D.querySelectorAll('.fp-tb a[href^="?p="], .fp-tb-skel a[href^="?p="]').forEach(function(a){
-        if(a.__fp) return; a.__fp=1;
-        a.addEventListener('click',function(e){
-          var k=(a.getAttribute('href')||'').split('p=')[1]; if(!k) return;
-          if(jump('njp_',k)){
-            e.preventDefault();
-            markActive(k);                       // anında aktif sekme
-            D.body.classList.add('fp-tb-busy');  // ince yükleniyor çizgisi
-          }
-        });
-      });
-      D.querySelectorAll('.fp-tb a[href^="?lang="]').forEach(function(a){
-        if(a.__fpl) return; a.__fpl=1;
-        a.addEventListener('click',function(e){
-          var l=(a.getAttribute('href')||'').split('lang=')[1]; if(!l) return;
-          if(jump('njl_',l)){ e.preventDefault(); D.body.classList.add('fp-tb-busy'); }
-        });
-      });
-    }catch(e){}
+  function go(k){
+    if(!jump('njp_',k)) return false;   // Streamlit URL'i replaceState ile kendi günceller
+    markActive(k); busy(true);
+    return true;
   }
 
-  var _rerun="__NONCE__";   // her rerun'da değişir -> bu iframe yeniden koşar -> paint()
-  paint(); bind();
-  setTimeout(function(){paint();bind();},60);
-  setTimeout(function(){paint();bind();},300);
-  PW.addEventListener('popstate',paint);
+  // Olay delegasyonu: bar her rerun'da yeniden çizilse de tek dinleyici yeter,
+  // bu iframe'in tekrar koşmasına gerek kalmaz (React #231 gürültüsü yok).
+  if(!PW.__fpNav){
+    PW.__fpNav=1;
+    D.addEventListener('click',function(e){
+      var t=e.target;
+      var a=t && t.closest && t.closest('a[href^="?p="], a[href^="?lang="]');
+      if(!a || !(a.closest('.fp-tb') || a.closest('.fp-tb-skel'))) return;
+      var href=a.getAttribute('href')||'';
+      if(href.indexOf('?p=')===0){
+        if(go(href.slice(3))) e.preventDefault();
+      }else if(href.indexOf('?lang=')===0){
+        if(jump('njl_',href.slice(6))){ e.preventDefault(); busy(true); }
+      }
+    }, true);
+    // Bar yeniden çizilince (dil değişimi, saatlik seans satırı) aktif sekme
+    // işaretini geri koy — ucuz sorgu, kalıcı hafif interval.
+    PW.setInterval(function(){ markActive(curPage()); }, 450);
+  }
+
+  markActive(curPage()); busy(false);
 })();
 </script>
 """
@@ -797,4 +797,4 @@ def topbar(current, lang, standalone=(), groups=(), session_line="", session_liv
         + "</div></div>",
         unsafe_allow_html=True,
     )
-    _embed_html(_TOPBAR_ACTIVE_JS.replace("__NONCE__", f"{_time.time():.3f}"), height=0)
+    _embed_html(_TOPBAR_ACTIVE_JS, height=0)
