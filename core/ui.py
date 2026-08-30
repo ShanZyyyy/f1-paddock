@@ -510,42 +510,48 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 /* açılış hero'su tam genişlik + tepeye kadar (fp-hero-mark işaretinden sonraki konteyner) */
 [data-testid="stElementContainer"]:has(.fp-hero-mark){display:none !important}
 [data-testid="stElementContainer"]:has(.fp-hero-mark) + [data-testid="stElementContainer"]{
-  width:100vw !important;max-width:none !important;margin-left:calc(50% - 50vw) !important}
+  width:100vw !important;max-width:none !important;margin-left:calc(50% - 50vw) !important;
+  height:100svh !important}
 [data-testid="stElementContainer"]:has(.fp-hero-mark) + [data-testid="stElementContainer"] iframe{
-  width:100vw !important;display:block}
-.stApp [data-testid="stMain"] .block-container:has(.fp-hero-mark){padding-top:0 !important}
+  width:100vw !important;height:100svh !important;display:block}
+.stApp [data-testid="stMain"] .block-container:has(.fp-hero-mark){
+  padding:0 !important;max-width:none !important}
+/* hero sayfasında dikey scroll'u kes — ana ekran = tam hero */
+.stApp [data-testid="stMain"]:has(.fp-hero-mark){overflow:hidden !important}
 
 .fp-tb{position:fixed;inset:0 0 auto 0;z-index:1000000;font-family:var(--fp-f-body)}
-.fp-tb-bar{display:flex;align-items:center;gap:clamp(.9rem,2.6vw,2rem);height:60px;
-  padding:0 clamp(1rem,4vw,2.6rem);
+.fp-tb-bar{display:flex;align-items:center;gap:clamp(.7rem,2vw,1.6rem);height:60px;
+  padding:0 clamp(.9rem,3.5vw,2.4rem);
   background:linear-gradient(180deg,rgba(9,12,17,.95),rgba(9,12,17,.84));
   border-bottom:1px solid var(--fp-line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .fp-tb a{text-decoration:none;color:inherit}
-.fp-tb-brand{display:flex;align-items:center;gap:.5rem;font-family:var(--fp-f-display);font-weight:800;
-  font-size:16px;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap;
-  margin-right:.6rem}
-.fp-tb-brand .ch{width:15px;height:15px;flex:0 0 auto}
+.fp-tb-brand{display:flex;align-items:center;gap:.45rem;font-family:var(--fp-f-display);font-weight:800;
+  font-size:15px;letter-spacing:.11em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap;
+  margin-right:.3rem;flex:0 0 auto}
+.fp-tb-brand .ch{width:14px;height:14px;flex:0 0 auto}
 .fp-tb-brand b{color:var(--fp-red);font-weight:800}
-.fp-tb-nav{display:flex;align-items:center;gap:clamp(.7rem,2vw,1.7rem);flex:0 1 auto;min-width:0}
+.fp-tb-nav{display:flex;align-items:center;gap:clamp(.55rem,1.6vw,1.35rem);flex:1 1 auto;min-width:0}
 
-/* düz sekme (grup değil) */
-.fp-tb-g{position:relative;font:600 12px/1 var(--fp-f-display);letter-spacing:.15em;text-transform:uppercase;
+/* sekme / grup başlığı */
+.fp-tb-g{position:relative;font:600 11px/1 var(--fp-f-display);letter-spacing:.13em;text-transform:uppercase;
   color:var(--fp-text-dim);white-space:nowrap}
-.fp-tb-g>a,.fp-tb-g>span{display:inline-flex;align-items:center;gap:.35em;padding:20px 2px;
+.fp-tb-g>a,.fp-tb-g>span{display:inline-flex;align-items:center;gap:.35em;padding:22px 1px;
   border-bottom:2px solid transparent;transition:color .15s ease,border-color .15s ease;cursor:pointer}
-.fp-tb-g:hover>a,.fp-tb-g:hover>span,.fp-tb-g.on>a,.fp-tb-g.on>span{color:var(--fp-text);border-color:var(--fp-red)}
-.fp-tb-g .caret{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
-  transform:rotate(45deg) translateY(-1px);opacity:.6;transition:transform .18s ease}
+.fp-tb-g:hover>a,.fp-tb-g:hover>span,.fp-tb-g:focus-within>a,.fp-tb-g.on>a,.fp-tb-g.on>span{
+  color:var(--fp-text);border-color:var(--fp-red)}
+.fp-tb-g .caret{width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:rotate(45deg) translateY(-1px);opacity:.55;transition:transform .18s ease}
 .fp-tb-g:hover .caret{transform:rotate(45deg) translateY(1px)}
 
 /* grup açılır listesi */
-.fp-drop{position:absolute;top:56px;left:-14px;min-width:210px;padding:.5rem;
+.fp-drop{position:absolute;top:56px;left:-14px;min-width:212px;padding:.5rem;
   background:linear-gradient(180deg,rgba(11,14,20,.98),rgba(8,10,14,.97));
   border:1px solid var(--fp-line);border-radius:5px;box-shadow:0 22px 44px rgba(0,0,0,.5);
   opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s ease,transform .16s ease,visibility .16s;
   display:flex;flex-direction:column;gap:1px}
-.fp-tb-g:hover .fp-drop{opacity:1;visibility:visible;transform:translateY(0)}
-.fp-drop::before{content:"";position:absolute;top:-10px;left:0;right:0;height:10px}   /* hover köprüsü */
+.fp-tb-g:last-child .fp-drop{left:auto;right:-14px}
+.fp-tb-g:hover .fp-drop,.fp-tb-g:focus-within .fp-drop{opacity:1;visibility:visible;transform:translateY(0)}
+.fp-drop::before{content:"";position:absolute;top:-12px;left:0;right:0;height:14px}   /* hover köprüsü */
 .fp-drop a{font:500 13px/1.1 var(--fp-f-body);letter-spacing:.01em;color:var(--fp-text-dim);
   padding:9px 12px;border-radius:4px;border-left:2px solid transparent;text-transform:none;
   transition:background .12s ease,color .12s ease,border-color .12s ease}
@@ -563,11 +569,19 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 .fp-tb-lang a{padding:4px 8px;font:600 10px var(--fp-f-mono);letter-spacing:.1em;color:var(--fp-text-mute)}
 .fp-tb-lang a.on{background:var(--fp-red);color:#fff}
 
-@media(max-width:1240px){.fp-tb-sesh{display:none !important}}
-@media(max-width:900px){
-  .fp-tb-nav{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+@media(max-width:1080px){.fp-tb-sesh{display:none !important}}
+@media(max-width:940px){
+  .fp-tb-nav{overflow-x:auto;overflow-y:visible;-ms-overflow-style:none;scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);
+    mask-image:linear-gradient(90deg,#000 92%,transparent)}
   .fp-tb-nav::-webkit-scrollbar{display:none}
-  .fp-drop{position:fixed;left:0;right:0;top:60px;min-width:0;border-radius:0;border-left:0;border-right:0}
+  .fp-drop,.fp-tb-g:last-child .fp-drop{position:fixed;left:0;right:0;top:60px;min-width:0;
+    border-radius:0;border-left:0;border-right:0}
+}
+@media(max-width:620px){
+  .fp-tb-brand{gap:0;font-size:0;letter-spacing:0;margin-right:.15rem}
+  .fp-tb-brand .ch{width:22px;height:22px}
+  .fp-tb-bar{gap:.7rem;padding:0 .8rem}
 }
 </style>
 """
@@ -590,11 +604,16 @@ def topbar(current, lang, standalone=(), groups=(), session_line="", session_liv
         on = " on" if key == current else ""
         return f"<a class='{on.strip() or ''}' href='?p={_esc(key)}' target='_self'>{_esc(label)}</a>"
 
-    tabs = []
-    for key, label in standalone:
+    def _plain(key, label):
         on = " on" if key == current else ""
-        tabs.append(f"<div class='fp-tb-g{on}'><a href='?p={_esc(key)}' target='_self'>{_esc(label)}</a></div>")
+        return f"<div class='fp-tb-g{on}'><a href='?p={_esc(key)}' target='_self'>{_esc(label)}</a></div>"
+
+    tabs = [_plain(k, lbl) for k, lbl in standalone]
     for title, primary, pages in groups:
+        if len(pages) <= 1:                      # tek sayfalı grup = düz link
+            k, _lbl = pages[0] if pages else (primary, title)
+            tabs.append(_plain(k, title))
+            continue
         keys = {k for k, _ in pages}
         on = " on" if current in keys else ""
         drop = "".join(_dl(k, lbl) for k, lbl in pages)
