@@ -8,6 +8,7 @@ Tum gorsel dil `core/theme.py`'den gelir.
 import html as _html
 import json as _json
 import re as _re
+import time as _time
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -595,11 +596,24 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 /* hero sayfasında dikey scroll'u kes — ana ekran = tam hero */
 .stApp [data-testid="stMain"]:has(.fp-hero-mark){overflow:hidden !important}
 
+/* görünmez navigasyon butonları (JS bunları tıklar — reload yok) */
+[class*="st-key-njp_"],[class*="st-key-njl_"]{
+  position:absolute !important;width:1px !important;height:1px !important;
+  padding:0 !important;margin:-1px !important;overflow:hidden !important;
+  clip:rect(0 0 0 0) !important;white-space:nowrap !important;border:0 !important;
+  opacity:0 !important;pointer-events:none !important}
+
 .fp-tb{position:fixed;inset:0 0 auto 0;z-index:1000000;font-family:var(--fp-f-body)}
-.fp-tb-bar{display:flex;align-items:center;gap:clamp(.7rem,2vw,1.6rem);height:60px;
+.fp-tb-bar{position:relative;display:flex;align-items:center;gap:clamp(.7rem,2vw,1.6rem);height:60px;
   padding:0 clamp(.9rem,3.5vw,2.4rem);
   background:linear-gradient(180deg,rgba(8,10,15,.985),rgba(8,10,15,.95));
   border-bottom:1px solid var(--fp-line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+/* sayfa geçişi sürerken ince kırmızı yükleniyor çizgisi */
+.fp-tb-bar::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:0;
+  background:linear-gradient(90deg,var(--fp-red),#ff5b3d);opacity:0;transition:opacity .1s}
+body.fp-tb-busy .fp-tb-bar::after{opacity:1;width:100%;
+  animation:fp-tb-load 1.1s cubic-bezier(.4,0,.2,1) infinite}
+@keyframes fp-tb-load{0%{transform:translateX(-100%) scaleX(.4)}50%{transform:translateX(0) scaleX(.7)}100%{transform:translateX(100%) scaleX(.4)}}
 .fp-tb a{text-decoration:none;color:inherit}
 .fp-tb-brand{display:flex;align-items:center;gap:.45rem;font-family:var(--fp-f-display);font-weight:800;
   font-size:15px;letter-spacing:.11em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap;
@@ -612,7 +626,7 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 .fp-tb-g{position:relative;font:600 11px/1 var(--fp-f-display);letter-spacing:.13em;text-transform:uppercase;
   color:var(--fp-text-dim);white-space:nowrap}
 .fp-tb-g>a,.fp-tb-g>span{display:inline-flex;align-items:center;gap:.35em;padding:22px 1px;
-  border-bottom:2px solid transparent;transition:color .15s ease,border-color .15s ease;cursor:pointer}
+  border-bottom:2px solid transparent;transition:color .1s ease,border-color .1s ease;cursor:pointer}
 .fp-tb-g:hover>a,.fp-tb-g:hover>span,.fp-tb-g:focus-within>a,.fp-tb-g.on>a,.fp-tb-g.on>span{
   color:var(--fp-text);border-color:var(--fp-red)}
 .fp-tb-g .caret{width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
@@ -623,14 +637,14 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 .fp-drop{position:absolute;top:56px;left:-14px;min-width:212px;padding:.5rem;
   background:linear-gradient(180deg,rgba(11,14,20,.98),rgba(8,10,14,.97));
   border:1px solid var(--fp-line);border-radius:5px;box-shadow:0 22px 44px rgba(0,0,0,.5);
-  opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s ease,transform .16s ease,visibility .16s;
+  opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .11s ease,transform .11s ease,visibility .11s;
   display:flex;flex-direction:column;gap:1px}
 .fp-tb-g:last-child .fp-drop{left:auto;right:-14px}
 .fp-tb-g:hover .fp-drop,.fp-tb-g:focus-within .fp-drop{opacity:1;visibility:visible;transform:translateY(0)}
 .fp-drop::before{content:"";position:absolute;top:-12px;left:0;right:0;height:14px}   /* hover köprüsü */
 .fp-drop a{font:500 13px/1.1 var(--fp-f-body);letter-spacing:.01em;color:var(--fp-text-dim);
   padding:9px 12px;border-radius:4px;border-left:2px solid transparent;text-transform:none;
-  transition:background .12s ease,color .12s ease,border-color .12s ease}
+  transition:background .09s ease,color .09s ease,border-color .09s ease}
 .fp-drop a:hover{background:rgba(255,255,255,.06);color:var(--fp-text)}
 .fp-drop a.on{color:var(--fp-text);border-left-color:var(--fp-red);
   background:linear-gradient(90deg,rgba(225,6,0,.16),transparent 72%)}
@@ -674,36 +688,56 @@ _TOPBAR_ACTIVE_JS = """
   var PW=window.parent, D;
   try{ D=PW.document; }catch(e){ return; }
 
+  function curPage(){
+    try{ return new URLSearchParams(PW.location.search).get('p')||'home'; }catch(e){ return 'home'; }
+  }
+  function markActive(k){
+    D.querySelectorAll('.fp-tb-g').forEach(function(g){
+      g.classList.toggle('on',[].some.call(g.querySelectorAll('a'),function(x){return (x.getAttribute('href')||'')==='?p='+k;}));
+    });
+    D.querySelectorAll('.fp-drop a').forEach(function(a){
+      a.classList.toggle('on',(a.getAttribute('href')||'')==='?p='+k);
+    });
+  }
   function paint(){
-    try{
-      var p=new URLSearchParams(PW.location.search).get('p')||'home';
-      D.querySelectorAll('.fp-tb-g').forEach(function(g){
-        var m=[].some.call(g.querySelectorAll('a'),function(a){return (a.getAttribute('href')||'')==='?p='+p;});
-        g.classList.toggle('on',m);
-      });
-      D.querySelectorAll('.fp-drop a').forEach(function(a){
-        a.classList.toggle('on',(a.getAttribute('href')||'')==='?p='+p);
-      });
-    }catch(e){}
+    try{ markActive(curPage()); D.body.classList.remove('fp-tb-busy'); }catch(e){}
   }
 
-  // Gezinme sırasında barın "kaybolduğu" izlenimini azalt: tıklanır tıklanmaz
-  // yeni sayfanın aktif işaretini boya (Streamlit yeniden yüklerken bile bar
-  // en başta çizildiği için görünür kalır).
+  // Görünmez Streamlit butonunu tıkla -> aynı-oturum RERUN (reload yok).
+  // Bulamazsa false döner ve <a href> normal reload'a düşer (graceful).
+  function jump(prefix,key){
+    try{
+      var w=D.querySelector('[class*="st-key-'+prefix+key+'"]');
+      var b=w&&w.querySelector('button');
+      if(b){ b.click(); return true; }
+    }catch(e){}
+    return false;
+  }
+
   function bind(){
     try{
-      D.querySelectorAll('.fp-tb a[href^="?p="]').forEach(function(a){
+      D.querySelectorAll('.fp-tb a[href^="?p="], .fp-tb-skel a[href^="?p="]').forEach(function(a){
         if(a.__fp) return; a.__fp=1;
-        a.addEventListener('click',function(){
-          var k=(a.getAttribute('href')||'').split('p=')[1];
-          if(!k) return;
-          D.querySelectorAll('.fp-tb-g').forEach(function(g){
-            g.classList.toggle('on',[].some.call(g.querySelectorAll('a'),function(x){return (x.getAttribute('href')||'')==='?p='+k;}));
-          });
+        a.addEventListener('click',function(e){
+          var k=(a.getAttribute('href')||'').split('p=')[1]; if(!k) return;
+          if(jump('njp_',k)){
+            e.preventDefault();
+            markActive(k);                       // anında aktif sekme
+            D.body.classList.add('fp-tb-busy');  // ince yükleniyor çizgisi
+          }
+        });
+      });
+      D.querySelectorAll('.fp-tb a[href^="?lang="]').forEach(function(a){
+        if(a.__fpl) return; a.__fpl=1;
+        a.addEventListener('click',function(e){
+          var l=(a.getAttribute('href')||'').split('lang=')[1]; if(!l) return;
+          if(jump('njl_',l)){ e.preventDefault(); D.body.classList.add('fp-tb-busy'); }
         });
       });
     }catch(e){}
   }
+
+  var _rerun="__NONCE__";   // her rerun'da değişir -> bu iframe yeniden koşar -> paint()
   paint(); bind();
   setTimeout(function(){paint();bind();},60);
   setTimeout(function(){paint();bind();},300);
@@ -763,4 +797,4 @@ def topbar(current, lang, standalone=(), groups=(), session_line="", session_liv
         + "</div></div>",
         unsafe_allow_html=True,
     )
-    _embed_html(_TOPBAR_ACTIVE_JS, height=0)
+    _embed_html(_TOPBAR_ACTIVE_JS.replace("__NONCE__", f"{_time.time():.3f}"), height=0)

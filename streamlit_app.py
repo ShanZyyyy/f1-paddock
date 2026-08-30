@@ -277,50 +277,62 @@ if 'news_requested' not in st.session_state:
     st.session_state['news_requested'] = True
 
 # 1. AKILLI GELECEK/ŞİMDİKİ SEANS TESPİT MOTORU
-@st.cache_data(ttl=60)
-def get_current_or_next_event():
-    """Takvim alınmasa da ana sayfayı kırmadan sıradaki gerçek seansı bulur."""
-    now = datetime.datetime.now(datetime.timezone.utc)
-    schedules = []
-    for candidate_year in dict.fromkeys([now.year, 2026, now.year - 1]):
+@cache_data_safe(ttl=1800, on_error=list, label='next-event schedule')
+def _upcoming_schedule_records():
+    """Sıradaki seansı bulmak için ham takvim satırları (ilk dolu yıl), 30 dk
+    cache. `cache_data_safe`: sadece başarı önbelleğe alınır — geçici bir
+    FastF1 hatası "takvim yok" olarak donmaz."""
+    now_year = datetime.datetime.now(datetime.timezone.utc).year
+    for yr in dict.fromkeys([now_year, 2026, now_year - 1]):
         try:
-            candidate = fastf1.get_event_schedule(int(candidate_year), include_testing=False)
-            candidate = candidate[candidate['RoundNumber'] > 0]
-            if not candidate.empty:
-                schedules.append(candidate)
+            sched = fastf1.get_event_schedule(int(yr), include_testing=False)
+            sched = sched[sched['RoundNumber'] > 0]
+            if not sched.empty:
+                return sched.to_dict('records')
         except Exception:
             continue
+    raise RuntimeError('takvim alınamadı')
 
-    if not schedules:
+
+def get_current_or_next_event():
+    """Takvim alınmasa da ana sayfayı kırmadan sıradaki gerçek seansı bulur.
+
+    Takvim çekme `_upcoming_schedule_records()` içinde 30 dk cache'li; burada
+    kalan iş sadece `now` ile kıyas (ucuz) — her rerun'da FastF1'e gitmez.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    records = _upcoming_schedule_records()
+
+    if not records:
         # Sayfa açılmaya devam eder; bu veri sonucu veya hayalî yarış değildir.
         return pd.Series({'EventName': 'Takvim verisi bekleniyor', 'Location': 'Formula 1'}), 'Yarış', now, False
 
-    schedule = schedules[0]
-    
     session_cols = [
         ('FP1', 'Session1DateUtc'),
         ('FP2', 'Session2DateUtc'),
         ('FP3', 'Session3DateUtc'),
         ('Sıralama Turları', 'Session4DateUtc'),
-        ('Yarış', 'Session5DateUtc')
+        ('Yarış', 'Session5DateUtc'),
     ]
-    
-    for idx, event in schedule.iterrows():
+
+    for event in records:
         for s_name, s_col in session_cols:
-            if s_col in event and pd.notnull(event[s_col]):
-                s_time = pd.to_datetime(event[s_col])
-                s_time = s_time.tz_localize('UTC') if s_time.tzinfo is None else s_time.tz_convert('UTC')
-                s_end_time = s_time + datetime.timedelta(hours=2)
-                
-                if s_time <= now <= s_end_time:
-                    return event, s_name, s_time, True
-                elif s_time > now:
-                    return event, s_name, s_time, False
-                    
-    last_event = schedule.iloc[-1]
-    last_time = pd.to_datetime(last_event['Session5DateUtc'])
+            raw = event.get(s_col)
+            if raw is None or pd.isnull(raw):
+                continue
+            s_time = pd.to_datetime(raw)
+            s_time = s_time.tz_localize('UTC') if s_time.tzinfo is None else s_time.tz_convert('UTC')
+            s_end_time = s_time + datetime.timedelta(hours=2)
+
+            if s_time <= now <= s_end_time:
+                return pd.Series(event), s_name, s_time, True
+            if s_time > now:
+                return pd.Series(event), s_name, s_time, False
+
+    last_event = records[-1]
+    last_time = pd.to_datetime(last_event.get('Session5DateUtc'))
     last_time = last_time.tz_localize('UTC') if last_time.tzinfo is None else last_time.tz_convert('UTC')
-    return last_event, "Yarış", last_time, False
+    return pd.Series(last_event), "Yarış", last_time, False
 
 
 
@@ -379,6 +391,28 @@ def _topbar_session_line():
 _sesh_line, _sesh_live = _topbar_session_line()
 fp_ui.topbar(_nav_now, fp_i18n.get_lang(), standalone=NAV_STANDALONE, groups=NAV_GROUPS,
              session_line=_sesh_line, session_live=_sesh_live)
+
+
+# --- Üst bar navigasyonu: reload YERİNE aynı-oturum rerun --------------------
+# Bardaki <a> linkleri (core/ui.py _TOPBAR_ACTIVE_JS) tam sayfa yeniden yükleme
+# yapmaz; görünmez ama DOM'da duran şu Streamlit butonlarını JS ile tıklar.
+# Sonuç: bar hiç yeniden kurulmaz, eski içerik yenisi gelene kadar durur.
+# JS köprüsü çökerse <a href> normal reload olarak çalışır (graceful degrade).
+def _nav_jump(_p):
+    if _p in VALID_PAGES:
+        st.session_state['page'] = _p
+        st.query_params['p'] = _p
+
+
+def _lang_jump(_l):
+    if _l in ('tr', 'en') and fp_i18n.get_lang() != _l:
+        fp_i18n.set_lang(_l)
+
+
+for _pk in sorted(VALID_PAGES):
+    st.button("·", key=f"njp_{_pk}", on_click=_nav_jump, args=(_pk,))
+for _lk in ('tr', 'en'):
+    st.button("·", key=f"njl_{_lk}", on_click=_lang_jump, args=(_lk,))
 
 
 # 2. SON TAMAMLANAN SEANSI VE GERÇEK İLK 5'İ ÇEKEN FONKSİYONLAR
