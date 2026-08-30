@@ -260,15 +260,66 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],
   display:none !important}
 [data-testid="stHeader"],header[data-testid="stHeader"]{height:0 !important;min-height:0 !important;background:transparent !important}
 .stApp [data-testid="stMain"] .block-container{padding-top:5.8rem}
+
+/* ---- iskelet üst bar ----------------------------------------------------
+   Gerçek .fp-tb gelene kadar (Streamlit yeniden yüklenirken) ekranda AYNI
+   görünümde sabit bir bar durur — "menüsüz sayfaya gittim" hissi olmaz.
+   Gerçek bar DOM'a girer girmez `body:has(.fp-tb)` ile gizlenir. */
+[data-testid="stElementContainer"]:has(.fp-tb-skel){
+  position:static !important;height:0 !important;min-height:0 !important;margin:0 !important;padding:0 !important;overflow:visible !important}
+.fp-tb-skel{position:fixed;inset:0 0 auto 0;z-index:999990;
+  display:flex;align-items:center;gap:clamp(.7rem,2vw,1.6rem);height:60px;
+  padding:0 clamp(.9rem,3.5vw,2.4rem);font-family:var(--fp-f-body);
+  background:linear-gradient(180deg,rgba(8,10,15,.985),rgba(8,10,15,.95));
+  border-bottom:1px solid var(--fp-line);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+body:has(.fp-tb) .fp-tb-skel{display:none}
+.fp-tb-skel a{text-decoration:none;color:inherit}
+.fp-tb-skel .b{display:flex;align-items:center;gap:.45rem;flex:0 0 auto;white-space:nowrap;
+  font-family:var(--fp-f-display);font-weight:800;font-size:15px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--fp-text)}
+.fp-tb-skel .b svg{width:14px;height:14px;flex:0 0 auto}
+.fp-tb-skel .b i{color:var(--fp-red);font-style:normal}
+.fp-tb-skel nav{display:flex;align-items:center;gap:clamp(.55rem,1.6vw,1.35rem);flex:1 1 auto;min-width:0;overflow:hidden}
+.fp-tb-skel nav a{font:600 11px/1 var(--fp-f-display);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--fp-text-dim);white-space:nowrap;padding:22px 1px;border-bottom:2px solid transparent}
+.fp-tb-skel .lang{margin-left:auto;flex:0 0 auto;display:flex;border:1px solid var(--fp-line);border-radius:3px;overflow:hidden}
+.fp-tb-skel .lang span{padding:4px 8px;font:600 10px var(--fp-f-mono);letter-spacing:.1em;color:var(--fp-text-mute)}
+.fp-tb-skel .lang .on{background:var(--fp-red);color:#fff}
+@media(max-width:1080px){.fp-tb-skel .lang{display:none}}
+@media(max-width:940px){.fp-tb-skel nav{-webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);mask-image:linear-gradient(90deg,#000 92%,transparent)}}
+@media(max-width:620px){.fp-tb-skel .b{font-size:0;letter-spacing:0}.fp-tb-skel .b svg{width:22px;height:22px}}
 """
+
+# İskelet barın linkleri gerçek NAV birincil sayfalarıyla eşleşir; TR etiketleri
+# sabit (baskın dil) — 200 ms'lik yer tutucu, gerçek bar hemen üstüne biner.
+_TOPBAR_SKELETON_HTML = (
+    "<div class='fp-tb-skel' aria-hidden='true'>"
+    "<span class='b'>"
+    "<svg viewBox='0 0 48 48'><path d='M13 11 L27 24 L13 37' fill='none' stroke='#e10600' stroke-width='6.5' stroke-linecap='square'/>"
+    "<path d='M24.5 15 L33.5 24 L24.5 33' fill='none' stroke='#e10600' stroke-width='5' stroke-linecap='square' opacity='.5'/></svg>"
+    "Formula&nbsp;<i>Paddock</i></span>"
+    "<nav>"
+    "<a href='?p=news' target='_self'>Haber Merkezi</a>"
+    "<a href='?p=telemetry' target='_self'>Veri &amp; Analiz</a>"
+    "<a href='?p=live' target='_self'>Canlı &amp; Yarış</a>"
+    "<a href='?p=learn' target='_self'>Paddock</a>"
+    "<a href='?p=teams' target='_self'>Şampiyonalar</a>"
+    "<a href='?p=games' target='_self'>Oyunlar</a>"
+    "</nav>"
+    "<span class='lang'><span class='on'>TR</span><span>EN</span></span>"
+    "</div>"
+)
 
 
 def inject_rail_theme():
     """Kritik önyükleme CSS'i — EN BAŞTA (set_page_config'ten hemen sonra):
-    :root jetonları + sidebar/toolbar'ı gizle + üst bar için boşluk."""
+    :root jetonları + sidebar/toolbar'ı gizle + üst bar için boşluk +
+    gerçek bar gelene kadar duracak iskelet bar."""
     st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
     st.markdown(
-        "<style>" + theme._root_vars_dual() + _TOPBAR_SKELETON + "</style>",
+        "<style>" + theme._root_vars_dual() + _TOPBAR_SKELETON + "</style>"
+        + _TOPBAR_SKELETON_HTML,
         unsafe_allow_html=True,
     )
 
@@ -332,6 +383,27 @@ def mini_note(text, accent="cyan"):
         f"<div class='fp-note' style='--nc:{_accent(accent)}'>{_esc(text)}</div>",
         unsafe_allow_html=True,
     )
+
+
+def pit_grid(items):
+    """Pit-duvarı telemetri paneli: yan yana değer widget'ları (`.fp-hud`
+    kartları) tek CSS grid'inde — `st.columns`'un eşitsiz kart sorunu yok.
+
+    ``items`` = [{label, value, copy?, accent?}, ...]  (accent: red/cyan/amber/green/pink)
+    """
+    cards = [i for i in items if str((i or {}).get("value", "")).strip() or str((i or {}).get("label", "")).strip()]
+    if not cards:
+        return
+    cells = []
+    for c in cards:
+        copy = str(c.get("copy", "") or "")
+        copy_html = f"<div class='cpy'>{_esc(copy)}</div>" if copy else ""
+        cells.append(
+            f"<div class='fp-hud' style='--accent:{_accent(c.get('accent', 'cyan'))}'>"
+            f"<div class='lbl'>{_esc(c.get('label', ''))}</div>"
+            f"<div class='val'>{_esc(c.get('value', ''))}</div>{copy_html}</div>"
+        )
+    st.markdown(f"<div class='fp-pit'>{''.join(cells)}</div>", unsafe_allow_html=True)
 
 
 def notes_grid(items, per_row=3):

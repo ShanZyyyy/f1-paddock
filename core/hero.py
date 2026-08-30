@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Ana sayfa açılış hero'su — duman + 'FORMULA PADDOCK' + sıradaki seans sayacı.
+"""Ana sayfa açılış hero'su — duman + 'FORMULA PADDOCK' + sıradaki seans panosu.
 
 `components.html` (iframe) ile gömülür; JS/WebGL bu yüzden şart. Yazı ekranın
 tam ortasında belirir, sol-üste (Streamlit üst barındaki logonun hizasına)
-süzülür ve kaybolur; arkada gerçek verili geri sayım kalır.
+süzülür ve kaybolur; arkada canlı pist (kendini çizen tur + turda dolanan iki
+araç) ve gerçek verili geri sayım panosu kalır.
 
 Aynı sekme oturumunda tekrar render'da (her rerun'da) açılış OYNAMAZ —
 `sessionStorage` ile doğrudan dinlenme hâli gelir. Yeni sekme / sert
@@ -17,16 +18,25 @@ import streamlit.components.v1 as components
 from core import ui as _ui
 
 
+# Slogan altındaki açıklama — tek yerden değiştirilir.
+_DEFAULT_SUB = (
+    "Canlı zamanlama, resmî sonuçlar ve doğrulanmış paddock verisi — "
+    "tahmin değil, kaynağından kayıt."
+)
+
+
 _TEMPLATE = r"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
 :root{
   --ink:#07090d;--ink-deep:#030405;--steel:#c9d5e2;--steel-dim:#8b9bad;--rush:#e10600;
   --text:#f2f5f8;--text-dim:#9fb0c0;--text-mute:#63748a;--line:#26313f;
+  --info:#38e1d0;--caution:#f5c33b;--go:#4ade80;
   --f-display:'Antonio','Arial Narrow',sans-serif;--f-body:'Saira',system-ui,sans-serif;
-  --f-mono:'JetBrains Mono',ui-monospace,monospace;--px:0px;--py:0px;
+  --f-mono:'JetBrains Mono',ui-monospace,monospace;--px:0px;--py:0px;--ch:14px;
+  --dot:radial-gradient(rgba(125,145,165,.11) 1px,transparent 1.6px);--dot-size:13px 13px;
   --logo-home:translate(-50%,-50%) translate(calc(-50vw + 2rem + 88px), calc(-50vh + 1.1rem));
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -45,6 +55,33 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .stage.play .bloom{animation:bloomIn 3.8s ease-out both, breathe 9s ease-in-out infinite 3.8s}
 @keyframes bloomIn{0%{opacity:.1;transform:translate(-50%,-50%) scale(.5)}60%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}100%{opacity:.82;transform:translate(-50%,-50%) scale(1)}}
 
+/* ---- canlı pist (kendini çizen tur + turda dolanan iki araç) ---- */
+.telemetry{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
+.circuit{position:absolute;left:52%;top:50%;transform:translate(-50%,-50%);
+  width:min(126%,1480px);height:auto;z-index:6;opacity:0;
+  -webkit-mask-image:radial-gradient(155% 135% at 60% 44%,#000 34%,transparent 94%);
+  mask-image:radial-gradient(155% 135% at 60% 44%,#000 34%,transparent 94%)}
+.circuit .trk{fill:none;stroke:var(--info)}
+.circuit .ghost{stroke:var(--info);opacity:.3;stroke-width:2.5}
+.circuit .draw{stroke-dasharray:3520;stroke-dashoffset:3520}
+.circuit .pulse{opacity:.85;stroke-width:4.5;stroke-linecap:round;stroke-dasharray:150 3370;animation:fpChase 7s linear infinite}
+.circuit .pulse2{opacity:.5;stroke:var(--rush);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:80 3440;animation:fpChase 11s linear infinite reverse}
+@keyframes fpChase{to{stroke-dashoffset:-3520}}
+.circuit .grid{stroke:var(--info);opacity:.05;stroke-width:1}
+.circuit .sf{stroke:#f2f5f8;opacity:.3;stroke-width:5}
+.stage.play .circuit .draw{animation:fpDraw 3.4s ease-out .2s forwards}
+@keyframes fpDraw{to{stroke-dashoffset:0}}
+.stage.play .circuit{animation:circIn 1.5s ease-out 3.5s both}
+@keyframes circIn{from{opacity:0}to{opacity:.72}}
+.stage.settled .circuit{opacity:.72;animation:none}
+.stage.settled .circuit .draw{stroke-dashoffset:0}
+.datastream{position:absolute;left:0;right:0;font-family:var(--f-mono);font-size:.64rem;
+  letter-spacing:.08em;color:var(--text-dim);opacity:.12;white-space:nowrap}
+.datastream span{display:inline-block;padding-right:64px}
+.ds1{top:13%;animation:dsScroll 36s linear infinite}
+.ds2{top:71%;animation:dsScroll 48s linear infinite reverse}
+@keyframes dsScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
 .wordmark{position:absolute;left:50%;top:50%;z-index:20;pointer-events:none;display:flex;align-items:center;
   gap:.55em;font-family:var(--f-display);font-weight:700;font-size:1.02rem;letter-spacing:.14em;
   text-transform:uppercase;color:var(--text);white-space:nowrap;transform:var(--logo-home);opacity:0}
@@ -59,36 +96,51 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 }
 .stage.settled .wordmark{display:none}
 
-.hud{position:absolute;right:clamp(1.2rem,5vw,3.4rem);top:50%;transform:translateY(-50%);z-index:12;
-  width:min(360px,44vw);opacity:0;font-family:var(--f-mono);border:1px solid var(--line);
-  border-left:3px solid var(--rush);background:linear-gradient(160deg,rgba(17,22,31,.66),rgba(12,16,22,.5));
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:1.25rem 1.4rem}
-.hud-top{display:flex;justify-content:space-between;align-items:baseline;gap:1rem}
-.hud-k{font-size:.6rem;letter-spacing:.22em;color:var(--text-mute)}
-.hud-ev{font-family:var(--f-display);font-weight:700;font-size:.92rem;letter-spacing:.06em;color:var(--text)}
-.hud-c{display:flex;align-items:flex-start;gap:.45rem;margin:.85rem 0 .7rem}
-.hud-c>div{display:flex;flex-direction:column;align-items:center;gap:.3rem}
-.hud-c b{font-size:1.8rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
-.hud-c s{font-size:.5rem;letter-spacing:.14em;color:var(--text-mute);text-decoration:none}
-.hud-c .sep{font-size:1.3rem;color:var(--text-mute);padding-top:.15rem}
-.hud-bar{height:2px;background:rgba(201,213,226,.12);overflow:hidden;margin-bottom:.6rem}
-.hud-bar i{display:block;height:100%;width:38%;background:linear-gradient(90deg,var(--rush),#ff5b3d)}
-.hud-foot{font-size:.54rem;letter-spacing:.1em;color:var(--text-mute)}
-.hud.live .hud-k::after{content:" · CANLI";color:var(--rush)}
-.stage.play .hud{animation:hudIn 1s cubic-bezier(.2,.7,.2,1) 4.05s both}
-@keyframes hudIn{0%{opacity:0;transform:translateY(-50%) translateX(44px)}100%{opacity:1;transform:translateY(-50%) translateX(0)}}
-.stage.settled .hud{opacity:1;transform:translateY(-50%);animation:none}
+/* ---- merkezî pano (sıradaki seans) ---- */
+.dash{position:absolute;right:clamp(1rem,5vw,3.2rem);top:47%;transform:translateY(-50%);z-index:12;
+  width:min(360px,42vw);padding:20px 22px 18px;opacity:0;
+  background-color:rgba(12,16,22,.72);background-image:var(--dot);background-size:var(--dot-size);
+  -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+  clip-path:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
+  box-shadow:inset 0 0 0 1px var(--line), inset 3px 0 0 var(--rush)}
+.dash-hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  font-family:var(--f-mono);font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--text-mute)}
+.dash-hd b{font-family:var(--f-display);font-weight:700;font-size:.95rem;letter-spacing:.05em;color:var(--text)}
+.dash.live .dash-hd span::after{content:" · CANLI";color:var(--rush)}
+.dial{position:relative;width:196px;height:196px;margin:12px auto 4px}
+.dial svg{width:100%;height:100%;transform:rotate(-90deg)}
+.dial .track{stroke:var(--line);stroke-width:6;fill:none}
+.dial .tick{stroke:rgba(125,145,165,.22);stroke-width:2}
+.dial .arcR{stroke:var(--rush);stroke-width:6;fill:none;stroke-linecap:round;transition:stroke-dashoffset .5s linear}
+.dial .arcA{stroke:var(--caution);stroke-width:4;fill:none;stroke-linecap:round;transition:stroke-dashoffset .5s linear}
+.dial .arcC{stroke:var(--info);stroke-width:4;fill:none;stroke-linecap:round;transition:stroke-dashoffset .5s linear}
+.dial .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.dial .ctr b{font-family:var(--f-mono);font-weight:700;font-size:2.9rem;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+.dial .ctr s{font-family:var(--f-mono);font-size:.55rem;letter-spacing:.24em;color:var(--text-mute);text-decoration:none}
+.dash-row{display:flex;justify-content:center;gap:16px;font-family:var(--f-mono);margin-top:2px}
+.dash-row div{display:flex;flex-direction:column;align-items:center;gap:3px}
+.dash-row b{font-size:1.15rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.dash-row s{font-size:.5rem;letter-spacing:.16em;color:var(--text-mute);text-decoration:none}
+.dash-ft{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:.54rem;letter-spacing:.1em;color:var(--text-mute)}
+.dash-ft .lv{width:6px;height:6px;border-radius:50%;background:var(--go);box-shadow:0 0 0 3px rgba(74,222,128,.16)}
+.dash.live .dash-ft .lv{background:var(--rush);box-shadow:0 0 0 3px rgba(225,6,0,.18)}
+.stage.play .dash{animation:dashIn 1s cubic-bezier(.2,.7,.2,1) 4.05s both}
+@keyframes dashIn{0%{opacity:0;transform:translateY(-50%) translateX(44px)}100%{opacity:1;transform:translateY(-50%) translateX(0)}}
+.stage.settled .dash{opacity:1;transform:translateY(-50%);animation:none}
 
-.tag-block{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:clamp(1.6rem,6vh,3.6rem);z-index:12;
-  max-width:min(48rem,88vw);opacity:0}
+.tag-block{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:14vh;z-index:12;
+  max-width:min(42rem,58vw);opacity:0}
 .tag{font-family:var(--f-display);font-weight:700;
-  font-size:min(clamp(2.7rem,8.6vw,7.4rem),12.5vh);line-height:.9;
-  letter-spacing:-.015em;text-transform:uppercase;color:var(--text)}
+  font-size:min(clamp(3rem,9vw,8.2rem),13.5vh);line-height:.84;
+  letter-spacing:-.022em;text-transform:uppercase;color:var(--text);
+  text-shadow:0 2px 40px rgba(0,0,0,.55)}
 .tag span{display:block;color:var(--steel-dim)}
-.tag .p{color:var(--text)}
-.tag-sub{margin-top:1.15rem;font-family:var(--f-body);font-weight:400;
-  font-size:clamp(.92rem,1.5vw,1.12rem);line-height:1.55;letter-spacing:.01em;
-  color:var(--text-dim);max-width:44ch}
+.tag .p{color:var(--text);position:relative;width:max-content}
+.tag .p::after{content:"";position:absolute;left:.04em;bottom:-.16em;width:2.8rem;height:.11em;background:var(--rush)}
+.tag-sub{margin-top:1.5rem;font-family:var(--f-body);font-weight:400;
+  font-size:clamp(1rem,1.5vw,1.24rem);line-height:1.55;letter-spacing:.01em;
+  color:var(--text-dim);max-width:42ch;border-left:2px solid var(--rush);padding-left:15px}
 .stage.play .tag-block{animation:tagIn .9s cubic-bezier(.2,.7,.2,1) 4.1s both}
 @keyframes tagIn{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
 .stage.settled .tag-block{opacity:1;transform:none;animation:none}
@@ -102,12 +154,14 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   border:1px solid var(--line);padding:.5rem .8rem;cursor:pointer;opacity:0;transition:opacity .3s,color .2s,border-color .2s}
 .stage.play .skip{opacity:1}.stage.settled .skip{display:none}
 .skip:hover{color:var(--text);border-color:var(--steel-dim)}
-@media(max-width:580px){.hud{display:none}}
+@media(max-width:580px){.dash{display:none}}
 @media(prefers-reduced-motion:reduce){
-  .stage.play .wordmark,.stage.play .hud,.stage.play .bloom,.stage.play .tag-block,.bloom{animation:none!important}
+  .stage.play .wordmark,.stage.play .dash,.stage.play .bloom,.stage.play .tag-block,.stage.play .circuit,.bloom{animation:none!important}
   .wordmark{display:none}
-  .hud{opacity:1!important;transform:translateY(-50%)!important}.bloom{opacity:.7!important}
+  .dash{opacity:1!important;transform:translateY(-50%)!important}.bloom{opacity:.7!important}
   .tag-block{opacity:1!important;transform:none!important}
+  .circuit{opacity:.62!important}.circuit .draw{stroke-dashoffset:0}
+  .circuit .pulse,.circuit .pulse2,.datastream{display:none}
   .skip{display:none}
 }
 </style></head>
@@ -115,6 +169,36 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 <main class="stage" id="stage">
   <canvas id="smoke"></canvas>
   <div class="bloom"></div>
+  <div class="telemetry">
+    <svg class="circuit" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"
+         xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <defs>
+        <path id="fpTrack" d="M240 720C240 560 300 470 430 470L820 470C940 470 980 400 980 320C980 230 910 190 820 190L560 190C470 190 450 120 530 95C640 62 820 78 1010 78L1240 78C1400 78 1480 180 1480 350C1480 500 1390 560 1250 578L1030 600C950 608 935 665 1000 700C1075 740 1230 726 1330 758C1440 792 1450 862 1320 862L420 862C290 862 240 800 240 720Z"/>
+        <filter id="fpGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <g class="grid">
+        <line x1="0" y1="180" x2="1600" y2="180"/><line x1="0" y1="360" x2="1600" y2="360"/>
+        <line x1="0" y1="540" x2="1600" y2="540"/><line x1="0" y1="720" x2="1600" y2="720"/>
+        <line x1="320" y1="0" x2="320" y2="900"/><line x1="640" y1="0" x2="640" y2="900"/>
+        <line x1="960" y1="0" x2="960" y2="900"/><line x1="1280" y1="0" x2="1280" y2="900"/>
+      </g>
+      <use xlink:href="#fpTrack" class="trk ghost"/>
+      <use xlink:href="#fpTrack" class="trk draw"/>
+      <use xlink:href="#fpTrack" class="trk pulse"/>
+      <use xlink:href="#fpTrack" class="trk pulse2"/>
+      <line class="sf" x1="240" y1="700" x2="240" y2="740"/>
+      <g filter="url(#fpGlow)"><circle r="9" fill="#a9fbef">
+        <animateMotion dur="13s" repeatCount="indefinite" rotate="auto"><mpath xlink:href="#fpTrack"/></animateMotion>
+      </circle></g>
+      <g filter="url(#fpGlow)"><circle r="8" fill="#ff6a5d">
+        <animateMotion dur="17s" begin="-4s" repeatCount="indefinite" rotate="auto"><mpath xlink:href="#fpTrack"/></animateMotion>
+      </circle></g>
+    </svg>
+    <div class="datastream ds1"><span>__DS1__</span><span>__DS1__</span></div>
+    <div class="datastream ds2"><span>__DS2__</span><span>__DS2__</span></div>
+  </div>
   <div class="wordmark">
     <svg viewBox="0 0 48 48"><path d="M13 11 L27 24 L13 37" fill="none" stroke="#e10600" stroke-width="6.5" stroke-linecap="square"/><path d="M24.5 15 L33.5 24 L24.5 33" fill="none" stroke="#e10600" stroke-width="5" stroke-linecap="square" opacity=".5"/></svg>
     FORMULA&nbsp;<b>PADDOCK</b>
@@ -122,18 +206,26 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   <div class="scrim"></div>
   <div class="tag-block">
     <h1 class="tag"><span>Veriyle</span><span>konuşur.</span><span class="p">Uydurmaz.</span></h1>
-    <p class="tag-sub">Buraya alt açıklama metni gelecek</p>
+    <p class="tag-sub">__SUB__</p>
   </div>
-  <aside class="hud __LIVECLS__" aria-label="Sıradaki seans">
-    <div class="hud-top"><span class="hud-k">SIRADAKI SEANS</span><span class="hud-ev">__EVENT__</span></div>
-    <div class="hud-c">
-      <div><b id="d">--</b><s>GÜN</s></div><span class="sep">:</span>
-      <div><b id="h">--</b><s>SAAT</s></div><span class="sep">:</span>
-      <div><b id="m">--</b><s>DK</s></div><span class="sep">:</span>
+  <aside class="dash __LIVECLS__" aria-label="Sıradaki seans">
+    <div class="dash-hd"><span>SIRADAKI SEANS</span><b>__EVENT__</b></div>
+    <div class="dial">
+      <svg viewBox="0 0 200 200">
+        <circle class="track" cx="100" cy="100" r="92"/>
+        <circle class="tick" cx="100" cy="100" r="92" stroke-dasharray="1.4 12.6"/>
+        <circle class="arcR" cx="100" cy="100" r="92"/>
+        <circle class="arcA" cx="100" cy="100" r="74"/>
+        <circle class="arcC" cx="100" cy="100" r="58"/>
+      </svg>
+      <div class="ctr"><b id="d">--</b><s>GÜN</s></div>
+    </div>
+    <div class="dash-row">
+      <div><b id="h">--</b><s>SAAT</s></div>
+      <div><b id="m">--</b><s>DK</s></div>
       <div><b id="s">--</b><s>SN</s></div>
     </div>
-    <div class="hud-bar"><i></i></div>
-    <div class="hud-foot">__FOOT__</div>
+    <div class="dash-ft"><span class="lv"></span>__FOOT__</div>
   </aside>
   <div class="vig"></div>
   <button class="skip" id="skip" type="button">geç →</button>
@@ -145,16 +237,27 @@ var stage=document.getElementById('stage');
 var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 var TARGET=__TARGET_MS__, LIVE=__LIVE__;
 
-/* geri sayım */
+/* geri sayım + pano halkaları */
 function pad(n){return String(n).padStart(2,'0');}
+function arc(sel,r,rem){
+  var c=2*Math.PI*r, el=document.querySelector(sel);
+  if(!el)return;
+  el.setAttribute('stroke-dasharray',c.toFixed(1));
+  el.setAttribute('stroke-dashoffset',(c*(1-Math.max(0,Math.min(1,rem)))).toFixed(1));
+}
 function cd(){
   var ms=Math.max(0,TARGET-Date.now());
-  document.getElementById('d').textContent=pad(Math.floor(ms/864e5));
-  document.getElementById('h').textContent=pad(Math.floor(ms/36e5)%24);
-  document.getElementById('m').textContent=pad(Math.floor(ms/6e4)%60);
-  document.getElementById('s').textContent=pad(Math.floor(ms/1e3)%60);
+  var d=Math.floor(ms/864e5),h=Math.floor(ms/36e5)%24,m=Math.floor(ms/6e4)%60,s=Math.floor(ms/1e3)%60;
+  document.getElementById('d').textContent=pad(d);
+  document.getElementById('h').textContent=pad(h);
+  document.getElementById('m').textContent=pad(m);
+  document.getElementById('s').textContent=pad(s);
+  arc('.arcR',92,Math.min(d,14)/14);
+  arc('.arcA',74,h/24);
+  arc('.arcC',58,m/60);
 }
 if(TARGET>0){cd();setInterval(cd,1000);}
+else{arc('.arcR',92,0);arc('.arcA',74,0);arc('.arcC',58,0);}
 
 /* WebGL fBm duman */
 var Smoke=(function(){
@@ -207,7 +310,7 @@ function settle(){stage.classList.add('play','settled');Smoke.start();}
 function play(){
   stage.classList.remove('settled');stage.classList.add('play');Smoke.start();
   try{sessionStorage.setItem('fp_hero_played','1');}catch(e){}
-  setTimeout(function(){stage.classList.add('settled');},6200);  /* açılış bitince dinlenmeye geç */
+  setTimeout(function(){stage.classList.add('settled');},6200);
 }
 if(reduce||seen){settle();}else{requestAnimationFrame(play);}
 setTimeout(function(){if(!stage.classList.contains('play'))settle();},3500);
@@ -217,12 +320,21 @@ document.getElementById('skip').addEventListener('click',settle);
 </body></html>"""
 
 
+_DS1 = ("LAP 12/53   S1 28.441   S2 25.902   S3 24.115   SPD 337 KM/S   "
+        "DRS ACIK   ERS 84%   FUEL 41.2 KG")
+_DS2 = ("THR 100%   BRK 0%   GEAR 8   RPM 11 450   TYRE C4 SOFT L14   "
+        "TRK 41 C   AIR 27 C   RUZGAR 1.2 M/S")
+
+
 def _fmt_foot(is_live):
     return "canlı yayında" if is_live else "seans saati doğrulandı · TSİ"
 
 
-def render(event_name, session_name, target_dt, is_live, height=680):
-    """Hero splash'i gömer. ``target_dt`` UTC datetime (veya None)."""
+def render(event_name, session_name, target_dt, is_live, height=760, subtitle=None):
+    """Hero splash'i gömer. ``target_dt`` UTC datetime (veya None).
+
+    ``subtitle`` verilmezse ``_DEFAULT_SUB`` kullanılır.
+    """
     if target_dt is not None:
         if target_dt.tzinfo is None:
             target_dt = target_dt.replace(tzinfo=datetime.timezone.utc)
@@ -237,6 +349,9 @@ def render(event_name, session_name, target_dt, is_live, height=680):
         .replace("__LIVE__", "true" if is_live else "false")
         .replace("__LIVECLS__", "live" if is_live else "")
         .replace("__EVENT__", _ui.safe_html(label))
+        .replace("__SUB__", _ui.safe_html(subtitle or _DEFAULT_SUB))
+        .replace("__DS1__", _ui.safe_html(_DS1))
+        .replace("__DS2__", _ui.safe_html(_DS2))
         .replace("__FOOT__", _ui.safe_html(_fmt_foot(is_live)))
     )
     # tam-genişlik işareti: üst bar CSS'i bu işareti izleyen konteyneri
