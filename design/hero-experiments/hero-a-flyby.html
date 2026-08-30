@@ -42,9 +42,9 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .dot{width:6px;height:6px;border-radius:50%;background:var(--rush);animation:pulse 2.4s ease-out infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,6,0,.5)}70%{box-shadow:0 0 0 9px rgba(225,6,0,0)}100%{box-shadow:0 0 0 0 rgba(225,6,0,0)}}
 @media(max-width:760px){.topnav{display:none}}
-.stage.play .topbar .wordmark{animation:fadein .55s ease 4.5s both}
-.stage.play .topbar .topnav{animation:fadein .6s ease 4.75s both}
-.stage.play .topbar .clock{animation:fadein .6s ease 4.9s both}
+.stage.play .topbar .wordmark{animation:fadein .3s ease 4.55s both}
+.stage.play .topbar .topnav{animation:fadein .6s ease 4.95s both}
+.stage.play .topbar .clock{animation:fadein .6s ease 5.1s both}
 .stage.settled .topbar .wordmark,.stage.settled .topbar .topnav,.stage.settled .topbar .clock{opacity:1;animation:none}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 
@@ -54,9 +54,13 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .stage.play.shake{animation:shake .34s ease-in-out 2.05s 1}
 @keyframes shake{0%,100%{transform:translate(0,0)}18%{transform:translate(-5px,3px)}42%{transform:translate(6px,-4px)}68%{transform:translate(-4px,-2px)}}
 
-.ghost{position:absolute;top:-9vh;left:-2vw;z-index:1;font-family:var(--f-display);font-weight:700;
-  font-size:37vw;line-height:1;letter-spacing:-.03em;color:var(--ghost);user-select:none;pointer-events:none;
-  white-space:nowrap;transform:translate(calc(var(--px)*2.2),calc(var(--py)*2.2))}
+/* dev dekoratif kelime yerine: ince hız telemetri izi + seans etiketi */
+.trace{position:absolute;left:0;right:0;top:12%;height:20vh;z-index:1;pointer-events:none;
+  opacity:.9;transform:translate(calc(var(--px)*1.4),calc(var(--py)*1.4))}
+.trace svg{width:100%;height:100%;display:block}
+.sesh{position:absolute;left:clamp(1.5rem,6vw,5rem);top:calc(12% - 1.6rem);z-index:1;pointer-events:none;
+  font-family:var(--f-mono);font-size:.66rem;letter-spacing:.24em;color:var(--text-mute);opacity:.6}
+@media(max-width:760px){.trace,.sesh{display:none}}
 
 #smoke{position:absolute;inset:-3%;z-index:2;width:106%;height:106%;display:block;
   transform:translate(calc(var(--px)*-1),calc(var(--py)*-1))}
@@ -68,7 +72,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 @keyframes glare{0%{opacity:0;transform:translateX(0) skewX(-14deg)}15%{opacity:1}80%{opacity:.7}100%{opacity:0;transform:translateX(360%) skewX(-14deg)}}
 
 /* ---------- araç ---------- */
-.car-pos{position:absolute;left:50%;top:51%;z-index:4;width:clamp(760px,96vw,1600px);
+.car-pos{position:absolute;left:57%;top:46%;z-index:4;width:clamp(700px,88vw,1480px);
   will-change:transform;transform:translate(-50%,-50%) translate(calc(var(--px)*1.6),calc(var(--py)*1.6))}
 .car{will-change:transform,filter}
 .car svg{width:100%;height:auto;display:block;overflow:visible}
@@ -114,12 +118,15 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   text-shadow:0 0 44px rgba(180,200,220,.28)}
 .logo-reveal .lr svg{width:clamp(34px,6vw,74px);height:clamp(34px,6vw,74px)}
 .logo-reveal .lr b{color:var(--rush)}
-.stage.play .logo-reveal{animation:logo 2.7s cubic-bezier(.3,.7,.2,1) 2.35s both}
+/* dev yazı belirir → sol-üste süzülür ve ORADA KALIR (gerçek menü logosu
+   tam üstüne biner; z40 > z12 olduğu için hizasızlık görünmez) */
+.stage.play .logo-reveal{animation:logo 2.9s cubic-bezier(.3,.72,.2,1) 2.35s both}
 @keyframes logo{
-  0%  {opacity:0;transform:translate(0,0) scale(1.4);filter:blur(28px)}
-  24% {opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
-  56% {opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
-  100%{opacity:0;transform:translate(-40vw,-40vh) scale(.24);filter:blur(2px)}
+  0%  {opacity:0;transform:translate(0,0) scale(1.45);filter:blur(30px)}
+  22% {opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
+  52% {opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
+  86% {opacity:1;transform:translate(-40vw,-43vh) scale(.19);filter:blur(0)}
+  100%{opacity:0;transform:translate(-40vw,-43vh) scale(.19);filter:blur(0)}
 }
 
 /* ---------- okunabilirlik ---------- */
@@ -152,10 +159,11 @@ h1 .accent{color:var(--text)}
 .textlink:hover{color:var(--text-dim);border-color:var(--text-mute)}
 .reveal{opacity:0}
 .stage.play .reveal{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
-.stage.play .reveal.d1{animation-delay:4.6s}.stage.play .reveal.d2{animation-delay:4.74s}
-.stage.play .reveal.d3{animation-delay:4.88s}.stage.play .reveal.d4{animation-delay:5.02s}
+.stage.play .reveal.d1{animation-delay:4.95s}.stage.play .reveal.d2{animation-delay:5.09s}
+.stage.play .reveal.d3{animation-delay:5.23s}.stage.play .reveal.d4{animation-delay:5.37s}
 @keyframes rise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:translateY(0)}}
 .stage.settled .reveal{opacity:1;animation:none}
+.stage.settled .logo-reveal,.stage.settled .car{display:none}
 
 /* ---------- prototip panosu ---------- */
 .proto{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:.9rem;z-index:30;display:flex;align-items:center;
@@ -201,7 +209,18 @@ h1 .accent{color:var(--text)}
 </header>
 
 <main class="stage" id="stage">
-  <div class="ghost" aria-hidden="true">PADDOCK</div>
+  <div class="sesh" aria-hidden="true">ZANDVOORT · GP · 2026 · CANLI VERİ</div>
+  <div class="trace" aria-hidden="true">
+    <svg viewBox="0 0 1600 240" preserveAspectRatio="none">
+      <path d="M0,150 L150,150 C210,150 214,66 268,66 C326,66 326,176 386,176
+               C444,176 452,44 520,44 C584,44 584,132 648,132 L812,132
+               C876,132 876,34 940,34 C1004,34 1004,182 1068,182 C1128,182 1140,84 1214,84
+               L1380,84 C1440,84 1452,150 1508,150 L1600,150"
+            fill="none" stroke="rgba(201,213,226,.07)" stroke-width="2"/>
+      <path d="M0,150 L150,150 C210,150 214,66 268,66 C326,66 326,176 386,176 C444,176 452,44 520,44"
+            fill="none" stroke="rgba(225,6,0,.16)" stroke-width="2"/>
+    </svg>
+  </div>
   <canvas id="smoke" aria-hidden="true"></canvas>
 
   <div class="wake" aria-hidden="true">
@@ -258,81 +277,86 @@ h1 .accent{color:var(--text)}
         <ellipse cx="820" cy="470" rx="640" ry="58" fill="url(#ground)" style="mix-blend-mode:screen"/>
 
         <!-- yumuşak kenar sızıntısı (büyütülmüş bulanık silüet) -->
-        <g filter="url(#soft)" opacity=".45" fill="#3b526b">
-          <path d="M150 452 L480 430 L740 320 L820 190 L900 360 L1300 300 L1330 456 L150 470 Z"/>
-          <ellipse cx="476" cy="398" rx="96" ry="102"/>
-          <ellipse cx="1176" cy="396" rx="100" ry="106"/>
+        <g filter="url(#soft)" opacity=".42" fill="#3b526b">
+          <path d="M108 456 L470 428 L636 318 L792 250 L840 340 L1270 322 L1306 458 L108 472 Z"/>
+          <ellipse cx="460" cy="402" rx="88" ry="94"/>
+          <ellipse cx="1170" cy="400" rx="92" ry="98"/>
+          <path d="M1236 250 L1512 186 L1512 336 L1236 300 Z"/>
         </g>
 
         <g transform="rotate(-1.5 820 340)">
-          <!-- ===== SİLÜET (düz, neredeyse siyah) ===== -->
+          <!-- ===== SİLÜET (düz, neredeyse siyah — 2026 regülasyon: ince gövde, sivri burun, aktif kanatlar) ===== -->
           <g fill="#05070a">
-            <!-- zemin / alt gövde -->
-            <path d="M372 456 L1240 448 L1240 462 L372 468 Z"/>
-            <!-- tekerler -->
-            <ellipse cx="476" cy="398" rx="82" ry="88"/>
-            <ellipse cx="1176" cy="396" rx="86" ry="92"/>
-            <!-- burun + ön -->
-            <path d="M148 438 L360 422 Q432 418 474 430 L484 460 L360 456 L196 452 Z"/>
-            <!-- ön kanat -->
-            <path d="M100 428 L136 424 L146 490 L108 494 Z"/>
-            <path d="M118 460 L384 446 L384 470 L118 476 Z"/>
-            <path d="M146 446 L360 434 L360 446 L146 454 Z"/>
-            <!-- monokok -->
-            <path d="M448 454 L458 424 C520 418 566 402 596 372 L648 328 L724 324 L732 454 Z"/>
-            <!-- hava kutusu (yuvarlak scoop) -->
-            <path d="M704 330 L742 326 Q760 270 756 236 Q786 226 812 248 Q834 284 828 334 L744 350 Z"/>
-            <!-- motor kapağı -->
-            <path d="M818 236 L884 360 C972 374 1120 368 1188 352 L1286 318 L1298 454 L898 454 Z"/>
-            <!-- yan kutu -->
-            <path d="M700 350 C772 328 922 328 1002 350 C1032 384 1032 432 1002 454 L724 454 Q688 404 700 350 Z"/>
-            <!-- arka / şanzıman -->
-            <path d="M1250 300 L1322 300 L1322 454 L1250 454 Z"/>
-            <!-- halo -->
-            <path d="M626 332 Q694 250 762 320 L748 332 Q694 274 640 340 Z"/>
-            <path d="M686 300 L698 300 L698 262 L686 262 Z"/>
-            <!-- arka kanat -->
-            <path d="M1280 300 L1290 214 L1300 214 L1292 300 Z"/>
-            <path d="M1242 244 L1478 230 L1478 260 L1242 264 Z"/>
-            <path d="M1250 218 L1470 206 L1470 226 L1250 232 Z"/>
-            <path d="M1472 190 L1512 188 L1512 312 L1478 312 Z"/>
-            <path d="M1266 346 L1432 338 L1432 358 L1266 364 Z"/>
-            <!-- diffüzör dikmeleri -->
-            <path d="M1250 400 L1256 454 M1272 398 L1278 454 M1294 396 L1300 454" stroke="#05070a" stroke-width="7"/>
+            <!-- zemin / venturi gövde -->
+            <path d="M360 452 L1250 444 L1250 462 L360 466 Z"/>
+            <!-- tekerler (2026: biraz daha dar) -->
+            <ellipse cx="460" cy="402" rx="74" ry="80"/>
+            <ellipse cx="1170" cy="400" rx="78" ry="84"/>
+            <!-- BURUN: uzun, alçak, sivri dart -->
+            <path d="M104 452 L300 438 Q420 424 470 434 L482 462 L300 458 L140 456 Z"/>
+            <!-- ÖN KANAT: 2 ana element + endplate, buruna bağlı -->
+            <path d="M88 428 L126 424 L136 488 L96 492 Z"/>
+            <path d="M104 462 L376 448 L376 470 L104 476 Z"/>
+            <path d="M134 448 L352 436 L352 448 L134 456 Z"/>
+            <!-- MONOKOK -->
+            <path d="M440 456 L452 424 C510 416 560 398 592 366 L636 326 L720 322 L728 456 Z"/>
+            <!-- HAVA KUTUSU (alçak, sleek) -->
+            <path d="M704 328 L738 324 Q754 282 752 256 Q780 246 800 266 Q816 298 812 332 L740 346 Z"/>
+            <!-- MOTOR KAPAĞI: agresif daralan kuyruk -->
+            <path d="M800 272 C 900 300 1080 322 1200 336 L 1272 344 L 1282 456 L 830 456 L 812 320 Z"/>
+            <!-- YAN KUTU (ince, entegre) -->
+            <path d="M700 352 C780 334 920 334 1000 354 C1026 388 1026 432 1000 454 L726 454 Q690 406 700 352 Z"/>
+            <!-- ARKA / şanzıman + crash yapısı -->
+            <path d="M1248 336 L1312 336 L1312 456 L1248 456 Z"/>
+            <!-- HALO -->
+            <path d="M618 330 Q690 246 762 316 L748 330 Q690 268 632 338 Z"/>
+            <path d="M682 296 L694 296 L694 258 L682 258 Z"/>
+            <!-- ARKA KANAT: 3 elemanlı dik aktif kanat + büyük endplate + swan-neck -->
+            <path d="M1256 322 L1264 250 L1274 250 L1266 322 Z"/>
+            <path d="M1236 262 L1470 250 L1470 282 L1236 288 Z"/>
+            <path d="M1244 232 L1466 222 L1466 246 L1244 252 Z"/>
+            <path d="M1250 204 L1462 196 L1462 218 L1250 224 Z"/>
+            <path d="M1464 188 L1510 185 L1510 332 L1470 332 Z"/>
+            <!-- BEAM WING (ana kanadın altında ayrı) -->
+            <path d="M1258 358 L1440 350 L1440 372 L1258 378 Z"/>
+            <!-- DİFFÜZÖR dikmeleri -->
+            <path d="M1248 408 L1254 456 M1272 406 L1278 456 M1296 404 L1302 456" stroke="#05070a" stroke-width="7"/>
           </g>
 
-          <!-- kokpit içi hafif ışık sızıntısı -->
-          <path d="M652 328 L724 324 L726 344 L654 348 Z" fill="#0c1420"/>
-          <ellipse cx="694" cy="322" rx="22" ry="16" fill="#111a26"/>
-          <path d="M684 316 Q694 310 704 316" fill="none" stroke="#38e1d0" stroke-width="1.4" opacity=".55"/>
+          <!-- kokpit içi hafif ışık sızıntısı + kask -->
+          <path d="M648 328 L722 324 L724 342 L650 346 Z" fill="#0c1420"/>
+          <ellipse cx="690" cy="320" rx="21" ry="15" fill="#111a26"/>
+          <path d="M681 314 Q691 308 701 314" fill="none" stroke="#38e1d0" stroke-width="1.4" opacity=".55"/>
 
           <!-- tekerlek dönüşü (hafif) -->
-          <g class="wheelspin" opacity=".5"><path d="M476 348 L476 448 M436 372 L516 424 M436 424 L516 372" stroke="#1a222e" stroke-width="4"/></g>
-          <g class="wheelspin" opacity=".5"><path d="M1176 346 L1176 446 M1134 370 L1218 422 M1134 422 L1218 370" stroke="#1a222e" stroke-width="4"/></g>
+          <g class="wheelspin" opacity=".45"><path d="M460 352 L460 452 M422 374 L498 430 M422 430 L498 374" stroke="#1a222e" stroke-width="4"/></g>
+          <g class="wheelspin" opacity=".45"><path d="M1170 348 L1170 452 M1130 372 L1210 428 M1130 428 L1210 372" stroke="#1a222e" stroke-width="4"/></g>
 
-          <!-- ===== RIM IŞIK (parlak — ışık kenarları sarıyor) ===== -->
+          <!-- ===== RIM IŞIK ===== -->
           <g fill="none" stroke="#eef4fb" stroke-linecap="round">
-            <path d="M148 438 L360 422 Q432 418 474 430" stroke-width="2.5" opacity=".55"/>
-            <path d="M458 424 C520 418 566 402 596 372 L650 328" stroke-width="3" opacity=".75"/>
-            <path d="M742 326 Q760 270 756 236 Q786 226 812 248" stroke-width="4.5" opacity="1"/>
-            <path d="M824 262 C960 276 1150 268 1284 236" stroke-width="2.5" opacity=".45"/>
-            <path d="M1250 218 L1470 206" stroke-width="3" opacity=".85"/>
-            <path d="M1478 192 L1478 300" stroke-width="2.5" opacity=".7"/>
-            <path d="M406 336 A82 88 0 0 1 486 314" stroke-width="3" opacity=".6"/>
-            <path d="M1104 332 A86 92 0 0 1 1188 312" stroke-width="3" opacity=".6"/>
-            <path d="M636 322 Q694 258 750 264" stroke-width="2.6" opacity=".55"/>
+            <path d="M104 452 L300 438 Q420 424 470 434" stroke-width="2.5" opacity=".5"/>
+            <path d="M452 424 C510 416 560 398 592 366 L638 326" stroke-width="3" opacity=".72"/>
+            <path d="M738 324 Q754 282 752 256 Q780 246 800 266" stroke-width="4.5" opacity="1"/>
+            <path d="M806 280 C 900 306 1080 324 1200 338" stroke-width="2" opacity=".4"/>
+            <path d="M1250 204 L1462 196" stroke-width="3" opacity=".9"/>
+            <path d="M1244 232 L1466 222" stroke-width="2" opacity=".5"/>
+            <path d="M1470 190 L1470 322" stroke-width="2.5" opacity=".7"/>
+            <path d="M1466 189 L1506 187" stroke-width="2" opacity=".55"/>
+            <path d="M1258 358 L1438 350" stroke-width="2" opacity=".5"/>
+            <path d="M394 344 A74 80 0 0 1 466 322" stroke-width="3" opacity=".55"/>
+            <path d="M1100 338 A78 84 0 0 1 1170 316" stroke-width="3" opacity=".55"/>
+            <path d="M628 322 Q690 250 748 258" stroke-width="2.6" opacity=".55"/>
           </g>
-          <!-- yer sızıntısı çizgisi (aracın altından) -->
-          <path d="M300 458 L1250 450" stroke="#cdd9e6" stroke-width="4" opacity=".4" filter="url(#soft2)"/>
+          <path d="M300 458 L1252 450" stroke="#cdd9e6" stroke-width="4" opacity=".38" filter="url(#soft2)"/>
 
           <!-- kırmızı aksan (ince) -->
-          <path d="M470 434 L360 440" stroke="var(--rush)" stroke-width="2.5" opacity=".55"/>
-          <path d="M118 460 L384 446" stroke="var(--rush)" stroke-width="2.5" opacity=".6"/>
+          <path d="M706 350 L1200 338" stroke="var(--rush)" stroke-width="2" opacity=".3"/>
+          <path d="M104 462 L376 448" stroke="var(--rush)" stroke-width="2.5" opacity=".55"/>
 
-          <!-- burun ucu parıltısı -->
-          <circle cx="150" cy="436" r="14" fill="#fff" opacity=".5" filter="url(#soft2)"/>
-          <circle cx="150" cy="436" r="4" fill="#fff"/>
-          <circle cx="694" cy="264" r="3.5" fill="#eef4fb"/>
+          <!-- burun ucu + kask parıltısı -->
+          <circle cx="106" cy="452" r="13" fill="#fff" opacity=".5" filter="url(#soft2)"/>
+          <circle cx="106" cy="452" r="4" fill="#fff"/>
+          <circle cx="690" cy="262" r="3.5" fill="#eef4fb"/>
         </g>
       </svg>
     </div>
