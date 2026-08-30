@@ -1,0 +1,473 @@
+<title>Sert Fren Hero</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ============================================================
+   FORMULA PADDOCK — hero deneyi, Varyant B: "Sert Fren"
+   Tek görsel dünya: sinematik koyu. Tema anahtarı yok — her
+   renk :root'ta açıkça basılı (host teması ne olursa olsun sabit).
+   Palet streamlit_app.py / core/theme.py TOKENS'tan alındı.
+   ============================================================ */
+:root{
+  --ink:#07090d;
+  --ink-deep:#030405;
+  --smoke-lo:#161d28;
+  --smoke-hi:#37485c;
+  --steel:#c9d5e2;
+  --steel-dim:#8b9bad;
+  --car-hi:#161b23;
+  --car-lo:#04060a;
+  --brake:#ff5a2b;
+  --brake-hot:#ffcaa8;
+  --rush:#e10600;
+  --text:#f2f5f8;
+  --text-dim:#9fb0c0;
+  --text-mute:#63748a;
+  --ghost:rgba(226,232,240,.040);
+  --line:#26313f;
+
+  --f-display:'Antonio','Arial Narrow','Saira Condensed',sans-serif;
+  --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'Consolas',monospace;
+
+  --seq-approach:2.0s;
+  --seq-content:2.35s;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+html,body{height:100%}
+body{
+  background:var(--ink-deep);
+  color:var(--text);
+  font-family:var(--f-body);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ---------- üst çubuk (gerçek nav'ın izi) ---------- */
+.topbar{
+  position:absolute;inset:0 0 auto 0;z-index:40;
+  display:flex;align-items:center;gap:clamp(1rem,4vw,3rem);
+  padding:1.15rem clamp(1.25rem,5vw,3.5rem);
+  font-family:var(--f-mono);
+}
+.wordmark{
+  font-family:var(--f-display);font-weight:700;
+  font-size:1.02rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text);white-space:nowrap;
+}
+.wordmark b{color:var(--rush);font-weight:700}
+.topnav{display:flex;gap:1.6rem;font-size:.66rem;letter-spacing:.2em;color:var(--text-mute)}
+.topnav span:first-child{color:var(--text-dim)}
+.clock{
+  margin-left:auto;display:flex;align-items:center;gap:.55rem;
+  font-size:.74rem;letter-spacing:.12em;color:var(--text-dim);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--rush);
+  box-shadow:0 0 0 0 rgba(225,6,0,.55);animation:pulse 2.4s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,6,0,.5)}70%{box-shadow:0 0 0 9px rgba(225,6,0,0)}100%{box-shadow:0 0 0 0 rgba(225,6,0,0)}}
+@media(max-width:760px){.topnav{display:none}}
+
+/* ---------- sahne ---------- */
+.stage{
+  position:relative;width:100%;min-height:100svh;
+  background:
+    radial-gradient(130% 90% at 78% -10%, color-mix(in srgb,var(--rush) 8%, transparent), transparent 52%),
+    radial-gradient(90% 70% at 12% 108%, #0a0e14, transparent 60%),
+    linear-gradient(180deg,var(--ink),var(--ink-deep));
+  overflow:hidden;
+  isolation:isolate;
+}
+
+/* devasa hayalet kelime */
+.ghost{
+  position:absolute;top:-9vh;left:-2vw;z-index:1;
+  font-family:var(--f-display);font-weight:700;
+  font-size:37vw;line-height:1;letter-spacing:-.03em;
+  color:var(--ghost);user-select:none;pointer-events:none;white-space:nowrap;
+}
+
+/* ---------- duman ---------- */
+.smoke{position:absolute;inset:-8%;z-index:2;pointer-events:none}
+.smoke svg{width:100%;height:100%;display:block}
+.blob{
+  position:absolute;border-radius:50%;
+  filter:blur(46px);mix-blend-mode:screen;opacity:.16;
+  background:radial-gradient(circle at 40% 40%, var(--smoke-hi), transparent 68%);
+}
+.blob.a{width:52vw;height:52vw;top:-12%;right:-6%;animation:drift1 34s ease-in-out infinite}
+.blob.b{width:40vw;height:40vw;top:18%;right:24%;opacity:.12;animation:drift2 46s ease-in-out infinite}
+.blob.c{width:30vw;height:30vw;top:34%;left:34%;opacity:.10;animation:drift3 40s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-4%,3%,0) scale(1.12)}}
+@keyframes drift2{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(5%,-4%,0) scale(1.08)}}
+@keyframes drift3{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(3%,4%,0) scale(1.15)}}
+
+/* ---------- araç ---------- */
+.car-pos{
+  position:absolute;right:-3vw;bottom:7vh;z-index:3;
+  width:clamp(520px,74vw,1200px);
+  will-change:transform,filter,opacity;
+}
+.car{transform-origin:60% 82%;will-change:transform,filter}
+.car svg{width:100%;height:auto;display:block;overflow:visible}
+.car-inner{animation:bob 7s ease-in-out infinite;transform-origin:center}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+
+/* yaklaşma + sert fren (ağırlık transferi) */
+@keyframes approach{
+  0%   {opacity:0;transform:translateY(7%) scale(.40);filter:blur(13px) brightness(.22) saturate(.35)}
+  14%  {opacity:1}
+  62%  {transform:translateY(0) scale(1);filter:blur(0) brightness(1) saturate(1)}
+  70%  {transform:translateY(1.4%) scale(1.018)}      /* burun dalışı */
+  78%  {transform:translateY(-.5%) scale(.993)}       /* geri sekme */
+  100% {opacity:1;transform:translateY(0) scale(1);filter:none}
+}
+.stage.play .car{animation:approach var(--seq-approach) cubic-bezier(.16,.72,.24,1) both}
+
+/* fren diskleri kızarır */
+.disc{opacity:0}
+.stage.play .disc{animation:disc 2.1s ease-out both;animation-delay:1.5s}
+@keyframes disc{0%{opacity:0}22%{opacity:1}100%{opacity:.2}}
+
+/* lastik dumanı patlaması */
+.brakeburst{opacity:0;transform-box:fill-box;transform-origin:center bottom}
+.stage.play .brakeburst{animation:burst 2.4s ease-out both;animation-delay:1.45s}
+@keyframes burst{
+  0%{opacity:0;transform:scale(.35) translateY(0)}
+  26%{opacity:.9}
+  60%{opacity:.5}
+  100%{opacity:0;transform:scale(1.9) translateY(-16%)}
+}
+
+/* ---------- okunabilirlik katmanları ---------- */
+.scrim{
+  position:absolute;inset:0;z-index:4;pointer-events:none;
+  background:linear-gradient(102deg,
+    rgba(3,4,6,.94) 0%, rgba(3,4,6,.78) 22%, rgba(3,4,6,.34) 44%, rgba(3,4,6,0) 62%);
+}
+.vignette{
+  position:absolute;inset:0;z-index:5;pointer-events:none;
+  box-shadow:inset 0 0 240px 70px rgba(0,0,0,.72), inset 0 -120px 160px -60px rgba(0,0,0,.6);
+}
+
+/* ---------- içerik ---------- */
+.content{
+  position:absolute;left:0;bottom:0;z-index:10;
+  padding:0 clamp(1.5rem,6vw,5rem) clamp(2.4rem,8vh,5rem);
+  max-width:min(46rem,92vw);
+}
+.eyebrow{
+  display:flex;align-items:center;gap:.7rem;
+  font-family:var(--f-mono);font-size:.72rem;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--text-mute);margin-bottom:1.5rem;
+}
+.eyebrow::before{content:"";width:26px;height:2px;background:var(--rush)}
+h1{
+  font-family:var(--f-display);font-weight:700;
+  font-size:clamp(3rem,11vw,8.6rem);line-height:.9;letter-spacing:-.012em;
+  text-transform:uppercase;text-wrap:balance;
+  color:var(--text);margin-bottom:1.7rem;
+}
+h1 span{display:block;color:var(--steel-dim)}
+h1 .accent{color:var(--text)}
+.lede{
+  font-size:clamp(.96rem,1.7vw,1.1rem);line-height:1.6;
+  color:var(--text-dim);max-width:44ch;margin-bottom:2.1rem;
+}
+.actions{display:flex;align-items:center;gap:1.6rem;flex-wrap:wrap}
+.cta{
+  --pad:1rem 1.9rem;
+  display:inline-flex;align-items:center;gap:.7rem;
+  padding:var(--pad);
+  font-family:var(--f-body);font-size:.8rem;font-weight:600;
+  letter-spacing:.17em;text-transform:uppercase;
+  color:var(--text);text-decoration:none;
+  border:1px solid var(--steel-dim);
+  background:rgba(201,213,226,.03);
+  transition:border-color .2s ease,background .2s ease,transform .2s ease;
+}
+.cta:hover{border-color:var(--steel);background:rgba(201,213,226,.09);transform:translateY(-1px)}
+.cta .arw{color:var(--rush)}
+.textlink{
+  font-family:var(--f-mono);font-size:.74rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text-mute);text-decoration:none;
+  border-bottom:1px solid transparent;padding-bottom:2px;transition:color .2s,border-color .2s;
+}
+.textlink:hover{color:var(--text-dim);border-color:var(--text-mute)}
+
+/* içerik girişi — araç oturduktan SONRA */
+.stage.play .reveal{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
+.stage.play .reveal.d1{animation-delay:var(--seq-content)}
+.stage.play .reveal.d2{animation-delay:calc(var(--seq-content) + .12s)}
+.stage.play .reveal.d3{animation-delay:calc(var(--seq-content) + .24s)}
+.stage.play .reveal.d4{animation-delay:calc(var(--seq-content) + .36s)}
+@keyframes rise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:translateY(0)}}
+
+/* ilk yükleme dışında (oturumda görülmüşse) direkt oturmuş göster */
+.stage.settled .car{opacity:1}
+.stage.settled .reveal{opacity:1}
+
+/* ---------- prototip panosu ---------- */
+.proto{
+  position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:.9rem;z-index:30;
+  display:flex;align-items:center;gap:.9rem;flex-wrap:wrap;
+  font-family:var(--f-mono);font-size:.68rem;letter-spacing:.06em;color:var(--text-mute);
+}
+.proto .tag{color:var(--text-dim);letter-spacing:.18em}
+.proto .tag b{color:var(--rush);font-weight:500}
+.proto button{
+  font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-dim);background:transparent;border:1px solid var(--line);
+  padding:.5rem .8rem;cursor:pointer;transition:border-color .2s,color .2s;
+}
+.proto button:hover{border-color:var(--steel-dim);color:var(--text)}
+.proto button[aria-pressed="true"]{border-color:var(--rush);color:var(--text)}
+
+:focus-visible{outline:2px solid var(--steel);outline-offset:3px}
+
+/* ---------- mobil ---------- */
+@media(max-width:760px){
+  .car-pos{width:132vw;right:-26vw;bottom:auto;top:12vh;opacity:.62}
+  .content{max-width:100%}
+  h1{font-size:clamp(2.6rem,15vw,4.4rem)}
+  .scrim{background:linear-gradient(180deg,rgba(3,4,6,.2) 0%,rgba(3,4,6,.55) 40%,rgba(3,4,6,.95) 78%)}
+  .proto{font-size:.62rem}
+}
+
+/* ---------- hareket azaltma ---------- */
+@media(prefers-reduced-motion:reduce){
+  .stage.play .car,.stage.play .disc,.stage.play .brakeburst,
+  .stage.play .reveal,.car-inner,.blob,.dot,
+  .smoke svg *{animation:none !important}
+  .car{opacity:1 !important;transform:none !important;filter:none !important}
+  .reveal{opacity:1 !important;transform:none !important}
+  .disc{opacity:.3}
+}
+/* prototipte elle hareket azaltma */
+.stage.rm .car,.stage.rm .disc,.stage.rm .brakeburst,
+.stage.rm .reveal,.stage.rm .car-inner,.stage.rm .blob,
+.stage.rm .smoke svg *{animation:none !important}
+.stage.rm .car{opacity:1 !important;transform:none !important;filter:none !important}
+.stage.rm .reveal{opacity:1 !important;transform:none !important}
+.stage.rm .disc{opacity:.3}
+</style>
+
+<header class="topbar">
+  <div class="wordmark">FORMULA&nbsp;<b>PADDOCK</b></div>
+  <nav class="topnav" aria-hidden="true">
+    <span>HABERLER</span><span>TELEMETRİ</span><span>TAKVİM</span><span>SÖZLÜK</span>
+  </nav>
+  <div class="clock"><span class="dot"></span><span id="clk">--:--:--</span> TSİ</div>
+</header>
+
+<main class="stage" id="stage">
+  <div class="ghost" aria-hidden="true">PADDOCK</div>
+
+  <!-- ortam dumanı -->
+  <div class="smoke" aria-hidden="true">
+    <div class="blob a"></div><div class="blob b"></div><div class="blob c"></div>
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <filter id="turb" x="-30%" y="-30%" width="160%" height="160%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.011 0.016" numOctaves="3" seed="7" result="n">
+            <animate attributeName="baseFrequency" dur="26s" repeatCount="indefinite"
+              values="0.010 0.014;0.014 0.021;0.010 0.014"/>
+          </feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="60" xChannelSelector="R" yChannelSelector="G"/>
+          <feGaussianBlur stdDeviation="10"/>
+        </filter>
+        <radialGradient id="puff">
+          <stop offset="0" stop-color="#93a8bf" stop-opacity=".5"/>
+          <stop offset="55%" stop-color="#3d4e63" stop-opacity=".2"/>
+          <stop offset="100%" stop-color="#3d4e63" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <g filter="url(#turb)" opacity=".62">
+        <ellipse cx="880" cy="210" rx="360" ry="240" fill="url(#puff)"/>
+        <ellipse cx="640" cy="330" rx="300" ry="220" fill="url(#puff)"/>
+        <ellipse cx="980" cy="430" rx="280" ry="200" fill="url(#puff)"/>
+        <ellipse cx="470" cy="250" rx="220" ry="170" fill="url(#puff)"/>
+        <animateTransform attributeName="transform" type="translate" dur="40s"
+          repeatCount="indefinite" values="0 0; -46 -22; 0 0"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- araç -->
+  <div class="car-pos">
+    <div class="car"><div class="car-inner">
+      <svg viewBox="0 0 1200 720" role="img" aria-label="Formül 1 2026 aracı, dumandan çıkarken önden görünüm">
+        <defs>
+          <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--car-hi)"/>
+            <stop offset="60%" stop-color="#0a0d13"/>
+            <stop offset="100%" stop-color="var(--car-lo)"/>
+          </linearGradient>
+          <linearGradient id="bodyDark" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#0c1017"/>
+            <stop offset="100%" stop-color="#020304"/>
+          </linearGradient>
+          <radialGradient id="tyre" cx="42%" cy="34%" r="72%">
+            <stop offset="0" stop-color="#1a1f27"/>
+            <stop offset="55%" stop-color="#0a0d12"/>
+            <stop offset="100%" stop-color="#020304"/>
+          </radialGradient>
+          <radialGradient id="discGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="var(--brake-hot)"/>
+            <stop offset="38%" stop-color="var(--brake)"/>
+            <stop offset="100%" stop-color="var(--brake)" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="burstG">
+            <stop offset="0" stop-color="#c3d0de" stop-opacity=".7"/>
+            <stop offset="60%" stop-color="#4a5c70" stop-opacity=".25"/>
+            <stop offset="100%" stop-color="#4a5c70" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="9"/>
+          </filter>
+        </defs>
+
+        <!-- yer teması + yansıma -->
+        <ellipse cx="600" cy="612" rx="452" ry="46" fill="#000" opacity=".62" filter="url(#soft)"/>
+        <rect x="150" y="590" width="900" height="120" fill="url(#bodyDark)" opacity=".5"/>
+
+        <!-- lastik dumanı patlaması (fren) -->
+        <g class="brakeburst" filter="url(#turb)">
+          <ellipse cx="330" cy="520" rx="150" ry="120" fill="url(#burstG)"/>
+          <ellipse cx="470" cy="540" rx="120" ry="95" fill="url(#burstG)"/>
+          <ellipse cx="235" cy="500" rx="110" ry="90" fill="url(#burstG)"/>
+          <ellipse cx="880" cy="512" rx="120" ry="95" fill="url(#burstG)"/>
+        </g>
+
+        <!-- UZAK ÖN TEKER -->
+        <g transform="rotate(5 880 470)">
+          <ellipse cx="880" cy="470" rx="80" ry="96" fill="url(#tyre)"/>
+          <path d="M804,468 A80,96 0 0 1 956,468 L956,478 A80,96 0 0 0 804,478 Z" fill="url(#bodyDark)"/>
+          <circle class="disc" cx="880" cy="470" r="30" fill="url(#discGlow)"/>
+        </g>
+
+        <!-- ARKA KANAT + hava kutusu -->
+        <rect x="474" y="150" width="252" height="15" rx="4" fill="url(#bodyDark)"/>
+        <rect x="470" y="122" width="13" height="58" fill="url(#bodyDark)"/>
+        <rect x="717" y="122" width="13" height="58" fill="url(#bodyDark)"/>
+        <path d="M560,300 L560,175 Q600,120 640,175 L640,300 Z" fill="url(#bodyDark)"/>
+
+        <!-- GÖVDE / monokok -->
+        <path d="M520,300 L680,300 L662,432 L620,474 L580,474 L538,432 Z" fill="url(#body)"/>
+        <!-- kokpit açıklığı -->
+        <ellipse cx="600" cy="300" rx="46" ry="17" fill="#01020a"/>
+        <ellipse cx="600" cy="303" rx="21" ry="17" fill="#0b0e14"/>
+        <path d="M588,300 Q600,286 612,300" fill="none" stroke="var(--steel-dim)" stroke-width="2" opacity=".5"/>
+
+        <!-- YAN KUTULAR -->
+        <path d="M430,332 L520,316 L520,432 L452,456 L408,412 Z" fill="url(#bodyDark)"/>
+        <path d="M770,332 L680,316 L680,432 L748,456 L792,412 Z" fill="#020304"/>
+
+        <!-- BURUN -->
+        <path d="M556,432 L600,506 L644,432 Z" fill="url(#body)"/>
+        <line x1="600" y1="444" x2="600" y2="502" stroke="var(--rush)" stroke-width="5" opacity=".45"/>
+
+        <!-- HALO -->
+        <path d="M503,302 Q600,206 697,302" fill="none" stroke="#0c1016" stroke-width="17"/>
+        <path d="M600,302 L600,250" stroke="#0c1016" stroke-width="9"/>
+        <path d="M508,296 Q560,224 612,214" fill="none" stroke="var(--steel)" stroke-width="4" opacity=".55" stroke-linecap="round"/>
+
+        <!-- ÖN KANAT -->
+        <polygon points="250,524 950,514 950,540 250,552" fill="url(#body)"/>
+        <polygon points="300,508 900,500 900,516 300,524" fill="url(#bodyDark)"/>
+        <polygon points="242,486 286,486 300,556 236,556" fill="url(#bodyDark)"/>
+        <polygon points="958,486 914,486 900,556 964,556" fill="#020304"/>
+        <polyline points="262,520 936,510" fill="none" stroke="var(--rush)" stroke-width="3" opacity=".7"/>
+
+        <!-- YAKIN ÖN TEKER (öne yakın, büyük, aydınlık) -->
+        <g transform="rotate(-6 336 486)">
+          <ellipse cx="336" cy="486" rx="97" ry="114" fill="url(#tyre)"/>
+          <path d="M245,484 A97,114 0 0 1 427,484 L427,496 A97,114 0 0 0 245,496 Z" fill="url(#bodyDark)"/>
+          <path d="M258,448 A97,114 0 0 1 356,374" fill="none" stroke="var(--steel)" stroke-width="6" opacity=".5" stroke-linecap="round"/>
+          <circle class="disc" cx="336" cy="486" r="36" fill="url(#discGlow)"/>
+        </g>
+
+        <!-- kenar ışıkları + burun parıltısı -->
+        <path d="M408,414 L430,334 L520,318" fill="none" stroke="var(--steel)" stroke-width="3" opacity=".4" stroke-linecap="round"/>
+        <path d="M566,432 L600,506" stroke="var(--steel)" stroke-width="2" opacity=".4"/>
+        <circle cx="600" cy="504" r="15" fill="var(--rush)" opacity=".35" filter="url(#soft)"/>
+        <circle cx="600" cy="504" r="5" fill="#fff"/>
+      </svg>
+    </div></div>
+  </div>
+
+  <div class="scrim" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <div class="content">
+    <p class="eyebrow reveal d1">Yarış İstihbaratı</p>
+    <h1 class="reveal d2">
+      <span>Veriyle</span>
+      <span>konuşur.</span>
+      <span class="accent">Uydurmaz.</span>
+      <!-- payoff satırı beyaz, ilk ikisi çelik-gri: vurgu farkı -->
+
+    </h1>
+    <p class="lede reveal d3">
+      Her sayı doğrulanmış kaynaktan. Seans sonuçları, telemetri, şampiyona
+      tablosu — kaynak yanıt vermezse ekranda “—” görürsün, uydurma değil.
+    </p>
+    <div class="actions reveal d4">
+      <a class="cta" href="#">Haberlere git <span class="arw">→</span></a>
+      <a class="textlink" href="#">telemetriyi aç</a>
+    </div>
+  </div>
+
+  <div class="proto">
+    <span class="tag">VARYANT <b>B</b> · SERT FREN</span>
+    <button id="replay" type="button">↻ Tekrar oynat</button>
+    <button id="rm" type="button" aria-pressed="false">Hareketi azalt</button>
+  </div>
+</main>
+
+<script>
+(function(){
+  var stage = document.getElementById('stage');
+
+  /* saat */
+  var clk = document.getElementById('clk');
+  function tick(){
+    var d = new Date();
+    var p = function(n){ return String(n).padStart(2,'0'); };
+    clk.textContent = p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+  tick(); setInterval(tick, 1000);
+
+  /* ilk yükleme = oynat; oturumda görülmüşse direkt oturmuş göster */
+  var KEY = 'fp_hero_seen_b';
+  var seen = false;
+  try { seen = sessionStorage.getItem(KEY) === '1'; } catch(e){}
+
+  function playSequence(){
+    stage.classList.remove('settled');
+    stage.classList.remove('play');
+    void stage.offsetWidth;               /* reflow — animasyonları resetle */
+    stage.classList.add('play');
+    try { sessionStorage.setItem(KEY,'1'); } catch(e){}
+  }
+  function settle(){
+    stage.classList.add('play','settled');
+  }
+
+  if (seen) { settle(); } else { requestAnimationFrame(playSequence); }
+
+  /* prototip kontrolleri */
+  document.getElementById('replay').addEventListener('click', playSequence);
+
+  var rmBtn = document.getElementById('rm');
+  rmBtn.addEventListener('click', function(){
+    var on = stage.classList.toggle('rm');
+    rmBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+})();
+</script>

@@ -1,0 +1,462 @@
+<title>Partikül Hero</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ============================================================
+   FORMULA PADDOCK — hero deneyi, Varyant C: "Partikül"
+   Toz → araç silüeti → dağılım → FORMULA PADDOCK yazısı.
+   Her şey tek bir partikül sistemi (2D canvas, additive).
+   Arka plan: WebGL fBm domain-warp duman (gerçekçi sis).
+   Tek görsel dünya: sinematik koyu. Tema anahtarı yok.
+   ============================================================ */
+:root{
+  --ink:#07090d; --ink-deep:#030405;
+  --steel:#c9d5e2; --steel-dim:#8b9bad;
+  --rush:#e10600;
+  --text:#f2f5f8; --text-dim:#9fb0c0; --text-mute:#63748a;
+  --ghost:rgba(226,232,240,.040); --line:#26313f;
+  --f-display:'Antonio','Arial Narrow','Saira Condensed',sans-serif;
+  --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'Consolas',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.topbar{position:absolute;inset:0 0 auto 0;z-index:40;display:flex;align-items:center;
+  gap:clamp(1rem,4vw,3rem);padding:1.15rem clamp(1.25rem,5vw,3.5rem);font-family:var(--f-mono)}
+.wordmark{display:flex;align-items:center;gap:.55rem;font-family:var(--f-display);font-weight:700;
+  font-size:1.02rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text);white-space:nowrap;opacity:0}
+.wordmark svg{width:15px;height:15px;flex:0 0 auto}
+.wordmark b{color:var(--rush)}
+.topnav{display:flex;gap:1.6rem;font-size:.66rem;letter-spacing:.2em;color:var(--text-mute);opacity:0}
+.topnav span:first-child{color:var(--text-dim)}
+.clock{margin-left:auto;display:flex;align-items:center;gap:.55rem;font-size:.74rem;letter-spacing:.12em;
+  color:var(--text-dim);font-variant-numeric:tabular-nums;white-space:nowrap;opacity:0}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--rush);animation:pulse 2.4s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,6,0,.5)}70%{box-shadow:0 0 0 9px rgba(225,6,0,0)}100%{box-shadow:0 0 0 0 rgba(225,6,0,0)}}
+@media(max-width:760px){.topnav{display:none}}
+.stage.on .wordmark{animation:fadein .7s ease both}
+.stage.on .topnav{animation:fadein .7s ease .15s both}
+.stage.on .clock{animation:fadein .7s ease .25s both}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+
+.stage{position:relative;width:100%;min-height:100svh;overflow:hidden;isolation:isolate;
+  background:linear-gradient(180deg,var(--ink),var(--ink-deep))}
+.ghost{position:absolute;top:-9vh;left:-2vw;z-index:1;font-family:var(--f-display);font-weight:700;
+  font-size:37vw;line-height:1;letter-spacing:-.03em;color:var(--ghost);user-select:none;pointer-events:none;white-space:nowrap}
+
+#smoke{position:absolute;inset:0;z-index:2;width:100%;height:100%;display:block}
+#fx{position:absolute;inset:0;z-index:4;width:100%;height:100%;display:block;pointer-events:none}
+
+.scrim{position:absolute;inset:0;z-index:5;pointer-events:none;
+  background:linear-gradient(102deg,rgba(3,4,6,.92) 0%,rgba(3,4,6,.72) 22%,rgba(3,4,6,.3) 44%,rgba(3,4,6,0) 62%)}
+.vignette{position:absolute;inset:0;z-index:6;pointer-events:none;
+  box-shadow:inset 0 0 240px 70px rgba(0,0,0,.7), inset 0 -120px 160px -60px rgba(0,0,0,.58)}
+
+.content{position:absolute;left:0;bottom:0;z-index:10;
+  padding:0 clamp(1.5rem,6vw,5rem) clamp(2.4rem,8vh,5rem);max-width:min(46rem,92vw)}
+.eyebrow{display:flex;align-items:center;gap:.7rem;font-family:var(--f-mono);font-size:.72rem;
+  letter-spacing:.26em;text-transform:uppercase;color:var(--text-mute);margin-bottom:1.5rem}
+.eyebrow::before{content:"";width:26px;height:2px;background:var(--rush)}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(3rem,11vw,8.6rem);line-height:.9;
+  letter-spacing:-.012em;text-transform:uppercase;text-wrap:balance;color:var(--text);margin-bottom:1.7rem}
+h1 span{display:block;color:var(--steel-dim)}
+h1 .accent{color:var(--text)}
+.lede{font-size:clamp(.96rem,1.7vw,1.1rem);line-height:1.6;color:var(--text-dim);max-width:44ch;margin-bottom:2.1rem}
+.actions{display:flex;align-items:center;gap:1.6rem;flex-wrap:wrap}
+.cta{display:inline-flex;align-items:center;gap:.7rem;padding:1rem 1.9rem;font-family:var(--f-body);
+  font-size:.8rem;font-weight:600;letter-spacing:.17em;text-transform:uppercase;color:var(--text);
+  text-decoration:none;border:1px solid var(--steel-dim);background:rgba(201,213,226,.03);
+  transition:border-color .2s,background .2s,transform .2s}
+.cta:hover{border-color:var(--steel);background:rgba(201,213,226,.09);transform:translateY(-1px)}
+.cta .arw{color:var(--rush)}
+.textlink{font-family:var(--f-mono);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-mute);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:2px;
+  transition:color .2s,border-color .2s}
+.textlink:hover{color:var(--text-dim);border-color:var(--text-mute)}
+.reveal{opacity:0}
+.stage.on .reveal{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
+.stage.on .reveal.d1{animation-delay:.1s}.stage.on .reveal.d2{animation-delay:.24s}
+.stage.on .reveal.d3{animation-delay:.38s}.stage.on .reveal.d4{animation-delay:.52s}
+@keyframes rise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:translateY(0)}}
+
+.proto{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:.9rem;z-index:30;display:flex;align-items:center;
+  gap:.9rem;flex-wrap:wrap;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.06em;color:var(--text-mute)}
+.proto .tag{color:var(--text-dim);letter-spacing:.18em}
+.proto .tag b{color:var(--rush);font-weight:500}
+.proto button{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-dim);background:transparent;border:1px solid var(--line);padding:.5rem .8rem;cursor:pointer;
+  transition:border-color .2s,color .2s}
+.proto button:hover{border-color:var(--steel-dim);color:var(--text)}
+.proto button[aria-pressed="true"]{border-color:var(--rush);color:var(--text)}
+:focus-visible{outline:2px solid var(--steel);outline-offset:3px}
+
+@media(max-width:760px){
+  .content{max-width:100%}
+  h1{font-size:clamp(2.6rem,15vw,4.4rem)}
+  .scrim{background:linear-gradient(180deg,rgba(3,4,6,.15) 0%,rgba(3,4,6,.5) 40%,rgba(3,4,6,.94) 78%)}
+}
+</style>
+
+<header class="topbar">
+  <div class="wordmark">
+    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M13 11 L27 24 L13 37" fill="none" stroke="#e10600" stroke-width="6.5" stroke-linecap="square"/><path d="M24.5 15 L33.5 24 L24.5 33" fill="none" stroke="#e10600" stroke-width="5" stroke-linecap="square" opacity=".5"/></svg>
+    FORMULA&nbsp;<b>PADDOCK</b>
+  </div>
+  <nav class="topnav" aria-hidden="true"><span>HABERLER</span><span>TELEMETRİ</span><span>TAKVİM</span><span>SÖZLÜK</span></nav>
+  <div class="clock"><span class="dot"></span><span id="clk">--:--:--</span> TSİ</div>
+</header>
+
+<main class="stage" id="stage">
+  <div class="ghost" aria-hidden="true">PADDOCK</div>
+  <canvas id="smoke" aria-hidden="true"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div class="scrim" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <div class="content">
+    <p class="eyebrow reveal d1">Yarış İstihbaratı</p>
+    <h1 class="reveal d2">
+      <span>Veriyle</span><span>konuşur.</span><span class="accent">Uydurmaz.</span>
+    </h1>
+    <p class="lede reveal d3">
+      Her sayı doğrulanmış kaynaktan. Seans sonuçları, telemetri, şampiyona
+      tablosu — kaynak yanıt vermezse ekranda “—” görürsün, uydurma değil.
+    </p>
+    <div class="actions reveal d4">
+      <a class="cta" href="#">Haberlere git <span class="arw">→</span></a>
+      <a class="textlink" href="#">telemetriyi aç</a>
+    </div>
+  </div>
+
+  <div class="proto">
+    <span class="tag">VARYANT <b>C</b> · PARTİKÜL</span>
+    <button id="replay" type="button">↻ Tekrar oynat</button>
+    <button id="rm" type="button" aria-pressed="false">Hareketi azalt</button>
+  </div>
+</main>
+
+<script>
+(function(){
+"use strict";
+var stage = document.getElementById('stage');
+var prefersReduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* ---------- saat ---------- */
+var clk = document.getElementById('clk');
+function tick(){ var d=new Date(),p=function(n){return String(n).padStart(2,'0');};
+  clk.textContent = p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+tick(); setInterval(tick,1000);
+
+/* ==========================================================
+   1) ARKA PLAN DUMANI — WebGL fBm domain-warp
+   ========================================================== */
+var Smoke = (function(){
+  var cv = document.getElementById('smoke');
+  var gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
+  var burst = 0, running = false, raf = 0, t0 = performance.now();
+
+  if(!gl){
+    cv.style.background =
+      'radial-gradient(130% 90% at 74% -10%, rgba(225,6,0,.06), transparent 52%),'+
+      'radial-gradient(80% 60% at 70% 22%, #2b3a4d55, transparent 60%),'+
+      'linear-gradient(180deg,#0b0f15,#050608)';
+    return { start:function(){}, frame:function(){}, setBurst:function(){}, ok:false };
+  }
+
+  var vsrc = 'attribute vec2 a;varying vec2 v;void main(){v=a*0.5+0.5;gl_Position=vec4(a,0.,1.);}';
+  var fsrc = [
+  'precision highp float;varying vec2 v;uniform vec2 R;uniform float T;uniform float B;',
+  'float h(vec2 p){p=fract(p*vec2(123.34,345.45));p+=dot(p,p+34.345);return fract(p.x*p.y);}',
+  'float n(vec2 p){vec2 i=floor(p),f=fract(p);float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));',
+  'vec2 u=f*f*(3.-2.*f);return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y;}',
+  'float fbm(vec2 p){float s=0.,a=.5;mat2 m=mat2(.8,.6,-.6,.8);for(int i=0;i<6;i++){s+=a*n(p);p=m*p*2.+.03;a*=.5;}return s;}',
+  'void main(){vec2 uv=v;vec2 p=uv*vec2(R.x/R.y,1.)*2.1;float t=T*(.055+B*.05);',
+  ' vec2 q=vec2(fbm(p+vec2(0.,t)),fbm(p+vec2(5.2,1.3-t)));',
+  ' vec2 r=vec2(fbm(p+2.*q+vec2(1.7,9.2)+t*.7),fbm(p+2.*q+vec2(8.3,2.8)-t*.5));',
+  ' float f=fbm(p+1.8*r);',
+  ' float d=smoothstep(.34,.96,f);d*=smoothstep(.02,.5,f+.15);d=pow(d,1.35);',
+  ' float mx=smoothstep(-.15,.95,uv.x),my=smoothstep(-.1,.9,1.-uv.y);',
+  ' float mask=mix(.10,1.,clamp(mx*.55+my*.7,0.,1.));d*=mask;',
+  ' d*=(1.+B*.9);',
+  ' vec3 lo=vec3(.052,.072,.10),hi=vec3(.27,.32,.40);',
+  ' vec3 col=mix(lo,hi,d);',
+  ' float warm=smoothstep(.5,1.,uv.x)*smoothstep(.45,1.,1.-uv.y);',
+  ' col+=vec3(.11,.02,0.)*warm*d;',
+  ' col+=(h(gl_FragCoord.xy+T)-.5)*.018;',
+  ' gl_FragColor=vec4(col, clamp(d*.92,0.,1.));}'
+  ].join('\n');
+
+  function sh(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
+  var prog=gl.createProgram();
+  gl.attachShader(prog,sh(gl.VERTEX_SHADER,vsrc));
+  gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fsrc));
+  gl.linkProgram(prog);gl.useProgram(prog);
+  var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  var la=gl.getAttribLocation(prog,'a');gl.enableVertexAttribArray(la);
+  gl.vertexAttribPointer(la,2,gl.FLOAT,false,0,0);
+  var uR=gl.getUniformLocation(prog,'R'),uT=gl.getUniformLocation(prog,'T'),uB=gl.getUniformLocation(prog,'B');
+
+  function resize(){
+    var s=0.62; // düşük çözünürlük — sis yumuşak, kimse fark etmez
+    cv.width=Math.max(2,Math.round(innerWidth*s));
+    cv.height=Math.max(2,Math.round(innerHeight*s));
+    gl.viewport(0,0,cv.width,cv.height);
+    gl.uniform2f(uR,cv.width,cv.height);
+  }
+  addEventListener('resize',resize);resize();
+
+  function render(now){
+    gl.uniform1f(uT,(now-t0)/1000);
+    gl.uniform1f(uB,burst);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  }
+  function loop(now){
+    if(!running) return;
+    render(now);
+    raf=requestAnimationFrame(loop);
+  }
+  return {
+    ok:true,
+    start:function(){ if(prefersReduce){ render(performance.now()); return; }
+      running=true; cancelAnimationFrame(raf); raf=requestAnimationFrame(loop); },
+    frame:function(){ render(performance.now()); },
+    setBurst:function(x){ burst=x; }
+  };
+})();
+
+/* ==========================================================
+   2) PARTİKÜL SİSTEMİ — toz → araç → dağılım → yazı
+   ========================================================== */
+var FX = (function(){
+  var cv=document.getElementById('fx'), ctx=cv.getContext('2d');
+  var dpr=Math.min(1.6,devicePixelRatio||1), W=0, H=0;
+  function resize(){ W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0); }
+  addEventListener('resize',resize);resize();
+
+  /* soft nokta spritleri (soğuk + sıcak) */
+  function sprite(rgb){
+    var c=document.createElement('canvas');c.width=c.height=32;
+    var x=c.getContext('2d'),g=x.createRadialGradient(16,16,0,16,16,16);
+    g.addColorStop(0,'rgba('+rgb+',.95)');g.addColorStop(.35,'rgba('+rgb+',.5)');
+    g.addColorStop(1,'rgba('+rgb+',0)');
+    x.fillStyle=g;x.fillRect(0,0,32,32);return c;
+  }
+  var sCool=sprite('182,201,222'), sWarm=sprite('255,138,74');
+
+  /* bir şekli beyaz doldurup piksellerinden nokta örnekle */
+  function sample(draw, count){
+    var s=520, sc=document.createElement('canvas');
+    var ar=W/H; sc.width=s; sc.height=Math.round(s/ar);
+    var x=sc.getContext('2d'); x.fillStyle='#fff'; draw(x,sc.width,sc.height);
+    var data=x.getImageData(0,0,sc.width,sc.height).data, pts=[];
+    for(var yy=0;yy<sc.height;yy+=2)for(var xx=0;xx<sc.width;xx+=2){
+      if(data[(yy*sc.width+xx)*4+3]>128) pts.push([xx/sc.width, yy/sc.height]);
+    }
+    // karıştır + seç
+    for(var i=pts.length-1;i>0;i--){var j=Math.random()*(i+1)|0,t=pts[i];pts[i]=pts[j];pts[j]=t;}
+    var out=[];
+    for(var k=0;k<count;k++){var p=pts[k%pts.length]; out.push([p[0]*W,p[1]*H]);}
+    return out;
+  }
+
+  /* --- araç silüeti (önden, kaba — nasılsa partikül olacak) --- */
+  function drawCar(x,w,h){
+    var cx=w*0.60, cy=h*0.60, S=Math.min(w*0.44,h*0.62);
+    x.save();x.translate(cx,cy);x.scale(S/300,S/300);
+    // ön kanat
+    x.fillRect(-190,120,380,26);
+    // tekerler
+    x.beginPath();x.ellipse(-150,70,44,58,0,0,7);x.ellipse(150,70,40,54,0,0,7);x.fill();
+    // gövde + burun
+    x.beginPath();x.moveTo(-60,-40);x.lineTo(60,-40);x.lineTo(34,120);x.lineTo(-34,120);x.closePath();x.fill();
+    // yan kutular
+    x.beginPath();x.moveTo(-135,10);x.lineTo(-55,-20);x.lineTo(-55,90);x.lineTo(-120,110);x.closePath();
+    x.moveTo(135,10);x.lineTo(55,-20);x.lineTo(55,90);x.lineTo(120,110);x.closePath();x.fill();
+    // hava kutusu + halo
+    x.fillRect(-26,-120,52,90);
+    x.lineWidth=20;x.strokeStyle='#fff';x.beginPath();x.arc(0,-30,86,Math.PI,2*Math.PI);x.stroke();
+    x.restore();
+  }
+  /* --- logo (chevron + FORMULA PADDOCK) --- */
+  function drawLogo(x,w,h){
+    var fs=Math.min(w*0.088, h*0.16);
+    x.font='700 '+fs+'px Antonio, "Arial Narrow", sans-serif';
+    x.textBaseline='middle'; x.textAlign='left';
+    var txt='FORMULA  PADDOCK';
+    var tw=x.measureText(txt).width;
+    var gap=fs*0.9, total=tw+gap, sx=(w-total)/2, cy=h*0.46;
+    // chevron
+    x.lineWidth=fs*0.15;x.strokeStyle='#fff';x.lineCap='butt';
+    x.beginPath();
+    x.moveTo(sx, cy-fs*0.42);x.lineTo(sx+fs*0.42, cy);x.lineTo(sx, cy+fs*0.42);
+    x.moveTo(sx+fs*0.34, cy-fs*0.30);x.lineTo(sx+fs*0.64, cy);x.lineTo(sx+fs*0.34, cy+fs*0.30);
+    x.stroke();
+    x.fillText(txt, sx+gap, cy);
+  }
+
+  var N = innerWidth<760 ? 900 : 1500;
+  var P=[], targets={car:null, logo:null};
+  function seed(){
+    P.length=0;
+    for(var i=0;i<N;i++){
+      P.push({
+        x:Math.random()*W, y:Math.random()*H,
+        vx:0, vy:0,
+        warm: Math.random()<0.09,
+        sz: 0.7+Math.random()*2.2,
+        w: Math.random()*0.6+0.4,
+        seed: Math.random()*1000
+      });
+    }
+  }
+
+  var startT=0, playing=false, done=false, raf=0;
+  // faz zaman çizelgesi (ms)
+  var T_FORM=1500, T_HOLD=2100, T_BURST=3300, T_LOGO=3400, T_LOGOHOLD=5300, T_RISE=6100, T_END=7100;
+
+  function phase(t){
+    if(t<T_FORM)      return ['form', t/T_FORM];
+    if(t<T_HOLD)      return ['hold', (t-T_FORM)/(T_HOLD-T_FORM)];
+    if(t<T_BURST)     return ['burst',(t-T_HOLD)/(T_BURST-T_HOLD)];
+    if(t<T_LOGOHOLD)  return ['logo', (t-T_LOGO)/(T_LOGOHOLD-T_LOGO)];
+    if(t<T_RISE)      return ['lhold',(t-T_LOGOHOLD)/(T_RISE-T_LOGOHOLD)];
+    if(t<T_END)       return ['rise', (t-T_RISE)/(T_END-T_RISE)];
+    return ['end',1];
+  }
+
+  function step(now){
+    if(!playing) return;
+    var t=now-startT, ph=phase(t), name=ph[0], k=ph[1];
+    ctx.clearRect(0,0,W,H);
+    ctx.globalCompositeOperation='lighter';
+
+    // duman burst'ü sürücüye bağla
+    if(name==='burst') Smoke.setBurst(Math.sin(k*Math.PI)*0.8);
+    else if(name==='logo' && k<0.3) Smoke.setBurst((0.3-k)/0.3*0.4);
+    else Smoke.setBurst(0);
+
+    var tCar=targets.car, tLog=targets.logo, cxC=W*0.60, cyC=H*0.58;
+
+    for(var i=0;i<P.length;i++){
+      var p=P[i], tx, ty, steer=0.0, wander=0.0, up=0;
+
+      if(name==='form'){
+        var d=tCar[i%tCar.length]; tx=d[0]; ty=d[1];
+        // yaklaşma: hedefi merkeze doğru büzüp aç
+        var e=1-Math.pow(1-k,3);
+        tx = cxC + (tx-cxC)*(0.35+0.65*e);
+        ty = cyC + (ty-cyC)*(0.35+0.65*e);
+        steer=0.06*e+0.012; wander=0.5*(1-e);
+      } else if(name==='hold'){
+        var d2=tCar[i%tCar.length]; tx=d2[0]; ty=d2[1]; steer=0.09; wander=0.35;
+      } else if(name==='burst'){
+        tx=p.x; ty=p.y; steer=0;
+        var ang=Math.atan2(p.y-cyC,p.x-cxC)+ (p.seed%1-0.5)*1.4;
+        var pw=(1-k)*3.2;
+        p.vx += Math.cos(ang)*pw + (Math.random()-0.5)*0.6;
+        p.vy += Math.sin(ang)*pw - 1.4 - Math.random()*0.8; // yukarı savrul
+        wander=1.6;
+      } else if(name==='logo'){
+        var l=tLog[i%tLog.length]; tx=l[0]; ty=l[1];
+        var e2=1-Math.pow(1-k,3);
+        steer=0.03+0.10*e2; wander=1.1*(1-e2)+0.15;
+      } else if(name==='lhold'){
+        var l2=tLog[i%tLog.length]; tx=l2[0]; ty=l2[1]; steer=0.12; wander=0.18;
+      } else if(name==='rise'){
+        var l3=tLog[i%tLog.length]; tx=l3[0]; ty=l3[1]-k*H*0.5;
+        steer=0.05*(1-k); wander=0.4; up=k;
+      } else { playing=false; done=true; ctx.clearRect(0,0,W,H); finish(); return; }
+
+      // hareket
+      p.vx += (tx-p.x)*steer;
+      p.vy += (ty-p.y)*steer;
+      var wob=wander*p.w;
+      p.vx += Math.cos(p.y*0.012 + t*0.002 + p.seed)*wob*0.5;
+      p.vy += Math.sin(p.x*0.012 + t*0.002 + p.seed)*wob*0.5;
+      p.vx*=0.86; p.vy*=0.86;
+      p.x+=p.vx; p.y+=p.vy;
+
+      // alfa
+      var a;
+      if(name==='form') a=0.05+0.55*k;
+      else if(name==='burst') a=0.55*(1-k*0.4);
+      else if(name==='rise') a=0.6*(1-k);
+      else a=0.62;
+      a *= (p.warm?0.9:0.6);
+      if(a<=0.01) continue;
+
+      var img = p.warm?sWarm:sCool;
+      var s = p.sz*(p.warm?7:6);
+      ctx.globalAlpha=a;
+      ctx.drawImage(img, p.x-s/2, p.y-s/2, s, s);
+    }
+    ctx.globalAlpha=1;
+    raf=requestAnimationFrame(step);
+  }
+
+  function finish(){
+    Smoke.setBurst(0);
+    stage.classList.add('on');            // topbar + copy belirir
+    try{ sessionStorage.setItem('fp_hero_seen_c','1'); }catch(e){}
+  }
+
+  function build(){
+    targets.car  = sample(drawCar, N);
+    targets.logo = sample(drawLogo, N);
+  }
+
+  return {
+    play:function(){
+      resize(); build(); seed();
+      stage.classList.remove('on');
+      done=false; playing=true; startT=performance.now();
+      cancelAnimationFrame(raf); raf=requestAnimationFrame(step);
+    },
+    settle:function(){
+      resize(); ctx.clearRect(0,0,W,H);
+      stage.classList.add('on');
+    },
+    ready: function(cb){
+      if(document.fonts && document.fonts.load){
+        Promise.all([document.fonts.load('700 100px Antonio')]).then(cb).catch(cb);
+      } else cb();
+    }
+  };
+})();
+
+/* ==========================================================
+   3) ORKESTRA
+   ========================================================== */
+var seen=false;
+try{ seen = sessionStorage.getItem('fp_hero_seen_c')==='1'; }catch(e){}
+
+function run(){
+  Smoke.start();
+  if(prefersReduce || seen){ FX.settle(); return; }
+  FX.ready(function(){ FX.play(); });
+}
+run();
+
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden && Smoke.ok) Smoke.start();
+});
+
+/* prototip kontrolleri */
+document.getElementById('replay').addEventListener('click',function(){
+  Smoke.start(); FX.ready(function(){ FX.play(); });
+});
+var rmBtn=document.getElementById('rm');
+rmBtn.addEventListener('click',function(){
+  var on = rmBtn.getAttribute('aria-pressed')!=='true';
+  rmBtn.setAttribute('aria-pressed', on?'true':'false');
+  if(on){ FX.settle(); } else { FX.ready(function(){ FX.play(); }); }
+});
+})();
+</script>
