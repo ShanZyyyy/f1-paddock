@@ -242,6 +242,13 @@ def inject_shell_theme():
     """
     st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
     st.markdown(theme.shell_style(), unsafe_allow_html=True)
+    background_fx()
+
+
+def background_fx():
+    """Sayfanin en arkasina canli pist arka planini (#fp-bgfx) enjekte eder.
+    Kendini cizen tur + iki arac (SMIL animateMotion). CSS'i shell_style icinde."""
+    st.markdown(theme._BG_FX_HTML, unsafe_allow_html=True)
 
 
 inject_sidebar_theme = inject_shell_theme  # geriye donuk ad

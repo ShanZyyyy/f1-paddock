@@ -431,16 +431,9 @@ section[data-testid="stSidebar"] [data-baseweb="select"] button{
 }
 """
 
-# ---- Uygulama arka plani (F1 TV — hareketli telemetri + pist silueti) ----
-# Tam URL-encoded SVG => tirnak/parantez/bosluk sorunu yok.
-_FP_CIRCUIT_SVG = (
-    "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20"
-    "viewBox%3D%270%200%201200%20800%27%3E%3Cpath%20d%3D%27M130%2C600%20C130%2C410%20270%2C300%20"
-    "430%2C322%20C580%2C343%20610%2C470%20745%2C470%20C905%2C470%20940%2C300%201040%2C242%20"
-    "C1150%2C180%201120%2C560%20975%2C620%20C840%2C676%20700%2C596%20520%2C640%20C360%2C678%20"
-    "130%2C770%20130%2C600%20Z%27%20fill%3D%27none%27%20stroke%3D%27%232ee6c9%27%20"
-    "stroke-width%3D%272.5%27%2F%3E%3C%2Fsvg%3E"
-)
+# ---- Uygulama arka plani (F1 TV — hareketli telemetri + canli pist) --------
+# Buyuk pist animasyonu artik ayri bir inline SVG katmani: core.ui.background_fx()
+# -> #fp-bgfx. Burada sadece izgara + hiz isigi (salt CSS pseudo-eleman).
 _SHELL_BG_CSS = r"""
 [data-testid="stAppViewContainer"],.stApp{
   background:
@@ -451,7 +444,6 @@ _SHELL_BG_CSS = r"""
 [data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
 
 @keyframes fp-grid-drift{from{background-position:0 0}to{background-position:46px 46px}}
-@keyframes fp-circuit-float{0%{transform:translate3d(0,0,0) scale(1.04)}50%{transform:translate3d(-2.2%,1.6%,0) scale(1.08)}100%{transform:translate3d(0,0,0) scale(1.04)}}
 @keyframes fp-speed{0%{transform:translate3d(-40%,0,0)}100%{transform:translate3d(140%,0,0)}}
 
 /* katman 1 — telemetri izgarasi (yavas kayar) */
@@ -466,15 +458,6 @@ _SHELL_BG_CSS = r"""
   animation:fp-grid-drift 32s linear infinite !important;
   -webkit-mask-image:radial-gradient(135% 105% at 50% -12%,#000 22%,transparent 88%);
   mask-image:radial-gradient(135% 105% at 50% -12%,#000 22%,transparent 88%);
-}
-/* katman 2 — buyuk pist silueti (nefes alir gibi suzulur) */
-[data-testid="stAppViewContainer"]::after{
-  content:"" !important;position:fixed !important;inset:-9% -7% !important;z-index:0 !important;
-  pointer-events:none !important;display:block !important;
-  background:transparent url("__FP_CIRCUIT__") no-repeat 66% 40% !important;
-  background-size:min(1240px,118%) auto !important;
-  opacity:.16 !important;
-  animation:fp-circuit-float 52s ease-in-out infinite !important;
 }
 /* katman 3 — ara ara gecen hiz isigi (ana govde uzerinde) */
 .stApp [data-testid="stMain"]::before{
@@ -501,10 +484,11 @@ section[data-testid="stSidebar"]::before{
 section[data-testid="stSidebar"] > div{position:relative;z-index:1}
 @media (prefers-reduced-motion:reduce){
   [data-testid="stAppViewContainer"]::before,
-  [data-testid="stAppViewContainer"]::after,
   .stApp [data-testid="stMain"]::before,
   section[data-testid="stSidebar"]::before{animation:none !important}
   .stApp [data-testid="stMain"]::before{display:none}
+  #fp-bgfx *{animation:none !important}
+  #fp-bgfx .fp-car{display:none}
 }
 
 /* Sadece <style> iceren markdown kaplari gorunmez bosluk yaratiyordu — gizle */
@@ -512,7 +496,76 @@ section[data-testid="stSidebar"] > div{position:relative;z-index:1}
 .stElementContainer:has(> [data-testid="stMarkdown"] > [data-testid="stMarkdownContainer"] > style:only-child){
   display:none !important;
 }
-""".replace("__FP_CIRCUIT__", _FP_CIRCUIT_SVG)
+
+/* animasyonlu arka plan katmani — st.markdown kabini nötrle, tam ekran + en arka */
+.stElementContainer:has(#fp-bgfx){
+  position:static !important;height:0 !important;min-height:0 !important;margin:0 !important;
+  padding:0 !important;overflow:visible !important;
+}
+#fp-bgfx{
+  position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none;
+  overflow:hidden;contain:layout paint;opacity:.62;
+  -webkit-mask-image:radial-gradient(150% 120% at 70% 20%,#000 32%,transparent 96%);
+  mask-image:radial-gradient(150% 120% at 70% 20%,#000 32%,transparent 96%);
+}
+#fp-bgfx svg{width:100%;height:100%;display:block}
+"""
+
+
+# ---- Canli pist arka plani (inline SVG — kendini cizen tur + iki arac) -----
+# st.markdown(unsafe_allow_html=True) -> DOMPurify SVG + SMIL'e izin verir.
+# viewBox 1600x900, tek kapali devre. Renk: cyan pist, cyan+kirmizi arac.
+_FP_TRACK_D = (
+    "M240 720C240 560 300 470 430 470L820 470C940 470 980 400 980 320"
+    "C980 230 910 190 820 190L560 190C470 190 450 120 530 95C640 62 820 78 1010 78"
+    "L1240 78C1400 78 1480 180 1480 350C1480 500 1390 560 1250 578L1030 600"
+    "C950 608 935 665 1000 700C1075 740 1230 726 1330 758C1440 792 1450 862 1320 862"
+    "L420 862C290 862 240 800 240 720Z"
+)
+_BG_FX_HTML = (
+    "<div id='fp-bgfx' aria-hidden='true'>"
+    "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' "
+    "viewBox='0 0 1600 900' preserveAspectRatio='xMidYMid slice'>"
+    "<defs>"
+    f"<path id='fpTrack' d='{_FP_TRACK_D}'/>"
+    "<filter id='fpGlow' x='-60%' y='-60%' width='220%' height='220%'>"
+    "<feGaussianBlur stdDeviation='6' result='b'/><feMerge><feMergeNode in='b'/><feMergeNode in='SourceGraphic'/></feMerge>"
+    "</filter>"
+    "<style>"
+    "#fp-bgfx .trk{fill:none;stroke:#2ee6c9}"
+    "#fp-bgfx .ghost{stroke:#2ee6c9;opacity:.2;stroke-width:2.5}"
+    "#fp-bgfx .pulse{opacity:.65;stroke-width:3.5;stroke-linecap:round;"
+    "stroke-dasharray:150 3370;animation:fpChase 7s linear infinite}"
+    "#fp-bgfx .pulse2{opacity:.38;stroke:#e10600;stroke-width:2.5;stroke-linecap:round;"
+    "stroke-dasharray:80 3440;animation:fpChase 11s linear infinite reverse}"
+    "@keyframes fpChase{to{stroke-dashoffset:-3520}}"
+    "#fp-bgfx .grid{stroke:#2ee6c9;opacity:.05;stroke-width:1}"
+    "#fp-bgfx .sf{stroke:#f2f5f8;opacity:.28;stroke-width:4}"
+    "</style>"
+    "</defs>"
+    # ince ic izgara
+    "<g class='grid'>"
+    + "".join(f"<line x1='{x}' y1='0' x2='{x}' y2='900'/>" for x in range(0, 1601, 80))
+    + "".join(f"<line x1='0' y1='{y}' x2='1600' y2='{y}'/>" for y in range(0, 901, 80))
+    + "</g>"
+    "<use xlink:href='#fpTrack' class='trk ghost'/>"
+    "<use xlink:href='#fpTrack' class='trk pulse'/>"
+    "<use xlink:href='#fpTrack' class='trk pulse2'/>"
+    # start/finish
+    "<line class='sf' x1='240' y1='700' x2='240' y2='740'/>"
+    # arac 1 (cyan)
+    "<g filter='url(#fpGlow)'>"
+    "<circle r='7' fill='#8ff7e9'>"
+    "<animateMotion dur='13s' repeatCount='indefinite' rotate='auto'>"
+    "<mpath xlink:href='#fpTrack'/></animateMotion></circle></g>"
+    # arac 2 (kirmizi, farkli hiz -> tur atar)
+    "<g filter='url(#fpGlow)'>"
+    "<circle r='6' fill='#ff5a4d'>"
+    "<animateMotion dur='17s' begin='-4s' repeatCount='indefinite' rotate='auto'>"
+    "<mpath xlink:href='#fpTrack'/></animateMotion></circle></g>"
+    "</svg></div>"
+)
+
 
 # ---- ESKI SINIF KOPRUSU --------------------------------------------
 # Faz 3 hizlandirici: her sayfanin markup'ini elle degistirmek yerine
