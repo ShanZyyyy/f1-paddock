@@ -223,11 +223,17 @@ def anchor(anchor_id):
 
 
 def scroll_to(anchor_id):
-    """Verilen id'li ogeye yumusak kaydirir (rerun sonrasi)."""
+    """Verilen id'li ogeye yumusak kaydirir (rerun sonrasi).
+
+    Streamlit rerun'da DOM birkac kare sonra oturdugundan tek setTimeout
+    bazen erken calisiyor — elemani bulana kadar kisa araliklarla dener."""
+    aid = str(anchor_id).replace("'", "")
     _embed_html(
-        "<script>setTimeout(function(){var e=window.parent.document.getElementById('"
-        + str(anchor_id).replace("'", "") +
-        "');if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},60);</script>",
+        "<script>(function(){var n=0,d=window.parent.document,e=null;"
+        "var t=setInterval(function(){"
+        "e=e||d.getElementById('" + aid + "');"
+        "if(e){e.scrollIntoView({behavior:(n>1?'smooth':'auto'),block:'start'});}"
+        "if(++n>8){clearInterval(t);}},80);})();</script>",
         height=0,
     )
 
