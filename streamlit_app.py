@@ -3943,41 +3943,52 @@ def fetch_f1_news_catalog_v20(limit=30):
         ('Sky Sports', 'https://www.skysports.com/rss/12433', 'en'),
         ('Motorsport', 'https://www.motorsport.com/rss/f1/news/', 'en'),
     ]
-    catalog, seen = [], set()
-    for source_name, url, language in sources:
+    def _pull(entry):
+        """Tek kaynağın RSS öğelerini çek + ayrıştır — paralel çalışır."""
+        source_name, url, language = entry
         try:
-            request = urllib.request.Request(
-                url,
-                headers={'User-Agent': 'Mozilla/5.0 FormulaPaddock/2.0'},
-            )
+            request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 FormulaPaddock/2.0'})
             with urllib.request.urlopen(request, timeout=7) as response:
                 root = ET.fromstring(response.read())
-            for item in root.findall('.//item'):
-                raw_title = _rss_text_v19(item, 'title')
-                raw_link = safe_external_url(_rss_text_v19(item, 'link'))
-                raw_description = re.sub(r'<[^>]*>', ' ', _rss_text_v19(item, 'description'))
-                raw_description = re.sub(r'\s+', ' ', raw_description).strip()
-                if not raw_title or not raw_link:
-                    continue
-                if source_name == 'Motorsport Türkiye' and not news_item_is_f1_v20(item, raw_link, raw_title, raw_description):
-                    continue
-                fingerprint = (raw_title.lower(), raw_link.lower())
-                if fingerprint in seen:
-                    continue
-                seen.add(fingerprint)
-                catalog.append({
-                    'title': repair_text_v20(raw_title),
-                    'link': raw_link,
-                    'date': repair_text_v20(_rss_text_v19(item, 'pubDate'))[:30],
-                    'desc': repair_text_v20(raw_description)[:260],
-                    'source': source_name,
-                    'language': language,
-                    'image': _rss_image_v19(item),
-                })
-                if len(catalog) >= int(limit):
-                    return catalog
         except Exception as error:
             log_data_error('news catalog v2', error)
+            return []
+        out = []
+        for item in root.findall('.//item'):
+            raw_title = _rss_text_v19(item, 'title')
+            raw_link = safe_external_url(_rss_text_v19(item, 'link'))
+            raw_description = re.sub(r'<[^>]*>', ' ', _rss_text_v19(item, 'description'))
+            raw_description = re.sub(r'\s+', ' ', raw_description).strip()
+            if not raw_title or not raw_link:
+                continue
+            if source_name == 'Motorsport Türkiye' and not news_item_is_f1_v20(item, raw_link, raw_title, raw_description):
+                continue
+            out.append({
+                'title': repair_text_v20(raw_title),
+                'link': raw_link,
+                'date': repair_text_v20(_rss_text_v19(item, 'pubDate'))[:30],
+                'desc': repair_text_v20(raw_description)[:260],
+                'source': source_name,
+                'language': language,
+                'image': _rss_image_v19(item),
+            })
+        return out
+
+    # Kaynakları PARALEL çek (sıralı ~28 sn -> ~7 sn); sonra kaynak sırasına göre birleştir.
+    from concurrent.futures import ThreadPoolExecutor as _TPE
+    with _TPE(max_workers=len(sources)) as _ex:
+        per_source = list(_ex.map(_pull, sources))
+
+    catalog, seen = [], set()
+    for items in per_source:            # per_source, `sources` ile aynı sırada (Motorsport Türkiye önce)
+        for entry in items:
+            fingerprint = (entry['title'].lower(), entry['link'].lower())
+            if fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            catalog.append(entry)
+            if len(catalog) >= int(limit):
+                return catalog
     if not catalog:
         raise RuntimeError('hiçbir haber kaynağı yanıt vermedi')
     return catalog[:int(limit)]
@@ -4925,13 +4936,16 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:5
 
 
 
+@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)
 def _career_api_json_v27(endpoint):
-    """Short-timeout reader for the optional historical comparison source."""
+    """Kariyer/karşılaştırma kaynağının kısa-timeout okuyucusu. Ham JSON 12 saat
+    cache'lenir; hata `st.cache_data` tarafından cache'lenmez (istisna yükselir),
+    böylece geçici ağ sorunu pilotu 'veri yok' durumunda bırakmaz."""
     request = urllib.request.Request(
         endpoint,
         headers={'User-Agent': 'FormulaPaddock/2.7 (career comparison)'},
     )
-    with urllib.request.urlopen(request, timeout=5) as response:
+    with urllib.request.urlopen(request, timeout=6) as response:
         return json.loads(response.read().decode('utf-8'))
 
 
@@ -5016,8 +5030,11 @@ def _career_result_for_driver_v28(race, api_code):
     return None
 
 
+@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)
 def _career_verified_rows_v28(api_code):
-    """Load, de-duplicate and verify historical result rows for one driver."""
+    """Load, de-duplicate and verify historical result rows for one driver.
+    Ayrıştırılmış satırlar 12 saat cache'lenir — pilotlar sayfası, karşılaştırma
+    ve derin istatistik aynı çekimi paylaşır."""
     races, _ = _career_races_v27(api_code)
     unique = {}
     for race in races:
@@ -5279,6 +5296,60 @@ _NATION_FLAG_V33 = {
 }
 
 
+def _stewarlde_row_by_api_v33(api_code):
+    """Paketli oyun veritabanından tek pilot satırı (ağ yok)."""
+    try:
+        target = str(api_code or '').strip()
+        for row in _load_stewarlde_database_v29():
+            if str(row.get('api_code', '')).strip() == target:
+                return row
+    except Exception:
+        pass
+    return {}
+
+
+def _driver_quick_header_html(name, code, nation, number, team, colour, titles, bundle):
+    """Ağ beklemeden çizilen üst bilgi: kimlik + şampiyonluk / galibiyet / yarış /
+    ilk GP (paketli veriden). Derin döküm bunun altında yüklenir."""
+    flag = _NATION_FLAG_V33.get(str(nation or '').strip().lower(), '')
+    flag_img = (f"<img src='https://flagcdn.com/w40/{flag}.png' alt='' "
+                f"style='width:24px;height:16px;object-fit:cover;border-radius:2px'>") if flag else ''
+    num = str(number or '').lstrip('#').strip()
+    first_gp = str(bundle.get('first_gp_date', '') or '')[:4]
+
+    def cell(lbl, val, cls=''):
+        show = val if (val is not None and str(val) != '') else '—'
+        return f"<div><s>{html_lib.escape(lbl)}</s><b class='{cls}'>{html_lib.escape(str(show))}</b></div>"
+
+    cells = (cell('Şampiyonluk', titles or 0, 'g') + cell('Galibiyet', bundle.get('wins'), 'g')
+             + cell('Yarış', bundle.get('starts')) + cell('İlk GP', first_gp))
+    no_html = f"<span class='no'>#{html_lib.escape(num)}</span>" if num else ""
+    sub = html_lib.escape(str(nation or '')) + (' · ' + html_lib.escape(str(team)) if team else '')
+    css = (
+        ".dqh{background:var(--fp-bg-2);background-image:var(--fp-dot);background-size:var(--fp-dot-size);"
+        "clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);"
+        "box-shadow:inset 0 0 0 1px var(--fp-line),inset 3px 0 0 %COL%;padding:15px 18px;margin:2px 0 12px}"
+        ".dqh .t{display:flex;align-items:center;gap:13px}"
+        ".dqh .cd{font:700 32px/1 var(--fp-f-x,var(--fp-f-display));color:%COL%}"
+        ".dqh .nm{font:800 20px/1 var(--fp-f-display);text-transform:uppercase;letter-spacing:.02em}"
+        ".dqh .sb{font:500 11px var(--fp-f-mono);color:var(--fp-text-dim);margin-top:4px;display:flex;align-items:center;gap:7px}"
+        ".dqh .no{font:700 14px var(--fp-f-mono);color:%COL%;margin-left:auto;flex:0 0 auto}"
+        ".dqh .r{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--fp-line-soft);margin-top:13px}"
+        ".dqh .r>div{background:var(--fp-bg-2);padding:9px 11px}"
+        ".dqh .r s{font:700 8.5px var(--fp-f-display);letter-spacing:.12em;text-transform:uppercase;color:var(--fp-text-mute);text-decoration:none}"
+        ".dqh .r b{display:block;font:700 15px var(--fp-f-mono);margin-top:5px;color:var(--fp-text)}"
+        ".dqh .r b.g{color:var(--fp-cyan)}"
+        "@media(max-width:520px){.dqh .r{grid-template-columns:repeat(2,1fr)}}"
+    ).replace("%COL%", colour)
+    return (
+        f"<style>{css}</style>"
+        f"<div class='dqh'><div class='t'><span class='cd'>{html_lib.escape(str(code))}</span>"
+        f"<span><span class='nm'>{html_lib.escape(str(name))}</span>"
+        f"<span class='sb'>{flag_img}{sub}</span></span>{no_html}</div>"
+        f"<div class='r'>{cells}</div></div>"
+    )
+
+
 def driver_profile_header_html(name, code, nation, number, prof, colour, titles=0):
     flag = _NATION_FLAG_V33.get(str(nation or '').strip().lower(), '')
     flag_img = (f"<img src='https://flagcdn.com/w40/{flag}.png' alt='' "
@@ -5326,13 +5397,10 @@ def driver_profile_header_html(name, code, nation, number, prof, colour, titles=
       .pg b.g{{color:#38e1d0}} .pg b.r{{color:#e10600}}
       @media(max-width:640px){{.pg{{grid-template-columns:repeat(3,1fr)}}}}
       @media(max-width:400px){{.pg{{grid-template-columns:repeat(2,1fr)}}}}
+      .ph .cap{{font:700 9.5px 'JetBrains Mono',monospace;letter-spacing:.18em;text-transform:uppercase;color:#63748a;padding:12px 16px 0}}
     </style>
     <div class="ph">
-      <div class="pt"><span class="c">{html_lib.escape(str(code))}</span>
-        <span class="w"><b>{html_lib.escape(str(name))}</b>
-          <span>{flag_img} {meta} {no_html}</span>
-        </span>
-      </div>
+      <div class="cap">Doğrulanmış kariyer · {html_lib.escape(span)}</div>
       {grid}
     </div>
     """
@@ -5505,11 +5573,18 @@ def render_drivers_page_v33():
         fp_ui.anchor("fp-driver-detail")
         _info = directory_driver_by_code(code)
         colour = team_colour(team) if team else colour
+        _titles = _driver_titles_v33(api, code)
+
+        # ANLIK ÜST BİLGİ — paketli veritabanından, ağ beklemeden. Galibiyet /
+        # şampiyonluk / start / ilk GP hemen görünür; derin döküm altta yüklenir.
+        _bundle = _stewarlde_row_by_api_v33(api)
+        st.markdown(_driver_quick_header_html(name, code, nation, number, team, colour, _titles, _bundle),
+                    unsafe_allow_html=True)
+
         with st.spinner(T("drivers.reading_career")):
             prof = get_driver_full_profile_v33(api)
-        _titles = _driver_titles_v33(api, code)
         render_html_hud(driver_profile_header_html(name, code, nation or _info.get('team', ''), number, prof, colour, _titles),
-                        height=430)
+                        height=210 if prof.get('ok') else 150)
 
         if prof.get('ok'):
             if prof.get('seasons'):
