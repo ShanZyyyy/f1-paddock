@@ -6,10 +6,13 @@
 
 <style>
 /* ============================================================
-   FORMULA PADDOCK — hero deneyi, Varyant A: "Geçiş"  (v3)
-   v3: yeniden çizilmiş detaylı F1 2026 aracı · daha yoğun
-   WebGL sis · FORMULA PADDOCK yazısı kaybolmaz, sol-üste
-   süzülüp menü olur.
+   FORMULA PADDOCK — hero, Varyant A  (v7)
+   • Araç: arkadan aydınlatılmış 2026 F1 profil silüeti — uzaktan
+     gelir, sahneye PARK EDER, kalır.
+   • FORMULA PADDOCK yazısı: belirir → sol-üste uçar → menü barında
+     kalır (tek eleman, transform:none, kaybolmaz).
+   • Yumuşatılmış parallax (mouse'a doğru yavaş kayış, katmanlı).
+   • Yoğun WebGL fBm duman.
    Tek görsel dünya: sinematik koyu. Tema anahtarı yok.
    ============================================================ */
 :root{
@@ -17,7 +20,7 @@
   --steel:#c9d5e2; --steel-dim:#8b9bad;
   --rush:#e10600;
   --text:#f2f5f8; --text-dim:#9fb0c0; --text-mute:#63748a;
-  --ghost:rgba(226,232,240,.040); --line:#26313f;
+  --line:#26313f;
   --f-display:'Antonio','Arial Narrow','Saira Condensed',sans-serif;
   --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
   --f-mono:'JetBrains Mono',ui-monospace,'Consolas',monospace;
@@ -28,11 +31,12 @@ html,body{height:100%}
 body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   -webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-/* ---------- üst çubuk ---------- */
+/* ---------- üst bar (kalıcı — logonun evi) ---------- */
 .topbar{position:absolute;inset:0 0 auto 0;z-index:40;display:flex;align-items:center;
   gap:clamp(1rem,4vw,3rem);padding:1.15rem clamp(1.25rem,5vw,3.5rem);font-family:var(--f-mono)}
 .wordmark{display:flex;align-items:center;gap:.55rem;font-family:var(--f-display);font-weight:700;
-  font-size:1.02rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text);white-space:nowrap;opacity:0}
+  font-size:1.02rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text);white-space:nowrap;
+  transform-origin:left center;pointer-events:none}
 .wordmark svg{width:15px;height:15px;flex:0 0 auto}
 .wordmark b{color:var(--rush);font-weight:700}
 .topnav{display:flex;gap:1.6rem;font-size:.66rem;letter-spacing:.2em;color:var(--text-mute);opacity:0}
@@ -42,92 +46,69 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .dot{width:6px;height:6px;border-radius:50%;background:var(--rush);animation:pulse 2.4s ease-out infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,6,0,.5)}70%{box-shadow:0 0 0 9px rgba(225,6,0,0)}100%{box-shadow:0 0 0 0 rgba(225,6,0,0)}}
 @media(max-width:760px){.topnav{display:none}}
-.stage.play .topbar .wordmark{animation:fadein .3s ease 4.55s both}
-.stage.play .topbar .topnav{animation:fadein .6s ease 4.95s both}
-.stage.play .topbar .clock{animation:fadein .6s ease 5.1s both}
-.stage.settled .topbar .wordmark,.stage.settled .topbar .topnav,.stage.settled .topbar .clock{opacity:1;animation:none}
-@keyframes fadein{from{opacity:0}to{opacity:1}}
+
+/* dev yazı belirir → sol-üste uçar → EVDE KALIR (transform:none = tam menü yeri) */
+.stage.play .wordmark{animation:logoHome 3.1s cubic-bezier(.32,.74,.2,1) 2.45s both}
+@keyframes logoHome{
+  0%  {opacity:0;transform:translate(17vw,30vh) scale(5.4);filter:blur(24px)}
+  18% {opacity:1;transform:translate(17vw,30vh) scale(5.4);filter:blur(0)}
+  50% {opacity:1;transform:translate(17vw,30vh) scale(5.4);filter:blur(0)}
+  100%{opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
+}
+.stage.play .topnav{animation:fade .6s ease 5.5s both}
+.stage.play .clock{animation:fade .6s ease 5.65s both}
+.stage.settled .wordmark{opacity:1;transform:none;animation:none}
+.stage.settled .topnav,.stage.settled .clock{opacity:1;animation:none}
+@keyframes fade{from{opacity:0}to{opacity:1}}
 
 /* ---------- sahne ---------- */
 .stage{position:relative;width:100%;min-height:100svh;overflow:hidden;isolation:isolate;
   background:linear-gradient(180deg,var(--ink),var(--ink-deep))}
-.stage.play.shake{animation:shake .34s ease-in-out 2.05s 1}
-@keyframes shake{0%,100%{transform:translate(0,0)}18%{transform:translate(-5px,3px)}42%{transform:translate(6px,-4px)}68%{transform:translate(-4px,-2px)}}
 
-/* dev dekoratif kelime yerine: ince hız telemetri izi + seans etiketi */
-.trace{position:absolute;left:0;right:0;top:12%;height:20vh;z-index:1;pointer-events:none;
-  opacity:.9;transform:translate(calc(var(--px)*1.4),calc(var(--py)*1.4))}
+/* dekoratif kelime yerine: ince telemetri izi + seans etiketi */
+.sesh{position:absolute;left:clamp(1.5rem,6vw,5rem);top:calc(12% - 1.5rem);z-index:8;pointer-events:none;
+  font-family:var(--f-mono);font-size:.66rem;letter-spacing:.24em;color:var(--text-dim);opacity:.7}
+.trace{position:absolute;left:0;right:0;top:12%;height:18vh;z-index:1;pointer-events:none;
+  transform:translate(calc(var(--px)*1.3),calc(var(--py)*1.3))}
 .trace svg{width:100%;height:100%;display:block}
-.sesh{position:absolute;left:clamp(1.5rem,6vw,5rem);top:calc(12% - 1.6rem);z-index:1;pointer-events:none;
-  font-family:var(--f-mono);font-size:.66rem;letter-spacing:.24em;color:var(--text-mute);opacity:.6}
 @media(max-width:760px){.trace,.sesh{display:none}}
 
 #smoke{position:absolute;inset:-3%;z-index:2;width:106%;height:106%;display:block;
-  transform:translate(calc(var(--px)*-1),calc(var(--py)*-1))}
+  transform:translate(calc(var(--px)*-1.1),calc(var(--py)*-1.1))}
 
-.glare{position:absolute;top:0;bottom:0;left:-40%;width:36%;z-index:6;pointer-events:none;opacity:0;
-  background:linear-gradient(100deg,transparent,rgba(255,244,230,.16) 40%,rgba(226,232,240,.28) 52%,rgba(255,244,230,.10) 62%,transparent);
-  filter:blur(3px);mix-blend-mode:screen}
-.stage.play .glare{animation:glare 1.0s cubic-bezier(.4,0,.7,1) 1.95s both}
-@keyframes glare{0%{opacity:0;transform:translateX(0) skewX(-14deg)}15%{opacity:1}80%{opacity:.7}100%{opacity:0;transform:translateX(360%) skewX(-14deg)}}
+/* varışta yumuşak ışık taraması */
+.glare{position:absolute;top:0;bottom:0;left:-42%;width:38%;z-index:6;pointer-events:none;opacity:0;
+  background:linear-gradient(100deg,transparent,rgba(255,244,230,.13) 42%,rgba(226,232,240,.22) 52%,rgba(255,244,230,.08) 60%,transparent);
+  filter:blur(4px);mix-blend-mode:screen}
+.stage.play .glare{animation:glare 1.4s cubic-bezier(.4,0,.7,1) 1.5s both}
+@keyframes glare{0%{opacity:0;transform:translateX(0) skewX(-12deg)}20%{opacity:1}75%{opacity:.6}100%{opacity:0;transform:translateX(340%) skewX(-12deg)}}
 
-/* ---------- araç ---------- */
-.car-pos{position:absolute;left:57%;top:46%;z-index:4;width:clamp(700px,88vw,1480px);
-  will-change:transform;transform:translate(-50%,-50%) translate(calc(var(--px)*1.6),calc(var(--py)*1.6))}
+/* ---------- araç (park eder, kalır) ---------- */
+.car-pos{position:absolute;left:62%;top:49%;z-index:4;width:clamp(720px,88vw,1520px);
+  will-change:transform;transform:translate(-50%,-50%) translate(calc(var(--px)*2),calc(var(--py)*2))}
 .car{will-change:transform,filter}
 .car svg{width:100%;height:auto;display:block;overflow:visible}
-.smoke-fg{position:absolute;left:50%;top:52%;width:120vw;height:82vw;max-width:1600px;max-height:1000px;
-  z-index:4;pointer-events:none;mix-blend-mode:screen;
-  transform:translate(-50%,-50%) translate(calc(var(--px)*2.4),calc(var(--py)*2.4))}
-.smoke-fg svg{width:100%;height:100%;display:block}
-@media(max-width:760px){.smoke-fg{opacity:.6}}
-
-.streak{position:absolute;left:0;right:0;top:36%;height:26%;z-index:3;opacity:0;pointer-events:none;
-  background:linear-gradient(90deg,transparent,rgba(201,213,226,.12) 30%,rgba(201,213,226,.22) 55%,transparent);
-  filter:blur(10px);mix-blend-mode:screen}
-.stage.play .streak{animation:streak 1.1s ease-in 2.0s both}
-@keyframes streak{0%{opacity:0;transform:scaleX(.3) translateX(-10%)}30%{opacity:.9}100%{opacity:0;transform:scaleX(1.6) translateX(30%)}}
-
-.stage.play .car{animation:flyby 2.9s cubic-bezier(.42,0,.72,.5) both}
-@keyframes flyby{
-  0%   {opacity:0;transform:translate(34%,-20%) scale(.16);filter:blur(7px) brightness(.32) saturate(.5)}
-  14%  {opacity:.85}
-  40%  {opacity:1;transform:translate(9%,-5%) scale(.56);filter:blur(1px) brightness(.92) saturate(.95)}
-  56%  {opacity:1;transform:translate(0,0) scale(1.0);filter:blur(0) brightness(1) saturate(1)}
-  63%  {opacity:1;transform:translate(-4%,1%) scale(1.14);filter:blur(0) brightness(1.05)}
-  100% {opacity:0;transform:translate(-52%,16%) scale(2.7) rotate(-3deg);filter:blur(30px) brightness(1.16)}
+.stage.play .car{animation:arrive 2.6s cubic-bezier(.18,.7,.24,1) both}
+@keyframes arrive{
+  0%   {opacity:0;transform:translate(28%,-14%) scale(.2);filter:blur(9px) brightness(.42) saturate(.5)}
+  16%  {opacity:.85}
+  74%  {opacity:1;transform:translate(0,0) scale(1);filter:blur(0) brightness(1) saturate(1)}
+  86%  {transform:translate(-1%,.4%) scale(1.02)}
+  100% {opacity:1;transform:translate(0,0) scale(1);filter:none}
 }
-.backlight{opacity:.9;transform-box:fill-box;transform-origin:center;animation:bloomPulse 7s ease-in-out infinite}
+.backlight{transform-box:fill-box;transform-origin:center;animation:bloomPulse 7s ease-in-out infinite}
 @keyframes bloomPulse{0%,100%{opacity:.82;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
-.stage.play .backlight{animation:bloomIn 2.9s ease-out both, bloomPulse 7s ease-in-out infinite 2.9s}
-@keyframes bloomIn{0%{opacity:.2;transform:scale(.6)}45%{opacity:.85;transform:scale(1)}60%{opacity:1;transform:scale(1.12)}100%{opacity:.9;transform:scale(1)}}
+.stage.play .backlight{animation:bloomIn 2.6s ease-out both, bloomPulse 7s ease-in-out infinite 2.6s}
+@keyframes bloomIn{0%{opacity:.15;transform:scale(.55)}55%{opacity:.9;transform:scale(1)}70%{opacity:1;transform:scale(1.12)}100%{opacity:.88;transform:scale(1)}}
 .wheelspin{transform-box:fill-box;transform-origin:center}
-.stage.play .wheelspin{animation:spin .5s linear 6}
+.stage.play .wheelspin{animation:spin .42s linear 5}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* geçiş girdabı */
-.wake{position:absolute;right:-10%;top:2%;width:82vw;height:82vw;z-index:3;pointer-events:none;opacity:0;transform-origin:68% 42%}
-.wake svg{width:100%;height:100%}
-.stage.play .wake{animation:wake 2.6s cubic-bezier(.2,.6,.3,1) 2.0s both}
-@keyframes wake{0%{opacity:0;transform:scale(.7) rotate(0)}22%{opacity:.5}55%{opacity:.32;transform:scale(1.3) rotate(-16deg)}100%{opacity:0;transform:scale(1.8) rotate(-27deg)}}
-
-/* ---------- logo: belirir → sol-üste süzülür (KAYBOLMAZ, menü olur) ---------- */
-.logo-reveal{position:absolute;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0}
-.logo-reveal .lr{display:flex;align-items:center;gap:clamp(.7rem,1.6vw,1.4rem);font-family:var(--f-display);
-  font-weight:700;text-transform:uppercase;font-size:clamp(2.2rem,6.5vw,5.6rem);letter-spacing:.12em;color:var(--text);
-  text-shadow:0 0 44px rgba(180,200,220,.28)}
-.logo-reveal .lr svg{width:clamp(34px,6vw,74px);height:clamp(34px,6vw,74px)}
-.logo-reveal .lr b{color:var(--rush)}
-/* dev yazı belirir → sol-üste süzülür ve ORADA KALIR (gerçek menü logosu
-   tam üstüne biner; z40 > z12 olduğu için hizasızlık görünmez) */
-.stage.play .logo-reveal{animation:logo 2.9s cubic-bezier(.3,.72,.2,1) 2.35s both}
-@keyframes logo{
-  0%  {opacity:0;transform:translate(0,0) scale(1.45);filter:blur(30px)}
-  22% {opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
-  52% {opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
-  86% {opacity:1;transform:translate(-40vw,-43vh) scale(.19);filter:blur(0)}
-  100%{opacity:0;transform:translate(-40vw,-43vh) scale(.19);filter:blur(0)}
-}
+.smoke-fg{position:absolute;left:54%;top:54%;width:120vw;height:78vw;max-width:1600px;max-height:980px;
+  z-index:4;pointer-events:none;mix-blend-mode:screen;
+  transform:translate(-50%,-50%) translate(calc(var(--px)*3),calc(var(--py)*3))}
+.smoke-fg svg{width:100%;height:100%;display:block}
+@media(max-width:760px){.smoke-fg{opacity:.55}}
 
 /* ---------- okunabilirlik ---------- */
 .scrim{position:absolute;inset:0;z-index:5;pointer-events:none;
@@ -159,11 +140,10 @@ h1 .accent{color:var(--text)}
 .textlink:hover{color:var(--text-dim);border-color:var(--text-mute)}
 .reveal{opacity:0}
 .stage.play .reveal{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
-.stage.play .reveal.d1{animation-delay:4.95s}.stage.play .reveal.d2{animation-delay:5.09s}
-.stage.play .reveal.d3{animation-delay:5.23s}.stage.play .reveal.d4{animation-delay:5.37s}
+.stage.play .reveal.d1{animation-delay:5.55s}.stage.play .reveal.d2{animation-delay:5.69s}
+.stage.play .reveal.d3{animation-delay:5.83s}.stage.play .reveal.d4{animation-delay:5.97s}
 @keyframes rise{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:translateY(0)}}
 .stage.settled .reveal{opacity:1;animation:none}
-.stage.settled .logo-reveal,.stage.settled .car{display:none}
 
 /* ---------- prototip panosu ---------- */
 .proto{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:.9rem;z-index:30;display:flex;align-items:center;
@@ -178,25 +158,23 @@ h1 .accent{color:var(--text)}
 :focus-visible{outline:2px solid var(--steel);outline-offset:3px}
 
 @media(max-width:760px){
-  .car-pos{width:190vw;top:44%}
+  .car-pos{width:150vw;top:42%}
   .content{max-width:100%}
   h1{font-size:clamp(2.6rem,15vw,4.4rem)}
-  .scrim{background:linear-gradient(180deg,rgba(3,4,6,.2) 0%,rgba(3,4,6,.55) 40%,rgba(3,4,6,.95) 78%)}
+  .scrim{background:linear-gradient(180deg,rgba(3,4,6,.18) 0%,rgba(3,4,6,.52) 40%,rgba(3,4,6,.94) 78%)}
 }
 @media(prefers-reduced-motion:reduce){
-  .stage.play .car,.stage.play .backlight,.stage.play .wheelspin,.stage.play .streak,.stage.play .glare,
-  .stage.play .wake,.stage.play .logo-reveal,.stage.play .reveal,.stage.play.shake,.dot,.backlight,
-  .stage.play .topbar .wordmark,.stage.play .topbar .topnav,.stage.play .topbar .clock{animation:none !important}
-  .car{opacity:1 !important;transform:none !important;filter:none !important}
-  .logo-reveal{display:none}
-  .reveal,.topbar .wordmark,.topbar .topnav,.topbar .clock{opacity:1 !important;transform:none !important}
+  .stage.play .car,.stage.play .backlight,.stage.play .wheelspin,.stage.play .glare,
+  .stage.play .reveal,.dot,.backlight,
+  .stage.play .wordmark,.stage.play .topnav,.stage.play .clock{animation:none !important}
+  .car{opacity:1 !important;transform:translate(-50%,-50%) !important;filter:none !important}
+  .reveal,.wordmark,.topnav,.clock{opacity:1 !important;transform:none !important}
 }
-.stage.rm .car,.stage.rm .backlight,.stage.rm .wheelspin,.stage.rm .streak,.stage.rm .glare,.stage.rm .wake,
-.stage.rm .logo-reveal,.stage.rm .reveal,.stage.rm.shake,.stage.rm .dot,.stage.rm.backlight,
-.stage.rm .topbar .wordmark,.stage.rm .topbar .topnav,.stage.rm .topbar .clock{animation:none !important}
-.stage.rm .car{opacity:1 !important;transform:none !important;filter:none !important}
-.stage.rm .logo-reveal{display:none}
-.stage.rm .reveal,.stage.rm .topbar .wordmark,.stage.rm .topbar .topnav,.stage.rm .topbar .clock{opacity:1 !important;transform:none !important}
+.stage.rm .car,.stage.rm .backlight,.stage.rm .wheelspin,.stage.rm .glare,
+.stage.rm .reveal,.stage.rm .dot,.stage.rm.backlight,
+.stage.rm .wordmark,.stage.rm .topnav,.stage.rm .clock{animation:none !important}
+.stage.rm .car{opacity:1 !important;transform:translate(-50%,-50%) !important;filter:none !important}
+.stage.rm .reveal,.stage.rm .wordmark,.stage.rm .topnav,.stage.rm .clock{opacity:1 !important;transform:none !important}
 </style>
 
 <header class="topbar">
@@ -211,158 +189,139 @@ h1 .accent{color:var(--text)}
 <main class="stage" id="stage">
   <div class="sesh" aria-hidden="true">ZANDVOORT · GP · 2026 · CANLI VERİ</div>
   <div class="trace" aria-hidden="true">
-    <svg viewBox="0 0 1600 240" preserveAspectRatio="none">
-      <path d="M0,150 L150,150 C210,150 214,66 268,66 C326,66 326,176 386,176
-               C444,176 452,44 520,44 C584,44 584,132 648,132 L812,132
-               C876,132 876,34 940,34 C1004,34 1004,182 1068,182 C1128,182 1140,84 1214,84
-               L1380,84 C1440,84 1452,150 1508,150 L1600,150"
+    <svg viewBox="0 0 1600 200" preserveAspectRatio="none">
+      <path d="M0,124 L150,124 C210,124 214,52 268,52 C326,52 326,150 386,150 C444,150 452,32 520,32
+               C584,32 584,110 648,110 L812,110 C876,110 876,26 940,26 C1004,26 1004,152 1068,152
+               C1128,152 1140,66 1214,66 L1380,66 C1440,66 1452,124 1508,124 L1600,124"
             fill="none" stroke="rgba(201,213,226,.07)" stroke-width="2"/>
-      <path d="M0,150 L150,150 C210,150 214,66 268,66 C326,66 326,176 386,176 C444,176 452,44 520,44"
+      <path d="M0,124 L150,124 C210,124 214,52 268,52 C326,52 326,150 386,150 C444,150 452,32 520,32"
             fill="none" stroke="rgba(225,6,0,.16)" stroke-width="2"/>
     </svg>
   </div>
+
   <canvas id="smoke" aria-hidden="true"></canvas>
 
-  <div class="wake" aria-hidden="true">
-    <svg viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <filter id="turb" x="-30%" y="-30%" width="160%" height="160%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="3" seed="9" result="n">
-            <animate attributeName="baseFrequency" dur="8s" repeatCount="indefinite" values="0.012 0.018;0.02 0.028;0.012 0.018"/>
-          </feTurbulence>
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="70"/>
-          <feGaussianBlur stdDeviation="9"/>
-        </filter>
-        <radialGradient id="puff"><stop offset="0" stop-color="#9db2c8" stop-opacity=".55"/><stop offset="60%" stop-color="#42546a" stop-opacity=".18"/><stop offset="100%" stop-color="#42546a" stop-opacity="0"/></radialGradient>
-      </defs>
-      <g filter="url(#turb)" opacity=".8">
-        <ellipse cx="420" cy="360" rx="300" ry="230" fill="url(#puff)"/>
-        <ellipse cx="300" cy="300" rx="220" ry="180" fill="url(#puff)"/>
-        <ellipse cx="520" cy="440" rx="240" ry="190" fill="url(#puff)"/>
-      </g>
-    </svg>
-  </div>
-
-  <div class="streak" aria-hidden="true"></div>
-
-  <!-- ================= ARAÇ — F1 2026 (v6: arkadan aydınlatmalı silüet) ================= -->
+  <!-- ================= ARAÇ — F1 2026 profil silüeti (uzun · alçak · sleek) ================= -->
   <div class="car-pos">
     <div class="car">
-      <svg viewBox="0 0 1600 620" role="img" aria-label="Formül 1 2026 aracı yandan, dumanın içinde arkadan aydınlatılmış silüet">
+      <svg viewBox="0 0 1700 520" role="img" aria-label="Formül 1 2026 aracı yandan, dumanın içinde arkadan aydınlatılmış silüet">
         <defs>
           <radialGradient id="bloom" cx="50%" cy="50%" r="50%">
-            <stop offset="0" stop-color="#fff6ea" stop-opacity=".55"/>
-            <stop offset="24%" stop-color="#e9f0fb" stop-opacity=".4"/>
-            <stop offset="58%" stop-color="#8ea9c6" stop-opacity=".15"/>
+            <stop offset="0" stop-color="#fff6ea" stop-opacity=".52"/>
+            <stop offset="24%" stop-color="#e9f0fb" stop-opacity=".38"/>
+            <stop offset="58%" stop-color="#8ea9c6" stop-opacity=".14"/>
             <stop offset="100%" stop-color="#8ea9c6" stop-opacity="0"/>
           </radialGradient>
           <radialGradient id="bloomCore" cx="50%" cy="50%" r="50%">
-            <stop offset="0" stop-color="#fffdf8" stop-opacity=".8"/>
-            <stop offset="42%" stop-color="#fff2df" stop-opacity=".28"/>
+            <stop offset="0" stop-color="#fffdf8" stop-opacity=".82"/>
+            <stop offset="42%" stop-color="#fff2df" stop-opacity=".26"/>
             <stop offset="100%" stop-color="#fff2df" stop-opacity="0"/>
           </radialGradient>
           <radialGradient id="ground" cx="50%" cy="50%" r="50%">
-            <stop offset="0" stop-color="#c7d6e8" stop-opacity=".34"/>
+            <stop offset="0" stop-color="#c7d6e8" stop-opacity=".32"/>
             <stop offset="100%" stop-color="#c7d6e8" stop-opacity="0"/>
           </radialGradient>
-          <filter id="soft" x="-90%" y="-90%" width="280%" height="280%"><feGaussianBlur stdDeviation="14"/></filter>
+          <filter id="soft" x="-90%" y="-90%" width="280%" height="280%"><feGaussianBlur stdDeviation="15"/></filter>
           <filter id="soft2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>
         </defs>
 
-        <!-- ARKA IŞIK (dumanı yakar, arac silüetini ayırır) -->
+        <!-- ARKA IŞIK -->
         <g class="backlight" style="mix-blend-mode:screen">
-          <ellipse cx="856" cy="288" rx="660" ry="380" fill="url(#bloom)"/>
-          <ellipse cx="770" cy="250" rx="320" ry="240" fill="url(#bloomCore)"/>
+          <ellipse cx="920" cy="230" rx="720" ry="330" fill="url(#bloom)"/>
+          <ellipse cx="820" cy="210" rx="340" ry="220" fill="url(#bloomCore)"/>
         </g>
-        <ellipse cx="820" cy="470" rx="640" ry="58" fill="url(#ground)" style="mix-blend-mode:screen"/>
+        <ellipse cx="880" cy="404" rx="700" ry="52" fill="url(#ground)" style="mix-blend-mode:screen"/>
 
-        <!-- yumuşak kenar sızıntısı (büyütülmüş bulanık silüet) -->
-        <g filter="url(#soft)" opacity=".42" fill="#3b526b">
-          <path d="M108 456 L470 428 L636 318 L792 250 L840 340 L1270 322 L1306 458 L108 472 Z"/>
-          <ellipse cx="460" cy="402" rx="88" ry="94"/>
-          <ellipse cx="1170" cy="400" rx="92" ry="98"/>
-          <path d="M1236 250 L1512 186 L1512 336 L1236 300 Z"/>
+        <!-- yumuşak kenar sızıntısı -->
+        <g filter="url(#soft)" opacity=".4" fill="#3b526b">
+          <path d="M60 336 L470 290 L640 236 L780 196 L980 250 L1300 280 L1360 402 L60 410 Z"/>
+          <ellipse cx="360" cy="344" rx="84" ry="90"/>
+          <ellipse cx="1320" cy="342" rx="88" ry="94"/>
+          <path d="M1320 250 L1620 205 L1620 340 L1320 300 Z"/>
         </g>
 
-        <g transform="rotate(-1.5 820 340)">
-          <!-- ===== SİLÜET (düz, neredeyse siyah — 2026 regülasyon: ince gövde, sivri burun, aktif kanatlar) ===== -->
+        <g transform="rotate(-1.2 880 300)">
+          <!-- ===== SİLÜET ===== -->
           <g fill="#05070a">
-            <!-- zemin / venturi gövde -->
-            <path d="M360 452 L1250 444 L1250 462 L360 466 Z"/>
-            <!-- tekerler (2026: biraz daha dar) -->
-            <ellipse cx="460" cy="402" rx="74" ry="80"/>
-            <ellipse cx="1170" cy="400" rx="78" ry="84"/>
-            <!-- BURUN: uzun, alçak, sivri dart -->
-            <path d="M104 452 L300 438 Q420 424 470 434 L482 462 L300 458 L140 456 Z"/>
-            <!-- ÖN KANAT: 2 ana element + endplate, buruna bağlı -->
-            <path d="M88 428 L126 424 L136 488 L96 492 Z"/>
-            <path d="M104 462 L376 448 L376 470 L104 476 Z"/>
-            <path d="M134 448 L352 436 L352 448 L134 456 Z"/>
+            <!-- venturi zemin -->
+            <path d="M330 396 L1340 388 L1340 406 L330 410 Z"/>
+            <!-- tekerler (2026: kapalı, dar) -->
+            <ellipse cx="358" cy="346" rx="72" ry="78"/>
+            <ellipse cx="1322" cy="344" rx="76" ry="82"/>
+            <!-- BURUN: uzun, alçak, hafif yükselen -->
+            <path d="M64 330 L262 302 Q404 278 466 284 L476 344 L300 346 L104 342 Z"/>
+            <!-- ÖN KANAT -->
+            <path d="M32 296 L66 292 L74 380 L28 384 Z"/>
+            <path d="M46 344 L332 328 L332 354 L46 360 Z"/>
+            <path d="M76 328 L302 316 L302 328 L76 336 Z"/>
+            <!-- ön tekerlek kapağı (üstü) -->
+            <path d="M282 296 Q358 262 434 296 L426 320 Q358 288 290 320 Z"/>
             <!-- MONOKOK -->
-            <path d="M440 456 L452 424 C510 416 560 398 592 366 L636 326 L720 322 L728 456 Z"/>
-            <!-- HAVA KUTUSU (alçak, sleek) -->
-            <path d="M704 328 L738 324 Q754 282 752 256 Q780 246 800 266 Q816 298 812 332 L740 346 Z"/>
-            <!-- MOTOR KAPAĞI: agresif daralan kuyruk -->
-            <path d="M800 272 C 900 300 1080 322 1200 336 L 1272 344 L 1282 456 L 830 456 L 812 320 Z"/>
-            <!-- YAN KUTU (ince, entegre) -->
-            <path d="M700 352 C780 334 920 334 1000 354 C1026 388 1026 432 1000 454 L726 454 Q690 406 700 352 Z"/>
-            <!-- ARKA / şanzıman + crash yapısı -->
-            <path d="M1248 336 L1312 336 L1312 456 L1248 456 Z"/>
+            <path d="M444 400 L452 288 C498 280 544 268 584 250 L640 234 L722 232 L728 400 Z"/>
+            <!-- HAVA KUTUSU (alçak, entegre scoop) -->
+            <path d="M700 236 L728 234 Q742 204 738 186 Q762 180 780 200 Q792 222 788 244 L732 252 Z"/>
+            <!-- MOTOR KAPAĞI: sleek daralan kuyruk -->
+            <path d="M780 200 C 900 224 1090 254 1210 280 L 1320 300 L 1330 400 L 850 400 L 786 240 Z"/>
+            <!-- SIDEPOD (coke-bottle, arkaya doğru alçalır) -->
+            <path d="M654 258 C 740 236 900 236 1000 260 C 1052 286 1060 328 1030 358 L 700 364 Q 646 316 654 258 Z"/>
+            <!-- SIDEPOD UNDERCUT (yüzen görünüm — koyu gölge) -->
+            <path d="M700 364 C 782 340 940 340 1030 360 L 1030 382 L 700 386 Z" fill="#020304"/>
+            <!-- ARKA / şanzıman -->
+            <path d="M1300 300 L1382 300 L1382 400 L1300 400 Z"/>
             <!-- HALO -->
-            <path d="M618 330 Q690 246 762 316 L748 330 Q690 268 632 338 Z"/>
-            <path d="M682 296 L694 296 L694 258 L682 258 Z"/>
-            <!-- ARKA KANAT: 3 elemanlı dik aktif kanat + büyük endplate + swan-neck -->
-            <path d="M1256 322 L1264 250 L1274 250 L1266 322 Z"/>
-            <path d="M1236 262 L1470 250 L1470 282 L1236 288 Z"/>
-            <path d="M1244 232 L1466 222 L1466 246 L1244 252 Z"/>
-            <path d="M1250 204 L1462 196 L1462 218 L1250 224 Z"/>
-            <path d="M1464 188 L1510 185 L1510 332 L1470 332 Z"/>
-            <!-- BEAM WING (ana kanadın altında ayrı) -->
-            <path d="M1258 358 L1440 350 L1440 372 L1258 378 Z"/>
+            <path d="M556 256 Q640 168 730 250 L716 264 Q640 190 570 268 Z"/>
+            <path d="M636 236 L648 236 L648 196 L636 196 Z"/>
+            <!-- ARKA KANAT: alçak, süpürülmüş, kavisli endplate -->
+            <path d="M1326 296 L1334 244 L1346 244 L1338 296 Z"/>
+            <path d="M1314 248 L1578 234 L1578 266 L1314 272 Z"/>
+            <path d="M1324 224 L1570 212 L1570 236 L1324 244 Z"/>
+            <path d="M1572 206 Q1612 204 1612 250 L1610 330 L1576 330 Z"/>
+            <!-- BEAM WING -->
+            <path d="M1336 318 L1520 310 L1520 332 L1336 338 Z"/>
             <!-- DİFFÜZÖR dikmeleri -->
-            <path d="M1248 408 L1254 456 M1272 406 L1278 456 M1296 404 L1302 456" stroke="#05070a" stroke-width="7"/>
+            <path d="M1300 352 L1306 400 M1324 350 L1330 400 M1348 348 L1354 400" stroke="#05070a" stroke-width="7"/>
           </g>
 
-          <!-- kokpit içi hafif ışık sızıntısı + kask -->
-          <path d="M648 328 L722 324 L724 342 L650 346 Z" fill="#0c1420"/>
-          <ellipse cx="690" cy="320" rx="21" ry="15" fill="#111a26"/>
-          <path d="M681 314 Q691 308 701 314" fill="none" stroke="#38e1d0" stroke-width="1.4" opacity=".55"/>
+          <!-- kokpit ışık sızıntısı + kask + ayna -->
+          <path d="M584 254 L700 248 L702 268 L586 274 Z" fill="#0c1420"/>
+          <ellipse cx="636" cy="248" rx="24" ry="16" fill="#111a26"/>
+          <path d="M626 242 Q636 236 646 242" fill="none" stroke="#38e1d0" stroke-width="1.4" opacity=".55"/>
+          <path d="M582 262 L566 254" stroke="#1c232d" stroke-width="4" stroke-linecap="round"/>
+          <rect x="552" y="248" width="16" height="10" rx="3" fill="#0f141c"/>
 
-          <!-- tekerlek dönüşü (hafif) -->
-          <g class="wheelspin" opacity=".45"><path d="M460 352 L460 452 M422 374 L498 430 M422 430 L498 374" stroke="#1a222e" stroke-width="4"/></g>
-          <g class="wheelspin" opacity=".45"><path d="M1170 348 L1170 452 M1130 372 L1210 428 M1130 428 L1210 372" stroke="#1a222e" stroke-width="4"/></g>
+          <!-- tekerlek dönüşü (sadece varışta) -->
+          <g class="wheelspin" opacity=".4"><path d="M358 298 L358 394 M320 320 L396 372 M320 372 L396 320" stroke="#1a222e" stroke-width="4"/></g>
+          <g class="wheelspin" opacity=".4"><path d="M1322 296 L1322 392 M1284 318 L1360 370 M1284 370 L1360 318" stroke="#1a222e" stroke-width="4"/></g>
 
-          <!-- ===== RIM IŞIK ===== -->
+          <!-- ===== RIM IŞIK (ışık kenarları sarıyor) ===== -->
           <g fill="none" stroke="#eef4fb" stroke-linecap="round">
-            <path d="M104 452 L300 438 Q420 424 470 434" stroke-width="2.5" opacity=".5"/>
-            <path d="M452 424 C510 416 560 398 592 366 L638 326" stroke-width="3" opacity=".72"/>
-            <path d="M738 324 Q754 282 752 256 Q780 246 800 266" stroke-width="4.5" opacity="1"/>
-            <path d="M806 280 C 900 306 1080 324 1200 338" stroke-width="2" opacity=".4"/>
-            <path d="M1250 204 L1462 196" stroke-width="3" opacity=".9"/>
-            <path d="M1244 232 L1466 222" stroke-width="2" opacity=".5"/>
-            <path d="M1470 190 L1470 322" stroke-width="2.5" opacity=".7"/>
-            <path d="M1466 189 L1506 187" stroke-width="2" opacity=".55"/>
-            <path d="M1258 358 L1438 350" stroke-width="2" opacity=".5"/>
-            <path d="M394 344 A74 80 0 0 1 466 322" stroke-width="3" opacity=".55"/>
-            <path d="M1100 338 A78 84 0 0 1 1170 316" stroke-width="3" opacity=".55"/>
-            <path d="M628 322 Q690 250 748 258" stroke-width="2.6" opacity=".55"/>
+            <path d="M64 330 L262 302 Q404 278 466 284" stroke-width="2.5" opacity=".5"/>
+            <path d="M452 288 C498 280 544 268 584 250 L642 234" stroke-width="3" opacity=".72"/>
+            <path d="M560 252 Q640 168 724 244" stroke-width="2.5" opacity=".55"/>
+            <path d="M728 234 Q742 204 738 186 Q762 180 780 200" stroke-width="4" opacity="1"/>
+            <path d="M782 202 C 900 226 1090 256 1210 282" stroke-width="2.6" opacity=".6"/>
+            <path d="M1314 248 L1578 234" stroke-width="3" opacity=".88"/>
+            <path d="M1324 224 L1570 212" stroke-width="2" opacity=".5"/>
+            <path d="M1576 206 Q1612 204 1612 250 L1610 300" stroke-width="2.6" opacity=".7"/>
+            <path d="M1336 318 L1518 310" stroke-width="2" opacity=".5"/>
+            <path d="M290 296 Q358 264 426 296" stroke-width="3" opacity=".5"/>
+            <path d="M1246 296 A76 82 0 0 1 1322 288" stroke-width="3" opacity=".5"/>
           </g>
-          <path d="M300 458 L1252 450" stroke="#cdd9e6" stroke-width="4" opacity=".38" filter="url(#soft2)"/>
+          <path d="M300 402 L1300 394" stroke="#cdd9e6" stroke-width="4" opacity=".36" filter="url(#soft2)"/>
 
-          <!-- kırmızı aksan (ince) -->
-          <path d="M706 350 L1200 338" stroke="var(--rush)" stroke-width="2" opacity=".3"/>
-          <path d="M104 462 L376 448" stroke="var(--rush)" stroke-width="2.5" opacity=".55"/>
+          <!-- kırmızı aksan -->
+          <path d="M700 250 L1180 262" stroke="var(--rush)" stroke-width="2" opacity=".28"/>
+          <path d="M46 344 L332 328" stroke="var(--rush)" stroke-width="2.5" opacity=".55"/>
 
           <!-- burun ucu + kask parıltısı -->
-          <circle cx="106" cy="452" r="13" fill="#fff" opacity=".5" filter="url(#soft2)"/>
-          <circle cx="106" cy="452" r="4" fill="#fff"/>
-          <circle cx="690" cy="262" r="3.5" fill="#eef4fb"/>
+          <circle cx="66" cy="330" r="13" fill="#fff" opacity=".5" filter="url(#soft2)"/>
+          <circle cx="66" cy="330" r="4" fill="#fff"/>
+          <circle cx="636" cy="200" r="3.4" fill="#eef4fb"/>
         </g>
       </svg>
     </div>
   </div>
 
-  <!-- araç önünden geçen ince duman (sahneye kaynaşsın) -->
   <div class="smoke-fg" aria-hidden="true">
     <svg viewBox="0 0 900 900" preserveAspectRatio="xMidYMid slice">
       <defs>
@@ -373,13 +332,13 @@ h1 .accent{color:var(--text)}
           <feDisplacementMap in="SourceGraphic" in2="n" scale="80"/>
           <feGaussianBlur stdDeviation="14"/>
         </filter>
-        <radialGradient id="puff2"><stop offset="0" stop-color="#aebfd0" stop-opacity=".4"/><stop offset="60%" stop-color="#4a5c72" stop-opacity=".14"/><stop offset="100%" stop-color="#4a5c72" stop-opacity="0"/></radialGradient>
+        <radialGradient id="puff2"><stop offset="0" stop-color="#aebfd0" stop-opacity=".38"/><stop offset="60%" stop-color="#4a5c72" stop-opacity=".13"/><stop offset="100%" stop-color="#4a5c72" stop-opacity="0"/></radialGradient>
       </defs>
       <g filter="url(#turb2)" opacity=".5">
         <ellipse cx="560" cy="520" rx="340" ry="260" fill="url(#puff2)"/>
         <ellipse cx="360" cy="440" rx="260" ry="210" fill="url(#puff2)"/>
         <ellipse cx="640" cy="380" rx="240" ry="200" fill="url(#puff2)"/>
-        <animateTransform attributeName="transform" type="translate" dur="44s" repeatCount="indefinite" values="0 0; 34 -18; 0 0"/>
+        <animateTransform attributeName="transform" type="translate" dur="46s" repeatCount="indefinite" values="0 0; 36 -18; 0 0"/>
       </g>
     </svg>
   </div>
@@ -387,13 +346,6 @@ h1 .accent{color:var(--text)}
   <div class="scrim" aria-hidden="true"></div>
   <div class="glare" aria-hidden="true"></div>
   <div class="vignette" aria-hidden="true"></div>
-
-  <div class="logo-reveal" aria-hidden="true">
-    <div class="lr">
-      <svg viewBox="0 0 48 48"><path d="M13 11 L27 24 L13 37" fill="none" stroke="#e10600" stroke-width="6.5" stroke-linecap="square"/><path d="M24.5 15 L33.5 24 L24.5 33" fill="none" stroke="#e10600" stroke-width="5" stroke-linecap="square" opacity=".5"/></svg>
-      <span>FORMULA&nbsp;<b>PADDOCK</b></span>
-    </div>
-  </div>
 
   <div class="content">
     <p class="eyebrow reveal d1">Yarış İstihbaratı</p>
@@ -411,7 +363,7 @@ h1 .accent{color:var(--text)}
   </div>
 
   <div class="proto">
-    <span class="tag">VARYANT <b>A</b> · GEÇİŞ v3</span>
+    <span class="tag">VARYANT <b>A</b> · PARK</span>
     <button id="replay" type="button">↻ Tekrar oynat</button>
     <button id="rm" type="button" aria-pressed="false">Hareketi azalt</button>
   </div>
@@ -475,34 +427,42 @@ var Smoke=(function(){
   return {
     ok:true,
     start:function(){if(prefersReduce){render(performance.now());return;}running=true;cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);},
-    pulse:function(){burstTarget=1;setTimeout(function(){burstTarget=0;},1000);}
+    pulse:function(){burstTarget=1;setTimeout(function(){burstTarget=0;},1100);}
   };
 })();
 
+/* ---------- yumuşatılmış parallax (mouse'a doğru yavaş kayış) ---------- */
+(function(){
+  if(prefersReduce || !matchMedia('(pointer:fine)').matches) return;
+  var tx=0,ty=0,cx=0,cy=0;
+  addEventListener('mousemove',function(e){
+    tx=(e.clientX/innerWidth-.5);
+    ty=(e.clientY/innerHeight-.5);
+  });
+  (function loop(){
+    cx+=(tx-cx)*.045; cy+=(ty-cy)*.045;      /* düşük katsayı = yavaş takip */
+    stage.style.setProperty('--px',(cx*30).toFixed(2)+'px');
+    stage.style.setProperty('--py',(cy*30).toFixed(2)+'px');
+    requestAnimationFrame(loop);
+  })();
+})();
+
 /* ---------- orkestra ---------- */
-var seen=false;try{seen=sessionStorage.getItem('fp_hero_seen_a3')==='1';}catch(e){}
+var seen=false;try{seen=sessionStorage.getItem('fp_hero_seen_a7')==='1';}catch(e){}
 
 function playSequence(){
-  stage.classList.remove('settled','shake','play');
+  stage.classList.remove('settled','play');
   void stage.offsetWidth;
-  stage.classList.add('play','shake');
+  stage.classList.add('play');
   Smoke.start();
-  if(!prefersReduce) setTimeout(function(){Smoke.pulse();},2050);
-  try{sessionStorage.setItem('fp_hero_seen_a3','1');}catch(e){}
+  if(!prefersReduce) setTimeout(function(){Smoke.pulse();},1650);
+  try{sessionStorage.setItem('fp_hero_seen_a7','1');}catch(e){}
 }
 function settle(){stage.classList.add('play','settled');Smoke.start();}
 
 if(prefersReduce||seen){settle();}else{requestAnimationFrame(playSequence);}
 
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&Smoke.ok)Smoke.start();});
-
-if(!prefersReduce&&matchMedia('(pointer:fine)').matches){
-  addEventListener('mousemove',function(e){
-    var x=(e.clientX/innerWidth-.5),y=(e.clientY/innerHeight-.5);
-    stage.style.setProperty('--px',(x*10).toFixed(1)+'px');
-    stage.style.setProperty('--py',(y*10).toFixed(1)+'px');
-  });
-}
 
 document.getElementById('replay').addEventListener('click',playSequence);
 var rmBtn=document.getElementById('rm');
