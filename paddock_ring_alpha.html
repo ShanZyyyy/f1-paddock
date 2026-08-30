@@ -166,24 +166,25 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
    0 · SABİTLER
    ================================================================== */
 const CFG = {
-  roadHalf: 148,          // asfalt yarı-genişliği (dünya birimi)
+  roadHalf: 150,          // asfalt yarı-genişliği (dünya birimi)
   kerbStep: 24,           // kerb parçası uzunluğu
-  kerbCurv: 0.24,         // bu eğrilikten sonra kerb koy
+  kerbCurv: 0.22,         // bu eğrilikten sonra kerb koy
   raceLapsDefault: 6,
-  // fizik
-  mass: 720,
-  engine: 10800,         // itiş kuvveti (N benzeri)
-  brakeForce: 22000,
-  dragAir: 4.6,          // ~ v^2
-  rollFric: 62,          // ~ v
-  gripRoad: 30.5,        // maks yanal ivme (m/s^2 benzeri) — asfalt, taze lastik
-  gripGrass: 9.5,
-  cornerStiff: 7.2,      // lastik yanal tepki kazancı
-  steerBase: 3.05,       // düşük hız direksiyon otoritesi
-  steerFalloff: 0.010,   // hız arttıkça azalır
-  vmax: 108,             // ~ km/s * 0.30 ölçek
-  ersBoost: 3600,        // ekstra itiş
-  drsBoost: 2200,
+  // --- boyuna (hız) ---
+  accel: 152,            // tam gazda ileri ivme (dünya-birimi/s^2)
+  brakeDecel: 285,       // fren yavaşlaması
+  dragK: 0.00165,        // ~ v^2 hava sürtünmesi
+  rollK: 0.22,           // ~ v yuvarlanma sürtünmesi
+  vmax: 188,             // tepe hız (dünya-birimi/s) — gösterge ~ vmax*KMH
+  ersBoost: 66,          // ERS ekstra ivme
+  drsBoost: 38,          // DRS ekstra ivme (yalnız düzlükte)
+  // --- direksiyon / yön ---
+  turnRate: 2.75,        // maks sapma hızı (rad/s), orta hızda
+  turnFalloff: 0.0055,   // hız arttıkça azalır
+  // --- yanal tutuş: hız vektörünü buruna doğru yönlendirir ---
+  gripRedirect: 8.6,     // sn başına yanal kaymayı öldürme oranı (yüksek = go-kart hissi)
+  driftThresh: 0.42,     // bu kayma açısından (rad) sonra tutuş düşer -> drift
+  gripGrass: 1.7,        // çim üstünde yönlendirme çarpanı
 };
 
 /* ==================================================================
@@ -338,12 +339,13 @@ function buildGrid(){
 /* ==================================================================
    3 · FİZİK
    ================================================================== */
-const KMH = 3.33;   // dünya-hız -> gösterge km/s ölçeği
+const KMH = 1.98;   // dünya-hız -> gösterge km/s ölçeği (vmax*KMH ≈ 360)
 function stepCar(c, dt){
   if(c.finished){ c.vx*=0.97; c.vy*=0.97; c.x+=c.vx*dt; c.y+=c.vy*dt; return; }
   const near = nearest(c.x,c.y);
   const onRoad = near.d < CFG.roadHalf;
   c.offT = !onRoad;
+  const deepOff = near.d > CFG.roadHalf + 150;
   const inPit = c.pit>0;
 
   // ---- kontrol girdileri ----
@@ -358,58 +360,61 @@ function stepCar(c, dt){
     aiControl(c, near, (v)=>{thr=v.thr;brk=v.brk;steer=v.steer;});
   }
 
-  // ---- hız & yön vektörleri ----
-  const spd = Math.hypot(c.vx,c.vy);
+  let spd = Math.hypot(c.vx,c.vy);
+  const tyreGrip = 0.70 + 0.30*(c.tyre/100);
+
+  // ---- direksiyon -> sapma hızı -> yön ----
+  // orta hızda çevik, tepe hızda sakin; dururken dönmez
+  const authority = CFG.turnRate
+      * (0.40 + 0.60*Math.min(1, spd/26))
+      / (1 + spd*CFG.turnFalloff)
+      * (c.offT ? 0.65 : 1);
+  const vFwd0 = c.vx*Math.cos(c.heading) + c.vy*Math.sin(c.heading);
+  const vSign = (vFwd0 >= -1) ? 1 : -1;
+  c.yaw += (steer*authority - c.yaw) * Math.min(1, dt*9);
+  c.heading += c.yaw * dt * vSign;
+
   const fwd = [Math.cos(c.heading), Math.sin(c.heading)];
   const rgt = [-Math.sin(c.heading), Math.cos(c.heading)];
-  const vFwd = c.vx*fwd[0] + c.vy*fwd[1];
-  const vLat = c.vx*rgt[0] + c.vy*rgt[1];
+  let vFwd = c.vx*fwd[0] + c.vy*fwd[1];
+  let vLat = c.vx*rgt[0] + c.vy*rgt[1];
 
-  // ---- direksiyon: hıza bağlı otorite ----
-  const steerAuth = CFG.steerBase / (1 + spd*CFG.steerFalloff);
-  const move = Math.min(1, spd/6);                 // dururken dönmez
-  c.yaw += ((steer*steerAuth) - c.yaw) * Math.min(1, dt*10);
-  c.heading += c.yaw * move * dt * (vFwd>=-2?1:-1);
+  // ---- boyuna ivme ----
+  let a = thr * CFG.accel * (0.55 + 0.45*tyreGrip);
+  if(c.boost) a += CFG.ersBoost;
+  if(c.drs && vFwd > CFG.vmax*0.5) a += CFG.drsBoost;
+  a -= brk * CFG.brakeDecel * (vFwd > 0 ? 1 : 0);
+  a -= CFG.dragK * vFwd * Math.abs(vFwd);
+  a -= CFG.rollK * vFwd;
+  if(brk && vFwd < 4 && vFwd > -16) a -= 34;            // hafif geri
+  vFwd += a * dt;
+  const vmax = CFG.vmax * (c.drs?1.14 : c.boost?1.07 : 1) * (inPit?0.32 : c.offT?(deepOff?0.42:0.62) : 1);
+  if(vFwd > vmax) vFwd = vmax;
+  if(vFwd < -22) vFwd = -22;
 
-  // ---- lastik / yol tutuşu ----
-  const tyreGrip = 0.62 + 0.38*(c.tyre/100);
-  const gripMax = (onRoad ? CFG.gripRoad*tyreGrip : CFG.gripGrass);   // maks yanal ivme
-  // fren-viraj etkileşimi (grip dairesi): sert frende yanal tutuş azalır
-  const usedLong = Math.min(1, (thr*0.5 + brk*1.0));
-  const latCap = gripMax * Math.sqrt(Math.max(0.15, 1 - usedLong*usedLong*0.55));
-  let latAcc = -vLat * CFG.cornerStiff;
-  const slid = Math.abs(latAcc) > latCap;
-  latAcc = Math.max(-latCap, Math.min(latCap, latAcc));
-  c.slipAmt += ((slid ? Math.min(1,Math.abs(vLat)/14) : 0) - c.slipAmt) * Math.min(1,dt*5);
+  // ---- yanal tutuş: kayma hızını buruna doğru yönlendir ----
+  let grip = CFG.gripRedirect * tyreGrip;
+  if(c.offT) grip = deepOff ? 0.6 : CFG.gripGrass;
+  const slipAng = Math.atan2(Math.abs(vLat), Math.abs(vFwd) + 6);
+  if(slipAng > CFG.driftThresh) grip *= Math.max(0.30, 1 - (slipAng - CFG.driftThresh)*1.45);
+  const keep = Math.exp(-grip * dt);                    // korunacak yanal hız oranı
+  const slideNow = (1 - keep) < 0.985 && slipAng > 0.26 ? Math.min(1, slipAng*1.5) : 0;
+  vLat *= keep;
+  c.slipAmt += (slideNow - c.slipAmt) * Math.min(1, dt*5);
 
-  // ---- boyuna kuvvetler ----
-  let force = thr*CFG.engine;
-  if(c.boost) force += CFG.ersBoost;
-  if(c.drs)   force += CFG.drsBoost;
-  force -= brk*CFG.brakeForce * (vFwd>1?1:0);
-  force -= CFG.dragAir * vFwd*Math.abs(vFwd);
-  force -= CFG.rollFric * vFwd;
-  if(brk && vFwd < 2 && vFwd > -8) force -= 6000;       // hafif geri
-  let longAcc = force / CFG.mass;
-  const vmax = (c.drs?CFG.vmax*1.10 : c.boost?CFG.vmax*1.06 : CFG.vmax) * (inPit?0.34:1);
-
-  // ---- entegrasyon (dünya çerçevesi) ----
-  c.vx += (fwd[0]*longAcc + rgt[0]*latAcc) * dt;
-  c.vy += (fwd[1]*longAcc + rgt[1]*latAcc) * dt;
-  // hız tavanı
-  const ns = Math.hypot(c.vx,c.vy);
-  if(ns > vmax){ c.vx*=vmax/ns; c.vy*=vmax/ns; }
-  // çimende ekstra sürükleme + geri dönebilme
-  if(c.offT){ const cap = near.d>CFG.roadHalf+220 ? 30 : 52; const s2=Math.hypot(c.vx,c.vy); if(s2>cap){ const f=1-Math.min(1,dt*3.2*(1-cap/s2)); c.vx*=f; c.vy*=f; } }
-
+  // ---- yeniden birleştir + entegrasyon ----
+  c.vx = fwd[0]*vFwd + rgt[0]*vLat;
+  c.vy = fwd[1]*vFwd + rgt[1]*vLat;
   c.x += c.vx*dt; c.y += c.vy*dt;
   c.brakeGlow += ((brk?1:0) - c.brakeGlow)*Math.min(1,dt*10);
 
   // ---- ERS / lastik ----
   if(c.boost) c.ers = Math.max(0, c.ers - dt*10);
   else        c.ers = Math.min(100, c.ers + dt*(brk?6:2.4));
-  if(state==='race' && !inPit)
-    c.tyre = Math.max(3, c.tyre - dt*(0.028 + (Math.hypot(c.vx,c.vy)/CFG.vmax)*0.12 + c.slipAmt*0.9 + brk*0.03));
+  if(state==='race' && !inPit){
+    const load = Math.hypot(c.vx,c.vy)/CFG.vmax;
+    c.tyre = Math.max(3, c.tyre - dt*load*(0.055 + load*0.11 + c.slipAmt*0.85 + brk*0.03));
+  }
 
   // ---- pit ----
   if(c.pit>0){
@@ -554,7 +559,7 @@ function update(dt){
   field.forEach(c=>{ c.laneT*=0.9; c.lane += (c.laneT - c.lane)*Math.min(1,dt*3); });
 
   const ord = order();
-  const gapSec = (units, v) => units * LAP_LEN / (M * Math.max(14, v)) / KMH * 3.6 * 0.5;
+  const gapSec = (units, v) => Math.abs(units) * STEP / Math.max(24, v);
   for(let k=0;k<ord.length;k++){
     const c=ord[k], ahead=ord[k-1], behind=ord[k+1];
     if(ahead && !ahead.finished && !c.finished){
@@ -719,9 +724,9 @@ function draw(){
   drawGround();
   if(state==='idle') return;
   const c=player, spd=Math.hypot(c.vx,c.vy);
-  const zoom = 1 - Math.min(0.18, spd/900);
-  const sc = Math.max(.40, Math.min(.66, W/1960)) * zoom;
-  const lead = Math.min(90, spd*0.55);
+  const zoom = 1 - Math.min(0.16, spd/1400);
+  const sc = Math.max(.62, Math.min(1.02, W/1280)) * zoom;
+  const lead = Math.min(150, spd*0.62);
   const cx = c.x + Math.cos(c.heading)*lead, cy = c.y + Math.sin(c.heading)*lead;
   const ox = W/2 - cx*sc, oy = H/2 - cy*sc;
 
