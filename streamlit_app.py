@@ -3770,8 +3770,9 @@ st.markdown(
 
 _nav_now = st.session_state['page']
 
+# Üst bar: "Haberler" düz sekme + eski sidebar bölümlerinin aynısı (her grup kendi açılır listesi)
+NAV_STANDALONE = [("news", T("nav.news"))]
 NAV_GROUPS = [
-    (T("section.general"), "home", [("home", T("nav.home")), ("news", T("nav.news"))]),
     (T("section.data"), "telemetry", [("telemetry", T("nav.telemetry"))]),
     (T("section.live"), "live", [
         ("live", T("nav.live")), ("calendar", T("nav.calendar")), ("weekend", T("nav.weekend")),
@@ -3802,7 +3803,7 @@ def _topbar_session_line():
 
 
 _sesh_line, _sesh_live = _topbar_session_line()
-fp_ui.topbar(_nav_now, fp_i18n.get_lang(), NAV_GROUPS,
+fp_ui.topbar(_nav_now, fp_i18n.get_lang(), standalone=NAV_STANDALONE, groups=NAV_GROUPS,
              session_line=_sesh_line, session_live=_sesh_live)
 
 # ==========================================
@@ -6223,12 +6224,6 @@ def _router_page_home():
       .rc-ticker:hover .rc-track{{animation-play-state:paused}}
       @keyframes rc-scroll{{from{{transform:translateX(0)}}to{{transform:translateX(-50%)}}}}
       @media(prefers-reduced-motion:reduce){{.rc-track{{animation:none}}.rc-ticker{{overflow-x:auto}}}}
-      .rc-timer{{padding:16px;text-align:center;border-top:1px solid #26313f;background:#0c1016}}
-      .rc-timer .lab{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#63748a;margin-bottom:8px}}
-      .rc-timer .val{{font:700 34px 'JetBrains Mono',monospace;color:#f2f5f8;display:flex;align-items:baseline;justify-content:center;gap:6px;flex-wrap:wrap}}
-      .rc-timer .val u{{font:700 11px 'Saira',sans-serif;color:#63748a;text-decoration:none;margin-right:10px}}
-      .rc-timer .val i{{color:#e10600;font-style:normal}}
-      .rc-wait{{color:#9fb0c0;font:600 13px 'Saira',sans-serif}}
     </style>
     <div class="rc">
       <div class="rc-head">
@@ -6236,33 +6231,12 @@ def _router_page_home():
         <span class="rc-flag">{status_badge_text}</span>
       </div>
       <div class="rc-ticker">{ticker_body}</div>
-      <div class="rc-timer">
-        <div class="lab">{html_lib.escape(str(countdown_title))}</div>
-        <div class="val" id="rc-timer">
-          <span id="rc-d">00</span><u>GUN</u><i>:</i>
-          <span id="rc-h">00</span><u>SAAT</u><i>:</i>
-          <span id="rc-m">00</span><u>DK</u><i>:</i>
-          <span id="rc-s">00</span><u>SN</u>
-        </div>
-      </div>
     </div>
-    <script>
-      var target={target_timestamp_ms}, waiting={str(calendar_waiting).lower()};
-      function tick(){{
-        var box=document.getElementById('rc-timer');
-        if(waiting){{box.innerHTML='<span class="rc-wait">Takvim baglantisi yeniden denenecek. Dogrulanmamis seans icin sahte sayac gosterilmez.</span>';return;}}
-        var d=target-Date.now();
-        if(d<=0){{box.innerHTML='<span style="color:#4ade80;font-weight:700">SEANS BASLADI · CANLI SINYAL AKTIF</span>';return;}}
-        var D=Math.floor(d/864e5),H=Math.floor(d%864e5/36e5),M=Math.floor(d%36e5/6e4),S=Math.floor(d%6e4/1e3);
-        var z=n=>n<10?'0'+n:n;
-        document.getElementById('rc-d').innerText=z(D);document.getElementById('rc-h').innerText=z(H);
-        document.getElementById('rc-m').innerText=z(M);document.getElementById('rc-s').innerText=z(S);
-      }}
-      setInterval(tick,1000);tick();
-    </script>
     """
 
-    fp_ui.render_html_hud(racecenter_html, height=250)
+    # Geri sayım artık yalnızca sayfa başındaki hero'da (tek sayaç).
+    _ = countdown_title  # (üst bar seans satırı get_current_or_next_event'ten)
+    fp_ui.render_html_hud(racecenter_html, height=118)
 
     # redesign: komut seridi -> 4 stat tile (deger tek satir + alt satir)
     _sess_name = last_session['event_name'] if last_session else 'Veri bekleniyor'

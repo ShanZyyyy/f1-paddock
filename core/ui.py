@@ -248,7 +248,8 @@ def inject_shell_theme():
     """
     st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
     st.markdown(theme.shell_style(), unsafe_allow_html=True)
-    background_fx()
+    # Eski "kendini çizen pist" arka planı kaldırıldı — sade koyu zemin +
+    # ana sayfadaki hero duman'ı yeter. background_fx() artık çağrılmıyor.
 
 
 def inject_rail_theme():
@@ -515,21 +516,43 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 .stApp [data-testid="stMain"] .block-container:has(.fp-hero-mark){padding-top:0 !important}
 
 .fp-tb{position:fixed;inset:0 0 auto 0;z-index:1000000;font-family:var(--fp-f-body)}
-.fp-tb-bar{display:flex;align-items:center;gap:clamp(1rem,3vw,2.4rem);height:60px;
+.fp-tb-bar{display:flex;align-items:center;gap:clamp(.9rem,2.6vw,2rem);height:60px;
   padding:0 clamp(1rem,4vw,2.6rem);
-  background:linear-gradient(180deg,rgba(9,12,17,.94),rgba(9,12,17,.82));
+  background:linear-gradient(180deg,rgba(9,12,17,.95),rgba(9,12,17,.84));
   border-bottom:1px solid var(--fp-line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .fp-tb a{text-decoration:none;color:inherit}
 .fp-tb-brand{display:flex;align-items:center;gap:.5rem;font-family:var(--fp-f-display);font-weight:800;
-  font-size:16px;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap}
+  font-size:16px;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap;
+  margin-right:.6rem}
 .fp-tb-brand .ch{width:15px;height:15px;flex:0 0 auto}
 .fp-tb-brand b{color:var(--fp-red);font-weight:800}
-.fp-tb-groups{display:flex;align-items:center;gap:clamp(.8rem,2.2vw,2rem);flex:0 1 auto;min-width:0;
-  overflow:hidden}
-.fp-tb-g{font:600 12px/1 var(--fp-f-display);letter-spacing:.16em;text-transform:uppercase;
-  color:var(--fp-text-dim);padding:8px 2px;border-bottom:2px solid transparent;white-space:nowrap;
-  transition:color .15s ease,border-color .15s ease}
-.fp-tb-g:hover,.fp-tb-g.on{color:var(--fp-text);border-color:var(--fp-red)}
+.fp-tb-nav{display:flex;align-items:center;gap:clamp(.7rem,2vw,1.7rem);flex:0 1 auto;min-width:0}
+
+/* düz sekme (grup değil) */
+.fp-tb-g{position:relative;font:600 12px/1 var(--fp-f-display);letter-spacing:.15em;text-transform:uppercase;
+  color:var(--fp-text-dim);white-space:nowrap}
+.fp-tb-g>a,.fp-tb-g>span{display:inline-flex;align-items:center;gap:.35em;padding:20px 2px;
+  border-bottom:2px solid transparent;transition:color .15s ease,border-color .15s ease;cursor:pointer}
+.fp-tb-g:hover>a,.fp-tb-g:hover>span,.fp-tb-g.on>a,.fp-tb-g.on>span{color:var(--fp-text);border-color:var(--fp-red)}
+.fp-tb-g .caret{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:rotate(45deg) translateY(-1px);opacity:.6;transition:transform .18s ease}
+.fp-tb-g:hover .caret{transform:rotate(45deg) translateY(1px)}
+
+/* grup açılır listesi */
+.fp-drop{position:absolute;top:56px;left:-14px;min-width:210px;padding:.5rem;
+  background:linear-gradient(180deg,rgba(11,14,20,.98),rgba(8,10,14,.97));
+  border:1px solid var(--fp-line);border-radius:5px;box-shadow:0 22px 44px rgba(0,0,0,.5);
+  opacity:0;visibility:hidden;transform:translateY(-6px);transition:opacity .16s ease,transform .16s ease,visibility .16s;
+  display:flex;flex-direction:column;gap:1px}
+.fp-tb-g:hover .fp-drop{opacity:1;visibility:visible;transform:translateY(0)}
+.fp-drop::before{content:"";position:absolute;top:-10px;left:0;right:0;height:10px}   /* hover köprüsü */
+.fp-drop a{font:500 13px/1.1 var(--fp-f-body);letter-spacing:.01em;color:var(--fp-text-dim);
+  padding:9px 12px;border-radius:4px;border-left:2px solid transparent;text-transform:none;
+  transition:background .12s ease,color .12s ease,border-color .12s ease}
+.fp-drop a:hover{background:rgba(255,255,255,.06);color:var(--fp-text)}
+.fp-drop a.on{color:var(--fp-text);border-left-color:var(--fp-red);
+  background:linear-gradient(90deg,rgba(225,6,0,.16),transparent 72%)}
+
 .fp-tb-right{margin-left:auto;display:flex;align-items:center;gap:1rem;white-space:nowrap}
 .fp-tb-sesh{font:500 10.5px/1.2 var(--fp-f-mono);letter-spacing:.08em;color:var(--fp-text-mute);
   display:flex;align-items:center;gap:.5rem}
@@ -540,25 +563,11 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 .fp-tb-lang a{padding:4px 8px;font:600 10px var(--fp-f-mono);letter-spacing:.1em;color:var(--fp-text-mute)}
 .fp-tb-lang a.on{background:var(--fp-red);color:#fff}
 
-/* mega panel — bara hover olunca sarkar */
-.fp-mega{position:absolute;left:0;right:0;top:60px;overflow:hidden;max-height:0;
-  background:linear-gradient(180deg,rgba(9,12,17,.97),rgba(7,9,13,.95));
-  border-bottom:1px solid var(--fp-line);box-shadow:0 24px 50px rgba(0,0,0,.5);
-  transition:max-height .28s cubic-bezier(.2,.7,.2,1)}
-.fp-tb:hover .fp-mega,.fp-mega:hover{max-height:74vh}
-.fp-mega-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:.4rem 1.6rem;padding:1.4rem clamp(1rem,4vw,2.6rem) 1.7rem;max-width:1200px;margin:0 auto}
-.fp-mega-col{display:flex;flex-direction:column;gap:.15rem}
-.fp-mega-h{font:700 9.5px/1 var(--fp-f-display);letter-spacing:.2em;text-transform:uppercase;
-  color:var(--fp-text-mute);padding:0 0 .55rem}
-.fp-mega-l{font:500 13px/1.1 var(--fp-f-body);color:var(--fp-text-dim);padding:7px 10px;border-radius:4px;
-  border-left:2px solid transparent;transition:background .12s ease,color .12s ease,border-color .12s ease}
-.fp-mega-l:hover{background:rgba(255,255,255,.05);color:var(--fp-text)}
-.fp-mega-l.on{color:var(--fp-text);border-left-color:var(--fp-red);background:linear-gradient(90deg,rgba(225,6,0,.14),transparent 70%)}
-@media(max-width:1180px){.fp-tb-sesh{display:none !important}}
-@media(max-width:820px){
-  .fp-tb-groups{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
-  .fp-tb-groups::-webkit-scrollbar{display:none}
+@media(max-width:1240px){.fp-tb-sesh{display:none !important}}
+@media(max-width:900px){
+  .fp-tb-nav{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+  .fp-tb-nav::-webkit-scrollbar{display:none}
+  .fp-drop{position:fixed;left:0;right:0;top:60px;min-width:0;border-radius:0;border-left:0;border-right:0}
 }
 </style>
 """
@@ -569,28 +578,32 @@ _CHEVRON = ("<svg class='ch' viewBox='0 0 48 48'>"
             "</svg>").replace("%23", "#")
 
 
-def topbar(current, lang, groups, session_line="", session_live=False):
-    """Sabit üst bar + hover'da sarkan mega-menü. Sol menünün yerini alır.
+def topbar(current, lang, standalone=(), groups=(), session_line="", session_live=False):
+    """Sabit üst bar. Düz sekmeler (``standalone``) + her biri kendi açılır
+    listesi olan gruplar (``groups``). Sol menünün yerini alır.
 
-    ``groups`` = [(başlık, birincil_sayfa_key, [(key, label), ...]), ...]
-    Linkler ``?p=<key>`` kullanır (router query-param senkronu bunu yakalar).
+    ``standalone`` = [(key, label), ...]  — doğrudan link, açılır liste yok
+    ``groups``     = [(başlık, birincil_key, [(key, label), ...]), ...]
+    Linkler ``?p=<key>`` kullanır (router query-param senkronu yakalar).
     """
-    def _l(key, label, cls="fp-mega-l"):
+    def _dl(key, label):
         on = " on" if key == current else ""
-        return f"<a class='{cls}{on}' href='?p={_esc(key)}' target='_self'>{_esc(label)}</a>"
+        return f"<a class='{on.strip() or ''}' href='?p={_esc(key)}' target='_self'>{_esc(label)}</a>"
 
-    heads = "".join(
-        f"<a class='fp-tb-g{(' on' if any(k == current for k, _ in pages) or primary == current else '')}'"
-        f" href='?p={_esc(primary)}' target='_self'>{_esc(title)}</a>"
-        for title, primary, pages in groups
-    )
-    cols = "".join(
-        "<div class='fp-mega-col'>"
-        f"<div class='fp-mega-h'>{_esc(title)}</div>"
-        + "".join(_l(k, lbl) for k, lbl in pages)
-        + "</div>"
-        for title, _primary, pages in groups
-    )
+    tabs = []
+    for key, label in standalone:
+        on = " on" if key == current else ""
+        tabs.append(f"<div class='fp-tb-g{on}'><a href='?p={_esc(key)}' target='_self'>{_esc(label)}</a></div>")
+    for title, primary, pages in groups:
+        keys = {k for k, _ in pages}
+        on = " on" if current in keys else ""
+        drop = "".join(_dl(k, lbl) for k, lbl in pages)
+        tabs.append(
+            f"<div class='fp-tb-g{on}'>"
+            f"<a href='?p={_esc(primary)}' target='_self'>{_esc(title)}<i class='caret'></i></a>"
+            f"<div class='fp-drop'>{drop}</div></div>"
+        )
+
     lang_html = (
         "<div class='fp-tb-lang'>"
         f"<a class='{'on' if lang == 'tr' else ''}' href='?lang=tr' target='_self'>TR</a>"
@@ -605,12 +618,9 @@ def topbar(current, lang, groups, session_line="", session_live=False):
     st.markdown(
         _TOPBAR_CSS
         + "<div class='fp-tb'><div class='fp-tb-bar'>"
-        + f"<a class='fp-tb-brand' href='?p=home' target='_self'>{_CHEVRON}"
-          f"Formula&nbsp;<b>Paddock</b></a>"
-        + f"<nav class='fp-tb-groups'>{heads}</nav>"
+        + f"<a class='fp-tb-brand' href='?p=home' target='_self'>{_CHEVRON}Formula&nbsp;<b>Paddock</b></a>"
+        + f"<nav class='fp-tb-nav'>{''.join(tabs)}</nav>"
         + f"<div class='fp-tb-right'>{sesh}{lang_html}</div>"
-        + "</div>"
-        + f"<div class='fp-mega'><div class='fp-mega-in'>{cols}</div></div>"
-        + "</div>",
+        + "</div></div>",
         unsafe_allow_html=True,
     )

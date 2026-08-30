@@ -79,8 +79,17 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 @keyframes hudIn{0%{opacity:0;transform:translateY(-50%) translateX(44px)}100%{opacity:1;transform:translateY(-50%) translateX(0)}}
 .stage.settled .hud{opacity:1;transform:translateY(-50%);animation:none}
 
+.tag{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:clamp(2rem,9vh,4.6rem);z-index:12;
+  font-family:var(--f-display);font-weight:700;font-size:clamp(2.4rem,7vw,6rem);line-height:.94;
+  letter-spacing:-.012em;text-transform:uppercase;color:var(--text);opacity:0}
+.tag span{display:block;color:var(--steel-dim)}
+.tag .p{color:var(--text)}
+.stage.play .tag{animation:tagIn .9s cubic-bezier(.2,.7,.2,1) 4.1s both}
+@keyframes tagIn{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
+.stage.settled .tag{opacity:1;transform:none;animation:none}
+
 .scrim{position:absolute;inset:0;z-index:5;pointer-events:none;
-  background:linear-gradient(100deg,rgba(3,4,6,.62) 0%,rgba(3,4,6,.28) 30%,rgba(3,4,6,0) 62%)}
+  background:linear-gradient(100deg,rgba(3,4,6,.78) 0%,rgba(3,4,6,.4) 30%,rgba(3,4,6,0) 62%)}
 .vig{position:absolute;inset:0;z-index:7;pointer-events:none;
   box-shadow:inset 0 0 200px 60px rgba(0,0,0,.62), inset 0 -90px 130px -50px rgba(0,0,0,.5)}
 .skip{position:absolute;left:clamp(1rem,4vw,2.4rem);bottom:1rem;z-index:25;font-family:var(--f-mono);
@@ -90,9 +99,10 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .skip:hover{color:var(--text);border-color:var(--steel-dim)}
 @media(max-width:580px){.hud{display:none}}
 @media(prefers-reduced-motion:reduce){
-  .stage.play .wordmark,.stage.play .hud,.stage.play .bloom,.bloom{animation:none!important}
-  .wordmark{opacity:1!important;font-size:1.02rem!important;transform:var(--logo-home)!important}
+  .stage.play .wordmark,.stage.play .hud,.stage.play .bloom,.stage.play .tag,.bloom{animation:none!important}
+  .wordmark{display:none}
   .hud{opacity:1!important;transform:translateY(-50%)!important}.bloom{opacity:.7!important}
+  .tag{opacity:1!important;transform:none!important}
   .skip{display:none}
 }
 </style></head>
@@ -105,6 +115,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
     FORMULA&nbsp;<b>PADDOCK</b>
   </div>
   <div class="scrim"></div>
+  <h1 class="tag"><span>Veriyle</span><span>konuşur.</span><span class="p">Uydurmaz.</span></h1>
   <aside class="hud __LIVECLS__" aria-label="Sıradaki seans">
     <div class="hud-top"><span class="hud-k">SIRADAKI SEANS</span><span class="hud-ev">__EVENT__</span></div>
     <div class="hud-c">

@@ -445,61 +445,17 @@ section[data-testid="stSidebar"] [data-baseweb="select"] button{
 # Buyuk pist animasyonu artik ayri bir inline SVG katmani: core.ui.background_fx()
 # -> #fp-bgfx. Burada sadece izgara + hiz isigi (salt CSS pseudo-eleman).
 _SHELL_BG_CSS = r"""
+/* Sade koyu zemin — animasyonlu pist/izgara/hiz-isigi kaldirildi.
+   Atmosfer artik yalnizca ana sayfadaki hero duman'inda. */
 [data-testid="stAppViewContainer"],.stApp{
   background:
-    radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 10%,transparent), transparent 55%),
+    radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 8%,transparent), transparent 55%),
     linear-gradient(180deg, var(--fp-bg-1), var(--fp-bg-0)) !important;
   background-attachment:fixed !important;
 }
-[data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-bg-1) 90%,transparent) !important}
-
-@keyframes fp-grid-drift{from{background-position:0 0}to{background-position:46px 46px}}
-@keyframes fp-speed{0%{transform:translate3d(-40%,0,0)}100%{transform:translate3d(140%,0,0)}}
-
-/* katman 1 — telemetri izgarasi (yavas kayar) */
-[data-testid="stAppViewContainer"]::before{
-  content:"" !important;position:fixed !important;inset:0 !important;z-index:0 !important;
-  pointer-events:none !important;display:block !important;
-  background-image:
-    linear-gradient(color-mix(in srgb,var(--fp-cyan) 7%,transparent) 1px,transparent 1px),
-    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 7%,transparent) 1px,transparent 1px) !important;
-  background-size:46px 46px !important;
-  opacity:.55 !important;
-  animation:fp-grid-drift 32s linear infinite !important;
-  -webkit-mask-image:radial-gradient(135% 105% at 50% -12%,#000 22%,transparent 88%);
-  mask-image:radial-gradient(135% 105% at 50% -12%,#000 22%,transparent 88%);
-}
-/* katman 3 — ara ara gecen hiz isigi (ana govde uzerinde) */
-.stApp [data-testid="stMain"]::before{
-  content:"";position:fixed;top:0;bottom:0;left:0;width:38vw;z-index:0;pointer-events:none;
-  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fp-red) 22%,transparent) 46%,color-mix(in srgb,var(--fp-cyan) 20%,transparent) 56%,transparent);
-  filter:blur(4px);opacity:.10;
-  animation:fp-speed 17s linear infinite;
-}
+[data-testid="stHeader"]{background:transparent !important}
 [data-testid="stAppViewContainer"] > .main,.stApp [data-testid="stMain"]{position:relative;z-index:1}
 .stApp [data-testid="stMain"] .block-container{position:relative;z-index:1}
-section[data-testid="stSidebar"]{position:relative;overflow:hidden}
-section[data-testid="stSidebar"]::before{
-  content:"" !important;position:absolute !important;inset:0 !important;z-index:0 !important;
-  pointer-events:none !important;display:block !important;
-  background-image:
-    linear-gradient(color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px),
-    linear-gradient(90deg,color-mix(in srgb,var(--fp-cyan) 9%,transparent) 1px,transparent 1px) !important;
-  background-size:38px 38px !important;
-  opacity:.42 !important;
-  animation:fp-grid-drift 36s linear infinite !important;
-  -webkit-mask-image:linear-gradient(180deg,#000,transparent 80%);
-  mask-image:linear-gradient(180deg,#000,transparent 80%);
-}
-section[data-testid="stSidebar"] > div{position:relative;z-index:1}
-@media (prefers-reduced-motion:reduce){
-  [data-testid="stAppViewContainer"]::before,
-  .stApp [data-testid="stMain"]::before,
-  section[data-testid="stSidebar"]::before{animation:none !important}
-  .stApp [data-testid="stMain"]::before{display:none}
-  #fp-bgfx *{animation:none !important}
-  #fp-bgfx .fp-car{display:none}
-}
 
 /* Sadece <style> iceren markdown kaplari gorunmez bosluk yaratiyordu — gizle */
 .stElementContainer:has(> .stMarkdown [data-testid="stMarkdownContainer"] > style:only-child),
