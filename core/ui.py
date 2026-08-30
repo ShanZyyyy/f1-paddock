@@ -330,6 +330,12 @@ def background_fx():
     st.markdown(theme._BG_FX_HTML, unsafe_allow_html=True)
 
 
+def page_background():
+    """İç sayfa (ana ekran hariç) sabit F1 telemetri arka planı — #fp-pagebg.
+    Silik pist tel-kafesi + ince ızgara + tek yavaş nabız. CSS shell_style'da."""
+    st.markdown(theme.PAGE_BG_HTML, unsafe_allow_html=True)
+
+
 inject_sidebar_theme = inject_shell_theme  # geriye donuk ad
 
 

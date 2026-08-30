@@ -525,7 +525,7 @@ _SHELL_BG_CSS = r"""
 }
 
 /* animasyonlu arka plan katmani — st.markdown kabini nötrle, tam ekran + en arka */
-.stElementContainer:has(#fp-bgfx){
+.stElementContainer:has(#fp-bgfx),.stElementContainer:has(#fp-pagebg){
   position:static !important;height:0 !important;min-height:0 !important;margin:0 !important;
   padding:0 !important;overflow:visible !important;
 }
@@ -536,6 +536,23 @@ _SHELL_BG_CSS = r"""
   mask-image:radial-gradient(150% 120% at 70% 20%,#000 32%,transparent 96%);
 }
 #fp-bgfx svg{width:100%;height:100%;display:block}
+
+/* ---- iç sayfa arka planı (ana ekran hariç HER menü sayfası) ----
+   Sabit, sakin bir F1 telemetri katmanı: silik pist tel-kafesi + ince ızgara
+   + köşe ışıması. İçerik kolonunun arkasında iyice soluk (radial maske). */
+#fp-pagebg{
+  position:fixed;inset:0;width:100vw;height:100vh;z-index:0;pointer-events:none;
+  overflow:hidden;contain:layout paint;
+  -webkit-mask-image:radial-gradient(125% 105% at 50% 32%,rgba(0,0,0,.13) 0%,rgba(0,0,0,.5) 52%,#000 82%);
+  mask-image:radial-gradient(125% 105% at 50% 32%,rgba(0,0,0,.13) 0%,rgba(0,0,0,.5) 52%,#000 82%);
+}
+#fp-pagebg::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(46% 40% at 88% 4%, color-mix(in srgb,var(--fp-red) 16%,transparent), transparent 70%),
+    radial-gradient(40% 46% at 6% 98%, color-mix(in srgb,var(--fp-cyan) 8%,transparent), transparent 72%);
+}
+#fp-pagebg svg{position:absolute;inset:0;width:100%;height:100%;display:block}
 """
 
 
@@ -590,6 +607,36 @@ _BG_FX_HTML = (
     "<circle r='6' fill='#ff5a4d'>"
     "<animateMotion dur='17s' begin='-4s' repeatCount='indefinite' rotate='auto'>"
     "<mpath xlink:href='#fpTrack'/></animateMotion></circle></g>"
+    "</svg></div>"
+)
+
+
+# ---- İç sayfa arka planı (ana ekran hariç her menü sayfası) — SAKİN sürüm ----
+# Aynı devre şekli, ama hareketsiz tel-kafes + tek yavaş ışık nabzı. Veri
+# okurken dikkat dağıtmasın diye düşük opaklık; #fp-pagebg maskesi merkezi soluklaştırır.
+PAGE_BG_HTML = (
+    "<div id='fp-pagebg' aria-hidden='true'>"
+    "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' "
+    "viewBox='0 0 1600 900' preserveAspectRatio='xMidYMid slice'>"
+    "<defs>"
+    f"<path id='fpPageTrack' d='{_FP_TRACK_D}'/>"
+    "<style>"
+    "#fp-pagebg .g{stroke:#3a5570;opacity:.16;stroke-width:1}"
+    "#fp-pagebg .trk{fill:none;stroke:#2ee6c9;opacity:.13;stroke-width:2.5;stroke-linejoin:round}"
+    "#fp-pagebg .pulse{fill:none;stroke:#2ee6c9;opacity:.4;stroke-width:3;stroke-linecap:round;"
+    "stroke-dasharray:120 3400;animation:fpPageChase 22s linear infinite}"
+    "@keyframes fpPageChase{to{stroke-dashoffset:-3520}}"
+    "#fp-pagebg .sf{stroke:#f2f5f8;opacity:.14;stroke-width:4}"
+    "@media(prefers-reduced-motion:reduce){#fp-pagebg .pulse{display:none}}"
+    "</style>"
+    "</defs>"
+    "<g class='g'>"
+    + "".join(f"<line x1='{x}' y1='0' x2='{x}' y2='900'/>" for x in range(0, 1601, 96))
+    + "".join(f"<line x1='0' y1='{y}' x2='1600' y2='{y}'/>" for y in range(0, 901, 96))
+    + "</g>"
+    "<use xlink:href='#fpPageTrack' class='trk'/>"
+    "<use xlink:href='#fpPageTrack' class='pulse'/>"
+    "<line class='sf' x1='240' y1='700' x2='240' y2='740'/>"
     "</svg></div>"
 )
 

@@ -243,7 +243,7 @@ VALID_PAGES = {
     'compare', 'drivers', 'learn', 'favourites', 'teams', 'standings',
     'f2f3', 'glossary', 'assistant', 'games',
     # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
-    'stewarlde', 'gridmaster', 'team_manager', 'predictor', 'draft', 'paddock_career',
+    'stewarlde', 'paddock_career',
 }
 #  - URL `?p=` DEĞİŞTİYSE (sert nav / geri-ileri / <a href> yedeği): onu izle.
 #  - URL aynı ama kod içi `st.session_state['page'] = X; st.rerun()` çağrılmışsa
@@ -421,6 +421,11 @@ for _pk in sorted(VALID_PAGES):
     st.button("·", key=f"njp_{_pk}", on_click=_nav_jump, args=(_pk,))
 for _lk in ('tr', 'en'):
     st.button("·", key=f"njl_{_lk}", on_click=_lang_jump, args=(_lk,))
+
+# İç sayfa arka planı — ana ekran (hero) hariç her menü sayfasında aynı
+# sabit F1 telemetri katmanı.
+if st.session_state['page'] != 'home':
+    fp_ui.page_background()
 
 
 # 2. SON TAMAMLANAN SEANSI VE GERÇEK İLK 5'İ ÇEKEN FONKSİYONLAR
@@ -5992,8 +5997,8 @@ def render_paddock_draft_game_v30():
 def render_paddock_career_alpha_v01():
     """Instant browser prototype while the full Unity WebGL production is prepared."""
     _game_shell(
-        "Paddock Career · Sürüş Prototipi",
-        "Alpha 0.3 · Paddock Ring GP · sabit yakın takip · tam-pist minimap · fizik tabanlı AI.",
+        "Paddock Career · 2D Yarış",
+        "Paddock Ring GP · 6 araçlık grid · DRS + ERS · lastik aşınması · pit yolu · çarpışma.",
         "#e10600",
     )
     game_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paddock_ring_alpha.html")
@@ -6054,11 +6059,7 @@ def render_games_hub_v30():
     render_html_hud(games_profile_hud_html(_gp), height=98)
     games = [
         ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu bul.", "#ff385c", "Stewardle aç", "stewarlde"),
-        ("10 SORULUK MÜCADELE", "GridMaster", "Zor sorular, seri çarpanı, telsiz jokeri ve rütbe sistemi.", "#f7c948", "Mücadeleyi aç", "gridmaster"),
-        ("KARİYER", "Takım Patronu", "Pilot, lastik, tempo ve bütçe kararlarıyla sezon yönet.", "#2ee6c9", "Kariyeri aç", "team_manager"),
-        ("KADRO PAZARI", "Paddock Draft", "İki pilot seç, uyum kur ve sponsor bütçeni büyüt.", "#a78bfa", "Draftı aç", "draft"),
-        ("YARIŞ TAHMİNİ", "Paddock Tahmin", "Pole ve podyum tahminini gerçek sonuçla karşılaştır.", "#7dd3fc", "Tahmini aç", "predictor"),
-        ("SÜRÜŞ ALPHA 0.3", "Paddock Career", "Yeni yumuşak GP pistinde yakın takip kamerası, sabit minimap ve fren yapan AI ile yarış.", "#e10600", "Motoru çalıştır", "paddock_career"),
+        ("2D YARIŞ", "Paddock Career", "Çok rakipli grid, DRS + ERS, lastik aşınması ve pit yolu ile 2D yarış motoru.", "#e10600", "Motoru çalıştır", "paddock_career"),
     ]
     for start in range(0, len(games), 2):
         columns = st.columns(2)
@@ -7120,14 +7121,6 @@ elif st.session_state['page'] == 'games':
     render_games_hub()
 elif st.session_state['page'] == 'stewarlde':
     render_stewarlde()
-elif st.session_state['page'] == 'gridmaster':
-    render_gridmaster()
-elif st.session_state['page'] == 'team_manager':
-    render_team_manager_game()
-elif st.session_state['page'] == 'predictor':
-    render_paddock_predictor()
-elif st.session_state['page'] == 'draft':
-    render_paddock_draft_game_v19()
 elif st.session_state['page'] == 'paddock_career':
     render_paddock_career_alpha_v01()
 
