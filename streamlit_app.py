@@ -2913,8 +2913,22 @@ def _build_stable_race_replay_payload_v25(year, event_name):
         source = source.apply(pd.to_numeric, errors='coerce').dropna().sort_values('Distance').drop_duplicates('Distance')
         if len(source) < 40:
             return {'ok': False, 'reason': 'Pist çizimi için yeterli telemetri noktası yok.'}
+        # GPS aykırı sıçramaları (bir kare ışınlanan nokta) pisti bozuk çizdiriyordu:
+        # ardışık adım uzunluğunun medyanına göre aşırı büyük sıçramaları at.
+        xy = source[['X', 'Y']].to_numpy(dtype=float)
+        if len(xy) > 8:
+            step = np.hypot(np.diff(xy[:, 0]), np.diff(xy[:, 1]))
+            typical = float(np.median(step[step > 0])) if np.any(step > 0) else 0.0
+            if typical > 0:
+                keep = np.concatenate(([True], step <= typical * 6.0))
+                if keep.sum() >= max(40, int(len(xy) * 0.6)):
+                    source = source[keep]
         distances = np.linspace(float(source['Distance'].min()), float(source['Distance'].max()), 720)
-        track = [[round(float(np.interp(value, source['Distance'], source['X'])), 1), round(float(np.interp(value, source['Distance'], source['Y'])), 1)] for value in distances]
+        xs = np.interp(distances, source['Distance'], source['X'])
+        ys = np.interp(distances, source['Distance'], source['Y'])
+        # başlangıç ve bitiş noktasını birleştirerek kapalı bir tur elde et
+        xs[-1], ys[-1] = xs[0], ys[0]
+        track = [[round(float(px), 1), round(float(py), 1)] for px, py in zip(xs, ys)]
 
         prepared, all_starts, total_laps = [], [], 0
         for _, result in session.results.iterrows():
@@ -4166,8 +4180,8 @@ def stable_race_replay_html(payload):
     packed = fp_ui.json_for_script(_replay_overlay_v26(dict(payload)))
     return r"""<!doctype html><html><head><meta charset="utf-8"><style>
 *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.r{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.key{border:1px solid #334d69;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:850;color:#bcd0e4;background:#101d2f}.key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:510px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px}.hero{border-bottom:1px solid #2b4058;padding:0 0 10px;margin-bottom:8px;min-height:74px}.hero b{font-size:21px;color:var(--team)}.hero small{display:block;color:#a9bbcd;margin-top:5px}.hero img{float:right;width:65px;height:82px;object-fit:contain;object-position:right bottom;margin:-8px -4px -2px 8px}.stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #26394f;font-size:12px;gap:8px}.stat span{color:#92a7bc}.pit{color:#ffd46b}.on{color:#81e6ac}.tyrebar{height:8px;border-radius:99px;background:#07101a;overflow:hidden;margin:7px 0 2px}.tyrebar i{display:block;height:100%;background:var(--tyre);width:var(--wear)}.controls,.strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn,.pilot{border:1px solid #39516f;border-radius:7px;background:#142239;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}.pilot{border-left:4px solid var(--team);font-size:11px}.pilot.active{background:#1c3049;box-shadow:0 0 0 1px var(--team) inset}.slider{accent-color:#ff4051;flex:1;min-width:135px}.clock{font:900 12px ui-monospace,Consolas,monospace}.note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.grid{grid-template-columns:1fr}.map canvas{height:390px}}
-</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div><div class="legend"><span class="key"><i style="background:#45c8ff"></i>Straight Mode</span><span class="key"><i style="background:#71e6a1"></i>Overtake olasılığı</span><span class="key"><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key"><i style="background:#ffd46b"></i>Pit şeridi şematik</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn active" data-speed="1">1× Gerçek</button><button class="btn" data-speed="5">5×</button><button class="btn" data-speed="20">20×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
-const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],overlay=data.overlay||{},canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.code||'',playing=true,speed=1,time=0,last=performance.now(),lastHud=0,lastKey='',view=null;const tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};
+</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div><div class="legend"><span class="key"><i style="background:#45c8ff"></i>Straight Mode</span><span class="key"><i style="background:#71e6a1"></i>Overtake olasılığı</span><span class="key"><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key"><i style="background:#ffd46b"></i>Pit şeridi şematik</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
+const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],overlay=data.overlay||{},canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.code||'',playing=true,speed=6,time=0,last=performance.now(),lastHud=0,lastKey='',view=null;const tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const fmt=n=>{n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
 function lap(c,t){const a=c.laps||[];for(let i=0;i<a.length;i++)if(t<=a[i].end)return a[i];return a[a.length-1]||null}function pitEvent(c,t){return(c.pit_events||[]).find(e=>t>=e.start&&t<=e.end)||null}function state(c,t){const l=lap(c,t),a=c.laps||[],last=a[a.length-1],out=!!c.retired&&t>=(last?.end||0);if(!l)return{lap:0,frac:0,pos:c.grid||20,pit:false,out};const i=a.indexOf(l),previous=a[Math.max(0,i-1)]?.position||l.start_position||c.grid||20,frac=Math.max(0,Math.min(1,(t-l.start)/(l.end-l.start||1)));return{lap:l.lap,frac,pos:frac>.997?(l.position||previous):previous,pit:!out&&!!pitEvent(c,t),out}}
 function point(f){const n=route.length;if(!n)return{x:0,y:0,a:0};const p=((f%1)+1)%1*n,i=Math.floor(p),r=p-i,a=route[i],b=route[(i+1)%n];return{x:a[0]+(b[0]-a[0])*r,y:a[1]+(b[1]-a[1])*r,a:Math.atan2(b[1]-a[1],b[0]-a[0])}}function visual(c,t){const s=state(c,t),start=Math.max(0,1-Math.min(1,t/4)),grid=((c.grid||1)-1)*.0013*start;return point(s.frac-grid)}
@@ -4175,11 +4189,22 @@ function transform(){const xs=route.map(p=>p[0]),ys=route.map(p=>p[1]),minX=Math
 function mark(f,label,col){const q=xy(point(f),view);ctx.fillStyle=col;ctx.beginPath();ctx.arc(q[0],q[1],4,0,Math.PI*2);ctx.fill();ctx.fillStyle='#eaf4ff';ctx.font='bold 9px Arial';ctx.textAlign='left';ctx.fillText(label,q[0]+6,q[1]-6)}function zone(z,label,col){if(!Number.isFinite(z.start)||!Number.isFinite(z.end))return;ctx.beginPath();for(let i=0;i<=28;i++){const q=xy(point(z.start+(z.end-z.start)*i/28),view);i?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle=col;ctx.lineWidth=6;ctx.globalAlpha=.9;ctx.stroke();ctx.globalAlpha=1;mark(z.start,label,col)}
 function pitPath(){const marks=overlay.pit||[],pin=marks.find(x=>String(x.label||'').includes('IN'))?.fraction??.972,pout=marks.find(x=>String(x.label||'').includes('OUT'))?.fraction??.032,a=xy(point(pin),view),b=xy(point(pout),view),dx=b[0]-a[0],dy=b[1]-a[1],len=Math.max(1,Math.hypot(dx,dy)),nx=-dy/len,ny=dx/len,dir=(a[0]+b[0])/2<view.w/2?1:-1,offset=Math.min(58,Math.max(34,view.w*.065))*dir;return{a,b,c:[a[0]+nx*offset,a[1]+ny*offset],d:[b[0]+nx*offset,b[1]+ny*offset]}}function bez(p0,p1,p2,p3,u){const v=1-u;return{x:v*v*v*p0[0]+3*v*v*u*p1[0]+3*v*u*u*p2[0]+u*u*u*p3[0],y:v*v*v*p0[1]+3*v*v*u*p1[1]+3*v*u*u*p2[1]+u*u*u*p3[1]}}function pitPoint(event,t){const p=pitPath(),u=Math.max(0,Math.min(1,(t-event.start)/(event.end-event.start||1))),q=bez(p.a,p.c,p.d,p.b,u),q2=bez(p.a,p.c,p.d,p.b,Math.min(1,u+.012));return{x:q.x,y:q.y,a:Math.atan2(q2.y-q.y,q2.x-q.x)}}
 function drawLane(){const p=pitPath();ctx.beginPath();ctx.moveTo(...p.a);ctx.bezierCurveTo(...p.c,...p.d,...p.b);ctx.strokeStyle='#ffd46b';ctx.lineWidth=4;ctx.setLineDash([7,5]);ctx.globalAlpha=.9;ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;ctx.fillStyle='#ffd46b';ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.fillText('PIT LANE (şematik)',(p.c[0]+p.d[0])/2,(p.c[1]+p.d[1])/2-8)}
-function car(x,y,a,c,code,chosen,pit){ctx.save();ctx.translate(x,y);ctx.rotate(-a);ctx.fillStyle='#050a10';ctx.fillRect(-12,-7,5,14);ctx.fillRect(10,-8,4,16);ctx.fillStyle=c;ctx.fillRect(-8,-4,21,8);ctx.fillRect(8,-2,9,4);ctx.fillRect(13,-8,3,16);ctx.fillStyle='#f4f7ff';ctx.fillRect(-16,-9,3,18);ctx.fillRect(0,-1,8,2);if(pit){ctx.strokeStyle='#ffd44b';ctx.lineWidth=2;ctx.strokeRect(-19,-12,39,24)}if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.3;ctx.strokeRect(-21,-14,43,28)}ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(code,x,y-15)}
+function car(x,y,a,c,code,chosen,pit){ctx.save();ctx.translate(x,y);ctx.rotate(-a);var s=0.92;
+ ctx.fillStyle='#05080d';[[-13,-11,7,6],[-13,5,7,6],[8,-12,7,7],[8,5,7,7]].forEach(function(w){ctx.beginPath();ctx.roundRect(w[0]*s,w[1]*s,w[2]*s,w[3]*s,2);ctx.fill();});
+ var g=ctx.createLinearGradient(-16*s,0,18*s,0);g.addColorStop(0,'#0b0f16');g.addColorStop(.5,c);g.addColorStop(1,'#0b0f16');ctx.fillStyle=g;
+ ctx.beginPath();ctx.moveTo(19*s,0);ctx.lineTo(9*s,-4.6*s);ctx.lineTo(-10*s,-5.4*s);ctx.lineTo(-13*s,-3.6*s);ctx.lineTo(-13*s,3.6*s);ctx.lineTo(-10*s,5.4*s);ctx.lineTo(9*s,4.6*s);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#0c141d';ctx.beginPath();ctx.ellipse(2*s,0,5*s,3.6*s,0,0,7);ctx.fill();
+ ctx.strokeStyle='#243444';ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(3*s,0,4.6*s,-1.1,1.1);ctx.stroke();
+ ctx.fillStyle='#eef4fa';ctx.fillRect(16*s,-13*s,3*s,26*s);ctx.fillStyle=c;ctx.fillRect(15*s,-13*s,1.5*s,26*s);
+ ctx.fillStyle='#eef4fa';ctx.fillRect(-18*s,-10*s,3*s,20*s);
+ if(pit){ctx.strokeStyle='#ffd44b';ctx.lineWidth=2;ctx.strokeRect(-20*s,-13*s,41*s,26*s);}
+ if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.4;ctx.strokeRect(-22*s,-15*s,45*s,30*s);}
+ ctx.restore();ctx.fillStyle=chosen?'#fff':c;ctx.font='900 10px Inter,Arial,sans-serif';ctx.textAlign='center';ctx.fillText(code,x,y-16)}
 function draw(){if(!view||!route.length)return;ctx.clearRect(0,0,view.w,view.h);ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;(overlay.straights||[]).forEach((z,i)=>zone(z,i?'OM · OVERTAKE MODE':'SM · STRAIGHT MODE',i?'#71e6a1':'#45c8ff'));mark(0,'START / FINISH','#fff');(overlay.sectors||[]).forEach(x=>mark(x.fraction,x.label,x.colour||'#f4d35e'));(overlay.pit||[]).forEach(x=>mark(x.fraction,x.label,'#b79cff'));drawLane();cars.forEach(c=>{const s=state(c,time);if(s.out)return;const e=pitEvent(c,time);let q,p;if(e){p=pitPoint(e,time);q=[p.x,p.y]}else{p=visual(c,time);q=xy(p,view)}car(q[0],q[1],p.a,c.colour,c.code,c.code===selected,!!e)})}
 function order(){return cars.filter(c=>!state(c,time).out).sort((a,b)=>{const x=state(a,time),y=state(b,time);return x.pos-y.pos||(y.lap+y.frac)-(x.lap+x.frac)})}function lastPit(c){const e=(c.pit_events||[]).filter(x=>x.end<=time).at(-1);return e?'Tur '+e.lap:'Henüz yok'}
 function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML=list.map(c=>{const s=state(c,time);return`<button class="pilot ${c.code===selected?'active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div><div class="stat"><span>Stint / lastik</span><b>${l?.stint||'—'} · ${compound}</b></div><div class="tyrebar" style="--wear:${wear}%"><i></i></div><div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds)}
 let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}function frame(now){raf=0;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!playing)return;time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}if(now-lastPaint>=33||!playing){lastPaint=now;draw();update()}if(playing)raf=requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(1.5,devicePixelRatio||1);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat';if(playing)startLoop();else{draw();update()}};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;playing=false;document.getElementById('play').textContent='▶ Oynat';lastHud=0;draw();update()};document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;document.getElementById('play').textContent='▶ Oynat'}});document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · doğrulanmış yarış saati';window.addEventListener('resize',resize);resize();startLoop();
+setInterval(function(){if(playing&&performance.now()-last>120){frame(performance.now());}},50);
 </script></div></body></html>""".replace('__PAYLOAD__', packed)
 
 
@@ -5335,7 +5360,7 @@ def _router_page_live():
         "warning",
     )
 
-    timing_tab, replay_tab = st.tabs(["Dereceler", "2026 Yarış Tekrarı"])
+    timing_tab, replay_tab = st.tabs(["Dereceler", "Yarış Tekrarı"])
     if False:  # Alpha: doğrulanmış canlı konum altyapısı tamamlanana kadar gizli.
         token, openf1_username, openf1_password = get_openf1_access_v19()
         refresh_live = st.button("🔄 Açık canlı veri paketini yenile", key='refresh_live_v19')
@@ -5417,14 +5442,20 @@ def _router_page_live():
                 st.info("Bu seansın derecelerini görmek için yukarıdaki düğmeye basabilirsin.")
 
     with replay_tab:
-        st.markdown("### 🎬 2026 Yarış Tekrar Merkezi")
-        st.caption("Tüm 2026 hafta sonları burada tek yerde. Tamamlanan seansların doğrulanmış sonuçları ve yarış lastik stintleri otomatik gelir; gelecekteki yarışlarda program görünür.")
-        replay_events = get_calendar_details(2026)
+        _cur_year = datetime.datetime.now(datetime.timezone.utc).year
+        _yr_opts = list(range(_cur_year, 2017, -1))
+        replay_year = st.selectbox(
+            "Sezon", _yr_opts, index=0, key="replay_year_pick",
+            help="2018 ve sonrası için doğrulanmış konum telemetrisi bulunur; daha eski yıllarda yalnızca sonuç tablosu gelebilir.",
+        )
+        st.markdown(f"### 🎬 {replay_year} Yarış Tekrar Merkezi")
+        st.caption(f"Seçtiğin sezonun tüm hafta sonları. Tamamlanan seansların doğrulanmış sonuçları ve yarış lastik stintleri otomatik gelir; gelecekteki yarışlarda program görünür.")
+        replay_events = get_calendar_details(replay_year)
         if not replay_events:
-            st.info("2026 takvimi şu an alınamadı.")
+            st.info(f"{replay_year} takvimi şu an alınamadı.")
         else:
             replay_names = [str(event.get('EventName', 'Formula 1')) for event in replay_events]
-            replay_event_name = st.selectbox("2026 yarışını seç", replay_names, key="replay_event_2026")
+            replay_event_name = st.selectbox("Yarış seç", replay_names, key=f"replay_event_{replay_year}")
             replay_event = next(event for event in replay_events if str(event.get('EventName', '')) == replay_event_name)
             replay_sessions = event_session_cards(replay_event)
             now_utc = datetime.datetime.now(datetime.timezone.utc)
@@ -5453,11 +5484,11 @@ def _router_page_live():
                     [item['title'] for item in finished_sessions],
                     index=default_replay_index,
                     horizontal=True,
-                    key=f"replay_session_2026_{replay_event_name}",
+                    key=f"replay_session_{replay_year}_{replay_event_name}",
                 )
                 replay_session = next(item for item in finished_sessions if item['title'] == replay_session_title)
                 is_race_replay = replay_session['code'] == 'R'
-                replay_hud_key = f"clean_race_replay_hud_2026_{replay_event_name}"
+                replay_hud_key = f"clean_race_replay_hud_{replay_year}_{replay_event_name}"
 
                 # 2D butonu sonuç tablosundan önce gelir. Böylece uzun tablo, kullanıcıyı
                 # gerçek replay girişinden aşağıya itmez ve boş geçici bir tablo 2D'yi engellemez.
@@ -5477,7 +5508,7 @@ def _router_page_live():
                             "info",
                         )
                         with st.spinner("Doğrulanmış yarış haritası hazırlanıyor..."):
-                            replay_payload = build_stable_race_replay_payload(2026, replay_event_name)
+                            replay_payload = build_stable_race_replay_payload(replay_year, replay_event_name)
                         if replay_payload.get('ok'):
                             render_data_state(
                                 "RACE PACKAGE READY",
@@ -5494,11 +5525,11 @@ def _router_page_live():
                             st.markdown("#### 📈 Tur tur pozisyon akışı")
                             render_html_hud(position_flow_html(replay_payload), height=520, scrolling=True)
 
-                            intelligence_key = f"race_intelligence_2026_{replay_event_name}"
+                            intelligence_key = f"race_intelligence_{replay_year}_{replay_event_name}"
                             st.session_state[intelligence_key] = True
                             if st.session_state.get(intelligence_key, False):
                                 with st.spinner("Hava, pit-lane ve Race Control verisi hazırlanıyor..."):
-                                    race_intelligence = get_race_intelligence_v19(2026, replay_event_name)
+                                    race_intelligence = get_race_intelligence_v19(replay_year, replay_event_name)
                                 render_html_hud(
                                     race_intelligence_hud_html_v19(race_intelligence),
                                     height=530,
@@ -5518,7 +5549,7 @@ def _router_page_live():
                 # replay düğmesini ortadan kaldırmaz.
                 with st.expander("🏁 Seans sonuçları ve lastik detayları", expanded=not is_race_replay):
                     with st.spinner("Doğrulanmış seans sonuçları hazırlanıyor..."):
-                        replay_table, replay_laps = get_session_results_table(2026, replay_event_name, replay_session['code'])
+                        replay_table, replay_laps = get_session_results_table(replay_year, replay_event_name, replay_session['code'])
 
                     if replay_table.empty:
                         st.info("Bu seans tamamlanmış görünüyor ama sonuç verisi FastF1'e henüz düşmedi.")
@@ -5526,7 +5557,7 @@ def _router_page_live():
                         render_html_hud(
                             session_leaderboard_html(
                                 replay_table,
-                                f"2026 // {replay_event_name} // {replay_session['title'].upper()}"
+                                f"{replay_year} // {replay_event_name} // {replay_session['title'].upper()}"
                             ),
                             height=leaderboard_component_height(replay_table),
                             scrolling=True,
