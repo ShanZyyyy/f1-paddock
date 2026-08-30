@@ -342,11 +342,18 @@ inject_sidebar_theme = inject_shell_theme  # geriye donuk ad
 # =====================================================================
 # BASLIKLAR
 # =====================================================================
+# Kırıntı yolu (breadcrumb) çizildiğinde eyebrow gereksiz olur — router bunu
+# her rerun'da True/False set eder.
+_SUPPRESS_EYEBROW = False
+
+
 def page_header(title, subtitle="", eyebrow="", badge=None, badge_tone="neutral"):
     badge_html = ""
     if badge:
         cls = {"live": "live", "wait": "wait"}.get(badge_tone, "")
         badge_html = f"<span class='fp-badge {cls}'>{_esc(badge)}</span>"
+    if _SUPPRESS_EYEBROW:
+        eyebrow = ""
     eyebrow_html = f"<div class='fp-eyebrow'>{_esc(eyebrow)}</div>" if eyebrow else ""
     sub_html = f"<div class='sub'>{_esc(subtitle)}</div>" if subtitle else ""
     st.markdown(

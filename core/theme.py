@@ -277,6 +277,18 @@ _FP_COMPONENTS_CSS = r"""
 .hud-card.game-card-v24 .hud-label,.hud-card.game-choice-v19 .hud-label{
   font-family:var(--fp-f-mono);letter-spacing:.16em;color:var(--gc,var(--fp-text-mute)) !important}
 
+/* ---- eski kartlar (.hud-card / .driver-card / .news-card / .metric-card) ----
+   Tek dile getir: pahlı köşe + nokta zemin + iç çerçeve. Satır-içi accent
+   border'lar (border-left/top) çoğunlukla görünür kalır (yalnız kesik köşe kırpılır);
+   drop-shadow clip-path ile bozulacağı için iç çerçeveye çevrildi. */
+.hud-card,.metric-card,.driver-card,.news-card{
+  border-radius:0 !important;
+  clip-path:polygon(11px 0,100% 0,100% calc(100% - 11px),calc(100% - 11px) 100%,0 100%,0 11px);
+  background:var(--fp-bg-2) !important;
+  background-image:var(--fp-dot) !important;background-size:var(--fp-dot-size) !important;
+  box-shadow:inset 0 0 0 1px var(--fp-line) !important}
+.hud-card:hover,.metric-card:hover,.driver-card:hover{transform:none !important;box-shadow:inset 0 0 0 1px var(--fp-line) !important}
+
 /* ---- stat tile ---- */
 .fp-tile{position:relative;background-color:var(--fp-bg-2);
   background-image:var(--fp-dot);background-size:11px 11px;

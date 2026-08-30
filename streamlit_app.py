@@ -3605,7 +3605,7 @@ def render_weekend_centre():
         st.warning('Takvim verisi su anda alinamadi. Biraz sonra tekrar dene.')
         return
     event_names = [str(event.get('EventName', 'Grand Prix')) for event in events]
-    selected_name = st.selectbox('Grand Prix sec', event_names, key='weekend_centre_event')
+    selected_name = st.selectbox('Grand Prix seç', event_names, key='weekend_centre_event')
     event = next(item for item in events if str(item.get('EventName')) == selected_name)
     sessions = event_session_cards(event)
     st.markdown(f"### {html_lib.escape(selected_name)} // {html_lib.escape(str(event.get('Location', '')))}", unsafe_allow_html=True)
@@ -3662,10 +3662,10 @@ def render_favourites_centre():
             st.session_state['page'] = 'weekend'
             st.rerun()
     with cols[1]:
-        if st.button('Pilot karsilastirmasini ac', key='favourite_compare', width='stretch'):
+        if st.button('Pilot karşılaştırmasını aç', key='favourite_compare', width='stretch'):
             st.session_state['page'] = 'compare'
             st.rerun()
-    st.markdown('#### Takim kadrosi')
+    st.markdown('#### Takım kadrosu')
     cards = st.columns(2)
     for col, item in zip(cards, team['drivers']):
         name, code, number, image_path = item
@@ -6436,8 +6436,8 @@ def _router_page_telemetry():
     q_sub_session = None
     if session_type == "Q":
         q_sub_session = st.selectbox(
-            "Siralama elemesi",
-            ["Q3 (Final / Pole)", "Q2", "Q1", "Tum Siralama Seansi"], key="tel_qsub",
+            "Sıralama elemesi",
+            ["Q3 (Final / Pole)", "Q2", "Q1", "Tüm Sıralama Seansı"], key="tel_qsub",
         )
         target_q = "Q3" if "Q3" in q_sub_session else "Q2" if "Q2" in q_sub_session else "Q1" if "Q1" in q_sub_session else None
 
@@ -6445,14 +6445,14 @@ def _router_page_telemetry():
         "🗺️ Kuş Bakışı Pist Dominasyonu",
         "🏎️ 2D Tur Düellosu",
         "🛑 Telemetri & Fren Analizi",
-        "📊 Top Speed & SÜRÜCÜ Tablosu",
+        "📊 Top Hız & Sürücü Tablosu",
         "🛞 Lastik Stratejisi & Stintler",
     ]
-    _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Duellosu", "Fren Analizi", "Top Speed", "Lastik Stratejisi"]
+    _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Top Hız", "Lastik Stratejisi"]
     if hasattr(st, "segmented_control"):
-        _picked = st.segmented_control("Gorunum", _MODE_LABELS, default=_MODE_LABELS[0], key="tel_mode")
+        _picked = st.segmented_control("Görünüm", _MODE_LABELS, default=_MODE_LABELS[0], key="tel_mode")
     else:
-        _picked = st.radio("Gorunum", _MODE_LABELS, horizontal=True, key="tel_mode")
+        _picked = st.radio("Görünüm", _MODE_LABELS, horizontal=True, key="tel_mode")
     analiz_turu = _MODES[_MODE_LABELS.index(_picked)] if _picked in _MODE_LABELS else _MODES[0]
 
     st.write("")
@@ -7025,7 +7025,7 @@ def _router_page_standings():
     fp_ui.page_header(T("page.standings.title"), T("page.standings.sub"), eyebrow=T("section.champ"))
     fp_ui.data_state(
         "Sezon Verisi",
-        "2026 sonuclari dogrulanmis FastF1 paketinden otomatik hazirlanir. Ilk acilis kisa surebilir; sonrasi yerel onbellekten gelir.",
+        "2026 sonuçları doğrulanmış FastF1 paketinden otomatik hazırlanır. İlk açılış kısa sürebilir; sonrası yerel önbellekten gelir.",
         "info",
     )
     load_key = 'championship_data_ready_2026'
@@ -7200,6 +7200,8 @@ def render_not_found_page(bad):
 # ROUTER
 # =========================================================
 _active_page = '__404__' if _bad_page else st.session_state['page']
+# İç sayfalarda kırıntı yolu bölüm bağlamını verir; page_header eyebrow'u bastırılır.
+fp_ui._SUPPRESS_EYEBROW = _active_page != 'home'
 if _active_page != 'home':
     _render_breadcrumb(_active_page)
 
