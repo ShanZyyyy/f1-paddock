@@ -252,19 +252,23 @@ def inject_shell_theme():
     # ana sayfadaki hero duman'ı yeter. background_fx() artık çağrılmıyor.
 
 
-def inject_rail_theme():
-    """Kritik sol-menu temasi — EN BASTA (set_page_config'ten hemen sonra).
+_TOPBAR_SKELETON = r"""
+/* Kritik önyükleme: sidebar/toolbar gizle + üst bar için boşluk. EN BAŞTA
+   çalışır ki Streamlit tam temayı basmadan önce yerleşim doğru olsun. */
+section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],
+[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],#MainMenu{
+  display:none !important}
+[data-testid="stHeader"],header[data-testid="stHeader"]{height:0 !important;min-height:0 !important;background:transparent !important}
+.stApp [data-testid="stMain"] .block-container{padding-top:5.8rem}
+"""
 
-    `inject_shell_theme` dosyanin sonunda calistigi icin, ilk boyamada
-    sidebar birkac kare eski (slim-rail oncesi) stille goruruyordu. Bu,
-    :root jetonlari + slim-rail sidebar CSS'ini bir kez daha ONE alir.
-    Idempotent: `_SIDEBAR_CSS` selektorleri (`[class*=st-key-nav_]`) eski
-    monolit sidebar bloklarindan daha spesifik oldugu icin, o bloklar
-    sonradan yuklense bile bu kurallar kazanir; tam tema geldiginde ayni
-    kurallari yeniden yazar."""
+
+def inject_rail_theme():
+    """Kritik önyükleme CSS'i — EN BAŞTA (set_page_config'ten hemen sonra):
+    :root jetonları + sidebar/toolbar'ı gizle + üst bar için boşluk."""
     st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
     st.markdown(
-        "<style>" + theme._root_vars_dual() + theme._SIDEBAR_CSS + "</style>",
+        "<style>" + theme._root_vars_dual() + _TOPBAR_SKELETON + "</style>",
         unsafe_allow_html=True,
     )
 
@@ -522,8 +526,8 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
 .fp-tb{position:fixed;inset:0 0 auto 0;z-index:1000000;font-family:var(--fp-f-body)}
 .fp-tb-bar{display:flex;align-items:center;gap:clamp(.7rem,2vw,1.6rem);height:60px;
   padding:0 clamp(.9rem,3.5vw,2.4rem);
-  background:linear-gradient(180deg,rgba(9,12,17,.95),rgba(9,12,17,.84));
-  border-bottom:1px solid var(--fp-line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  background:linear-gradient(180deg,rgba(8,10,15,.985),rgba(8,10,15,.95));
+  border-bottom:1px solid var(--fp-line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .fp-tb a{text-decoration:none;color:inherit}
 .fp-tb-brand{display:flex;align-items:center;gap:.45rem;font-family:var(--fp-f-display);font-weight:800;
   font-size:15px;letter-spacing:.11em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap;
@@ -592,33 +596,77 @@ _CHEVRON = ("<svg class='ch' viewBox='0 0 48 48'>"
             "</svg>").replace("%23", "#")
 
 
+_TOPBAR_ACTIVE_JS = """
+<script>
+(function(){
+  var PW=window.parent, D;
+  try{ D=PW.document; }catch(e){ return; }
+
+  function paint(){
+    try{
+      var p=new URLSearchParams(PW.location.search).get('p')||'home';
+      D.querySelectorAll('.fp-tb-g').forEach(function(g){
+        var m=[].some.call(g.querySelectorAll('a'),function(a){return (a.getAttribute('href')||'')==='?p='+p;});
+        g.classList.toggle('on',m);
+      });
+      D.querySelectorAll('.fp-drop a').forEach(function(a){
+        a.classList.toggle('on',(a.getAttribute('href')||'')==='?p='+p);
+      });
+    }catch(e){}
+  }
+
+  // Gezinme sırasında barın "kaybolduğu" izlenimini azalt: tıklanır tıklanmaz
+  // yeni sayfanın aktif işaretini boya (Streamlit yeniden yüklerken bile bar
+  // en başta çizildiği için görünür kalır).
+  function bind(){
+    try{
+      D.querySelectorAll('.fp-tb a[href^="?p="]').forEach(function(a){
+        if(a.__fp) return; a.__fp=1;
+        a.addEventListener('click',function(){
+          var k=(a.getAttribute('href')||'').split('p=')[1];
+          if(!k) return;
+          D.querySelectorAll('.fp-tb-g').forEach(function(g){
+            g.classList.toggle('on',[].some.call(g.querySelectorAll('a'),function(x){return (x.getAttribute('href')||'')==='?p='+k;}));
+          });
+        });
+      });
+    }catch(e){}
+  }
+  paint(); bind();
+  setTimeout(function(){paint();bind();},60);
+  setTimeout(function(){paint();bind();},300);
+  PW.addEventListener('popstate',paint);
+})();
+</script>
+"""
+
+
 def topbar(current, lang, standalone=(), groups=(), session_line="", session_live=False):
     """Sabit üst bar. Düz sekmeler (``standalone``) + her biri kendi açılır
     listesi olan gruplar (``groups``). Sol menünün yerini alır.
 
+    Aktif sayfa işareti sunucuda basılmaz; küçük bir istemci scripti URL'den
+    okuyup uygular — böylece st.markdown çıktısı her rerun'da AYNI kalır ve
+    Streamlit DOM'u yeniden kurmaz (bar sayfa geçişinde kaybolmaz/titremez).
+
     ``standalone`` = [(key, label), ...]  — doğrudan link, açılır liste yok
     ``groups``     = [(başlık, birincil_key, [(key, label), ...]), ...]
-    Linkler ``?p=<key>`` kullanır (router query-param senkronu yakalar).
     """
     def _dl(key, label):
-        on = " on" if key == current else ""
-        return f"<a class='{on.strip() or ''}' href='?p={_esc(key)}' target='_self'>{_esc(label)}</a>"
+        return f"<a href='?p={_esc(key)}' target='_self'>{_esc(label)}</a>"
 
     def _plain(key, label):
-        on = " on" if key == current else ""
-        return f"<div class='fp-tb-g{on}'><a href='?p={_esc(key)}' target='_self'>{_esc(label)}</a></div>"
+        return f"<div class='fp-tb-g'><a href='?p={_esc(key)}' target='_self'>{_esc(label)}</a></div>"
 
     tabs = [_plain(k, lbl) for k, lbl in standalone]
     for title, primary, pages in groups:
         if len(pages) <= 1:                      # tek sayfalı grup = düz link
-            k, _lbl = pages[0] if pages else (primary, title)
+            k = pages[0][0] if pages else primary
             tabs.append(_plain(k, title))
             continue
-        keys = {k for k, _ in pages}
-        on = " on" if current in keys else ""
         drop = "".join(_dl(k, lbl) for k, lbl in pages)
         tabs.append(
-            f"<div class='fp-tb-g{on}'>"
+            "<div class='fp-tb-g'>"
             f"<a href='?p={_esc(primary)}' target='_self'>{_esc(title)}<i class='caret'></i></a>"
             f"<div class='fp-drop'>{drop}</div></div>"
         )
@@ -643,3 +691,4 @@ def topbar(current, lang, standalone=(), groups=(), session_line="", session_liv
         + "</div></div>",
         unsafe_allow_html=True,
     )
+    _embed_html(_TOPBAR_ACTIVE_JS, height=0)

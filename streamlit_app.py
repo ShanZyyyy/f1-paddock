@@ -322,6 +322,65 @@ def get_current_or_next_event():
     last_time = last_time.tz_localize('UTC') if last_time.tzinfo is None else last_time.tz_convert('UTC')
     return last_event, "Yarış", last_time, False
 
+
+
+# ==========================================
+# ÜST BAR (NAVİGASYON) — sol menünün yerini aldı; hover'da mega-menü sarkar
+# ==========================================
+
+# Dil: ?lang=tr|en linkleri (üst bardaki TR/EN)
+_qp_lang = st.query_params.get('lang')
+if _qp_lang in ('tr', 'en'):
+    if fp_i18n.get_lang() != _qp_lang:
+        fp_i18n.set_lang(_qp_lang)
+    del st.query_params['lang']
+
+light_mode_v31 = False
+st.markdown(
+    "<style>.status-dot-v31{display:inline-block;width:8px;height:8px;border-radius:50%;"
+    "background:var(--fp-green);box-shadow:0 0 8px var(--fp-green)}</style>",
+    unsafe_allow_html=True,
+)
+
+_nav_now = st.session_state['page']
+
+# Üst bar: "Haberler" düz sekme + eski sidebar bölümlerinin aynısı (her grup kendi açılır listesi)
+NAV_STANDALONE = [("news", T("nav.news"))]
+NAV_GROUPS = [
+    (T("section.data"), "telemetry", [("telemetry", T("nav.telemetry"))]),
+    (T("section.live"), "live", [
+        ("live", T("nav.live")), ("calendar", T("nav.calendar")), ("weekend", T("nav.weekend")),
+        ("story", T("nav.story")), ("compare", T("nav.compare")), ("drivers", T("nav.drivers"))]),
+    (T("section.paddock"), "learn", [("learn", T("nav.learn")), ("favourites", T("nav.favourites"))]),
+    (T("section.champ"), "teams", [
+        ("teams", T("nav.teams")), ("standings", T("nav.standings")), ("f2f3", T("nav.f2f3")),
+        ("glossary", T("nav.glossary")), ("assistant", T("nav.assistant"))]),
+    (T("section.games"), "games", [("games", T("nav.games"))]),
+]
+
+
+def _topbar_session_line():
+    """Üst bardaki 'sıradaki seans' metni — gerçek takvim verisi, kırılgan değil."""
+    try:
+        event, s_name, s_time, is_live = get_current_or_next_event()
+        loc = str(event.get('Location') or event.get('EventName') or '').strip()
+        if not loc:
+            return "", False
+        if is_live:
+            return f"{loc} · {s_name} · CANLI", True
+        delta = s_time - datetime.datetime.now(datetime.timezone.utc)
+        total = max(0, int(delta.total_seconds()))
+        d, h = total // 86400, (total % 86400) // 3600
+        return (f"{loc} · {s_name} · {d}g {h}s" if d else f"{loc} · {s_name} · {h}s"), False
+    except Exception:
+        return "", False
+
+
+_sesh_line, _sesh_live = _topbar_session_line()
+fp_ui.topbar(_nav_now, fp_i18n.get_lang(), standalone=NAV_STANDALONE, groups=NAV_GROUPS,
+             session_line=_sesh_line, session_live=_sesh_live)
+
+
 # 2. SON TAMAMLANAN SEANSI VE GERÇEK İLK 5'İ ÇEKEN FONKSİYONLAR
 @st.cache_data(ttl=120, show_spinner=False)
 def get_latest_completed_session(year):
@@ -3750,61 +3809,6 @@ section[data-testid="stSidebar"] .stButton,section[data-testid="stSidebar"] div[
 # redesign: global .f1-header banner kaldirildi — her sayfa kendi fp_ui.page_header'ini
 # (veya mevcut "## Baslik" basligini) kullaniyor.
 
-# ==========================================
-# ÜST BAR (NAVİGASYON) — sol menünün yerini aldı; hover'da mega-menü sarkar
-# ==========================================
-
-# Dil: ?lang=tr|en linkleri (üst bardaki TR/EN)
-_qp_lang = st.query_params.get('lang')
-if _qp_lang in ('tr', 'en'):
-    if fp_i18n.get_lang() != _qp_lang:
-        fp_i18n.set_lang(_qp_lang)
-    del st.query_params['lang']
-
-light_mode_v31 = False
-st.markdown(
-    "<style>.status-dot-v31{display:inline-block;width:8px;height:8px;border-radius:50%;"
-    "background:var(--fp-green);box-shadow:0 0 8px var(--fp-green)}</style>",
-    unsafe_allow_html=True,
-)
-
-_nav_now = st.session_state['page']
-
-# Üst bar: "Haberler" düz sekme + eski sidebar bölümlerinin aynısı (her grup kendi açılır listesi)
-NAV_STANDALONE = [("news", T("nav.news"))]
-NAV_GROUPS = [
-    (T("section.data"), "telemetry", [("telemetry", T("nav.telemetry"))]),
-    (T("section.live"), "live", [
-        ("live", T("nav.live")), ("calendar", T("nav.calendar")), ("weekend", T("nav.weekend")),
-        ("story", T("nav.story")), ("compare", T("nav.compare")), ("drivers", T("nav.drivers"))]),
-    (T("section.paddock"), "learn", [("learn", T("nav.learn")), ("favourites", T("nav.favourites"))]),
-    (T("section.champ"), "teams", [
-        ("teams", T("nav.teams")), ("standings", T("nav.standings")), ("f2f3", T("nav.f2f3")),
-        ("glossary", T("nav.glossary")), ("assistant", T("nav.assistant"))]),
-    (T("section.games"), "games", [("games", T("nav.games"))]),
-]
-
-
-def _topbar_session_line():
-    """Üst bardaki 'sıradaki seans' metni — gerçek takvim verisi, kırılgan değil."""
-    try:
-        event, s_name, s_time, is_live = get_current_or_next_event()
-        loc = str(event.get('Location') or event.get('EventName') or '').strip()
-        if not loc:
-            return "", False
-        if is_live:
-            return f"{loc} · {s_name} · CANLI", True
-        delta = s_time - datetime.datetime.now(datetime.timezone.utc)
-        total = max(0, int(delta.total_seconds()))
-        d, h = total // 86400, (total % 86400) // 3600
-        return (f"{loc} · {s_name} · {d}g {h}s" if d else f"{loc} · {s_name} · {h}s"), False
-    except Exception:
-        return "", False
-
-
-_sesh_line, _sesh_live = _topbar_session_line()
-fp_ui.topbar(_nav_now, fp_i18n.get_lang(), standalone=NAV_STANDALONE, groups=NAV_GROUPS,
-             session_line=_sesh_line, session_live=_sesh_live)
 
 # ==========================================
 # SAYFA 1: ANA SAYFA & DİNAMİK RACECENTER
