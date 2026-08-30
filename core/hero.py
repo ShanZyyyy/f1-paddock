@@ -129,7 +129,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 @keyframes dashIn{0%{opacity:0;transform:translateY(-50%) translateX(44px)}100%{opacity:1;transform:translateY(-50%) translateX(0)}}
 .stage.settled .dash{opacity:1;transform:translateY(-50%);animation:none}
 
-.tag-block{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:14vh;z-index:12;
+.tag-block{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:19vh;z-index:12;
   max-width:min(42rem,58vw);opacity:0}
 .tag{font-family:var(--f-display);font-weight:700;
   font-size:min(clamp(3rem,9vw,8.2rem),13.5vh);line-height:.84;
