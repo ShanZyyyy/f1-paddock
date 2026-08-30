@@ -34,8 +34,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   gap:clamp(1rem,4vw,3rem);padding:1.15rem clamp(1.25rem,5vw,3.5rem);font-family:var(--f-mono)}
 .wordmark{display:flex;align-items:center;gap:.6rem;font-family:var(--f-display);font-weight:700;
   font-size:1.04rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text);white-space:nowrap;
-  transform-origin:left center;pointer-events:none;
-  text-shadow:0 0 0 rgba(180,200,220,0)}
+  transform-origin:center;pointer-events:none}
 .wordmark svg{width:15px;height:15px;flex:0 0 auto}
 .wordmark b{color:var(--rush);font-weight:700}
 .topnav{display:flex;gap:1.6rem;font-size:.66rem;letter-spacing:.2em;color:var(--text-mute);opacity:0}
@@ -47,15 +46,17 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 @media(max-width:760px){.topnav{display:none}}
 
 /* YAZI: dumandan belirir (ortada, dev) → sol-üste uçar → transform:none = tam menü yeri, KALIR */
-.stage.play .wordmark{animation:logoReveal 2.3s cubic-bezier(.36,.78,.16,1) .5s both}
+/* --logo-tx / --logo-ty / --logo-s: JS ile ölçülüp hesaplanır — yazı EKRANIN
+   TAM MERKEZİNDE belirir (vw/vh tahmini değil). */
+.stage.play .wordmark{animation:logoReveal 2.4s cubic-bezier(.36,.78,.16,1) .5s both}
 @keyframes logoReveal{
-  0%  {opacity:0;transform:translate(0vw,40vh) scale(4.4);filter:blur(32px)}
-  22% {opacity:1;transform:translate(0vw,40vh) scale(4.4);filter:blur(0)}
-  40% {opacity:1;transform:translate(0vw,40vh) scale(4.4);filter:blur(0)}
+  0%  {opacity:0;transform:translate(var(--logo-tx,0px),var(--logo-ty,34vh)) scale(var(--logo-s,3.8));filter:blur(32px)}
+  22% {opacity:1;transform:translate(var(--logo-tx,0px),var(--logo-ty,34vh)) scale(var(--logo-s,3.8));filter:blur(0)}
+  42% {opacity:1;transform:translate(var(--logo-tx,0px),var(--logo-ty,34vh)) scale(var(--logo-s,3.8));filter:blur(0)}
   100%{opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
 }
-.stage.play .topnav{animation:fade .6s ease 2.9s both}
-.stage.play .clock{animation:fade .6s ease 3.05s both}
+.stage.play .topnav{animation:fade .6s ease 3.0s both}
+.stage.play .clock{animation:fade .6s ease 3.15s both}
 .stage.settled .wordmark{opacity:1;transform:none;animation:none}
 .stage.settled .topnav,.stage.settled .clock{opacity:1;animation:none}
 @keyframes fade{from{opacity:0}to{opacity:1}}
@@ -75,7 +76,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   transform:translate(calc(var(--px)*-1.1),calc(var(--py)*-1.1))}
 
 /* dumanın içindeki ışık — yazıyı ortaya çıkarır, sonra sakin parıltı olur */
-.bloom{position:absolute;left:54%;top:42%;width:96vw;height:78vh;z-index:3;pointer-events:none;
+.bloom{position:absolute;left:50%;top:48%;width:96vw;height:78vh;z-index:3;pointer-events:none;
   transform:translate(-50%,-50%) translate(calc(var(--px)*-.6),calc(var(--py)*-.6));
   background:radial-gradient(ellipse 46% 52% at 50% 50%,
     rgba(255,247,236,.16), rgba(233,240,251,.09) 34%, rgba(142,169,198,.05) 56%, transparent 74%);
@@ -119,6 +120,28 @@ h1 .accent{color:var(--text)}
   color:var(--text-mute);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:2px;
   transition:color .2s,border-color .2s}
 .textlink:hover{color:var(--text-dim);border-color:var(--text-mute)}
+/* ---------- sağ HUD: sıradaki seans sayacı (soldaki başlıkla aynı anda gelir) ---------- */
+.hud{position:absolute;right:clamp(1.5rem,6vw,5rem);top:50%;transform:translateY(-50%);z-index:11;
+  width:min(384px,42vw);opacity:0;font-family:var(--f-mono);
+  border:1px solid var(--line);border-left:3px solid var(--rush);border-radius:2px;
+  background:linear-gradient(160deg,rgba(17,22,31,.66),rgba(12,16,22,.5));
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);padding:1.35rem 1.5rem}
+.hud-top{display:flex;justify-content:space-between;align-items:baseline;gap:1rem}
+.hud-k{font-size:.62rem;letter-spacing:.22em;color:var(--text-mute)}
+.hud-ev{font-family:var(--f-display);font-weight:700;font-size:.92rem;letter-spacing:.08em;color:var(--text)}
+.hud-count{display:flex;align-items:flex-start;gap:.5rem;margin:.95rem 0 .8rem}
+.hud-count>div{display:flex;flex-direction:column;align-items:center;gap:.32rem}
+.hud-count b{font-size:1.95rem;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
+.hud-count s{font-size:.54rem;letter-spacing:.16em;color:var(--text-mute);text-decoration:none}
+.hud-count .sep{font-size:1.4rem;color:var(--text-mute);padding-top:.15rem}
+.hud-bar{height:2px;background:rgba(201,213,226,.12);border-radius:2px;overflow:hidden;margin-bottom:.7rem}
+.hud-bar i{display:block;height:100%;width:38%;background:linear-gradient(90deg,var(--rush),#ff5b3d)}
+.hud-foot{font-size:.58rem;letter-spacing:.12em;color:var(--text-mute)}
+.stage.play .hud{animation:hudIn 1s cubic-bezier(.2,.7,.2,1) 2.15s both}
+@keyframes hudIn{0%{opacity:0;transform:translateY(-50%) translateX(46px)}100%{opacity:1;transform:translateY(-50%) translateX(0)}}
+.stage.settled .hud{opacity:1;transform:translateY(-50%);animation:none}
+@media(max-width:900px){.hud{display:none}}
+
 .reveal{opacity:0}
 .stage.play .reveal{animation:rise .85s cubic-bezier(.2,.7,.2,1) both}
 .stage.play .reveal.d1{animation-delay:2.0s}.stage.play .reveal.d2{animation-delay:2.18s}
@@ -142,22 +165,18 @@ h1 .accent{color:var(--text)}
   .content{max-width:100%}
   h1{font-size:clamp(2.6rem,15vw,4.4rem)}
   .scrim{background:linear-gradient(180deg,rgba(3,4,6,.16) 0%,rgba(3,4,6,.5) 40%,rgba(3,4,6,.94) 78%)}
-  @keyframes logoReveal{
-    0%{opacity:0;transform:translate(0,32vh) scale(2.7);filter:blur(24px)}
-    22%{opacity:1;transform:translate(0,32vh) scale(2.7);filter:blur(0)}
-    40%{opacity:1;transform:translate(0,32vh) scale(2.7);filter:blur(0)}
-    100%{opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
-  }
 }
 @media(prefers-reduced-motion:reduce){
   .stage.play .wordmark,.stage.play .topnav,.stage.play .clock,.stage.play .bloom,
-  .stage.play .reveal,.dot,.bloom{animation:none !important}
+  .stage.play .reveal,.stage.play .hud,.dot,.bloom{animation:none !important}
   .wordmark,.topnav,.clock,.reveal{opacity:1 !important;transform:none !important}
+  .hud{opacity:1 !important;transform:translateY(-50%) !important}
   .bloom{opacity:.7 !important;transform:translate(-50%,-50%) !important}
 }
 .stage.rm .wordmark,.stage.rm .topnav,.stage.rm .clock,.stage.rm .bloom,
-.stage.rm .reveal,.stage.rm .dot{animation:none !important}
+.stage.rm .reveal,.stage.rm .hud,.stage.rm .dot{animation:none !important}
 .stage.rm .wordmark,.stage.rm .topnav,.stage.rm .clock,.stage.rm .reveal{opacity:1 !important;transform:none !important}
+.stage.rm .hud{opacity:1 !important;transform:translateY(-50%) !important}
 .stage.rm .bloom{opacity:.7 !important;transform:translate(-50%,-50%) !important}
 </style>
 
@@ -210,6 +229,18 @@ h1 .accent{color:var(--text)}
   <div class="scrim" aria-hidden="true"></div>
   <div class="vignette" aria-hidden="true"></div>
 
+  <aside class="hud" aria-label="Sıradaki seansa kalan süre">
+    <div class="hud-top"><span class="hud-k">SIRADAKI SEANS</span><span class="hud-ev">MONZA · FP1</span></div>
+    <div class="hud-count">
+      <div><b id="cd-d">05</b><s>GÜN</s></div><span class="sep">:</span>
+      <div><b id="cd-h">01</b><s>SAAT</s></div><span class="sep">:</span>
+      <div><b id="cd-m">24</b><s>DK</s></div><span class="sep">:</span>
+      <div><b id="cd-s">50</b><s>SN</s></div>
+    </div>
+    <div class="hud-bar"><i></i></div>
+    <div class="hud-foot">seans saati doğrulandı · TSİ</div>
+  </aside>
+
   <div class="content">
     <p class="eyebrow reveal d1">Yarış İstihbaratı</p>
     <h1 class="reveal d2">
@@ -238,10 +269,22 @@ h1 .accent{color:var(--text)}
 var stage=document.getElementById('stage');
 var prefersReduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 
+var pad=function(n){return String(n).padStart(2,'0');};
 var clk=document.getElementById('clk');
-function tick(){var d=new Date(),p=function(n){return String(n).padStart(2,'0');};
-  clk.textContent=p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());}
+function tick(){var d=new Date();clk.textContent=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());}
 tick();setInterval(tick,1000);
+
+/* sıradaki seansa geri sayım (sabit hedef) */
+var cdTarget=Date.now()+((5*86400)+(1*3600)+(24*60)+50)*1000;
+var cdEl={d:document.getElementById('cd-d'),h:document.getElementById('cd-h'),m:document.getElementById('cd-m'),s:document.getElementById('cd-s')};
+function countdown(){
+  var ms=Math.max(0,cdTarget-Date.now());
+  cdEl.d.textContent=pad(Math.floor(ms/86400000));
+  cdEl.h.textContent=pad(Math.floor(ms/3600000)%24);
+  cdEl.m.textContent=pad(Math.floor(ms/60000)%60);
+  cdEl.s.textContent=pad(Math.floor(ms/1000)%60);
+}
+countdown();setInterval(countdown,1000);
 
 /* ---------- WebGL fBm duman ---------- */
 var Smoke=(function(){
@@ -307,11 +350,28 @@ var Smoke=(function(){
   })();
 })();
 
+/* ---------- yazıyı EKRANIN TAM MERKEZİNE hizala (ölçerek) ---------- */
+var wm=document.querySelector('.wordmark');
+function centerLogo(){
+  var prev=wm.style.transform; wm.style.transform='none';
+  var r=wm.getBoundingClientRect();
+  wm.style.transform=prev;
+  if(!r.width) return;
+  var target=Math.min(innerWidth*0.62, 760);
+  var S=Math.max(2.4, Math.min(5.2, target/r.width));
+  var cx=r.left+r.width/2, cy=r.top+r.height/2;
+  stage.style.setProperty('--logo-tx',(innerWidth/2-cx).toFixed(1)+'px');
+  stage.style.setProperty('--logo-ty',(innerHeight/2-cy).toFixed(1)+'px');
+  stage.style.setProperty('--logo-s',S.toFixed(3));
+}
+addEventListener('resize',function(){ if(stage.classList.contains('play')&&!stage.classList.contains('settled')) centerLogo(); });
+
 /* ---------- orkestra ---------- */
 var seen=false;try{seen=sessionStorage.getItem('fp_hero_seen_a8')==='1';}catch(e){}
 
 function playSequence(){
   stage.classList.remove('settled','play');
+  centerLogo();
   void stage.offsetWidth;
   stage.classList.add('play');
   Smoke.start();
@@ -320,7 +380,15 @@ function playSequence(){
 }
 function settle(){stage.classList.add('play','settled');Smoke.start();}
 
-if(prefersReduce||seen){settle();}else{requestAnimationFrame(playSequence);}
+(function run(){
+  if(prefersReduce||seen){ settle(); return; }
+  var started=false;
+  function go(){ if(started)return; started=true; requestAnimationFrame(playSequence); }
+  if(document.fonts&&document.fonts.load){
+    document.fonts.load('700 1rem Antonio').then(go,go);
+    setTimeout(go,600);
+  } else go();
+})();
 
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&Smoke.ok)Smoke.start();});
 
