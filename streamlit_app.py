@@ -245,11 +245,19 @@ VALID_PAGES = {
     # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
     'stewarlde', 'gridmaster', 'team_manager', 'predictor', 'draft', 'paddock_career',
 }
+#  - URL `?p=` DEĞİŞTİYSE (sert nav / geri-ileri / <a href> yedeği): onu izle.
+#  - URL aynı ama kod içi `st.session_state['page'] = X; st.rerun()` çağrılmışsa
+#    (Oyun Merkezi düğmeleri, "hafta sonuna git" vb.): session state kazanır ve
+#    URL'e yazılır. Eskiden ilk kural URL'i kaynak sayıp bu değişiklikleri geri
+#    alıyordu → oyunlar açılmıyordu.
 _qp_page = st.query_params.get('p')
-if _qp_page in VALID_PAGES and _qp_page != st.session_state.get('page'):
+_prev_qp = st.session_state.get('_prev_qp_page')
+if _qp_page != _prev_qp and _qp_page in VALID_PAGES:
     st.session_state['page'] = _qp_page
-if st.query_params.get('p') != st.session_state['page']:
+st.session_state['_prev_qp_page'] = _qp_page
+if st.session_state['page'] in VALID_PAGES and st.session_state['page'] != _qp_page:
     st.query_params['p'] = st.session_state['page']
+    st.session_state['_prev_qp_page'] = st.session_state['page']
 
 # BOOT FIX 1.4.2
 # Eski Streamlit tarayıcı oturumları, daha önce tıklanmış "veri yükle"
@@ -3001,7 +3009,6 @@ def normalise_career_state(state):
 
 
 def render_team_manager_game():
-    st.markdown("## Takım Patronu Kariyeri")
     st.caption("2026 grid kadrosuyla oynanan kariyer oyunu. Sonuçlar oyun motoru tarafından üretilir; gerçek yarış sonucu değildir.")
     pool = game_driver_pool()
     code_to_driver = {driver['code']: driver for driver in pool}
@@ -3212,41 +3219,40 @@ def team_color(team_name):
 
 
 def render_paddock_predictor():
-    st.markdown("## Paddock Predictor")
-    st.caption("Lock pole and podium predictions for the next Grand Prix. The score is calculated once verified FastF1 results are available.")
+    st.caption("Sıradaki Grand Prix için pole ve podyum tahminini kilitle. Puan, doğrulanmış FastF1 sonucu geldiğinde otomatik hesaplanır.")
     pool = game_driver_pool()
     labels = {driver['code']: f"{driver['name']} ({driver['code']})" for driver in pool}
     try:
         event, _session_name, event_time, _live = get_current_or_next_event()
-        event_name = str(event.get('EventName', 'Next Grand Prix'))
+        event_name = str(event.get('EventName', 'Sıradaki Grand Prix'))
         event_year = int(pd.to_datetime(event_time).year)
     except Exception:
-        event_name, event_year = 'Next Grand Prix', 2026
+        event_name, event_year = 'Sıradaki Grand Prix', 2026
     state_key = 'paddock_predictor_v1'
     if state_key not in st.session_state:
         st.session_state[state_key] = None
     state = st.session_state[state_key]
-    st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>PREDICTION TARGET</div><div class='hud-value'>{html_lib.escape(event_name)}</div><div class='driver-meta'>{event_year} | Prediction locks to this event.</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>TAHMİN HEDEFİ</div><div class='hud-value'>{html_lib.escape(event_name)}</div><div class='driver-meta'>{event_year} · Tahmin bu yarışa kilitlenir.</div></div>", unsafe_allow_html=True)
     if state is None or state.get('event_name') != event_name:
         with st.form('predictor_form'):
             pole = st.selectbox('Pole', list(labels), format_func=lambda code: labels[code])
-            winner = st.selectbox('Race winner', list(labels), format_func=lambda code: labels[code])
-            p2 = st.selectbox('P2', list(labels), format_func=lambda code: labels[code])
-            p3 = st.selectbox('P3', list(labels), format_func=lambda code: labels[code])
-            submitted = st.form_submit_button('Lock prediction', width='stretch')
+            winner = st.selectbox('Yarış galibi', list(labels), format_func=lambda code: labels[code])
+            p2 = st.selectbox('2.', list(labels), format_func=lambda code: labels[code])
+            p3 = st.selectbox('3.', list(labels), format_func=lambda code: labels[code])
+            submitted = st.form_submit_button('Tahmini kilitle', width='stretch')
         if submitted:
             if len({winner, p2, p3}) < 3:
-                st.error('The three podium predictions must be different drivers. Pole may be one of them.')
+                st.error('Podyumdaki üç tahmin farklı pilot olmalı. Pole bunlardan biri olabilir.')
             else:
                 st.session_state[state_key] = {'event_name': event_name, 'year': event_year, 'pole': pole, 'winner': winner, 'p2': p2, 'p3': p3}
                 st.rerun()
         return
 
-    st.markdown(f"<div class='hud-card'><b>Locked prediction:</b> Pole {state['pole']} | P1 {state['winner']} | P2 {state['p2']} | P3 {state['p3']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='hud-card'><b>Kilitli tahmin:</b> Pole {state['pole']} · 1. {state['winner']} · 2. {state['p2']} · 3. {state['p3']}</div>", unsafe_allow_html=True)
     race_table, _ = get_session_results_table(state['year'], state['event_name'], 'R')
     quali_table, _ = get_session_results_table(state['year'], state['event_name'], 'Q')
     if race_table.empty or quali_table.empty:
-        st.info('Race results are not verified yet. Your prediction remains locked and will score automatically when results arrive.')
+        st.info('Yarış sonucu henüz doğrulanmadı. Tahminin kilitli kalır ve sonuç geldiğinde otomatik puanlanır.')
     else:
         race_order = race_table['Pilot'].astype(str).tolist()
         pole_order = quali_table['Pilot'].astype(str).tolist()
@@ -3255,9 +3261,9 @@ def render_paddock_predictor():
         score += 15 if race_order and state['winner'] == race_order[0] else 0
         score += 8 if len(race_order) > 1 and state['p2'] == race_order[1] else 0
         score += 8 if len(race_order) > 2 and state['p3'] == race_order[2] else 0
-        st.success(f"Verified result. Your prediction score: {score} / 41")
+        st.success(f"Doğrulanmış sonuç. Tahmin puanın: {score} / 41")
         st.dataframe(race_table.head(10), width='stretch', hide_index=True)
-    if st.button('Clear prediction for a new weekend', key='predictor_reset'):
+    if st.button('Yeni hafta sonu için tahmini temizle', key='predictor_reset'):
         st.session_state[state_key] = None
         st.rerun()
 
@@ -4368,20 +4374,19 @@ def render_paddock_draft_game_v22():
     spent = sum(driver['cost'] for driver in chosen)
     remaining = max(0, int(state['budget_limit']) - spent)
 
-    st.markdown('## Paddock Draft')
-    st.caption('Butce, rating ve pilot uyumuyla kendi iki kisilik kadronu kur. Bu oyun simulasyonudur; gercek sezon sonucu degildir.')
+    st.caption('Bütçe, rating ve pilot uyumuyla kendi iki kişilik kadronu kur. Bu oyun simülasyonudur; gerçek sezon sonucu değildir.')
     head_a, head_b, head_c = st.columns(3)
     with head_a:
-        st.markdown(f"<div class='hud-card draft-summary-v22' style='border-top:5px solid #a78bfa'><div class='hud-label'>DRAFT BUTCESI</div><div class='hud-value'>{state['budget_limit']} M</div><div class='driver-meta'>Kalan: {remaining} M</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='hud-card draft-summary-v22' style='border-top:5px solid #a78bfa'><div class='hud-label'>DRAFT BÜTÇESİ</div><div class='hud-value'>{state['budget_limit']} M</div><div class='driver-meta'>Kalan: {remaining} M</div></div>", unsafe_allow_html=True)
     with head_b:
         st.markdown(f"<div class='hud-card draft-summary-v22' style='border-top:5px solid #2ee6c9'><div class='hud-label'>KADRO</div><div class='hud-value'>{len(chosen)} / 2 pilot</div><div class='driver-meta'>Harcanan: {spent} M</div></div>", unsafe_allow_html=True)
     with head_c:
-        st.markdown(f"<div class='hud-card draft-summary-v22' style='border-top:5px solid #f7c948'><div class='hud-label'>SEZON {state['season']}</div><div class='hud-value'>Sponsor +{state.get('sponsor_bonus', 0)} M</div><div class='driver-meta'>Basarili kadro sonraki sezonu buyutur.</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='hud-card draft-summary-v22' style='border-top:5px solid #f7c948'><div class='hud-label'>SEZON {state['season']}</div><div class='hud-value'>Sponsor +{state.get('sponsor_bonus', 0)} M</div><div class='driver-meta'>Başarılı kadro sonraki sezonu büyütür.</div></div>", unsafe_allow_html=True)
 
     if len(chosen) < 2:
         st.markdown(
-            "<div class='hud-card draft-brief-v22'><div class='hud-label'>22 PILOTLUK KONTRAT PAZARI</div>"
-            "<div class='history-copy' style='margin-top:7px'>Butun grid gorunur. Pazar yenile ile kartlarin sirasi degisir; pilotlar asla gizli altili listeye dusmez.</div></div>",
+            "<div class='hud-card draft-brief-v22'><div class='hud-label'>22 PİLOTLUK KONTRAT PAZARI</div>"
+            "<div class='history-copy' style='margin-top:7px'>Bütün grid görünür. Pazarı yenile ile kartların sırası değişir; pilotlar asla gizli altılı listeye düşmez.</div></div>",
             unsafe_allow_html=True,
         )
         controls_a, controls_b = st.columns([2, 1])
@@ -4614,10 +4619,10 @@ def stewarlde_profile_v25(driver, stats, colour):
 
 
 def render_stewarlde_v25():
-    fp_ui.page_header(
+    _game_shell(
         "Stewardle",
-        "2010–2026 F1 pilot havuzu · kaynak dogrulamali galibiyet, sampiyonluk, GP starti ve ilk GP yili bulmacasi.",
-        eyebrow="Oyunlar",
+        "2010–2026 F1 pilot havuzu · doğrulanmış galibiyet, şampiyonluk, GP startı ve ilk GP yılı bulmacası.",
+        "#ff385c",
     )
     mode = st.radio('Oyun modu', ['Günlük', 'Sınırsız'], horizontal=True, key='stewarlde_mode_v25')
     state_key = 'stewarlde_state_v25'
@@ -5880,17 +5885,26 @@ def gridmaster_questions_v30(difficulty="Zor"):
     return questions
 
 
-def render_game_engine_banner_v30(title, colour):
+def _game_shell(title, subtitle="", colour="#e10600"):
+    """Her oyun sayfasının TEK başlığı: 'Oyun Merkezi'ne dönüş linki + başlık +
+    oyun motoru satırı. Oyunlar bunu bir kez çağırır; ikinci başlık basmaz."""
+    if st.button("← Oyun Merkezi", key=f"game_back_{title[:16]}"):
+        st.session_state['page'] = 'games'
+        st.rerun()
     profile = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
-    fp_ui.page_header(
-        title,
-        f"Paddock Oyun Motoru 3.0 · XP {profile['xp']} · tamamlanan oyun {profile['played']} · en iyi seri {profile['best_streak']}",
-        eyebrow="Oyunlar",
+    fp_ui.page_header(title, subtitle, eyebrow="Oyunlar")
+    st.caption(
+        f"Paddock Oyun Motoru 3.0 · XP {profile['xp']} · "
+        f"tamamlanan oyun {profile['played']} · en iyi seri {profile['best_streak']}"
     )
 
 
+def render_game_engine_banner_v30(title, colour):
+    _game_shell(title, "", colour)
+
+
 def render_gridmaster_v30():
-    fp_ui.page_header("GridMaster", "10 soruluk mucadele · seri carpani · telsiz jokeri · rutbe sistemi.", eyebrow="Oyunlar")
+    _game_shell("GridMaster", "Zor sorular, seri çarpanı, telsiz jokeri ve rütbe sistemi.", "#f7c948")
     difficulty = st.segmented_control("Seviye", ["Zor", "Uzman"], default="Zor", key="gridmaster_level_v30") if hasattr(st, 'segmented_control') else st.radio("Seviye", ["Zor", "Uzman"], horizontal=True, key="gridmaster_level_v30")
     questions = gridmaster_questions_v30(difficulty)
     today = datetime.date.today().isoformat()
@@ -5899,7 +5913,6 @@ def render_gridmaster_v30():
     if not state or state.get('day') != today or state.get('difficulty') != difficulty:
         state = {'day': today, 'difficulty': difficulty, 'index': 0, 'score': 0, 'streak': 0, 'best': 0, 'answers': [], 'feedback': None, 'radio_used': False, 'finished': False}
         st.session_state[state_key] = state
-    render_game_engine_banner_v30("10 Soruluk F1 Bilgi Mücadelesi", "#f7c948")
     st.caption("Sorular pilotun cevabını ele vermez. Seri yaptıkça puan çarpanın yükselir; bir kez telsiz ipucu kullanabilirsin.")
     if not state['finished']:
         question = questions[state['index']]
@@ -5962,29 +5975,26 @@ _render_draft_before_v30 = render_paddock_draft_game_v19
 
 
 def render_team_manager_game_v30():
-    render_game_engine_banner_v30("Takım Patronu Kariyeri", "#2ee6c9")
-    st.caption("Kararlar anında yerel simülasyonda işlenir; sayfanın açılması için dış veri beklenmez.")
+    _game_shell("Takım Patronu", "Pilot, lastik, tempo ve bütçe kararlarıyla bir sezon yönet.", "#2ee6c9")
     _render_team_manager_before_v30()
 
 
 def render_paddock_predictor_v30():
-    render_game_engine_banner_v30("Paddock Tahmin", "#7dd3fc")
-    st.caption("Pole ve podyum tahminini kaydet; tamamlanan yarış geldiğinde doğrulanmış sonuçla puanlanır.")
+    _game_shell("Paddock Tahmin", "Pole ve podyum tahminini gerçek sonuçla karşılaştır.", "#7dd3fc")
     _render_predictor_before_v30()
 
 
 def render_paddock_draft_game_v30():
-    render_game_engine_banner_v30("Paddock Draft Kariyeri", "#a78bfa")
-    st.caption("Tüm aktif grid yerel pazardan anında açılır; bütçe, uyum ve sponsor bonusu sonraki sezona taşınır.")
+    _game_shell("Paddock Draft", "İki pilot seç, uyum kur ve sponsor bütçeni büyüt.", "#a78bfa")
     _render_draft_before_v30()
 
 
 def render_paddock_career_alpha_v01():
     """Instant browser prototype while the full Unity WebGL production is prepared."""
-    fp_ui.page_header(
-        "Paddock Career · Surus Prototipi",
-        "Alpha 0.3 · Paddock Ring GP · sabit yakin takip · tam-pist minimap · fizik tabanli AI.",
-        eyebrow="Oyunlar",
+    _game_shell(
+        "Paddock Career · Sürüş Prototipi",
+        "Alpha 0.3 · Paddock Ring GP · sabit yakın takip · tam-pist minimap · fizik tabanlı AI.",
+        "#e10600",
     )
     game_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paddock_ring_alpha.html")
     try:
@@ -6041,7 +6051,7 @@ def games_profile_hud_html(profile):
 def render_games_hub_v30():
     fp_ui.page_header(T("page.games.title"), T("page.games.sub"), eyebrow=T("section.games"))
     _gp = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
-    render_html_hud(games_profile_hud_html(_gp), height=126)
+    render_html_hud(games_profile_hud_html(_gp), height=98)
     games = [
         ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu bul.", "#ff385c", "Stewardle aç", "stewarlde"),
         ("10 SORULUK MÜCADELE", "GridMaster", "Zor sorular, seri çarpanı, telsiz jokeri ve rütbe sistemi.", "#f7c948", "Mücadeleyi aç", "gridmaster"),
@@ -6055,7 +6065,7 @@ def render_games_hub_v30():
         for column, game in zip(columns, games[start:start + 2]):
             label, title, description, colour, button_text, page = game
             with column:
-                st.markdown(f"<div class='hud-card game-card-v24' style='border-top:5px solid {colour}'><div class='hud-label'>{label}</div><div class='game-card-title-v24'>{title}</div><div class='history-copy' style='margin-top:8px'>{description}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='hud-card game-card-v24' style='--gc:{colour}'><div class='hud-label'>{label}</div><div class='game-card-title-v24'>{title}</div><div class='history-copy' style='margin-top:8px'>{description}</div></div>", unsafe_allow_html=True)
                 if st.button(button_text, key=f"games_v30_{page}", width='stretch'):
                     st.session_state['page'] = page
                     st.rerun()

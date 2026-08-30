@@ -246,6 +246,18 @@ _FP_COMPONENTS_CSS = r"""
 /* ---- pit ızgarası (yan yana widget'lar — yeni fp_ui.pit_grid) ---- */
 .fp-pit{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:6px 0 2px}
 
+/* ---- Oyun Merkezi kartları — pit-duvarı diline uydur (--gc: oyun rengi) ---- */
+.hud-card.game-card-v24,.hud-card.game-choice-v19{
+  border:none !important;border-radius:0 !important;
+  background-color:var(--fp-bg-2) !important;background-image:var(--fp-dot) !important;background-size:var(--fp-dot-size) !important;
+  clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham));
+  box-shadow:inset 0 0 0 1px var(--fp-line), inset 3px 0 0 var(--gc,var(--fp-red)) !important;
+  transform:none !important}
+.hud-card.game-card-v24:hover,.hud-card.game-choice-v19:hover{
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gc,var(--fp-red)) 45%,var(--fp-line)), inset 3px 0 0 var(--gc,var(--fp-red)) !important}
+.hud-card.game-card-v24 .hud-label,.hud-card.game-choice-v19 .hud-label{
+  font-family:var(--fp-f-mono);letter-spacing:.16em;color:var(--gc,var(--fp-text-mute)) !important}
+
 /* ---- stat tile ---- */
 .fp-tile{position:relative;background-color:var(--fp-bg-2);
   background-image:var(--fp-dot);background-size:11px 11px;
