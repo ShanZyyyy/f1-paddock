@@ -244,6 +244,8 @@ VALID_PAGES = {
     'f2f3', 'glossary', 'assistant', 'games',
     # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
     'stewarlde', 'paddock_career',
+    # yardımcı sayfalar (ayaktan / breadcrumb'dan)
+    'faq', 'privacy',
 }
 #  - URL `?p=` DEĞİŞTİYSE (sert nav / geri-ileri / <a href> yedeği): onu izle.
 #  - URL aynı ama kod içi `st.session_state['page'] = X; st.rerun()` çağrılmışsa
@@ -252,10 +254,14 @@ VALID_PAGES = {
 #    alıyordu → oyunlar açılmıyordu.
 _qp_page = st.query_params.get('p')
 _prev_qp = st.session_state.get('_prev_qp_page')
-if _qp_page != _prev_qp and _qp_page in VALID_PAGES:
-    st.session_state['page'] = _qp_page
+_bad_page = None
+if _qp_page != _prev_qp:
+    if _qp_page in VALID_PAGES:
+        st.session_state['page'] = _qp_page
+    elif _qp_page:                                  # ?p=<bilinmeyen> -> 404 (link/eski oturum)
+        _bad_page = _qp_page
 st.session_state['_prev_qp_page'] = _qp_page
-if st.session_state['page'] in VALID_PAGES and st.session_state['page'] != _qp_page:
+if not _bad_page and st.session_state['page'] in VALID_PAGES and st.session_state['page'] != _qp_page:
     st.query_params['p'] = st.session_state['page']
     st.session_state['_prev_qp_page'] = st.session_state['page']
 
@@ -378,6 +384,33 @@ NAV_GROUPS = [
     (T("section.games"), "games", [("games", T("nav.games"))]),
 ]
 
+# sayfa -> (kırıntı etiketi, bölüm etiketi, bölüm birincil sayfası)
+_PAGE_META = {}
+for _t, _pri, _pages in NAV_GROUPS:
+    for _pk, _plbl in _pages:
+        _PAGE_META[_pk] = (_plbl, _t, _pri)
+for _pk, _plbl in NAV_STANDALONE:
+    _PAGE_META[_pk] = (_plbl, _plbl, _pk)
+_PAGE_META['stewarlde'] = ("Stewardle", T("section.games"), "games")
+_PAGE_META['paddock_career'] = ("Paddock Career", T("section.games"), "games")
+_PAGE_META['faq'] = ("SSS", "Bilgi", "faq")
+_PAGE_META['privacy'] = ("Gizlilik", "Bilgi", "privacy")
+
+FOOTER_LINKS = [("SSS", "faq"), ("Gizlilik", "privacy")]
+
+
+def _render_breadcrumb(page):
+    meta = _PAGE_META.get(page)
+    if not meta:
+        fp_ui.breadcrumb([("Ana Ekran", "home"), ("Bulunamadı", None)])
+        return
+    label, section, primary = meta
+    trail = [("Ana Ekran", "home")]
+    if section and section != label:
+        trail.append((section, primary if primary != page else None))
+    trail.append((label, None))
+    fp_ui.breadcrumb(trail)
+
 
 def _topbar_session_line():
     """Üst bardaki 'sıradaki seans' metni — gerçek takvim verisi, kırılgan değil."""
@@ -424,7 +457,7 @@ for _lk in ('tr', 'en'):
 
 # İç sayfa arka planı — ana ekran (hero) hariç her menü sayfasında aynı
 # sabit F1 telemetri katmanı.
-if st.session_state['page'] != 'home':
+if _bad_page or st.session_state['page'] != 'home':
     fp_ui.page_background()
 
 
@@ -7083,9 +7116,96 @@ def _router_page_standings():
 
 
 # =========================================================
+# YARDIMCI SAYFALAR — SSS / Gizlilik / 404
+# =========================================================
+def render_faq_page():
+    fp_ui.page_header("Sık Sorulan Sorular", "Formula Paddock nasıl çalışır — kısa cevaplar.", eyebrow="Bilgi")
+    faqs = [
+        ("Veriler nereden geliyor?",
+         "Zamanlama, sonuç ve takvim verisi **FastF1** ve resmî Formula 1 kaynaklarından; "
+         "tarihsel istatistikler Ergast yansımasından çekilir. Hiçbir sonuç elle girilmez veya uydurulmaz."),
+        ("Canlı 2D pist neden çoğu zaman kapalı?",
+         "Doğrulanmış bir canlı konum sağlayıcısı bağlı olmadığında site sahte canlı konum üretmez. "
+         "Seans sırasında doğrulanmış paket gelirse açılır; gelmezse kapalı kalır."),
+        ("Haberler Türkçeye nasıl çevriliyor?",
+         "İngilizce F1 haber başlık ve özetleri **DeepL API** ile otomatik çevrilir. "
+         "Çeviri geçici olarak alınamazsa özgün metin gösterilir."),
+        ("Oyunlar ve tahminler gerçek mi?",
+         "Stewardle gerçek kariyer verisi kullanır. Paddock Career tamamen bir simülasyondur ve açıkça "
+         "öyle etiketlenir; ürettiği sonuçlar gerçek yarış sonucu değildir."),
+        ("Neden bazen 'veri yok' yazısı görüyorum?",
+         "Seans dışındayken veya kaynak geçici olarak yanıt vermediğinde olur. Hata önbelleğe alınmaz; "
+         "sayfayı yenilediğinde sistem yeniden dener."),
+        ("Sıralama nasıl hesaplanıyor?",
+         "Şampiyona puanları yalnızca **tamamlanmış** yarış ve sprint sonuçlarından üretilir; "
+         "tablo saatlik önbellekten otomatik güncellenir."),
+        ("Site kişisel veri topluyor mu?",
+         "Hayır. Hesap/giriş yok, çerez yok. Ayrıntı için Gizlilik sayfasına bak."),
+    ]
+    for q, a in faqs:
+        with st.expander(q):
+            st.markdown(a)
+
+
+def render_privacy_page():
+    fp_ui.page_header("Gizlilik", "Ne toplanır, ne toplanmaz.", eyebrow="Bilgi")
+    st.markdown(
+        """
+Formula Paddock kişisel bir F1 veri projesidir. **Hesap, giriş veya form yoktur;
+kişisel veri toplanmaz, saklanmaz veya satılmaz.**
+
+**Çerezler.** Reklam veya takip çerezi kullanılmaz. Yalnızca uygulamayı çalıştıran
+Streamlit'in kendi oturum çerezi bulunur.
+
+**Yerel tarayıcı depolaması.** Tema tercihi ve açılış animasyonunun bir kez oynatılması
+gibi küçük ayarlar tarayıcının `localStorage` / `sessionStorage` alanında tutulur.
+Bu veriler cihazından çıkmaz, sunucuya gönderilmez.
+
+**Dış servisler.** Sayfalar şu servislere istek yapar; herhangi bir web sitesinde
+olduğu gibi bu isteklerde IP adresin ilgili servise ulaşır:
+
+- **FastF1 / Formula 1 / Ergast** — yarış verisi
+- **DeepL API** — haber çevirisi
+- **Google Fonts** — yazı tipleri
+
+**Barındırma.** Uygulama Streamlit Community Cloud üzerinde çalışır; Streamlit'in
+kullanım istatistiği toplama özelliği kapalıdır (`gatherUsageStats = false`).
+
+**Analitik.** Ziyaretçi analitiği (Google Analytics vb.) kullanılmaz.
+        """
+    )
+    st.caption(f"Son güncelleme: {datetime.date.today().isoformat()}")
+
+
+def render_not_found_page(bad):
+    fp_ui.page_header("404 · Sayfa bulunamadı", eyebrow="Formula Paddock")
+    fp_ui.data_state(
+        "Yönlendirme",
+        f"“{bad}” diye bir sayfa yok — taşınmış, kaldırılmış ya da bağlantı bozuk olabilir. "
+        "Üstteki menüden ya da aşağıdaki bağlantılardan devam et.",
+        "warning",
+    )
+    cols = st.columns(4)
+    for col, (lbl, key) in zip(cols, [
+        ("Ana Ekran", "home"), ("Haber Merkezi", "news"),
+        ("Seans Takibi", "live"), ("Şampiyonalar", "teams"),
+    ]):
+        with col:
+            if st.button(lbl, key=f"nf_{key}", width='stretch'):
+                st.session_state['page'] = key
+                st.rerun()
+
+
+# =========================================================
 # ROUTER
 # =========================================================
-if st.session_state['page'] == 'home':
+_active_page = '__404__' if _bad_page else st.session_state['page']
+if _active_page != 'home':
+    _render_breadcrumb(_active_page)
+
+if _bad_page:
+    render_not_found_page(_bad_page)
+elif _active_page == 'home':
     _router_page_home()
 elif st.session_state['page'] == 'live':
     _router_page_live()
@@ -7128,5 +7248,19 @@ elif st.session_state['page'] == 'paddock_career':
 elif st.session_state['page'] == 'glossary':
     _view_glossary.render()
 
+# YARDIMCI SAYFALAR
+elif st.session_state['page'] == 'faq':
+    render_faq_page()
+elif st.session_state['page'] == 'privacy':
+    render_privacy_page()
+
+# 404 — bilinmeyen / kaldırılmış sayfa (eski oturum, bozuk link)
+else:
+    render_not_found_page(st.session_state['page'])
+
 # --- sayfa sonu: veri tanılama (yalnız ?debug=1) ---
 render_data_diagnostics_panel()
+
+# --- her sayfanın altında ince ayak (ana ekran hariç — hero tam ekran) ---
+if _bad_page or st.session_state['page'] != 'home':
+    fp_ui.site_footer(FOOTER_LINKS)

@@ -203,6 +203,25 @@ a{color:var(--fp-cyan)}
 
 # .fp-* bilesen siniflari — hem shell_style hem page_style bunu iceriir.
 _FP_COMPONENTS_CSS = r"""
+/* ---- kırıntı yolu (breadcrumb) ---- */
+.fp-crumb{display:flex;flex-wrap:wrap;align-items:center;gap:.15rem;margin:2px 0 10px;
+  font:600 10.5px/1 var(--fp-f-mono);letter-spacing:.08em;text-transform:uppercase}
+.fp-crumb a{color:var(--fp-text-mute);text-decoration:none;transition:color .12s ease}
+.fp-crumb a:hover{color:var(--fp-cyan)}
+.fp-crumb span{color:var(--fp-text-dim)}
+.fp-crumb i{color:var(--fp-line);font-style:normal;padding:0 .35rem}
+
+/* ---- site ayağı (footer) ---- */
+.fp-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1.2rem;
+  margin:44px 0 8px;padding-top:16px;border-top:1px solid var(--fp-line-soft);
+  font:500 11px/1.4 var(--fp-f-mono);letter-spacing:.04em;color:var(--fp-text-mute)}
+.fp-foot b{color:var(--fp-red);font-weight:700}
+.fp-foot .lk{display:flex;gap:1rem;flex:1}
+.fp-foot .lk a{color:var(--fp-text-dim);text-decoration:none}
+.fp-foot .lk a:hover{color:var(--fp-cyan)}
+.fp-foot .yr{margin-left:auto;opacity:.7}
+@media(max-width:620px){.fp-foot .yr{margin-left:0}}
+
 /* ---- eyebrow / bölüm başlığı ---- */
 .fp-eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--fp-text-mute)}
 .fp-section{font-family:var(--fp-f-display);font-weight:700;font-size:19px;letter-spacing:.05em;text-transform:uppercase;

@@ -360,6 +360,40 @@ def section_title(text):
     st.markdown(f"<div class='fp-section'>{_esc(text)}</div>", unsafe_allow_html=True)
 
 
+def breadcrumb(items):
+    """Tıklanabilir kırıntı yolu. ``items`` = [(etiket, sayfa_anahtarı|None), ...]
+    Son öğe düz metin (aktif sayfa); önündekiler ``?p=`` linki."""
+    items = [it for it in items if it and str(it[0]).strip()]
+    if len(items) < 2:
+        return
+    parts = []
+    for i, (label, key) in enumerate(items):
+        last = i == len(items) - 1
+        if last or not key:
+            parts.append(f"<span>{_esc(label)}</span>")
+        else:
+            parts.append(f"<a href='?p={_esc(key)}' target='_self'>{_esc(label)}</a>")
+    st.markdown(
+        "<nav class='fp-crumb'>" + "<i>›</i>".join(parts) + "</nav>",
+        unsafe_allow_html=True,
+    )
+
+
+def site_footer(links=()):
+    """Her sayfanın en altında ince ayak — SSS / Gizlilik gibi yardımcı linkler.
+    ``links`` = [(etiket, sayfa_anahtarı), ...]"""
+    import datetime as _dt
+    lk = "".join(
+        f"<a href='?p={_esc(k)}' target='_self'>{_esc(t)}</a>" for t, k in links
+    )
+    st.markdown(
+        f"<footer class='fp-foot'><span>Formula&nbsp;<b>Paddock</b> · "
+        f"veriyle konuşur, uydurmaz</span><span class='lk'>{lk}</span>"
+        f"<span class='yr'>© {_dt.date.today().year}</span></footer>",
+        unsafe_allow_html=True,
+    )
+
+
 # =====================================================================
 # KARTLAR
 # =====================================================================
@@ -734,7 +768,7 @@ _TOPBAR_ACTIVE_JS = """
     D.addEventListener('click',function(e){
       var t=e.target;
       var a=t && t.closest && t.closest('a[href^="?p="], a[href^="?lang="]');
-      if(!a || !(a.closest('.fp-tb') || a.closest('.fp-tb-skel'))) return;
+      if(!a || !(a.closest('.fp-tb') || a.closest('.fp-tb-skel') || a.closest('.fp-foot') || a.closest('.fp-crumb'))) return;
       var href=a.getAttribute('href')||'';
       if(href.indexOf('?p=')===0){
         if(go(href.slice(3))) e.preventDefault();

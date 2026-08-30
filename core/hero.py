@@ -141,6 +141,19 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .tag-sub{margin-top:1.5rem;font-family:var(--f-body);font-weight:400;
   font-size:clamp(1rem,1.5vw,1.24rem);line-height:1.55;letter-spacing:.01em;
   color:var(--text-dim);max-width:42ch;border-left:2px solid var(--rush);padding-left:15px}
+.tag-cta{display:inline-flex;align-items:center;gap:.5rem;margin-top:1.6rem;
+  font-family:var(--f-display);font-weight:700;font-size:.86rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text);text-decoration:none;padding:.72rem 1.3rem;
+  background:linear-gradient(90deg,var(--rush),#ff3b2f);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  transition:filter .15s ease,transform .15s ease}
+.tag-cta:hover{filter:brightness(1.1);transform:translateX(2px)}
+.tag-cta i{width:.5rem;height:.5rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
+.tag-cta2{display:inline-block;margin:1.6rem 0 0 .9rem;font-family:var(--f-mono);font-size:.72rem;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--text-mute);text-decoration:none;
+  border-bottom:1px solid var(--line);padding-bottom:2px;transition:color .15s ease,border-color .15s ease}
+.tag-cta2:hover{color:var(--text);border-color:var(--steel-dim)}
+@media(max-width:580px){.tag-cta2{display:none}}
 .stage.play .tag-block{animation:tagIn .9s cubic-bezier(.2,.7,.2,1) 4.1s both}
 @keyframes tagIn{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
 .stage.settled .tag-block{opacity:1;transform:none;animation:none}
@@ -207,6 +220,8 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   <div class="tag-block">
     <h1 class="tag"><span>Veriyle</span><span>konuşur.</span><span class="p">Uydurmaz.</span></h1>
     <p class="tag-sub">__SUB__</p>
+    <a class="tag-cta" href="?p=live" target="_top">Sıradaki seansı izle<i></i></a>
+    <a class="tag-cta2" href="?p=news" target="_top">Haber Merkezi</a>
   </div>
   <aside class="dash __LIVECLS__" aria-label="Sıradaki seans">
     <div class="dash-hd"><span>SIRADAKI SEANS</span><b>__EVENT__</b></div>
@@ -236,6 +251,19 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 var stage=document.getElementById('stage');
 var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 var TARGET=__TARGET_MS__, LIVE=__LIVE__;
+
+/* CTA linkleri: iframe sandbox top-navigation'a izin vermiyor -> üst penceredeki
+   görünmez nav butonuna tıkla (üst bardaki mekanizmanın aynısı). */
+Array.prototype.forEach.call(document.querySelectorAll('.tag-cta,.tag-cta2'),function(a){
+  a.addEventListener('click',function(e){
+    var k=(a.getAttribute('href')||'').split('p=')[1]; if(!k) return;
+    try{
+      var b=window.parent.document.querySelector('[class*="st-key-njp_'+k+'"] button');
+      if(b){ e.preventDefault(); b.click(); return; }
+    }catch(err){}
+    try{ e.preventDefault(); window.top.location.href='?p='+k; }catch(err){}
+  });
+});
 
 /* geri sayım + pano halkaları */
 function pad(n){return String(n).padStart(2,'0');}
