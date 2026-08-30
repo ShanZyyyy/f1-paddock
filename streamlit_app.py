@@ -6430,7 +6430,12 @@ div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{ba
 fp_ui.inject_shell_theme()
 fp_ui.control_dock()
 
-if st.session_state['page'] == 'home':
+
+# =========================================================
+# ROUTER SAYFA GOVDELERI  (eskiden if/elif icinde inline'di)
+# =========================================================
+
+def _router_page_home():
     # redesign: F1 TV yonu — page_header + yaris sonuc basligi + sakin race center
     fp_ui.page_header(T("page.home.title"), T("page.home.sub"), eyebrow="Formula Paddock")
 
@@ -6669,7 +6674,9 @@ if st.session_state['page'] == 'home':
             )
 
 # SAYFA 2: CANLI SEANS TAKİBİ
-elif st.session_state['page'] == 'live':
+
+
+def _router_page_live():
     curr_event, target_s_name, target_s_time, is_live_now = get_current_or_next_event()
     gp_name = curr_event['EventName'] if 'EventName' in curr_event else "Hungarian Grand Prix"
     
@@ -6899,7 +6906,9 @@ elif st.session_state['page'] == 'live':
                             )
 
 # SAYFA 3: TELEMETRİ VE DOMİNASYON HARİTASI
-elif st.session_state['page'] == 'telemetry':
+
+
+def _router_page_telemetry():
     fp_ui.page_header(T("page.telemetry.title"), T("page.telemetry.sub"), eyebrow=T("section.data"))
 
     # --- SEANS SEÇİMİ (artik sayfa govdesinde, sidebar yerine) ---
@@ -7260,7 +7269,9 @@ elif st.session_state['page'] == 'telemetry':
         st.error(f"Veriler çekilirken hata oluştu: {e}")
 
 # SAYFA 4: TAKVİM VE PİSTLER
-elif st.session_state['page'] == 'calendar':
+
+
+def _router_page_calendar():
     fp_ui.page_header(T("page.calendar.title"), T("page.calendar.sub"), eyebrow=T("section.live"))
     calendar_year = st.selectbox("Sezon", [2026, 2025, 2024], index=0, key="calendar_year")
     events = get_calendar_details(calendar_year)
@@ -7393,7 +7404,9 @@ elif st.session_state['page'] == 'calendar':
             st.link_button("Resmî yayıncı listesi →", "https://www.formula1.com/en/information/f1-broadcast-information.45y3LNsT1D6VoK0ZmX8ciJ", width='stretch')
 
 # SAYFA 5: TAKIMLAR VE PİLOTLAR
-elif st.session_state['page'] == 'teams':
+
+
+def _router_page_teams():
     fp_ui.page_header(T("page.teams.title"), T("page.teams.sub"), eyebrow=T("section.champ"))
     if 'team_focus' not in st.session_state:
         st.session_state['team_focus'] = 'Mercedes'
@@ -7472,7 +7485,9 @@ elif st.session_state['page'] == 'teams':
         fp_ui.scroll_to("fp-team-detail")
 
 # SAYFA 6: ŞAMPİYONA MERKEZİ
-elif st.session_state['page'] == 'standings':
+
+
+def _router_page_standings():
     fp_ui.page_header(T("page.standings.title"), T("page.standings.sub"), eyebrow=T("section.champ"))
     fp_ui.data_state(
         "Sezon Verisi",
@@ -7564,7 +7579,9 @@ elif st.session_state['page'] == 'standings':
         fp_ui.stat_tile("Pilot", st.session_state.get('favourite_driver', 'George Russell'), accent="cyan", mono=False)
 
 # SAYFA 7: F2 VE F3
-elif st.session_state['page'] == 'f2f3':
+
+
+def _router_page_f2f3():
     fp_ui.page_header(T("page.f2f3.title"), T("page.f2f3.sub"), eyebrow=T("section.champ"))
     fp_ui.data_state("Junior Paddock · Beta", "Takim ve pilot kartlari yerel 2026 kadro dizininden gelir. F2/F3 sonuc akisi dogrulanmis kaynak baglanana kadar F1 puan tablosuyla karistirilmaz.", "info")
     f2_grid = {
@@ -7594,54 +7611,8 @@ elif st.session_state['page'] == 'f2f3':
         render_junior_team_hud('f3', f3_grid, '#ffbe2e', 'https://www.fiaformula3.com')
         st.link_button("Resmî Formula 3 merkezi ↗", "https://www.fiaformula3.com/", width='stretch')
 
-elif st.session_state['page'] == 'weekend':
-    render_weekend_centre()
 
-elif st.session_state['page'] == 'story':
-    render_race_story_centre()
-
-elif st.session_state['page'] == 'compare':
-    render_driver_comparison_centre()
-
-elif st.session_state['page'] == 'drivers':
-    render_drivers_page_v33()
-
-elif st.session_state['page'] == 'learn':
-    render_learning_centre()
-
-elif st.session_state['page'] == 'favourites':
-    render_favourites_centre()
-
-# SAYFA 8: PADDOCK ASİSTANI
-elif st.session_state['page'] == 'news':
-    render_news_centre_v19()
-
-elif st.session_state['page'] == 'assistant':
-    render_paddock_assistant_v20()
-
-elif st.session_state['page'] == 'games':
-    render_games_hub()
-
-elif st.session_state['page'] == 'stewarlde':
-    render_stewarlde()
-
-elif st.session_state['page'] == 'gridmaster':
-    render_gridmaster()
-
-elif st.session_state['page'] == 'team_manager':
-    render_team_manager_game()
-
-elif st.session_state['page'] == 'predictor':
-    render_paddock_predictor()
-
-elif st.session_state['page'] == 'draft':
-    render_paddock_draft_game_v19()
-
-elif st.session_state['page'] == 'paddock_career':
-    render_paddock_career_alpha_v01()
-
-# SAYFA 9: F1 SÖZLÜĞÜ
-elif st.session_state['page'] == 'glossary':
+def _router_page_glossary():
     fp_ui.page_header(T("page.glossary.title"), T("page.glossary.sub"), eyebrow=T("section.paddock"))
     terms = [
         ('2026 Teknolojisi', 'Active Aero', 'Ön ve arka kanadın sürüş koşuluna göre aktif açı değiştirmesidir.', True),
@@ -7717,3 +7688,58 @@ elif st.session_state['page'] == 'glossary':
         badge = " <span class='new-badge'>2026 YENİ</span>" if is_new else f" <span class='term-badge'>{category.upper()}</span>"
         with st.expander(term):
             st.markdown(f"{badge}<p style='margin-top:10px'>{explanation}</p>", unsafe_allow_html=True)
+
+
+# =========================================================
+# ROUTER
+# =========================================================
+if st.session_state['page'] == 'home':
+    _router_page_home()
+elif st.session_state['page'] == 'live':
+    _router_page_live()
+elif st.session_state['page'] == 'telemetry':
+    _router_page_telemetry()
+elif st.session_state['page'] == 'calendar':
+    _router_page_calendar()
+elif st.session_state['page'] == 'teams':
+    _router_page_teams()
+elif st.session_state['page'] == 'standings':
+    _router_page_standings()
+elif st.session_state['page'] == 'f2f3':
+    _router_page_f2f3()
+elif st.session_state['page'] == 'weekend':
+    render_weekend_centre()
+elif st.session_state['page'] == 'story':
+    render_race_story_centre()
+elif st.session_state['page'] == 'compare':
+    render_driver_comparison_centre()
+elif st.session_state['page'] == 'drivers':
+    render_drivers_page_v33()
+elif st.session_state['page'] == 'learn':
+    render_learning_centre()
+elif st.session_state['page'] == 'favourites':
+    render_favourites_centre()
+
+# SAYFA 8: PADDOCK ASİSTANI
+elif st.session_state['page'] == 'news':
+    render_news_centre_v19()
+elif st.session_state['page'] == 'assistant':
+    render_paddock_assistant_v20()
+elif st.session_state['page'] == 'games':
+    render_games_hub()
+elif st.session_state['page'] == 'stewarlde':
+    render_stewarlde()
+elif st.session_state['page'] == 'gridmaster':
+    render_gridmaster()
+elif st.session_state['page'] == 'team_manager':
+    render_team_manager_game()
+elif st.session_state['page'] == 'predictor':
+    render_paddock_predictor()
+elif st.session_state['page'] == 'draft':
+    render_paddock_draft_game_v19()
+elif st.session_state['page'] == 'paddock_career':
+    render_paddock_career_alpha_v01()
+
+# SAYFA 9: F1 SÖZLÜĞÜ
+elif st.session_state['page'] == 'glossary':
+    _router_page_glossary()
