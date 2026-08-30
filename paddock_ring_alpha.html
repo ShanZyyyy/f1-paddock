@@ -260,28 +260,29 @@ const DRS = [[wrap(SF_I-Math.round(M*0.02)), wrap(SF_I+Math.round(M*0.06))],   /
              [Math.round(M*0.30), Math.round(M*0.36)]];                          // T3 sonrası chute
 function inDRS(i){ return DRS.some(z=> z[0]<z[1] ? (i>=z[0]&&i<=z[1]) : (i>=z[0]||i<=z[1]) ); }
 
-// 3) KERB'LER — pist kenarına tam hizalı, teğete uygun açılı parçalar
+// 3) KERB'LER — pist kenar eğrisine oturur; her parça teğete hizalı,
+//    yarıçapa göre iç apeks + sert virajlarda çıkış kerbi
+const KERB_W = 15, KERB_SEG = 13;
 const KERBS=[];
 {
-  let acc=0;
+  let acc = KERB_SEG;
   for(let i=0;i<M;i++){
     const cm = curvMag(i);
-    if(cm < CFG.kerbCurv) { acc=0; continue; }
+    if(cm < CFG.kerbCurv){ acc = KERB_SEG; continue; }
     acc += STEP;
-    if(acc < CFG.kerbStep) continue;
+    if(acc < KERB_SEG) continue;
     acc = 0;
-    const sign = curveAt(i) > 0 ? 1 : -1;    // >0 sola dönüyor -> iç kenar = +normal
-    const nrm = normalAt(i);
-    const t = tangentAt(i);
-    // iç kenar
-    KERBS.push({ x: PATH[i][0] + nrm[0]*sign*CFG.roadHalf,
-                 y: PATH[i][1] + nrm[1]*sign*CFG.roadHalf,
-                 a: t, k: Math.floor(i/1) });
-    // sert virajlarda dış kenara da (exit kerbi)
-    if(cm > 0.6){
-      KERBS.push({ x: PATH[i][0] - nrm[0]*sign*CFG.roadHalf,
-                   y: PATH[i][1] - nrm[1]*sign*CFG.roadHalf,
-                   a: t, k: Math.floor(i/1), out:true });
+    const sign = curveAt(i) > 0 ? 1 : -1;          // >0 sola dönüyor -> iç kenar = +normal
+    const nrm = normalAt(i), t = tangentAt(i);
+    // iç (apeks) kerbi: dış kenarı asfalt sınırıyla çakışır, azıcık içeri taşar
+    const inOff = CFG.roadHalf - KERB_W*0.42;
+    KERBS.push({ x: PATH[i][0] + nrm[0]*sign*inOff, y: PATH[i][1] + nrm[1]*sign*inOff,
+                 a: t, k: (i/KERB_SEG|0) });
+    // sert virajlarda çıkış (dış) kerbi
+    if(cm > 0.5){
+      const outOff = CFG.roadHalf - KERB_W*0.12;
+      KERBS.push({ x: PATH[i][0] - nrm[0]*sign*outOff, y: PATH[i][1] - nrm[1]*sign*outOff,
+                   a: t, k: (i/KERB_SEG|0), out:true });
     }
   }
 }
@@ -316,11 +317,12 @@ function makeCar(o){
 function buildGrid(){
   field=[]; finishOrder=[];
   const codes=['SEN','VER','LEC','PIA','RUS','ALO'];
-  const rowGap = 46;            // 2'li grid: satırlar arası (yay uzunluğu)
-  const sideGap = 40;           // sol/sağ dizilim
+  const rowGap = 30;            // 2'li grid: satırlar arası (yay uzunluğu) — kompakt
+  const sideGap = 30;           // sol/sağ dizilim
   for(let k=0;k<6;k++){
     const row = Math.floor(k/2);
-    const arcBehind = 30 + row*rowGap;                 // başlangıç çizgisinin gerisinde
+    const stagger = (k%2) * (rowGap*0.42);             // sağ sıra biraz geride (çapraz dizilim)
+    const arcBehind = 14 + row*rowGap + stagger;       // başlangıç çizgisinin gerisinde
     const idx = wrap(SF_I - arcBehind/STEP);
     const p = pAt(idx), n = normalAt(idx);
     const side = (k%2===0 ? -1 : 1) * sideGap;
@@ -637,13 +639,15 @@ function drawTrack(sc,ox,oy){
   tracePath(PATH,sc,ox,oy,true); ctx.strokeStyle='#3b414a'; ctx.lineWidth=(CFG.roadHalf*2)*sc; ctx.stroke();
   // orta çizgi
   ctx.setLineDash([16*sc,30*sc]); tracePath(PATH,sc,ox,oy,true); ctx.strokeStyle='rgba(255,255,255,.055)'; ctx.lineWidth=2*sc; ctx.stroke(); ctx.setLineDash([]);
-  // KERB'LER — her parça teğete hizalı, kenara tam oturur
-  const kl=CFG.kerbStep*sc, kw=15*sc;
+  // KERB'LER — her parça teğete hizalı, pist kenar eğrisine oturur
+  const kl=KERB_SEG*sc, kw=KERB_W*sc;
   for(const kb of KERBS){
     const q=P(kb.x,kb.y,sc,ox,oy);
     ctx.save(); ctx.translate(q[0],q[1]); ctx.rotate(kb.a);
-    ctx.fillStyle = (kb.k%2) ? '#e8e8e8' : '#d81f1f';
-    ctx.fillRect(-kl/2, -kw/2, kl+0.6, kw);
+    ctx.fillStyle = (kb.k%2) ? '#eaeaea' : '#d81f1f';
+    ctx.fillRect(-kl/2-0.4, -kw/2, kl+0.8, kw);
+    ctx.fillStyle = 'rgba(0,0,0,.16)';
+    ctx.fillRect(-kl/2-0.4, kw/2-1.6*sc, kl+0.8, 1.6*sc);   // ince gölge şeridi (kabartma hissi)
     ctx.restore();
   }
   // pit yolu
@@ -660,34 +664,45 @@ function drawTrack(sc,ox,oy){
 }
 // ---- detaylı 2D F1 aracı ----
 function drawCar(c,sc,ox,oy){
-  const q=P(c.x,c.y,sc,ox,oy), s=sc*1.15, hd=c.heading;
+  const q=P(c.x,c.y,sc,ox,oy), s=sc*1.32, hd=c.heading;
   ctx.save(); ctx.translate(q[0],q[1]); ctx.rotate(hd);
+  // yumuşak gölge
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0,2.5*s,17*s,8*s,0,0,7); ctx.fill();
   // fren ısısı
-  if(c.brakeGlow>0.05){ ctx.fillStyle=`rgba(255,70,60,${.55*c.brakeGlow})`; ctx.fillRect(-19*s,-10*s,5*s,20*s); }
-  // tekerler (çıkıntılı)
-  ctx.fillStyle='#0a0d11';
-  [[-15,-13],[-15,7],[10,-13],[10,7]].forEach(w=>{ ctx.beginPath(); ctx.roundRect(w[0]*s,w[1]*s,9*s,7*s,2*s); ctx.fill(); });
+  if(c.brakeGlow>0.05){ ctx.fillStyle=`rgba(255,70,60,${.6*c.brakeGlow})`; ctx.fillRect(-19*s,-10*s,5*s,20*s); }
+  // tekerler (çıkıntılı, hafif parlak)
+  [[-15,-13.5],[-15,6.5],[10,-13.5],[10,6.5]].forEach(w=>{
+    ctx.fillStyle='#0a0d11'; ctx.beginPath(); ctx.roundRect(w[0]*s,w[1]*s,9*s,7*s,2*s); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.10)'; ctx.fillRect((w[0]+1)*s,(w[1]+1)*s,7*s,1.5*s);
+  });
+  // difüzör / zemin plakası
+  ctx.fillStyle=c.team.b; ctx.beginPath(); ctx.moveTo(-13*s,-5.5*s); ctx.lineTo(-17*s,-3*s); ctx.lineTo(-17*s,3*s); ctx.lineTo(-13*s,5.5*s); ctx.closePath(); ctx.fill();
   // gövde gradyanı
-  const bg=ctx.createLinearGradient(-18*s,0,18*s,0);
-  bg.addColorStop(0,c.team.b); bg.addColorStop(.5,c.team.a); bg.addColorStop(1,c.team.b);
+  const bg=ctx.createLinearGradient(0,-6*s,0,6*s);
+  bg.addColorStop(0,c.team.b); bg.addColorStop(.42,c.team.a); bg.addColorStop(.58,c.team.a); bg.addColorStop(1,c.team.b);
   ctx.fillStyle=bg;
   ctx.beginPath();
-  ctx.moveTo(18*s,0); ctx.lineTo(9*s,-4.5*s); ctx.lineTo(-9*s,-5.5*s); ctx.lineTo(-13*s,-4*s);
-  ctx.lineTo(-13*s,4*s); ctx.lineTo(-9*s,5.5*s); ctx.lineTo(9*s,4.5*s); ctx.closePath(); ctx.fill();
-  // sidepod
-  ctx.fillStyle=c.team.b; ctx.fillRect(-6*s,-8.5*s,12*s,3*s); ctx.fillRect(-6*s,5.5*s,12*s,3*s);
+  ctx.moveTo(19*s,0); ctx.lineTo(10*s,-4.4*s); ctx.lineTo(-3*s,-5.6*s); ctx.lineTo(-10*s,-5*s); ctx.lineTo(-13*s,-3.6*s);
+  ctx.lineTo(-13*s,3.6*s); ctx.lineTo(-10*s,5*s); ctx.lineTo(-3*s,5.6*s); ctx.lineTo(10*s,4.4*s); ctx.closePath(); ctx.fill();
+  // orta sırt çizgisi (parlama)
+  ctx.fillStyle='rgba(255,255,255,.16)'; ctx.fillRect(-9*s,-1*s,17*s,2*s);
+  // sidepod hava girişleri
+  ctx.fillStyle=c.team.b; ctx.fillRect(-5*s,-8.6*s,11*s,3.2*s); ctx.fillRect(-5*s,5.4*s,11*s,3.2*s);
   // kokpit / halo
-  ctx.fillStyle='#0c141d'; ctx.beginPath(); ctx.ellipse(2*s,0,5.5*s,4*s,0,0,7); ctx.fill();
-  ctx.strokeStyle='#1b2836'; ctx.lineWidth=1.4*s; ctx.beginPath(); ctx.arc(3*s,0,5*s,-1.1,1.1); ctx.stroke();
-  // ön kanat (geniş)
-  ctx.fillStyle='#eef4fa'; ctx.fillRect(16*s,-14*s,3*s,28*s);
-  ctx.fillStyle=c.team.a; ctx.fillRect(15*s,-14*s,1.6*s,28*s);
+  ctx.fillStyle='#0c141d'; ctx.beginPath(); ctx.ellipse(2*s,0,5.4*s,3.9*s,0,0,7); ctx.fill();
+  ctx.strokeStyle='#243444'; ctx.lineWidth=1.5*s; ctx.beginPath(); ctx.arc(3.2*s,0,5*s,-1.15,1.15); ctx.stroke();
+  // ön kanat (geniş, endplate'li)
+  ctx.fillStyle='#eef4fa'; ctx.fillRect(15.5*s,-14.5*s,3*s,29*s);
+  ctx.fillStyle=c.team.a; ctx.fillRect(14.6*s,-14.5*s,1.6*s,29*s);
+  ctx.fillStyle='#cdd8e4'; ctx.fillRect(17*s,-15*s,2.4*s,4*s); ctx.fillRect(17*s,11*s,2.4*s,4*s);
+  // burun köprüsü
+  ctx.fillStyle=c.team.a; ctx.fillRect(10*s,-1.4*s,6*s,2.8*s);
   // arka kanat + DRS flap
   ctx.fillStyle= c.drs ? '#38e1d0' : '#eef4fa';
   ctx.fillRect(-19*s,-11*s,3*s, c.drs?7*s:22*s);
   if(c.drs) ctx.fillRect(-19*s,6*s,3*s,5*s);
-  // slipstream ısısı
-  if(c.boost){ ctx.fillStyle='rgba(245,195,59,.45)'; ctx.beginPath(); ctx.moveTo(-18*s,-4*s); ctx.lineTo(-30*s,0); ctx.lineTo(-18*s,4*s); ctx.fill(); }
+  // slipstream / ERS ısısı
+  if(c.boost){ ctx.fillStyle='rgba(245,195,59,.5)'; ctx.beginPath(); ctx.moveTo(-17*s,-4*s); ctx.lineTo(-32*s,0); ctx.lineTo(-17*s,4*s); ctx.fill(); }
   ctx.restore();
   // etiket + numara
   ctx.fillStyle = c.isPlayer ? '#fff' : c.team.a;
