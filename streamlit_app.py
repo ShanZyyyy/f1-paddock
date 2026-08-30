@@ -7013,7 +7013,7 @@ def team_driver_cards_html(team_name, team):
             "<div class='stats'>"
             f"<div><div class='hud-label'>GP GALİBİYETİ</div><b>{html_lib.escape(str(career['wins']))}</b></div>"
             f"<div><div class='hud-label'>PODYUM</div><b>{html_lib.escape(str(career['podiums']))}</b></div></div>"
-            f"<div class='moment'><b>Öne çıkan an:</b> {html_lib.escape(career['moment'])}</div>"
+            f"<div class='moment'>{html_lib.escape(career['moment'])}</div>"
             "</div></div>"
         )
     return f"""
@@ -7030,15 +7030,13 @@ def team_driver_cards_html(team_name, team):
       .tm-drv .nm{{font:950 1.2rem 'Saira Condensed',sans-serif;color:#f2f5f8;margin-top:11px;line-height:1.1}}
       .tm-drv .nm span{{color:var(--tm-acc)}}
       .tm-drv .mt{{font:600 .78rem 'Saira',sans-serif;color:#9fb0c0;margin-top:4px}}
-      .tm-drv .bio{{font:.83rem/1.45 'Saira',sans-serif;color:#b9c8d9;margin-top:9px;height:4.7em;
-        display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}}
-      .tm-drv .stats{{display:flex;gap:8px;margin-top:11px}}
+      .tm-drv .bio{{font:.83rem/1.5 'Saira',sans-serif;color:#b9c8d9;margin-top:9px;min-height:6em;
+        display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}}
+      .tm-drv .stats{{display:flex;gap:8px;margin-top:12px}}
       .tm-drv .stats > div{{flex:1;background:#11161f;border:1px solid #2d415b;border-radius:8px;padding:8px}}
       .tm-drv .stats b{{display:block;font:950 1.15rem 'JetBrains Mono',monospace;color:var(--tm-acc);margin-top:3px}}
-      .tm-drv .moment{{font:.82rem/1.45 'Saira',sans-serif;color:#b9c8d9;margin-top:10px;height:3.6em;
-        display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
-      .tm-drv .moment b{{color:#f4f8ff}}
-      @media(max-width:640px){{.tm-drv-grid{{grid-template-columns:1fr}}.tm-drv .bio,.tm-drv .moment{{height:auto}}}}
+      .tm-drv .moment{{font:.82rem/1.5 'Saira',sans-serif;color:#b9c8d9;margin-top:11px}}
+      @media(max-width:640px){{.tm-drv-grid{{grid-template-columns:1fr}}.tm-drv .bio{{min-height:0}}}}
     </style>
     <div class="tm-drv-grid">{''.join(cards)}</div>
     """
