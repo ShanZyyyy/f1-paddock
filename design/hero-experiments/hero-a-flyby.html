@@ -23,6 +23,8 @@
   --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
   --f-mono:'JetBrains Mono',ui-monospace,'Consolas',monospace;
   --px:0px; --py:0px;
+  /* logonun "ev" konumu: ekran merkezinden sol-üst menü yerine (yaklaşık ama sabit) */
+  --logo-home:translate(-50%,-50%) translate(calc(-50vw + clamp(1.25rem,5vw,3.5rem) + 94px), calc(-50vh + 1.85rem));
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -31,11 +33,19 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 
 /* ---------- üst bar (kalıcı — logonun evi) ---------- */
 .topbar{position:absolute;inset:0 0 auto 0;z-index:40;display:flex;align-items:center;
-  gap:clamp(1rem,4vw,3rem);padding:1.15rem clamp(1.25rem,5vw,3.5rem);font-family:var(--f-mono)}
-.wordmark{display:flex;align-items:center;gap:.6rem;font-family:var(--f-display);font-weight:700;
-  font-size:1.04rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text);white-space:nowrap;
-  transform-origin:center;pointer-events:none}
-.wordmark svg{width:15px;height:15px;flex:0 0 auto}
+  gap:clamp(1rem,4vw,3rem);padding:1.15rem clamp(1.25rem,5vw,3.5rem) 1.15rem clamp(13rem,20vw,17.5rem);
+  font-family:var(--f-mono)}
+
+/* YAZI = tek eleman. Sahneye göre konumlanır. left/top:50% + translate(-50%,-50%)
+   → font-size ne olursa olsun DAİMA ekran merkezi. Sonda --logo-home ile sol-üste
+   gider ve KALIR (ayrı menü yazısı yok, crossfade yok). */
+.wordmark{position:absolute;left:50%;top:50%;z-index:41;pointer-events:none;
+  display:flex;align-items:center;gap:.55em;
+  font-family:var(--f-display);font-weight:700;font-size:1.04rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text);white-space:nowrap;
+  transform:var(--logo-home);
+  text-shadow:0 0 44px rgba(180,200,220,0)}
+.wordmark svg{width:.92em;height:.92em;flex:0 0 auto}
 .wordmark b{color:var(--rush);font-weight:700}
 .topnav{display:flex;gap:1.6rem;font-size:.66rem;letter-spacing:.2em;color:var(--text-mute);opacity:0}
 .topnav span:first-child{color:var(--text-dim)}
@@ -45,21 +55,20 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,6,0,.5)}70%{box-shadow:0 0 0 9px rgba(225,6,0,0)}100%{box-shadow:0 0 0 0 rgba(225,6,0,0)}}
 @media(max-width:760px){.topnav{display:none}}
 
-/* YAZI: dumandan belirir (ortada, dev) → sol-üste uçar → transform:none = tam menü yeri, KALIR */
-/* FAZ 1 (0–3 sn): duman + EKRANIN TAM MERKEZİNDE "FORMULA PADDOCK".
-   FAZ 2 (~3–4 sn): yazı kendiliğinden sol-üste gider, KALIR.
-   --logo-tx / --logo-ty / --logo-s: JS ile ölçülüp hesaplanır (tam merkez). */
-.stage.play .wordmark{animation:logoReveal 3.7s cubic-bezier(.4,.02,.16,1) .35s both}
+/* FAZ 1 (0–3 sn): duman + EKRANIN TAM MERKEZİNDE dev "FORMULA PADDOCK".
+   FAZ 2 (~3–4 sn): yazı kendiliğinden sol-üst menü yerine gider, KALIR. */
+.wordmark{opacity:0}
+.stage.play .wordmark{animation:logoReveal 3.9s cubic-bezier(.5,0,.15,1) .3s both}
 @keyframes logoReveal{
-  0%  {opacity:0;transform:translate(var(--logo-tx,0px),var(--logo-ty,34vh)) scale(var(--logo-s,3.8));filter:blur(34px)}
-  10% {opacity:1;transform:translate(var(--logo-tx,0px),var(--logo-ty,34vh)) scale(var(--logo-s,3.8));filter:blur(0)}
-  70% {opacity:1;transform:translate(var(--logo-tx,0px),var(--logo-ty,34vh)) scale(var(--logo-s,3.8));filter:blur(0)}
-  100%{opacity:1;transform:translate(0,0) scale(1);filter:blur(0)}
+  0%  {opacity:0;font-size:clamp(1.7rem,4.6vw,4.2rem);letter-spacing:.34em;transform:translate(-50%,-50%);filter:blur(32px)}
+  11% {opacity:1;font-size:clamp(1.7rem,4.6vw,4.2rem);letter-spacing:.16em;transform:translate(-50%,-50%);filter:blur(0)}
+  70% {opacity:1;font-size:clamp(1.7rem,4.6vw,4.2rem);letter-spacing:.16em;transform:translate(-50%,-50%);filter:blur(0)}
+  100%{opacity:1;font-size:1.04rem;letter-spacing:.14em;transform:var(--logo-home);filter:blur(0)}
 }
 /* FAZ 2 sonrası: üst menü + saat */
 .stage.play .topnav{animation:fade .6s ease 4.2s both}
 .stage.play .clock{animation:fade .6s ease 4.35s both}
-.stage.settled .wordmark{opacity:1;transform:none;animation:none}
+.stage.settled .wordmark{opacity:1;font-size:1.04rem;transform:var(--logo-home);animation:none}
 .stage.settled .topnav,.stage.settled .clock{opacity:1;animation:none}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 
@@ -176,27 +185,30 @@ h1 .accent{color:var(--text)}
 @media(prefers-reduced-motion:reduce){
   .stage.play .wordmark,.stage.play .topnav,.stage.play .clock,.stage.play .bloom,
   .stage.play .reveal,.stage.play .hud,.dot,.bloom{animation:none !important}
-  .wordmark,.topnav,.clock,.reveal{opacity:1 !important;transform:none !important}
+  .wordmark{opacity:1 !important;font-size:1.04rem !important;transform:var(--logo-home) !important}
+  .topnav,.clock,.reveal{opacity:1 !important;transform:none !important}
   .hud{opacity:1 !important;transform:translateY(-50%) !important}
   .bloom{opacity:.7 !important;transform:translate(-50%,-50%) !important}
 }
 .stage.rm .wordmark,.stage.rm .topnav,.stage.rm .clock,.stage.rm .bloom,
 .stage.rm .reveal,.stage.rm .hud,.stage.rm .dot{animation:none !important}
-.stage.rm .wordmark,.stage.rm .topnav,.stage.rm .clock,.stage.rm .reveal{opacity:1 !important;transform:none !important}
+.stage.rm .wordmark{opacity:1 !important;font-size:1.04rem !important;transform:var(--logo-home) !important}
+.stage.rm .topnav,.stage.rm .clock,.stage.rm .reveal{opacity:1 !important;transform:none !important}
 .stage.rm .hud{opacity:1 !important;transform:translateY(-50%) !important}
 .stage.rm .bloom{opacity:.7 !important;transform:translate(-50%,-50%) !important}
 </style>
 
-<header class="topbar">
+<main class="stage" id="stage">
+  <header class="topbar">
+    <nav class="topnav" aria-hidden="true"><span>HABERLER</span><span>TELEMETRİ</span><span>TAKVİM</span><span>SÖZLÜK</span></nav>
+    <div class="clock"><span class="dot"></span><span id="clk">--:--:--</span> TSİ</div>
+  </header>
+
   <div class="wordmark">
     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M13 11 L27 24 L13 37" fill="none" stroke="#e10600" stroke-width="6.5" stroke-linecap="square"/><path d="M24.5 15 L33.5 24 L24.5 33" fill="none" stroke="#e10600" stroke-width="5" stroke-linecap="square" opacity=".5"/></svg>
     FORMULA&nbsp;<b>PADDOCK</b>
   </div>
-  <nav class="topnav" aria-hidden="true"><span>HABERLER</span><span>TELEMETRİ</span><span>TAKVİM</span><span>SÖZLÜK</span></nav>
-  <div class="clock"><span class="dot"></span><span id="clk">--:--:--</span> TSİ</div>
-</header>
 
-<main class="stage" id="stage">
   <div class="sesh" aria-hidden="true">ZANDVOORT · GP · 2026 · CANLI VERİ</div>
   <div class="trace" aria-hidden="true">
     <svg viewBox="0 0 1600 200" preserveAspectRatio="none">
@@ -357,49 +369,24 @@ var Smoke=(function(){
   })();
 })();
 
-/* ---------- yazıyı EKRANIN TAM MERKEZİNE hizala (ölçerek) ---------- */
-var wm=document.querySelector('.wordmark');
-function centerLogo(){
-  var prev=wm.style.transform; wm.style.transform='none';
-  var r=wm.getBoundingClientRect();
-  wm.style.transform=prev;
-  if(!r.width) return;
-  var target=Math.min(innerWidth*0.62, 760);
-  var S=Math.max(2.4, Math.min(5.2, target/r.width));
-  var cx=r.left+r.width/2, cy=r.top+r.height/2;
-  stage.style.setProperty('--logo-tx',(innerWidth/2-cx).toFixed(1)+'px');
-  stage.style.setProperty('--logo-ty',(innerHeight/2-cy).toFixed(1)+'px');
-  stage.style.setProperty('--logo-s',S.toFixed(3));
-}
-addEventListener('resize',function(){ if(stage.classList.contains('play')&&!stage.classList.contains('settled')) centerLogo(); });
-
 /* ---------- orkestra ---------- */
-var seen=false;try{seen=sessionStorage.getItem('fp_hero_seen_a8')==='1';}catch(e){}
+var seen=false;try{seen=sessionStorage.getItem('fp_hero_seen_a9')==='1';}catch(e){}
 
 function playSequence(){
   stage.classList.remove('settled','play');
-  centerLogo();
   void stage.offsetWidth;
   stage.classList.add('play');
   Smoke.start();
-  if(!prefersReduce) setTimeout(function(){Smoke.pulse();},650);
-  try{sessionStorage.setItem('fp_hero_seen_a8','1');}catch(e){}
+  if(!prefersReduce) setTimeout(function(){Smoke.pulse();},600);
+  try{sessionStorage.setItem('fp_hero_seen_a9','1');}catch(e){}
 }
 function settle(){stage.classList.add('play','settled');Smoke.start();}
 
-(function run(){
-  if(prefersReduce||seen){ settle(); return; }
-  requestAnimationFrame(function(){ centerLogo(); playSequence(); });
-  /* font geç yüklenirse merkez ölçümünü bir kez tazele (animasyon henüz gecikmede) */
-  setTimeout(function(){
-    if(stage.classList.contains('play')&&!stage.classList.contains('settled')) centerLogo();
-  },260);
-})();
+if(prefersReduce||seen){ settle(); }
+else { requestAnimationFrame(playSequence); }
 
-/* güvenlik ağı: 4 sn içinde sahne hiç açılmadıysa direkt son hâle geç */
-setTimeout(function(){
-  if(!stage.classList.contains('play')) settle();
-},4000);
+/* güvenlik ağı: sahne bir sebeple açılmadıysa direkt son hâle geç */
+setTimeout(function(){ if(!stage.classList.contains('play')) settle(); }, 3500);
 
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&Smoke.ok)Smoke.start();});
 
