@@ -3078,7 +3078,7 @@ def render_weekend_centre():
     render_page_header(T('page.weekend.title'), T('page.weekend.sub'))
     events = get_calendar_details(2026)
     if not events:
-        st.warning('Takvim verisi su anda alinamadi. Biraz sonra tekrar dene.')
+        st.warning('Takvim verisi şu anda alınamadı. Biraz sonra tekrar dene.')
         return
     event_names = [str(event.get('EventName', 'Grand Prix')) for event in events]
     selected_name = st.selectbox('Grand Prix seç', event_names, key='weekend_centre_event')
@@ -3093,12 +3093,12 @@ def render_weekend_centre():
                 st.markdown(f"<div class='hud-card' style='min-height:100px'><div class='hud-label'>{html_lib.escape(item['title'])}</div><div style='font-size:1.08rem;font-weight:900;margin-top:8px'>{local}</div><div class='driver-meta' style='margin-top:7px'>{html_lib.escape(item['status'])}</div></div>", unsafe_allow_html=True)
     completed = completed_session_options(event)
     if not completed:
-        st.info('Bu hafta sonunda henuz tamamlanan seans yok. Program yukarida Istanbul saatine gore gorunur.')
+        st.info('Bu hafta sonunda henüz tamamlanan seans yok. Program yukarıda İstanbul saatine göre görünür.')
         return
     code_map = {f"{item['title']} // {item['time'].tz_convert('Europe/Istanbul').strftime('%d %b %H:%M')}": item for item in completed}
     selected_label = st.radio('Tamamlanan seans', list(code_map), horizontal=True, key='weekend_centre_session')
     selected = code_map[selected_label]
-    with st.spinner('Dogrulanmis seans sonucu yukleniyor...'):
+    with st.spinner('Doğrulanmış seans sonucu yükleniyor…'):
         table, _ = get_session_results_table(2026, selected_name, selected['code'])
         story = get_session_story(2026, selected_name, selected['code'])
     if story:
@@ -3108,9 +3108,9 @@ def render_weekend_centre():
             with col:
                 st.markdown(f"<div class='hud-card' style='border-top:3px solid #f7c948;min-height:94px'><div class='hud-label'>{html_lib.escape(entry.get('kind', 'NOT'))}</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(entry.get('text', ''))}</div></div>", unsafe_allow_html=True)
     if table.empty:
-        st.info('Bu seansin dogrulanmis sonuclari henuz paketlenmedi.')
+        st.info('Bu seansın doğrulanmış sonuçları henüz paketlenmedi.')
         return
-    st.markdown(f"#### {html_lib.escape(selected['title'])} sonuclari", unsafe_allow_html=True)
+    st.markdown(f"#### {html_lib.escape(selected['title'])} sonuçları", unsafe_allow_html=True)
     render_html_hud(session_leaderboard_html(table, f'{selected_name} // {selected["title"].upper()}'), height=leaderboard_component_height(table), scrolling=False)
 
 
@@ -3169,11 +3169,11 @@ def paddock_history_answer_v18(question):
         year = int(year_match.group(1))
         champion = F1_WORLD_CHAMPIONS.get(year)
         if champion:
-            return f'{year} Formula 1 dunya sampiyonu {champion} oldu.'
+            return f'{year} Formula 1 dünya şampiyonu {champion} oldu.'
     if ('1985' in normal or '85' in normal) and wants_champion:
-        return '1985 Formula 1 dunya sampiyonu Alain Prost oldu.'
+        return '1985 Formula 1 dünya şampiyonu Alain Prost oldu.'
     if ('en cok sampiyon' in normal or 'en fazla sampiyon' in normal or '7 sampiyon' in normal):
-        return 'Formula 1 tarihinde rekor yedi sampiyonlukla Lewis Hamilton ve Michael Schumacher tarafindan paylasilir.'
+        return 'Formula 1 tarihinde rekor yedi şampiyonlukla Lewis Hamilton ve Michael Schumacher arasında paylaşılır.'
     return ''
 
 
@@ -3233,10 +3233,10 @@ def paddock_record_answer_v19(question):
 def paddock_assistant_answer_v19_pro(question, year=2026):
     record = paddock_record_answer_v19(question)
     if record:
-        return {'title': 'F1 rekor arsivi', 'answer': record, 'source': 'F1 tarih arsivi'}
+        return {'title': 'F1 rekor arşivi', 'answer': record, 'source': 'F1 tarih arşivi'}
     historic = paddock_history_answer_v18(question)
     if historic:
-        return {'title': 'F1 tarih bilgisi', 'answer': historic, 'source': 'Yerel F1 dunya sampiyonlari arsivi'}
+        return {'title': 'F1 tarih bilgisi', 'answer': historic, 'source': 'Yerel F1 dünya şampiyonları arşivi'}
     return paddock_assistant_answer_v19(question, year)
 
 
@@ -3244,13 +3244,13 @@ def render_paddock_assistant_v20():
     fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"), eyebrow=T("section.paddock"))
     api_ready = bool(configured_openai_api_key())
     accent = '#2ee6c9' if api_ready else '#f7c948'
-    mode = 'OPENAI + DOGRULANMIS VERI' if api_ready else 'F1 VERI VE TARIH ARSIVI'
+    mode = 'OPENAI + DOĞRULANMIŞ VERİ' if api_ready else 'F1 VERİSİ VE TARİH ARŞİVİ'
     description = (
-        'OpenAI baglantisi aktif. Sonuc sorularinda FastF1 verisi once gelir; genel F1 sorularinda AI yaniti devreye girer.'
+        'OpenAI bağlantısı aktif. Sonuç sorularında FastF1 verisi önce gelir; genel F1 sorularında AI yanıtı devreye girer.'
         if api_ready else
-        'Sonuc, pole, lastik, tarihi sampiyon ve temel rekor sorularini anahtarsiz cevaplar. Genel F1 sohbeti icin istege bagli OpenAI anahtari gerekir.'
+        'Sonuç, pole, lastik, tarihî şampiyon ve temel rekor sorularını anahtarsız cevaplar. Genel F1 sohbeti için isteğe bağlı OpenAI anahtarı gerekir.'
     )
-    st.markdown(f"<div class='hud-card ai-command-card' style='border-top:5px solid {accent}'><div class='hud-label'>{mode}</div><div style='font-size:1.25rem;font-weight:950;margin-top:7px'>F1 sorunu yaz, kaynakli yanit al.</div><div class='history-copy' style='margin-top:6px'>{description}</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='hud-card ai-command-card' style='border-top:5px solid {accent}'><div class='hud-label'>{mode}</div><div style='font-size:1.25rem;font-weight:950;margin-top:7px'>F1 sorunu yaz, kaynaklı yanıt al.</div><div class='history-copy' style='margin-top:6px'>{description}</div></div>", unsafe_allow_html=True)
     if 'paddock_chat_history_v19' not in st.session_state:
         st.session_state['paddock_chat_history_v19'] = []
 
@@ -3268,22 +3268,22 @@ def render_paddock_assistant_v20():
             if item.get('source'):
                 st.caption('Kaynak: ' + item['source'])
 
-    prompt = st.chat_input('F1 hakkinda sor... Ornek: 1 sezonda en cok galibiyet alan isim kim?')
+    prompt = st.chat_input('F1 hakkında sor… Örnek: 1 sezonda en çok galibiyet alan isim kim?')
     question = st.session_state.pop('paddock_pending_v19', '') or prompt
     if question:
         st.session_state['paddock_chat_history_v19'].append({'role': 'user', 'text': question})
         with st.chat_message('user'):
             st.markdown(question)
         with st.chat_message('assistant'):
-            with st.spinner('Paddock kaynaklari kontrol ediliyor...'):
+            with st.spinner('Paddock kaynakları kontrol ediliyor…'):
                 answer = paddock_assistant_answer_v19_pro(question, 2026)
             st.markdown(answer['answer'])
             st.caption('Kaynak: ' + answer['source'])
         st.session_state['paddock_chat_history_v19'].append({'role': 'assistant', 'text': answer['answer'], 'source': answer['source']})
 
     if not api_ready:
-        with st.expander('Genel sorular icin OpenAI baglantisi'):
-            st.write('ChatGPT hesabinin kendisi siteye baglanmaz; OpenAI API anahtari gerekir. Proje klasorundeki .streamlit/secrets.toml dosyasina OPENAI_API_KEY eklediginde asistan genel F1 sorularinda OpenAI yaniti da verir. Anahtar yokken bu ekran yine kaynakli F1 veri modunda calisir.')
+        with st.expander('Genel sorular için OpenAI bağlantısı'):
+            st.write('ChatGPT hesabının kendisi siteye bağlanmaz; OpenAI API anahtarı gerekir. Proje klasöründeki .streamlit/secrets.toml dosyasına OPENAI_API_KEY eklediğinde asistan genel F1 sorularında OpenAI yanıtı da verir. Anahtar yokken bu ekran yine kaynaklı F1 veri modunda çalışır.')
 
 
 def _rss_text_v19(node, name):
@@ -4930,7 +4930,7 @@ def render_drivers_page_v33():
 def driver_deep_stats_hud_html(name, code, team, stats, scope, colour):
     if not stats.get('verified'):
         return ("<div style='padding:16px;color:#9fb0c0;font-family:Saira,sans-serif'>"
-                "Bu pilot icin dogrulanmis kariyer verisi su an alinamadi.</div>")
+                "Bu pilot için doğrulanmış kariyer verisi şu an alınamadı.</div>")
     if stats.get('empty'):
         return (f"<div style='padding:16px;color:#9fb0c0;font-family:Saira,sans-serif'>"
                 f"{html_lib.escape(str(name))} icin bu sezona ait tamamlanmis yaris kaydi yok.</div>")
@@ -4947,8 +4947,8 @@ def driver_deep_stats_hud_html(name, code, team, stats, scope, colour):
         cell("Galibiyet", stats['wins'], 'g'),
         cell("Podyum", stats['podiums']),
         cell("Pole (grid P1)", stats['poles']),
-        cell("Yaris Disi (DNF)", stats['dnf'], 'r'),
-        cell("En Iyi Bitis", best),
+        cell("Yarış Dışı (DNF)", stats['dnf'], 'r'),
+        cell("En İyi Bitiş", best),
         cell("En Kotu Bitis", worst),
         cell("Ort. Grid", stats['avg_grid']),
     ]
@@ -5371,12 +5371,12 @@ def _router_page_live():
     
     fp_ui.page_header(T("page.live.title"), f"{gp_name}", eyebrow=T("section.live"))
     fp_ui.data_state(
-        "Alpha Odagi",
-        "Canli 2D pist, dogrulanmis bir konum saglayicisi hazir olana kadar kapali tutulur; site sahte canli konum uretmez.",
+        "Alpha Odağı",
+        "Canlı 2D pist, doğrulanmış bir konum sağlayıcısı hazır olana kadar kapalı tutulur; site sahte canlı konum üretmez.",
         "warning",
     )
 
-    timing_tab, replay_tab = st.tabs(["Dereceler", "2026 Yaris Tekrari"])
+    timing_tab, replay_tab = st.tabs(["Dereceler", "2026 Yarış Tekrarı"])
     if False:  # Alpha: doğrulanmış canlı konum altyapısı tamamlanana kadar gizli.
         token, openf1_username, openf1_password = get_openf1_access_v19()
         refresh_live = st.button("🔄 Açık canlı veri paketini yenile", key='refresh_live_v19')
@@ -5603,7 +5603,7 @@ def _router_page_telemetry():
     # --- SEANS SEÇİMİ (artik sayfa govdesinde, sidebar yerine) ---
     fp_ui.section_title("Seans Ayarlari")
     if not st.session_state['telemetry_schedule_requested']:
-        fp_ui.data_state("Takvim Istege Bagli", "Sitenin hizli acilmasi icin takvim yalnizca sen istediginde yuklenir.", "info")
+        fp_ui.data_state("Takvim İsteğe Bağlı", "Sitenin hızlı açılması için takvim yalnızca sen istediğinde yüklenir.", "info")
         if st.button("Telemetri takvimini yukle", key="load_telemetry_schedule", width='stretch'):
             st.session_state['telemetry_schedule_requested'] = True
             st.rerun()
@@ -5759,7 +5759,7 @@ def _router_page_telemetry():
             # --- MOD 2: 2D TUR DÜELLOSU ---
             elif analiz_turu == "🏎️ 2D Tur Düellosu":
                 fp_ui.section_title(f"{session.event['EventName']} · 2D Tur Duellosu{header_suffix}")
-                st.caption("Mesafe modu ayni virajdaki hiz farkini; gercek zaman modu iki turun fiziksel zaman farkini gosterir.")
+                st.caption("Mesafe modu aynı virajdaki hız farkını; gerçek zaman modu iki turun fiziksel zaman farkını gösterir.")
 
                 duel_col_1, duel_col_2 = st.columns(2)
                 default_1 = drivers_list.index("VER") if "VER" in drivers_list else 0

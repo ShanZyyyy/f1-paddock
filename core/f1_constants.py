@@ -255,11 +255,11 @@ F1_WORLD_CHAMPIONS = {
 
 
 F1_RECORD_FACTS_V19 = {
-    'most_wins_single_season': 'Bir sezonda en cok Grand Prix galibiyeti rekoru, 2023 sezonunda 19 galibiyet alan Max Verstappen\'e aittir.',
-    'most_titles': 'Dunya sampiyonlugu rekoru yedi ile Lewis Hamilton ve Michael Schumacher tarafindan paylasilir.',
+    'most_wins_single_season': 'Bir sezonda en çok Grand Prix galibiyeti rekoru, 2023 sezonunda 19 galibiyet alan Max Verstappen\'e aittir.',
+    'most_titles': 'Dünya şampiyonluğu rekoru yedi ile Lewis Hamilton ve Michael Schumacher tarafından paylaşılır.',
     'most_wins': 'Grand Prix galibiyeti rekoru Lewis Hamilton\'a aittir.',
     'most_poles': 'Pole pozisyonu rekoru Lewis Hamilton\'a aittir.',
-    'youngest_champion': 'En genc Formula 1 dunya sampiyonu Sebastian Vettel\'dir; 2010 sezonunda 23 yasindayken sampiyon oldu.',
+    'youngest_champion': 'En genç Formula 1 dünya şampiyonu Sebastian Vettel\'dir; 2010 sezonunda 23 yaşındayken şampiyon oldu.',
 }
 
 
