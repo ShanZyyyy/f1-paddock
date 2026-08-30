@@ -492,3 +492,117 @@ def nav_button(label, icon, page_key, current_page):
         width='stretch',
         type="primary" if is_active else "secondary",
     )
+
+
+# =====================================================================
+# ÜST BAR — hover'da aşağı sarkan mega-menü (sol menünün yerini alır)
+# =====================================================================
+_TOPBAR_CSS = r"""
+<style>
+section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{display:none !important}
+[data-testid="stHeader"],header[data-testid="stHeader"]{background:transparent !important;
+  height:0 !important;min-height:0 !important;pointer-events:none}
+[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],#MainMenu{
+  display:none !important}
+.stApp [data-testid="stMain"] .block-container{padding-top:5.8rem !important;max-width:1200px}
+
+.fp-tb{position:fixed;inset:0 0 auto 0;z-index:1000000;font-family:var(--fp-f-body)}
+.fp-tb-bar{display:flex;align-items:center;gap:clamp(1rem,3vw,2.4rem);height:60px;
+  padding:0 clamp(1rem,4vw,2.6rem);
+  background:linear-gradient(180deg,rgba(9,12,17,.94),rgba(9,12,17,.82));
+  border-bottom:1px solid var(--fp-line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.fp-tb a{text-decoration:none;color:inherit}
+.fp-tb-brand{display:flex;align-items:center;gap:.5rem;font-family:var(--fp-f-display);font-weight:800;
+  font-size:16px;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap}
+.fp-tb-brand .ch{width:15px;height:15px;flex:0 0 auto}
+.fp-tb-brand b{color:var(--fp-red);font-weight:800}
+.fp-tb-groups{display:flex;align-items:center;gap:clamp(.8rem,2.2vw,2rem);flex:0 1 auto;min-width:0;
+  overflow:hidden}
+.fp-tb-g{font:600 12px/1 var(--fp-f-display);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--fp-text-dim);padding:8px 2px;border-bottom:2px solid transparent;white-space:nowrap;
+  transition:color .15s ease,border-color .15s ease}
+.fp-tb-g:hover,.fp-tb-g.on{color:var(--fp-text);border-color:var(--fp-red)}
+.fp-tb-right{margin-left:auto;display:flex;align-items:center;gap:1rem;white-space:nowrap}
+.fp-tb-sesh{font:500 10.5px/1.2 var(--fp-f-mono);letter-spacing:.08em;color:var(--fp-text-mute);
+  display:flex;align-items:center;gap:.5rem}
+.fp-tb-sesh .lv{width:6px;height:6px;border-radius:50%;background:var(--fp-red)}
+.fp-tb-sesh.live .lv{box-shadow:0 0 0 0 rgba(225,6,0,.5);animation:fp-tb-pulse 2s ease-out infinite}
+@keyframes fp-tb-pulse{70%{box-shadow:0 0 0 7px rgba(225,6,0,0)}100%{box-shadow:0 0 0 0 rgba(225,6,0,0)}}
+.fp-tb-lang{display:flex;border:1px solid var(--fp-line);border-radius:3px;overflow:hidden}
+.fp-tb-lang a{padding:4px 8px;font:600 10px var(--fp-f-mono);letter-spacing:.1em;color:var(--fp-text-mute)}
+.fp-tb-lang a.on{background:var(--fp-red);color:#fff}
+
+/* mega panel — bara hover olunca sarkar */
+.fp-mega{position:absolute;left:0;right:0;top:60px;overflow:hidden;max-height:0;
+  background:linear-gradient(180deg,rgba(9,12,17,.97),rgba(7,9,13,.95));
+  border-bottom:1px solid var(--fp-line);box-shadow:0 24px 50px rgba(0,0,0,.5);
+  transition:max-height .28s cubic-bezier(.2,.7,.2,1)}
+.fp-tb:hover .fp-mega,.fp-mega:hover{max-height:74vh}
+.fp-mega-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:.4rem 1.6rem;padding:1.4rem clamp(1rem,4vw,2.6rem) 1.7rem;max-width:1200px;margin:0 auto}
+.fp-mega-col{display:flex;flex-direction:column;gap:.15rem}
+.fp-mega-h{font:700 9.5px/1 var(--fp-f-display);letter-spacing:.2em;text-transform:uppercase;
+  color:var(--fp-text-mute);padding:0 0 .55rem}
+.fp-mega-l{font:500 13px/1.1 var(--fp-f-body);color:var(--fp-text-dim);padding:7px 10px;border-radius:4px;
+  border-left:2px solid transparent;transition:background .12s ease,color .12s ease,border-color .12s ease}
+.fp-mega-l:hover{background:rgba(255,255,255,.05);color:var(--fp-text)}
+.fp-mega-l.on{color:var(--fp-text);border-left-color:var(--fp-red);background:linear-gradient(90deg,rgba(225,6,0,.14),transparent 70%)}
+@media(max-width:1180px){.fp-tb-sesh{display:none !important}}
+@media(max-width:820px){
+  .fp-tb-groups{overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}
+  .fp-tb-groups::-webkit-scrollbar{display:none}
+}
+</style>
+"""
+
+_CHEVRON = ("<svg class='ch' viewBox='0 0 48 48'>"
+            "<path d='M13 11 L27 24 L13 37' fill='none' stroke='%23e10600' stroke-width='6.5' stroke-linecap='square'/>"
+            "<path d='M24.5 15 L33.5 24 L24.5 33' fill='none' stroke='%23e10600' stroke-width='5' stroke-linecap='square' opacity='.5'/>"
+            "</svg>").replace("%23", "#")
+
+
+def topbar(current, lang, groups, session_line="", session_live=False):
+    """Sabit üst bar + hover'da sarkan mega-menü. Sol menünün yerini alır.
+
+    ``groups`` = [(başlık, birincil_sayfa_key, [(key, label), ...]), ...]
+    Linkler ``?p=<key>`` kullanır (router query-param senkronu bunu yakalar).
+    """
+    def _l(key, label, cls="fp-mega-l"):
+        on = " on" if key == current else ""
+        return f"<a class='{cls}{on}' href='?p={_esc(key)}' target='_self'>{_esc(label)}</a>"
+
+    heads = "".join(
+        f"<a class='fp-tb-g{(' on' if any(k == current for k, _ in pages) or primary == current else '')}'"
+        f" href='?p={_esc(primary)}' target='_self'>{_esc(title)}</a>"
+        for title, primary, pages in groups
+    )
+    cols = "".join(
+        "<div class='fp-mega-col'>"
+        f"<div class='fp-mega-h'>{_esc(title)}</div>"
+        + "".join(_l(k, lbl) for k, lbl in pages)
+        + "</div>"
+        for title, _primary, pages in groups
+    )
+    lang_html = (
+        "<div class='fp-tb-lang'>"
+        f"<a class='{'on' if lang == 'tr' else ''}' href='?lang=tr' target='_self'>TR</a>"
+        f"<a class='{'on' if lang == 'en' else ''}' href='?lang=en' target='_self'>EN</a>"
+        "</div>"
+    )
+    sesh = ""
+    if session_line:
+        sesh = (f"<span class='fp-tb-sesh{' live' if session_live else ''}'>"
+                f"<span class='lv'></span>{_esc(session_line)}</span>")
+
+    st.markdown(
+        _TOPBAR_CSS
+        + "<div class='fp-tb'><div class='fp-tb-bar'>"
+        + f"<a class='fp-tb-brand' href='?p=home' target='_self'>{_CHEVRON}"
+          f"Formula&nbsp;<b>Paddock</b></a>"
+        + f"<nav class='fp-tb-groups'>{heads}</nav>"
+        + f"<div class='fp-tb-right'>{sesh}{lang_html}</div>"
+        + "</div>"
+        + f"<div class='fp-mega'><div class='fp-mega-in'>{cols}</div></div>"
+        + "</div>",
+        unsafe_allow_html=True,
+    )

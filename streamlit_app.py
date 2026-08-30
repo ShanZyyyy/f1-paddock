@@ -77,7 +77,7 @@ def render_data_diagnostics_panel():
         debug_on = False
     if not debug_on:
         return
-    with st.sidebar.expander(f"🩺 Veri tanılama · {_DATA_ERROR_COUNT['n']} hata", expanded=False):
+    with st.expander(f"🩺 Veri tanılama · {_DATA_ERROR_COUNT['n']} hata", expanded=False):
         if not _DATA_ERROR_LOG:
             st.caption("Bu oturumda kaydedilmiş veri hatası yok.")
         else:
@@ -171,7 +171,7 @@ st.set_page_config(
     page_title="Formula Paddock Control Pro",
     page_icon="🏎️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 if 'paddock_light_mode_v31' not in st.session_state:
@@ -232,6 +232,23 @@ if not st.session_state.get('_fp_runtime_ready'):
 # SAYFA OTURUM DURUMU
 if 'page' not in st.session_state:
     st.session_state['page'] = 'home'
+
+# ---- URL <-> sayfa senkronu -------------------------------------------------
+# Üst bar linkleri `?p=telemetry` gibi çalışır. Buradan gelen değer session
+# state'i günceller; kod içi `st.session_state['page'] = X` çağrıları da URL'e
+# geri yazılır (paylaşılabilir / yer imlenebilir bağlantı).
+VALID_PAGES = {
+    'home', 'news', 'telemetry', 'live', 'calendar', 'weekend', 'story',
+    'compare', 'drivers', 'learn', 'favourites', 'teams', 'standings',
+    'f2f3', 'glossary', 'assistant', 'games',
+    # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
+    'stewarlde', 'gridmaster', 'team_manager', 'predictor', 'draft', 'paddock_career',
+}
+_qp_page = st.query_params.get('p')
+if _qp_page in VALID_PAGES and _qp_page != st.session_state.get('page'):
+    st.session_state['page'] = _qp_page
+if st.query_params.get('p') != st.session_state['page']:
+    st.query_params['p'] = st.session_state['page']
 
 # BOOT FIX 1.4.2
 # Eski Streamlit tarayıcı oturumları, daha önce tıklanmış "veri yükle"
@@ -3490,9 +3507,15 @@ def render_weekend_centre():
 
 
 def render_favourites_centre():
-    team_name = st.session_state.get('favourite_team', 'Mercedes')
-    driver_name = st.session_state.get('favourite_driver', 'George Russell')
     render_page_header(T('page.favourites.title'), T('page.favourites.sub'))
+    _fcols = st.columns(2)
+    with _fcols[0]:
+        st.selectbox("Favori takım", list(TEAM_DIRECTORY_2026.keys()), key="favourite_team")
+    team_name = st.session_state.get('favourite_team', 'Mercedes')
+    with _fcols[1]:
+        _drv = [d[0] for d in TEAM_DIRECTORY_2026.get(team_name, TEAM_DIRECTORY_2026['Mercedes'])['drivers']]
+        st.selectbox("Favori pilot", _drv, key="favourite_driver")
+    driver_name = st.session_state.get('favourite_driver', 'George Russell')
     team = TEAM_DIRECTORY_2026.get(team_name, TEAM_DIRECTORY_2026['Mercedes'])
     st.markdown(f"<div class='hud-card' style='border-top:4px solid {team['color']}'><div class='hud-label'>FAVORI TAKIM</div><div class='hud-value' style='color:{team['color']}'>{html_lib.escape(team_name)}</div><div class='driver-meta'>{html_lib.escape(driver_name)} secili pilotun.</div></div>", unsafe_allow_html=True)
     cols = st.columns(2)
@@ -3727,17 +3750,16 @@ section[data-testid="stSidebar"] .stButton,section[data-testid="stSidebar"] div[
 # (veya mevcut "## Baslik" basligini) kullaniyor.
 
 # ==========================================
-# SOL MENÜ (SIDEBAR & NAVİGASYON)
+# ÜST BAR (NAVİGASYON) — sol menünün yerini aldı; hover'da mega-menü sarkar
 # ==========================================
 
-# redesign: slim-rail marka kilidi (eski brand + inline style kaldirildi)
-fp_ui.sidebar_brand()
+# Dil: ?lang=tr|en linkleri (üst bardaki TR/EN)
+_qp_lang = st.query_params.get('lang')
+if _qp_lang in ('tr', 'en'):
+    if fp_i18n.get_lang() != _qp_lang:
+        fp_i18n.set_lang(_qp_lang)
+    del st.query_params['lang']
 
-
-# redesign: kucuk TR | EN dil secici (gercek i18n — core/i18n.py)
-fp_i18n.lang_toggle()
-
-# redesign: acik/koyu artik sag-alt kontrol panosunda (istemci tarafi, aninda).
 light_mode_v31 = False
 st.markdown(
     "<style>.status-dot-v31{display:inline-block;width:8px;height:8px;border-radius:50%;"
@@ -3747,55 +3769,40 @@ st.markdown(
 
 _nav_now = st.session_state['page']
 
+NAV_GROUPS = [
+    (T("section.general"), "home", [("home", T("nav.home")), ("news", T("nav.news"))]),
+    (T("section.data"), "telemetry", [("telemetry", T("nav.telemetry"))]),
+    (T("section.live"), "live", [
+        ("live", T("nav.live")), ("calendar", T("nav.calendar")), ("weekend", T("nav.weekend")),
+        ("story", T("nav.story")), ("compare", T("nav.compare")), ("drivers", T("nav.drivers"))]),
+    (T("section.paddock"), "learn", [("learn", T("nav.learn")), ("favourites", T("nav.favourites"))]),
+    (T("section.champ"), "teams", [
+        ("teams", T("nav.teams")), ("standings", T("nav.standings")), ("f2f3", T("nav.f2f3")),
+        ("glossary", T("nav.glossary")), ("assistant", T("nav.assistant"))]),
+    (T("section.games"), "games", [("games", T("nav.games"))]),
+]
 
-def _nav(label, icon, key):
-    """redesign: slim-rail nav satiri. Tiklaninca sayfayi degistirir + rerun."""
-    if fp_ui.nav_button(label, icon, key, _nav_now):
-        st.session_state['page'] = key
-        st.rerun()
+
+def _topbar_session_line():
+    """Üst bardaki 'sıradaki seans' metni — gerçek takvim verisi, kırılgan değil."""
+    try:
+        event, s_name, s_time, is_live = get_current_or_next_event()
+        loc = str(event.get('Location') or event.get('EventName') or '').strip()
+        if not loc:
+            return "", False
+        if is_live:
+            return f"{loc} · {s_name} · CANLI", True
+        delta = s_time - datetime.datetime.now(datetime.timezone.utc)
+        total = max(0, int(delta.total_seconds()))
+        d, h = total // 86400, (total % 86400) // 3600
+        return (f"{loc} · {s_name} · {d}g {h}s" if d else f"{loc} · {s_name} · {h}s"), False
+    except Exception:
+        return "", False
 
 
-def _navk(icon, key):
-    _nav(T(f"nav.{key}"), icon, key)
-
-
-fp_ui.sidebar_section(T("section.general"))
-_navk("home", "home")
-_navk("newspaper", "news")
-
-fp_ui.sidebar_section(T("section.data"))
-_navk("monitoring", "telemetry")
-
-fp_ui.sidebar_section(T("section.live"))
-_navk("sensors", "live")
-_navk("calendar_month", "calendar")
-_navk("flag", "weekend")
-_navk("menu_book", "story")
-_navk("compare_arrows", "compare")
-_navk("badge", "drivers")
-
-fp_ui.sidebar_section(T("section.paddock"))
-_navk("school", "learn")
-_navk("star", "favourites")
-
-fp_ui.sidebar_section(T("section.champ"))
-_navk("groups", "teams")
-_navk("emoji_events", "standings")
-_navk("stacked_line_chart", "f2f3")
-_navk("quiz", "glossary")
-_navk("smart_toy", "assistant")
-
-fp_ui.sidebar_section(T("section.games"))
-_navk("sports_esports", "games")
-
-with st.sidebar.expander("⭐ Hızlı Favori", expanded=False):
-    favourite_team = st.selectbox("Takım", list(TEAM_DIRECTORY_2026.keys()), key="favourite_team")
-    favourite_drivers = TEAM_DIRECTORY_2026[favourite_team]['drivers']
-    favourite_driver = st.selectbox("Pilot", [driver[0] for driver in favourite_drivers], key="favourite_driver")
-    st.caption(f"Favorin: {favourite_team} — {favourite_driver}")
-
-st.sidebar.caption("Formula Paddock · Bağımsız F1 veri ve oyun merkezi")
-render_data_diagnostics_panel()
+_sesh_line, _sesh_live = _topbar_session_line()
+fp_ui.topbar(_nav_now, fp_i18n.get_lang(), NAV_GROUPS,
+             session_line=_sesh_line, session_live=_sesh_live)
 
 # ==========================================
 # SAYFA 1: ANA SAYFA & DİNAMİK RACECENTER
@@ -7291,3 +7298,6 @@ elif st.session_state['page'] == 'paddock_career':
 # SAYFA 9: F1 SÖZLÜĞÜ
 elif st.session_state['page'] == 'glossary':
     _view_glossary.render()
+
+# --- sayfa sonu: veri tanılama (yalnız ?debug=1) ---
+render_data_diagnostics_panel()
