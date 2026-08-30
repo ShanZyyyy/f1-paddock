@@ -6993,6 +6993,57 @@ def _router_page_calendar():
 # SAYFA 5: TAKIMLAR VE PİLOTLAR
 
 
+def team_driver_cards_html(team_name, team):
+    """İki pilot kartını TEK CSS grid'inde çizer — bio uzunluğu farklı olsa da
+    kartlar ve iç kutular (galibiyet/podyum, öne çıkan an) satır satır hizalı kalır."""
+    acc = team['color']
+    cards = []
+    for name, code, number, image_path in team['drivers']:
+        career = driver_career_profile(code)
+        portrait = current_driver_portrait(team_name, image_path)
+        cards.append(
+            "<div class='tm-drv'>"
+            "<div class='stage'>"
+            f"<span class='code'>{html_lib.escape(code)}</span>"
+            f"<img src='{portrait}' alt='{html_lib.escape(name)}' onerror=\"this.style.display='none'\"></div>"
+            "<div class='body'>"
+            f"<div class='nm'>{html_lib.escape(name)} <span>{html_lib.escape(number)}</span></div>"
+            f"<div class='mt'>{html_lib.escape(code)} · {driver_age(code)} yaş · {html_lib.escape(team_name)}</div>"
+            f"<div class='bio'>{html_lib.escape(career['bio'])}</div>"
+            "<div class='stats'>"
+            f"<div><div class='hud-label'>GP GALİBİYETİ</div><b>{html_lib.escape(str(career['wins']))}</b></div>"
+            f"<div><div class='hud-label'>PODYUM</div><b>{html_lib.escape(str(career['podiums']))}</b></div></div>"
+            f"<div class='moment'><b>Öne çıkan an:</b> {html_lib.escape(career['moment'])}</div>"
+            "</div></div>"
+        )
+    return f"""
+    <style>
+      .tm-drv-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 4px;--tm-acc:{acc}}}
+      .tm-drv{{display:flex;flex-direction:column;border:1px solid #26313f;border-top:4px solid var(--tm-acc);
+        border-radius:9px;background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden;padding-bottom:14px}}
+      .tm-drv .stage{{height:180px;position:relative;display:flex;align-items:flex-end;justify-content:center;
+        background:linear-gradient(180deg,rgba(15,30,47,.46),rgba(9,13,20,.02));overflow:hidden}}
+      .tm-drv .stage .code{{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+        color:var(--tm-acc);opacity:.26;font:950 2.4rem/1 'Saira Condensed',sans-serif;letter-spacing:.1em}}
+      .tm-drv .stage img{{position:relative;height:170px;max-width:100%;object-fit:contain;object-position:center bottom}}
+      .tm-drv .body{{padding:0 14px;display:flex;flex-direction:column;flex:1}}
+      .tm-drv .nm{{font:950 1.2rem 'Saira Condensed',sans-serif;color:#f2f5f8;margin-top:11px;line-height:1.1}}
+      .tm-drv .nm span{{color:var(--tm-acc)}}
+      .tm-drv .mt{{font:600 .78rem 'Saira',sans-serif;color:#9fb0c0;margin-top:4px}}
+      .tm-drv .bio{{font:.83rem/1.45 'Saira',sans-serif;color:#b9c8d9;margin-top:9px;height:4.7em;
+        display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}}
+      .tm-drv .stats{{display:flex;gap:8px;margin-top:11px}}
+      .tm-drv .stats > div{{flex:1;background:#11161f;border:1px solid #2d415b;border-radius:8px;padding:8px}}
+      .tm-drv .stats b{{display:block;font:950 1.15rem 'JetBrains Mono',monospace;color:var(--tm-acc);margin-top:3px}}
+      .tm-drv .moment{{font:.82rem/1.45 'Saira',sans-serif;color:#b9c8d9;margin-top:10px;height:3.6em;
+        display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}}
+      .tm-drv .moment b{{color:#f4f8ff}}
+      @media(max-width:640px){{.tm-drv-grid{{grid-template-columns:1fr}}.tm-drv .bio,.tm-drv .moment{{height:auto}}}}
+    </style>
+    <div class="tm-drv-grid">{''.join(cards)}</div>
+    """
+
+
 def _router_page_teams():
     fp_ui.page_header(T("page.teams.title"), T("page.teams.sub"), eyebrow=T("section.champ"))
     if 'team_focus' not in st.session_state:
@@ -7039,24 +7090,7 @@ def _router_page_teams():
 
     render_team_personnel_hud(selected_team_name, section='leader')
 
-    driver_columns = st.columns(2)
-    for column, driver in zip(driver_columns, selected_team['drivers']):
-        name, code, number, image_path = driver
-        career = driver_career_profile(code)
-        with column:
-            portrait = current_driver_portrait(selected_team_name, image_path)
-            st.markdown(
-                f"<div class='hud-card' style='min-height:382px;border-top:4px solid {selected_team['color']};overflow:hidden'>"
-                f"<div style='height:182px;position:relative;display:flex;align-items:flex-end;justify-content:center;background:linear-gradient(180deg,rgba(15,30,47,.46),rgba(9,13,20,.02));border-radius:8px;overflow:hidden'>"
-                f"<span style='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:{selected_team['color']};opacity:.3;font-size:2.2rem;font-weight:950;letter-spacing:.1em'>{html_lib.escape(code)}</span>"
-                f"<img src='{portrait}' alt='{html_lib.escape(name)}' style='position:relative;height:170px;max-width:100%;object-fit:contain;object-position:center bottom' onerror=\"this.style.display='none'\"></div>"
-                f"<div style='font-size:1.22rem;font-weight:950;color:#f2f5f8;margin-top:10px'>{html_lib.escape(name)} <span style='color:{selected_team['color']}'>{html_lib.escape(number)}</span></div>"
-                f"<div class='driver-meta'>{html_lib.escape(code)} · {driver_age(code)} yaş · {html_lib.escape(selected_team_name)}</div>"
-                f"<div class='history-copy' style='margin-top:9px'>{html_lib.escape(career['bio'])}</div>"
-                f"<div style='display:flex;gap:8px;margin-top:10px'><div style='flex:1;background:#11161f;border:1px solid #2d415b;border-radius:8px;padding:8px'><div class='hud-label'>GP GALİBİYETİ</div><div style='font-weight:950;color:{selected_team['color']};font-size:1.15rem;margin-top:3px'>{html_lib.escape(str(career['wins']))}</div></div><div style='flex:1;background:#11161f;border:1px solid #2d415b;border-radius:8px;padding:8px'><div class='hud-label'>PODYUM</div><div style='font-weight:950;color:{selected_team['color']};font-size:1.15rem;margin-top:3px'>{html_lib.escape(str(career['podiums']))}</div></div></div>"
-                f"<div style='margin-top:9px;color:#b9c8d9;font-size:.83rem;line-height:1.45'><b style='color:#f4f8ff'>Öne çıkan an:</b> {html_lib.escape(career['moment'])}</div></div>",
-                unsafe_allow_html=True,
-            )
+    st.markdown(team_driver_cards_html(selected_team_name, selected_team), unsafe_allow_html=True)
 
     render_team_personnel_hud(selected_team_name, section='engineers')
 
