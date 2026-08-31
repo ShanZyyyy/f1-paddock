@@ -4389,6 +4389,128 @@ def strategy_wall_component_height(payload):
     return min(2000, max(320, 110 + len(payload.get('cars', [])) * 82))
 
 
+def stint_pace_html(payload):
+    """Seçili pilotun stint başına tur-zaman eğrisi + lineer degradasyon eğimi
+    (sn/tur). Payload'daki tur süre + lastik + pit verisinden; yeni kaynak yok."""
+    packed = fp_ui.json_for_script(payload)
+    return r"""<style>
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #2c425c;border-radius:13px;background:#11161f;padding:13px}
+.head{font-size:13px;font-weight:950;letter-spacing:.08em}
+.sub{font-size:10px;color:#90a7be;margin-top:5px}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin:11px 0}
+.chip{border:1px solid #36506e;border-left:4px solid var(--team);border-radius:6px;background:#132137;color:#f1f7ff;padding:5px 8px;font-weight:900;font-size:11px;cursor:pointer}
+.chip.active{background:#20334d;box-shadow:0 0 0 1px var(--team) inset}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:12px}
+.graph{border:1px solid #29405a;border-radius:9px;background:#0b121c}
+.graph canvas{display:block;width:100%;height:300px}
+.side{border:1px solid #2b405a;border-radius:9px;padding:10px;background:#11161f;display:flex;flex-direction:column;gap:7px}
+.st{border:1px solid #253a51;border-left:4px solid var(--tc);border-radius:7px;padding:7px 9px;background:#0e1826}
+.st b{font:900 12px ui-monospace,Consolas,monospace;display:block}
+.st small{display:block;color:#9fb0c0;font-size:10px;margin-top:3px}
+.st .slope{font:900 13px ui-monospace,Consolas,monospace;margin-top:4px}
+.st .slope.up{color:#ff8b78}.st .slope.flat{color:#9fb0c0}.st .slope.down{color:#7fe0a6}
+.empty{color:#8da2b8;font-size:11px;padding:8px}
+@media(max-width:720px){.layout{grid-template-columns:1fr}}
+</style>
+<div class='hud'>
+  <div class='head'>STINT TEMPOSU & AŞINMA</div>
+  <div class='sub'>HER NOKTA BİR TEMİZ TUR • ÇİZGİ = LİNEER DEGRADASYON • EĞİM sn/tur • 1. TUR, PİT İN/OUT VE AŞIRI TURLAR HARİÇ</div>
+  <div class='chips' id='chips'></div>
+  <div class='layout'><div class='graph'><canvas id='sp'></canvas></div><aside class='side' id='side'></aside></div>
+</div>
+<script>
+const D=__STINT_PACE_PAYLOAD__, cars=(D.cars||[]).filter(c=>c&&c.laps&&c.laps.length), TL=Math.max(1,D.total_laps||1);
+const TYRE={SOFT:'#ef3340',MEDIUM:'#ffd23f',HARD:'#eef2f7',INTERMEDIATE:'#36c96a',WET:'#39a9ff',UNKNOWN:'#8fa0b4'};
+const cv=document.getElementById('sp'), ctx=cv.getContext('2d');
+let chosen=(cars[0]||{}).code||'';
+function stintsFor(c){
+  const pit=new Set((c.pit_events||[]).map(p=>+p.lap));
+  const by={};
+  (c.laps||[]).forEach(lp=>{
+    const dur=(+lp.end)-(+lp.start);
+    if(!(dur>2)) return;
+    const k=lp.stint==null?0:lp.stint;
+    (by[k]=by[k]||{compound:String(lp.compound||'UNKNOWN').toUpperCase(),laps:[]}).laps.push(
+      {lap:+lp.lap,sec:dur,skip:(+lp.lap===1)||pit.has(+lp.lap)||pit.has(+lp.lap-1)});
+  });
+  return Object.keys(by).map(k=>{
+    const s=by[k], clean=s.laps.filter(l=>!l.skip);
+    const sorted=clean.map(l=>l.sec).sort((a,b)=>a-b);
+    const med=sorted.length?sorted[sorted.length>>1]:0;
+    // temsili tur penceresi: medyanın %3 altı / %6 üstü (slipstream ve
+    // safety-car / trafik turlarını degradasyon hesabından ayıklar)
+    const good=clean.filter(l=>med&&l.sec<=med*1.06&&l.sec>=med*0.97);
+    let slope=null,base=null;
+    if(good.length>=3){
+      const n=good.length,mx=good.reduce((a,l)=>a+l.lap,0)/n,my=good.reduce((a,l)=>a+l.sec,0)/n;
+      let num=0,den=0; good.forEach(l=>{num+=(l.lap-mx)*(l.sec-my);den+=(l.lap-mx)*(l.lap-mx);});
+      if(den){slope=num/den;base=my-slope*mx;}
+    }
+    return {stint:+k,compound:s.compound,laps:s.laps,good:good,med:med,slope:slope,base:base,
+      lo:good.length?Math.min(...good.map(l=>l.lap)):0,hi:good.length?Math.max(...good.map(l=>l.lap)):0};
+  }).filter(s=>s.good.length).sort((a,b)=>a.stint-b.stint);
+}
+function render(){
+  document.getElementById('chips').innerHTML=cars.map(c=>
+    "<button class='chip "+(c.code===chosen?'active':'')+"' style='--team:"+c.colour+"' data-c='"+c.code+"'>"+c.code+"</button>").join('');
+  document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{chosen=b.dataset.c;render();});
+  const c=cars.find(x=>x.code===chosen)||cars[0]; if(!c){return;}
+  const S=stintsFor(c);
+  const side=document.getElementById('side');
+  if(!S.length){ side.innerHTML="<div class='empty'>Bu pilot için temiz tur verisi yetersiz.</div>"; resize(S); return; }
+  side.innerHTML=S.map(s=>{
+    const spl=s.slope==null?'—':(s.slope>0?'+':'')+s.slope.toFixed(3)+' sn/tur';
+    const cls=s.slope==null?'flat':s.slope>0.03?'up':s.slope<-0.03?'down':'flat';
+    const verdict=s.slope==null?'':s.slope>0.06?' · hızlı aşınıyor':s.slope>0.02?' · normal düşüş':s.slope<-0.02?' · pist gelişti / yakıt yandı':' · sabit';
+    return "<div class='st' style='--tc:"+(TYRE[s.compound]||TYRE.UNKNOWN)+"'>"
+      +"<b>"+s.compound+" · stint "+(s.stint||1)+"</b>"
+      +"<small>tur "+s.lo+"–"+s.hi+" · "+s.good.length+" temiz tur · medyan "+(s.med?fmt(s.med):'—')+"</small>"
+      +"<div class='slope "+cls+"'>"+spl+verdict+"</div></div>";
+  }).join('');
+  resize(S);
+}
+function fmt(x){ const m=Math.floor(x/60), s=(x-60*m); return m>0?(m+':'+s.toFixed(3).padStart(6,'0')):s.toFixed(3); }
+function draw(S){
+  const w=cv.clientWidth,h=cv.clientHeight,p={l:52,r:12,t:14,b:24};
+  ctx.clearRect(0,0,w,h);
+  const c=cars.find(x=>x.code===chosen)||cars[0];
+  if(!S||!S.length){ ctx.fillStyle='#6b7d8f';ctx.font='700 12px Inter,Arial';ctx.textAlign='center';
+    ctx.fillText('Temiz tur verisi yok.',w/2,h/2); return; }
+  let lo=1e9,hi=-1e9; S.forEach(s=>s.good.forEach(l=>{lo=Math.min(lo,l.sec);hi=Math.max(hi,l.sec);}));
+  const pad=(hi-lo)*0.15||0.5; lo-=pad; hi+=pad;
+  const X=x=>p.l+(x-1)/(TL-1||1)*(w-p.l-p.r), Y=v=>p.t+(1-(v-lo)/(hi-lo))*(h-p.t-p.b);
+  ctx.strokeStyle='#1c2c3d';ctx.fillStyle='#7f97ac';ctx.font='10px Arial';ctx.textAlign='right';
+  for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4, y=p.t+(1-k/4)*(h-p.t-p.b);
+    ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke(); ctx.fillText(fmt(v),p.l-5,y+3); }
+  ctx.textAlign='center';
+  for(let x=1;x<=TL;x+=Math.max(1,Math.ceil(TL/9))){ ctx.fillText(x,X(x),h-7); }
+  S.forEach(s=>{
+    const col=TYRE[s.compound]||TYRE.UNKNOWN;
+    s.good.forEach(l=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X(l.lap),Y(l.sec),2.6,0,7); ctx.fill(); });
+    if(s.slope!=null){
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.globalAlpha=.92;
+      ctx.beginPath(); ctx.moveTo(X(s.lo),Y(s.base+s.slope*s.lo)); ctx.lineTo(X(s.hi),Y(s.base+s.slope*s.hi));
+      ctx.stroke(); ctx.globalAlpha=1;
+    }
+  });
+}
+function resize(S){ const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);
+  cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw(S||stintsFor(cars.find(x=>x.code===chosen)||cars[0])); }
+window.addEventListener('resize',()=>resize());
+render();
+</script>""".replace('__STINT_PACE_PAYLOAD__', packed)
+
+
+def stint_pace_component_height(payload):
+    cars = payload.get('cars', []) if isinstance(payload, dict) else []
+    max_stints = 1
+    for car in cars:
+        stints = {lap.get('stint', 0) for lap in car.get('laps', [])}
+        max_stints = max(max_stints, len(stints))
+    return min(760, 470 + max_stints * 8)
+
+
 def position_flow_html(payload):
     """Pilotun tur tur sıra değişimini takım renkli, seçilebilir HUD grafiğine dönüştürür."""
     packed = fp_ui.json_for_script(payload)
@@ -7982,6 +8104,17 @@ def _router_page_live():
                             )
                             # Ağır ikincil paneller varsayılan olarak kapalı — 2D tekrar
                             # anında açılsın, sayfa donmuş hissi vermesin.
+                            with st.expander("🛞 Stint temposu & aşınma (degradasyon eğimi)", expanded=False):
+                                st.caption(
+                                    "Bir pilot seç: her stint'in tur-zaman eğrisi ve lineer degradasyon eğimi (sn/tur). "
+                                    "1. tur, pit in/out ve aşırı turlar (safety car, trafik) eğim hesabına katılmaz."
+                                )
+                                render_html_hud(
+                                    stint_pace_html(replay_payload),
+                                    height=stint_pace_component_height(replay_payload),
+                                    scrolling=True,
+                                )
+
                             with st.expander("📈 Tur tur pozisyon akışı", expanded=False):
                                 render_html_hud(position_flow_html(replay_payload), height=520, scrolling=True)
 
