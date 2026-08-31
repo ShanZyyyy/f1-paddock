@@ -1604,6 +1604,21 @@ def season_team_colour(team_name, year):
     return team_colour(team_name)
 
 
+def _session_driver_colour_v46(session, code, year):
+    """Bir seansta pilotun sezon-doğru takım rengi: önce results['TeamColor'],
+    sonra season_team_colour. Telemetri HUD'larında tutarlı renk için."""
+    try:
+        row = session.results[session.results['Abbreviation'] == code]
+        if not row.empty:
+            raw = row.iloc[0].get('TeamColor')
+            if raw is not None and str(raw).strip() and str(raw).strip().lower() != 'nan':
+                return '#' + str(raw).strip().lstrip('#')
+            return season_team_colour(str(row.iloc[0].get('TeamName', '')), year)
+    except Exception:
+        pass
+    return season_team_colour('', year)
+
+
 def _replay_driver_visual_v34(result, team_name, year):
     """SEÇİLEN SEZONA ait pilot görselleri — yalnızca o seansın veri satırından.
     Renk: FastF1/OpenF1 `TeamColor` (2019+ gerçek livery) -> sezon renk tablosu.
@@ -2505,7 +2520,8 @@ canvas{width:100%;height:392px;display:block}
 .sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
 .sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 11px ui-monospace,Consolas,monospace}
 .sector small{display:block;color:#9fb0c0;font-family:Inter,Arial,sans-serif;margin-bottom:6px}
-.win{color:#79e7a7}.lose{color:#ff8793}
+.sector .win,.sector .lose{opacity:1}
+.sector .lose{opacity:.55}
 .msec{margin-top:12px}
 .mslab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-bottom:5px}
 .mslab s{font-style:normal;font-weight:900}
@@ -2513,8 +2529,8 @@ canvas{width:100%;height:392px;display:block}
 .msrow::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#3a4a5e;z-index:1}
 .msbar{flex:1;position:relative;cursor:help}
 .msbar i{position:absolute;left:0;right:0;display:block;border-radius:1px}
-.msbar.c0 i{bottom:50%;background:#4ea981}
-.msbar.c1 i{top:50%;background:#d3576a}
+.msbar.c0 i{bottom:50%;background:var(--mc0,#4ea981)}
+.msbar.c1 i{top:50%;background:var(--mc1,#d3576a)}
 .msbar.big i{box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .dtrace{margin-top:12px}
 .dtlab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-bottom:5px}
@@ -2532,7 +2548,8 @@ canvas{width:100%;height:392px;display:block}
     <div><div class="title">2D TUR DUELLOSU</div><div class="sub">IKI TUR ORTAK ZAMAN EKSENINDE - AYNI PIST NOKTASINDAKI DELTA</div></div>
     <div id="tags"></div>
   </div>
-  <div class="legend"><span>START / BITIS</span><span style="border-color:#45c8ff;color:#8fd8ff" title="Straight Mode - duzlukte dusuk surtunme bolgesi. Eski adiyla DRS.">SM · duzluk (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode - ekstra elektrik gucu kullanilabilen, gecis sansi yuksek bolge. Yayin diliyle ERS hucum / push-to-pass.">OM · gecis (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektor</span></div>
+  <div class="legend" id="legend"><span>START / BITIS</span><span style="border-color:#45c8ff;color:#8fd8ff" title="Straight Mode - duzlukte dusuk surtunme bolgesi. Eski adiyla DRS.">SM · duzluk (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode - ekstra elektrik gucu kullanilabilen, gecis sansi yuksek bolge. Yayin diliyle ERS hucum / push-to-pass.">OM · gecis (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektor</span></div>
+  <div class="sub" id="colnote" style="margin-top:6px">Renk kodu: her yerde <b id="cn0">1. pilot</b> ve <b id="cn1">2. pilot</b> kendi takım renginde — sektör kutuları, mini-sektör çubukları ve Δ izi dahil.</div>
   <div class="map"><canvas id="duel"></canvas></div>
   <div class="sectors" id="sectors"></div>
   <div class="msec" id="msec"></div>
@@ -2677,9 +2694,10 @@ function buildMinisectors(){
     const cls='msbar '+(d<0?'c0':'c1')+(Math.abs(d)>=maxAbs*0.6?' big':'');
     return '<div class="'+cls+'" title="Mini-sektör '+(i+1)+'/'+N+' — '+faster+' '+Math.abs(d).toFixed(3)+' sn hızlı"><i style="height:'+h+'%"></i></div>';
   }).join('');
+  const mc0=cars[0].colour||'#4ea981', mc1=cars[1].colour||'#d3576a';
   el.innerHTML='<div class="mslab"><span>MİNİ-SEKTÖR Δ · '+N+' DİLİM · zamanın nerede kazanıldığı</span>'
-    +'<span><s style="color:#4ea981">▲ '+cars[0].code+'</s> · <s style="color:#d3576a">▼ '+cars[1].code+'</s></span></div>'
-    +'<div class="msrow">'+bars+'</div>';
+    +'<span><s style="color:'+mc0+'">▲ '+cars[0].code+'</s> · <s style="color:'+mc1+'">▼ '+cars[1].code+'</s></span></div>'
+    +'<div class="msrow" style="--mc0:'+mc0+';--mc1:'+mc1+'">'+bars+'</div>';
 }
 
 // --- kümülatif Δ izi (tur boyunca zaman farkı) ---
@@ -2763,17 +2781,23 @@ function dtReadout(){
 function buildStatic(){
   $('tags').innerHTML = cars.map(function(c){return '<span class="tag" style="--team:'+c.colour+'">'+c.code+' - '+c.lap+'</span>';}).join(' ');
   const c0=$('dtc0'); if(c0&&cars[0]){ c0.textContent=cars[0].code; c0.style.color=cars[0].colour||'#e7eef6'; }
+  if(cars.length>=2){
+    const n0=$('cn0'), n1=$('cn1');
+    if(n0){ n0.textContent=cars[0].code; n0.style.color=cars[0].colour||'#e7eef6'; }
+    if(n1){ n1.textContent=cars[1].code; n1.style.color=cars[1].colour||'#e7eef6'; }
+  }
   buildMinisectors();
   buildDeltaTrace();
   if(cars.length<2){ $('sectors').innerHTML=''; return; }
+  const col0=cars[0].colour||'#e10600', col1=cars[1].colour||'#38bdf8';
   $('sectors').innerHTML=[0,1,2].map(function(i){
     const a=(cars[0].sectors||[])[i]||'-', b=(cars[1].sectors||[])[i]||'-';
     const d=sec(a)-sec(b), ok=Number.isFinite(d);
-    const c=i===0?'#f4d35e':i===1?'#56cfe1':'#ff7a9f';
-    return '<div class="sector" style="--c:'+c+'"><small>SEKTOR '+(i+1)+' - '+(ok?(d<0?cars[0].code:d>0?cars[1].code:'ESIT'):'-')+' onde</small>'
-      +'<div class="'+(ok&&d<=0?'win':'lose')+'">'+cars[0].code+' '+a+'</div>'
-      +'<div class="'+(ok&&d>=0?'win':'lose')+'">'+cars[1].code+' '+b+'</div>'
-      +'<div>D '+(ok?Math.abs(d).toFixed(3)+' sn':'-')+'</div></div>';
+    const lead=ok?(d<0?cars[0].code:d>0?cars[1].code:'ESIT'):'-';
+    return '<div class="sector" style="--c:'+(d<0?col0:d>0?col1:'#7f97ac')+'"><small>SEKTOR '+(i+1)+' - '+lead+' onde</small>'
+      +'<div class="'+(ok&&d<=0?'win':'lose')+'" style="color:'+col0+'">'+cars[0].code+' '+a+'</div>'
+      +'<div class="'+(ok&&d>=0?'win':'lose')+'" style="color:'+col1+'">'+cars[1].code+' '+b+'</div>'
+      +'<div style="color:#9fb0c0">Δ '+(ok?Math.abs(d).toFixed(3)+' sn':'-')+'</div></div>';
   }).join('');
 }
 
@@ -8070,22 +8094,24 @@ def _router_page_telemetry():
 
     _HOWTO = {
         "Pist Dominasyonu": ([
-            ("Pist çizgisi", "iki pilotun turu üst üste bindirilir; her nokta o an kimin daha hızlı olduğunu gösterir."),
-            ("Renk", "kırmızı = 1. pilot daha hızlı, cyan = 2. pilot daha hızlı."),
-            ("Ne aramalı", "uzun kırmızı/cyan bloklar = bir pilotun net üstün olduğu bölüm; renk sık değişiyorsa turlar denk."),
-        ], [("#e10600", "1. pilot önde"), ("#38bdf8", "2. pilot önde")]),
+            ("Pist çizgisi", "iki pilotun turu üst üste bindirilir; her bölüm o an daha hızlı olan pilotun takım rengine boyanır."),
+            ("Renk kuralı", "her pilot kendi takım renginde — alttaki çubuk tur boyunca kimin ne kadar önde olduğunu toplar."),
+            ("Ne aramalı", "uzun tek renk bloklar = bir pilotun net üstün olduğu bölüm; renk sık değişiyorsa turlar denk."),
+        ], None),
         "2D Tur Düellosu": ([
+            ("Renk kuralı", "her yerde iki pilot kendi takım renginde: sektör kutuları, mini-sektör çubukları ve Δ izi. Renk = kimin, konum = ne kadar."),
             ("Δ (delta)", "aynı pist noktasında iki pilot arasındaki saniye farkı. Δ 0.30 = öndeki 0,30 sn hızlı."),
             ("Oynat / hız", "turu 1×–8× hızda izle; alttaki çubukla istediğin ana atla."),
-            ("Sektörler", "hangi pilotun hangi sektörde daha hızlı olduğu alttaki üç kutuda."),
-            ("Mini-sektör Δ", "tur 20 dilime bölünür; yukarı-yeşil çubuk 1. pilotun, aşağı-kırmızı 2. pilotun o dilimde kazandığı süre. Zamanın tam nerede kaybedildiğini gösterir."),
-        ], [("#4ea981", "1. pilot dilimde hızlı"), ("#d3576a", "2. pilot dilimde hızlı"), ("#45c8ff", "SM (≈DRS)"), ("#71e6a1", "OM (≈ERS)")]),
+            ("Sektörler", "hangi pilotun hangi sektörde daha hızlı olduğu alttaki üç kutuda; hızlı olanın satırı kendi renginde ve koyu."),
+            ("Mini-sektör Δ", "tur 20 dilime bölünür; çubuk yukarı = 1. pilot o dilimde hızlı, aşağı = 2. pilot. Zamanın tam nerede kaybedildiğini gösterir."),
+        ], [("#45c8ff", "SM (≈DRS)"), ("#71e6a1", "OM (≈ERS)"), ("#f4d35e", "sektör sınırı")]),
         "Fren Analizi": ([
             ("Dört iz", "üstten alta: hız, gaz, fren, vites — hepsi pist mesafesine göre hizalı."),
             ("İmleç", "fareyi grafiğin veya pistin üzerinde gezdir; dört iz ve haritadaki nokta aynı anda o mesafeye kilitlenir. Soldaki panelde tam değerler."),
             ("Geç frenleme", "fren izindeki dikey sıçrama fren noktasıdır; daha sağda olan pilot viraja daha geç fren yapmıştır."),
             ("Hız farkı", "hız izinde çizgiler ayrışıyorsa orada bir pilot belirgin hızlı; soldaki Δ hız satırı farkı sayıyla verir."),
-        ], [("#e10600", "1. pilot"), ("#38e1d0", "2. pilot"), ("#f4d35e", "sektör sınırı")]),
+            ("Renk kuralı", "iki iz de ilgili pilotun takım renginde — üstteki pilot etiketleriyle aynı."),
+        ], [("#f4d35e", "sektör sınırı")]),
         "Top Hız": ([
             ("Tablo", "her pilotun o seanstaki en yüksek telemetri hızı, hızlıdan yavaşa."),
             ("Ne anlatır", "yüksek top hız = düşük kanat / iyi güç ünitesi / iyi slipstream; düşük = yüksek kanat tercihi."),
@@ -8186,9 +8212,13 @@ def _router_page_telemetry():
 
                         st.write("")
 
+                        _dc1 = _session_driver_colour_v46(session, d1, year)
+                        _dc2 = _session_driver_colour_v46(session, d2, year)
+                        if _dc1.lower() == _dc2.lower():
+                            _dc1, _dc2 = fp_plot.A1, fp_plot.A2
                         dom_payload = _telemetry_trace_payload_v38([
-                            (d1, fp_plot.A1, format_time(lap1['LapTime']), tel1),
-                            (d2, fp_plot.A2, format_time(lap2['LapTime']), tel2),
+                            (d1, _dc1, format_time(lap1['LapTime']), tel1),
+                            (d2, _dc2, format_time(lap2['LapTime']), tel2),
                         ])
                         if dom_payload.get('ok'):
                             render_html_hud(dominance_map_html(dom_payload), height=600, scrolling=True)
@@ -8303,7 +8333,10 @@ def _router_page_telemetry():
                         tel1 = lap1.get_telemetry()
                         tel2 = lap2.get_telemetry()
 
-                        trace_c1, trace_c2 = fp_plot.A1, fp_plot.A2
+                        trace_c1 = _session_driver_colour_v46(session, d1, year)
+                        trace_c2 = _session_driver_colour_v46(session, d2, year)
+                        if trace_c1.lower() == trace_c2.lower():
+                            trace_c1, trace_c2 = fp_plot.A1, fp_plot.A2
                         trace_payload = _telemetry_trace_payload_v38([
                             (d1, trace_c1, format_time(lap1['LapTime']), tel1),
                             (d2, trace_c2, format_time(lap2['LapTime']), tel2),
