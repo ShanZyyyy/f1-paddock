@@ -5167,11 +5167,15 @@ def render_favourites_centre():
 
     # Faz 4 #9 — Paddock kimliği
     render_html_hud(_paddock_profile_html(), height=260, scrolling=True)
+    _share_min = {'fav_driver': driver_name, 'fav_team': team_name}
+    if _follow_list():
+        _share_min['follow'] = _follow_list()
     fp_ui.share_panel(
         "🏎️ Formula Paddock — benim paddock'um\n"
         f"Favori: {driver_name} · {team_name}\n"
         + (f"Takip: {', '.join(_follow_list())}\n" if _follow_list() else "")
         + "Aşağıdaki bağlantıyı aç, aynı favori ve takip listesiyle başla:",
+        url_query="/?p=home&fp=" + fp_ui._prefs_encode(_share_min),
         label="🔗 Paddock'unu paylaş",
     )
 
@@ -8411,12 +8415,16 @@ fp_ui.control_dock()
 # Hero'nun altında: son yarış · şampiyona ilk 3 · hızlı erişim.
 # =========================================================
 
-def _home_quick_tiles_html():
+def _home_quick_tiles_html(has_fav=False):
     tiles = [
         ('telemetry', 'Telemetri', 'Hız · fren · delta · mini-sektör', '#45c8ff'),
         ('live', 'Yarış Tekrarı', 'Tam 2D pist kontrolü', '#ff5c5c'),
         ('standings', 'Şampiyona', 'Puanlar + senaryolar', '#f5c33b'),
-        ('learn', 'Başlangıç Garajı', 'F1, beş dakikada', '#7fe0a6'),
+        ('predict', 'Hafta Sonu Tahmini', 'Pole + podyum tahmin et, puanla', '#f7c948'),
+        ('favourites', 'Favori Paddock', 'Takip listen · sezon hikâyen · kimliğin', '#38e1d0'),
+        ('learn' if not has_fav else 'compare',
+         'Başlangıç Garajı' if not has_fav else 'Karşılaştır',
+         'F1, beş dakikada' if not has_fav else 'İki pilot: kariyer + pist', '#7fe0a6'),
     ]
     cells = "".join(
         f"<a class='hq' href='?p={p}' target='_top' style='--c:{c}'>"
@@ -8425,7 +8433,7 @@ def _home_quick_tiles_html():
     )
     return (
         "<style>"
-        ".hqwrap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 24px}"
+        ".hqwrap{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 24px}"
         ".hq{display:block;text-decoration:none;border:1px solid var(--fp-line);border-left:3px solid var(--c);"
         "border-radius:9px;background:var(--fp-bg-2);padding:13px 14px;transition:background .12s ease}"
         ".hq:hover{background:var(--fp-bg-3)}"
@@ -9175,13 +9183,24 @@ def _this_week_line_v54(year, last, fav_team, fav_code, driver_standings):
     )
 
 
-def _home_setup_card_v50():
-    """Favori seçilmemişse: tek adımda pilot seç, site kişiselleşsin (Faz 4 #2)."""
-    if fp_ui.get_pref('fav_driver') or fp_ui.get_pref('fav_skip'):
+# =========================================================
+# FAZ 5-B · #4 — TEK "İLK 60 SANİYE" AKIŞI
+# =========================================================
+def _home_onboarding_v62():
+    """İlk ziyaret akışı: 1) favori pilot seç → 2) "hazır, şunu dene" 3 kart.
+    Bir kez gösterilir; herhangi bir kart / "kapat" akışı bitirir (`ob='done'`)."""
+    if fp_ui.get_pref('ob') == 'done' or fp_ui.get_pref('fav_skip'):
         return
+    if not fp_ui.get_pref('fav_driver'):
+        _onboarding_step1_v62()
+    else:
+        _onboarding_step2_v62()
+
+
+def _onboarding_step1_v62():
     st.markdown(
         "<div class='hud-card' style='border-left:4px solid var(--fp-cyan);margin-bottom:6px'>"
-        "<div class='hud-label'>PADDOCK'UNU KUR</div>"
+        "<div class='hud-label'>PADDOCK'UNU KUR · 1 / 2</div>"
         "<div class='history-copy' style='margin-top:6px'>Bir favori pilot seç — ana sayfa, yarış "
         "özetin ve haber akışın ona göre kişiselleşir. İstediğin an Favori Paddock'tan değiştirirsin.</div>"
         "</div>",
@@ -9208,6 +9227,43 @@ def _home_setup_card_v50():
             st.toast("Önce listeden bir pilot seç.")
     if c3.button("Geç", key="_home_setup_skip", width='stretch'):
         fp_ui.set_pref('fav_skip', 1)
+        fp_ui.set_pref('ob', 'done')
+        st.rerun()
+
+
+def _onboarding_step2_v62():
+    fav = st.session_state.get('favourite_driver') or fp_ui.get_pref('fav_driver') or ''
+    team = st.session_state.get('favourite_team') or fp_ui.get_pref('fav_team') or ''
+    col = season_team_colour(team, datetime.datetime.now(datetime.timezone.utc).year)
+    st.markdown(
+        f"<div class='hud-card' style='border-left:4px solid {col};margin-bottom:6px'>"
+        "<div class='hud-label'>PADDOCK'UN HAZIR · 2 / 2</div>"
+        f"<div class='history-copy' style='margin-top:6px'>Ana sayfan, yarış özetin ve haberler artık "
+        f"<b>{html_lib.escape(str(fav))}</b>'a göre. Şunları da dene:</div></div>",
+        unsafe_allow_html=True,
+    )
+    tries = [
+        ("▶ Rehberli yarış turu", "2D yarış tekrarını aç, 5 adımlık tur seni gezdirsin", 'live', {'_want_replay_tour': True}),
+        ("🎯 Bu hafta tahmin yap", "Sıradaki GP'nin pole + podyumunu tahmin et, puanla", 'predict', {}),
+        ("⚖️ İki pilotu karşılaştır", "Kariyer boyu, sektör sektör, pist pist", 'compare', {}),
+    ]
+    cols = st.columns(3)
+    for c, (label, desc, page, extra) in zip(cols, tries):
+        with c:
+            st.markdown(
+                f"<div class='hud-card' style='min-height:74px;margin-bottom:4px'>"
+                f"<div style='font-weight:900;font-size:.98rem'>{html_lib.escape(label)}</div>"
+                f"<div class='driver-meta' style='margin-top:5px'>{html_lib.escape(desc)}</div></div>",
+                unsafe_allow_html=True,
+            )
+            if st.button("Aç →", key=f"_ob_go_{page}", width='stretch'):
+                fp_ui.set_pref('ob', 'done')
+                for k, v in extra.items():
+                    st.session_state[k] = v
+                st.session_state['page'] = page
+                st.rerun()
+    if st.button("Anladım, kapat", key="_ob_done", width='stretch'):
+        fp_ui.set_pref('ob', 'done')
         st.rerun()
 
 
@@ -9217,7 +9273,7 @@ def _home_cockpit_v44():
     year = datetime.datetime.now(datetime.timezone.utc).year
     last = _latest_completed_race_v43(year)
     if not last.get('last'):
-        st.markdown(_home_quick_tiles_html(), unsafe_allow_html=True)
+        st.markdown(_home_quick_tiles_html(bool(fp_ui.get_pref('fav_driver'))), unsafe_allow_html=True)
         return
 
     fav_team = st.session_state.get('favourite_team')
@@ -9263,14 +9319,19 @@ def _home_cockpit_v44():
             st.caption("Puan tablosu şu an alınamadı.")
 
     _follow = _follow_list()
-    if len(_follow) > 1 or (_follow and not fav_code):
+    if _follow:
         _board = _follow_board_v51(_follow, year, last.get('last'))
         if _board.get('ok'):
             fp_ui.section_title("Takip Panosu")
             render_html_hud(follow_board_html(_board, year),
                             height=follow_board_component_height(_board), scrolling=True)
+            if len(_follow) < 2:
+                st.caption("Favori Paddock'tan daha fazla pilot ekle — hepsi burada tek panoda görünür.")
+    elif fav_code:
+        st.caption("Pilotları takip et → burada mini durum panosu (şampiyona sırası + son yarış). "
+                   "Favori Paddock'tan ekle.")
 
-    st.markdown(_home_quick_tiles_html(), unsafe_allow_html=True)
+    st.markdown(_home_quick_tiles_html(bool(fav_code)), unsafe_allow_html=True)
 
 
 def _router_page_home():
@@ -9297,9 +9358,9 @@ def _router_page_home():
         log_data_error('home return strip', _return_err)
 
     try:
-        _home_setup_card_v50()
+        _home_onboarding_v62()
     except Exception as _setup_err:  # noqa: BLE001
-        log_data_error('home setup card', _setup_err)
+        log_data_error('home onboarding', _setup_err)
 
     try:
         _home_cockpit_v44()

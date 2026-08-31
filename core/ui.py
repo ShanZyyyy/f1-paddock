@@ -658,17 +658,24 @@ def news_grid(items, per_row=2):
     )
 
 
-def share_panel(text, *, include_url=True, label="🔗 Paylaş", key=None):
-    """Katlanır 'paylaş' paneli — temiz metin özeti + kopyala düğmesi. İsteğe
-    bağlı olarak mevcut sayfa bağlantısını da ekler (favori/tahmin taşınır).
+def share_panel(text, *, include_url=True, url_query=None, label="🔗 Paylaş", key=None):
+    """Katlanır 'paylaş' paneli — temiz metin özeti + kopyala düğmesi.
+    ``url_query`` verilirse (ör. "/?p=home&fp=<kısa blob>") bağlantı olarak
+    origin + o path eklenir (kısa link); yoksa ``include_url`` ile tam URL.
     Streamlit round-trip yok; kopyalama iframe içinde yapılır."""
     body = str(text or "").strip()
     if not body:
         return
     payload = _json.dumps(body)
+    if url_query:
+        append_js = "try{ta.value+='\\n'+window.parent.location.origin+" + _json.dumps(str(url_query)) + ";}catch(e){}"
+    elif include_url:
+        append_js = "try{ta.value+='\\n'+window.parent.location.href;}catch(e){}"
+    else:
+        append_js = ""
     with st.expander(label, expanded=False):
         st.caption("Aşağıdaki metni kopyala; istersen sosyal medyada paylaş."
-                   + (" Bağlantı favori ve tahminlerini de taşır." if include_url else ""))
+                   + (" Bağlantı favori ve takip listeni taşır." if (url_query or include_url) else ""))
         _embed_html(
             "<style>"
             "*{box-sizing:border-box;font-family:Inter,Segoe UI,Arial,sans-serif}"
@@ -682,7 +689,7 @@ def share_panel(text, *, include_url=True, label="🔗 Paylaş", key=None):
             "<textarea id='s' readonly></textarea><button id='c' type='button'>Kopyala</button>"
             "<script>(function(){"
             "var ta=document.getElementById('s');ta.value=" + payload + ";"
-            + ("try{ta.value+='\\n'+window.parent.location.href;}catch(e){}" if include_url else "")
+            + append_js
             + "document.getElementById('c').onclick=function(){var b=this;ta.focus();ta.select();"
             "var ok=false;try{document.execCommand('copy');ok=true;}catch(e){}"
             "try{navigator.clipboard.writeText(ta.value);ok=true;}catch(e){}"
