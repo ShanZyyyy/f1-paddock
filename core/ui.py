@@ -100,25 +100,42 @@ def init_prefs():
         return
     if _FP_PREFS not in st.session_state:
         st.session_state[_FP_PREFS] = {}
-    if not st.session_state.get(_FP_PREFS_BOOT):
+    if st.session_state.get(_FP_PREFS_BOOT) or st.session_state.get("_fp_no_prefs"):
+        # bootstrap zaten çözüldü (ya da AppTest / JS engelli) -> varsayılanlarla sür
         st.session_state[_FP_PREFS_BOOT] = True
-        # localStorage'da tercih varsa `?fp=` paramını enjekte et. iframe sandbox
-        # üst-pencere URL navigasyonuna izin vermez (bkz. core/hero.py CTA notu),
-        # ama history.replaceState + location.reload çalışır: URL'i güncelle,
-        # aynı sayfayı yeni param ile bir kez yeniden yükle.
-        _embed_html(
-            "<script>(function(){try{"
-            "var P=window.parent;"
-            "var s=P.localStorage.getItem(" + _json.dumps(_FP_PREFS_LSKEY) + ");"
-            "if(!s)return;"
-            "var u=new URL(P.location.href);"
-            "if(u.searchParams.get(" + _json.dumps(_FP_PREFS_PARAM) + "))return;"
-            "u.searchParams.set(" + _json.dumps(_FP_PREFS_PARAM) + ",s);"
-            "P.history.replaceState(P.history.state,'',u.toString());"
-            "P.location.reload();"
-            "}catch(e){}})();</script>",
-            height=0,
-        )
+        return
+    st.session_state[_FP_PREFS_BOOT] = True
+    # İlk çalıştırma, ?fp yok: localStorage'da tercih var mı henüz bilmiyoruz.
+    # Script ya `?fp=` enjekte edip bir kez yeniden yükler (tercih var), ya da
+    # gizli butona tıklar (tercih yok) -> bir sonraki render varsayılanlarla sürer.
+    # st.stop() ile ilk render'daki ağır ağ çağrılarını ve içerik parıltısını
+    # atlıyoruz: dönen kullanıcı reload'u boş sayfada karşılar, tekrar-render yok.
+    _embed_html(
+        "<script>(function(){try{"
+        "var P=window.parent, s=null;"
+        "try{ s=P.localStorage.getItem(" + _json.dumps(_FP_PREFS_LSKEY) + "); }catch(e){}"
+        "if(s){"
+        "  var u=new URL(P.location.href);"
+        "  if(!u.searchParams.get(" + _json.dumps(_FP_PREFS_PARAM) + ")){"
+        "    u.searchParams.set(" + _json.dumps(_FP_PREFS_PARAM) + ",s);"
+        "    P.history.replaceState(P.history.state,'',u.toString());"
+        "    P.location.reload(); return;"
+        "  }"
+        "}"
+        "var b=P.document.querySelector('[class*=\"st-key-fpnoprefs\"] button');"
+        "if(b) b.click();"
+        "}catch(e){}})();</script>",
+        height=0,
+    )
+    st.markdown(
+        "<style>[class*='st-key-fpnoprefs']{position:fixed !important;top:0;left:0;"
+        "width:1px !important;height:1px !important;overflow:hidden !important;opacity:0 !important;"
+        "margin:0 !important;padding:0 !important;border:0 !important}</style>",
+        unsafe_allow_html=True,
+    )
+    st.button("devam", key="fpnoprefs",
+              on_click=lambda: st.session_state.__setitem__("_fp_no_prefs", True))
+    st.stop()
 
 
 def get_pref(key, default=None):

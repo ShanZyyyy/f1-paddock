@@ -8133,9 +8133,10 @@ def _prediction_maybe_score_v55(year):
         return None
     fp_ui.set_pref('ps', int(fp_ui.get_pref('ps') or 0) + scored['points'])
     fp_ui.set_pref('pn', int(fp_ui.get_pref('pn') or 0) + 1)
-    log = list(fp_ui.get_pref('plog') or [])
-    log.append({'g': gp, 'p': scored['points'], 'pl': pred.get('pl'), 'po': pred.get('po')})
-    fp_ui.set_pref('plog', log[-24:])
+    # plog URL'de (`?fp=`) taşındığı için kompakt tut: sadece GP + puan, son 12.
+    log = [r for r in (fp_ui.get_pref('plog') or []) if isinstance(r, dict) and r.get('g')]
+    log.append({'g': gp, 'p': scored['points']})
+    fp_ui.set_pref('plog', log[-12:])
     fp_ui.set_pref('pc', None)
     scored['gp'] = gp
     scored['pred'] = pred

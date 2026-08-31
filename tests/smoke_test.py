@@ -38,6 +38,8 @@ def run_page(page):
     at.session_state["home_data_requested"] = False
     at.session_state["telemetry_schedule_requested"] = False
     at.session_state["news_requested"] = False
+    # AppTest'te JS yok: prefs bootstrap st.stop()'unu atla (saklı tercih yok gibi davran).
+    at.session_state["_fp_no_prefs"] = True
     at.run()
     return at
 
