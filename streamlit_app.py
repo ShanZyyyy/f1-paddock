@@ -262,6 +262,11 @@ if not _bad_page and st.session_state['page'] in VALID_PAGES and st.session_stat
     st.query_params['p'] = st.session_state['page']
     st.session_state['_prev_qp_page'] = st.session_state['page']
 
+# ---- KALICI KULLANICI TERCİHLERİ (Faz 4) -----------------------------------
+# Favori pilot/takım, takip listesi, son ziyaret, tahmin verisi: `?fp=` URL
+# param + localStorage köprüsü. init burada, flush script sonunda.
+fp_ui.init_prefs()
+
 # BOOT FIX 1.4.2
 # Eski Streamlit tarayıcı oturumları, daha önce tıklanmış "veri yükle"
 # düğmelerinin durumunu bellekte tutar. Bu sürüm açıldığında o eski durumları
@@ -9498,3 +9503,6 @@ render_data_diagnostics_panel()
 # --- her sayfanın altında ince ayak (ana ekran hariç — hero tam ekran) ---
 if _bad_page or st.session_state['page'] != 'home':
     fp_ui.site_footer(FOOTER_LINKS)
+
+# --- tercih değiştiyse URL + localStorage aynasını güncelle (Faz 4) ---
+fp_ui.flush_prefs()

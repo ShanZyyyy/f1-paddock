@@ -5,6 +5,7 @@ Sayfalar ham HTML/``<style>`` yazmaz; bu fonksiyonlari cagirir.
 Tum gorsel dil `core/theme.py`'den gelir.
 """
 
+import base64 as _b64
 import html as _html
 import json as _json
 import re as _re
@@ -53,6 +54,127 @@ def _accent(name):
     if name in _ACCENTS:
         return _ACCENTS[name]
     return name if str(name).startswith(("#", "var(")) else "var(--fp-red)"
+
+
+# =====================================================================
+# KALICI KULLANICI TERCİHLERİ — favori pilot/takım, takip listesi, son ziyaret,
+# tahmin verisi. Bağımlılık yok: `?fp=<blob>` paylaşılabilir kaynak, tarayıcı
+# localStorage aynası. init_prefs() en üstte bir kez, flush_prefs() script sonunda.
+# =====================================================================
+_FP_PREFS = "_fp_prefs"                 # oturum içi çalışma kopyası (dict)
+_FP_PREFS_LASTBLOB = "_fp_prefs_lastblob"
+_FP_PREFS_BOOT = "_fp_prefs_boot"       # localStorage bootstrap bir kez denendi
+_FP_PREFS_PARAM = "fp"                  # URL query anahtarı
+_FP_PREFS_LSKEY = "fp_prefs_v1"         # localStorage anahtarı
+
+
+def _prefs_encode(prefs):
+    raw = _json.dumps(prefs or {}, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
+    return _b64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def _prefs_decode(blob):
+    if not blob or not isinstance(blob, str):
+        return {}
+    try:
+        data = _json.loads(_b64.urlsafe_b64decode(blob + "=" * (-len(blob) % 4)).decode("utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def init_prefs():
+    """Tercihleri URL param + localStorage köprüsünden oturum durumuna yükler.
+    Sayfa senkronundan hemen sonra bir kez çağrılır."""
+    blob = st.query_params.get(_FP_PREFS_PARAM)
+    if blob:
+        current = st.session_state.get(_FP_PREFS) or {}
+        # URL kaynağı kazanır (paylaşılan link / geri-ileri); oturuma özel geçici
+        # anahtarlar (o ziyaretin taslak tahmini vb.) korunur.
+        st.session_state[_FP_PREFS] = {**current, **_prefs_decode(blob)}
+        st.session_state[_FP_PREFS_LASTBLOB] = blob
+        st.session_state[_FP_PREFS_BOOT] = True
+        return
+    if _FP_PREFS not in st.session_state:
+        st.session_state[_FP_PREFS] = {}
+    if not st.session_state.get(_FP_PREFS_BOOT):
+        st.session_state[_FP_PREFS_BOOT] = True
+        # localStorage'da tercih varsa `?fp=` paramını enjekte et. iframe sandbox
+        # üst-pencere URL navigasyonuna izin vermez (bkz. core/hero.py CTA notu),
+        # ama history.replaceState + location.reload çalışır: URL'i güncelle,
+        # aynı sayfayı yeni param ile bir kez yeniden yükle.
+        _embed_html(
+            "<script>(function(){try{"
+            "var P=window.parent;"
+            "var s=P.localStorage.getItem(" + _json.dumps(_FP_PREFS_LSKEY) + ");"
+            "if(!s)return;"
+            "var u=new URL(P.location.href);"
+            "if(u.searchParams.get(" + _json.dumps(_FP_PREFS_PARAM) + "))return;"
+            "u.searchParams.set(" + _json.dumps(_FP_PREFS_PARAM) + ",s);"
+            "P.history.replaceState(P.history.state,'',u.toString());"
+            "P.location.reload();"
+            "}catch(e){}})();</script>",
+            height=0,
+        )
+
+
+def get_pref(key, default=None):
+    return (st.session_state.get(_FP_PREFS) or {}).get(key, default)
+
+
+def set_pref(key, value):
+    """Bir tercihi günceller. ``None`` -> anahtarı sil. Kalıcılaşması için script
+    sonunda flush_prefs() çalışmalı (router bunu yapar)."""
+    prefs = st.session_state.setdefault(_FP_PREFS, {})
+    if value is None:
+        prefs.pop(key, None)
+    else:
+        prefs[key] = value
+
+
+def all_prefs():
+    return dict(st.session_state.get(_FP_PREFS) or {})
+
+
+def flush_prefs():
+    """Script sonunda bir kez: tercih değiştiyse ?fp= paramına yaz ve localStorage
+    aynasını güncelle. URL yazımı rerun tetiklemez (sayfa `p` senkronu gibi).
+
+    Boş tercih = henüz yüklenmemiş/varsayılan durum — bu durumda hiçbir şeye
+    dokunmayız (kullanıcının saklı tercihini yan etkiyle silmemek için).
+    reset_prefs() açık sıfırlama içindir."""
+    prefs = st.session_state.get(_FP_PREFS)
+    if not prefs:
+        return
+    blob = _prefs_encode(prefs)
+    try:
+        if blob != st.query_params.get(_FP_PREFS_PARAM):
+            st.query_params[_FP_PREFS_PARAM] = blob
+    except Exception:
+        pass
+    if blob != st.session_state.get(_FP_PREFS_LASTBLOB):
+        st.session_state[_FP_PREFS_LASTBLOB] = blob
+        _embed_html(
+            "<script>(function(){try{window.parent.localStorage.setItem("
+            + _json.dumps(_FP_PREFS_LSKEY) + "," + _json.dumps(blob) + ");}catch(e){}})();</script>",
+            height=0,
+        )
+
+
+def reset_prefs():
+    """Tüm tercihleri açıkça temizler — URL param, localStorage aynası, oturum."""
+    st.session_state[_FP_PREFS] = {}
+    st.session_state[_FP_PREFS_LASTBLOB] = ""
+    try:
+        if st.query_params.get(_FP_PREFS_PARAM):
+            del st.query_params[_FP_PREFS_PARAM]
+    except Exception:
+        pass
+    _embed_html(
+        "<script>(function(){try{window.parent.localStorage.removeItem("
+        + _json.dumps(_FP_PREFS_LSKEY) + ");}catch(e){}})();</script>",
+        height=0,
+    )
 
 
 def is_light():

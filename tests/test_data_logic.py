@@ -169,6 +169,31 @@ def test_safe_html():
 
 
 # --------------------------------------------------------------------------
+# kalici tercih kodlayici — favori/takip/tahmin round-trip (Faz 4 #1)
+# --------------------------------------------------------------------------
+def test_prefs_encode_roundtrip():
+    prefs = {
+        "fav_drv": "VER", "fav_team": "Red Bull Racing",
+        "follow": ["HAM", "LEC", "NOR"], "seen_ts": 1735689600,
+        "unicode": "Kimi Räikkönen",
+    }
+    blob = ui._prefs_encode(prefs)
+    assert "=" not in blob                       # url-safe, padding kirpik
+    assert ui._prefs_decode(blob) == prefs
+    # sira bagimsiz kararli blob (sort_keys)
+    assert ui._prefs_encode(dict(reversed(list(prefs.items())))) == blob
+
+
+def test_prefs_decode_bad_input():
+    assert ui._prefs_decode("") == {}
+    assert ui._prefs_decode(None) == {}
+    assert ui._prefs_decode("!!! not base64 !!!") == {}
+    import base64 as _b64
+    not_a_dict = _b64.urlsafe_b64encode(b"[1,2,3]").decode().rstrip("=")
+    assert ui._prefs_decode(not_a_dict) == {}
+
+
+# --------------------------------------------------------------------------
 # tema CSS ureticileri lru_cache'li ve kararli (her rerun'da yeniden uretilmiyor)
 # --------------------------------------------------------------------------
 def test_theme_css_cached_and_stable():
