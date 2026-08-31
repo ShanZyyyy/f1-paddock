@@ -2091,6 +2091,10 @@ canvas{width:100%;height:392px;display:block}
 .msbar.c0 i{bottom:50%;background:#4ea981}
 .msbar.c1 i{top:50%;background:#d3576a}
 .msbar.big i{box-shadow:0 0 0 1px rgba(255,255,255,.4)}
+.dtrace{margin-top:12px}
+.dtlab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-bottom:5px}
+.dtlab s{font-style:normal;font-weight:900}
+.dtrace canvas{width:100%;height:104px;display:block;border:1px solid #26313f;border-radius:8px;background:#0d131c;cursor:crosshair}
 .bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .btn{border:1px solid #2b3a4d;border-radius:7px;background:#161d28;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}
 .btn.active{border-color:#ff4757;background:#3a0f12}
@@ -2107,6 +2111,7 @@ canvas{width:100%;height:392px;display:block}
   <div class="map"><canvas id="duel"></canvas></div>
   <div class="sectors" id="sectors"></div>
   <div class="msec" id="msec"></div>
+  <div class="dtrace" id="dtrace"><div class="dtlab"><span>KUMULATIF &Delta; - tur boyunca zaman farkinin gelisimi (cizgi yukarida = <s id="dtc0">1.</s> pilot onde) - imlece tikla</span><span><s id="dtnow">&Delta; --</s></span></div><canvas id="dtcv"></canvas></div>
   <div class="bottom">
     <button class="btn" id="play">Oynat</button>
     <button class="btn active" data-rate="1">1x</button><button class="btn" data-rate="2">2x</button>
@@ -2226,6 +2231,7 @@ function updateHud(){
   $('delta').textContent = raw===null ? 'D --'
     : 'D '+Math.abs(raw).toFixed(3)+' sn - '+(raw<0?cars[0].code:raw>0?cars[1].code:'esit')+' onde';
   $('range').value = Math.round(p*1000);
+  dtReadout();
 }
 
 function buildMinisectors(){
@@ -2250,9 +2256,90 @@ function buildMinisectors(){
     +'<span><s style="color:#4ea981">▲ '+cars[0].code+'</s> · <s style="color:#d3576a">▼ '+cars[1].code+'</s></span></div>'
     +'<div class="msrow">'+bars+'</div>';
 }
+
+// --- kümülatif Δ izi (tur boyunca zaman farkı) ---
+const dtcv=$('dtcv'), dtx=dtcv?dtcv.getContext('2d'):null;
+let DT=null, dtRange=0.25, DV=null;
+function buildDeltaTrace(){
+  DT=null;
+  if(cars.length<2) return;
+  const s0=cars[0].samples.distance, s1=cars[1].samples.distance;
+  if(!s0||!s1||!s0.length||!s1.length) return;
+  if(!((+cars[0].samples.lap_seconds>0)&&(+cars[1].samples.lap_seconds>0))) return;
+  const N=200, pts=[]; let mx=0.05;
+  for(let i=0;i<=N;i++){
+    const f=i/N, a=lerp(s0,f), b=lerp(s1,f);
+    if(!a||!b||!Number.isFinite(a.elapsed)||!Number.isFinite(b.elapsed)){ pts.push(null); continue; }
+    const v=b.elapsed-a.elapsed;   // v>0 => car0 daha az sürede geldi => car0 önde
+    pts.push(v); if(Math.abs(v)>mx) mx=Math.abs(v);
+  }
+  DT=pts; dtRange=mx*1.15;
+}
+function fitDT(){
+  if(!dtcv) return;
+  const r=dtcv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1);
+  dtcv.width=Math.max(2,r.width*dpr); dtcv.height=Math.max(2,r.height*dpr);
+  dtx.setTransform(dpr,0,0,dpr,0,0);
+  DV={w:r.width,h:r.height};
+  drawDT();
+}
+function drawDT(){
+  if(!dtx||!DV) return;
+  const w=DV.w,h=DV.h,mid=h/2;
+  dtx.clearRect(0,0,w,h);
+  if(!DT){ dtx.fillStyle='#6b7d8f'; dtx.font='700 10px Inter,Arial,sans-serif'; dtx.textAlign='center';
+    dtx.fillText('Bu turlar için zaman telemetrisi yok.', w/2, mid+3); return; }
+  const X=function(f){return f*w;}, Y=function(v){return mid - Math.max(-1,Math.min(1,v/dtRange))*(mid-6);};
+  // zemin bantları — üst = 1. pilot rengi, alt = 2. pilot rengi
+  dtx.fillStyle=(cars[0].colour||'#e10600')+'12'; dtx.fillRect(0,0,w,mid);
+  dtx.fillStyle=(cars[1].colour||'#38bdf8')+'12'; dtx.fillRect(0,mid,w,h-mid);
+  // sektör çizgileri
+  (O.sectors||[]).forEach(function(sx){ const gx=X(sx.fraction||0);
+    dtx.strokeStyle='rgba(244,211,94,.35)'; dtx.setLineDash([3,3]); dtx.lineWidth=1;
+    dtx.beginPath(); dtx.moveTo(gx,0); dtx.lineTo(gx,h); dtx.stroke(); dtx.setLineDash([]); });
+  // sıfır çizgisi
+  dtx.strokeStyle='#3a4a5e'; dtx.lineWidth=1; dtx.beginPath(); dtx.moveTo(0,mid); dtx.lineTo(w,mid); dtx.stroke();
+  // dolgulu alan
+  let started=false;
+  dtx.beginPath();
+  for(let i=0;i<DT.length;i++){ const v=DT[i]; if(v===null){ continue; }
+    const px=X(i/(DT.length-1)), py=Y(v);
+    if(!started){ dtx.moveTo(px,mid); dtx.lineTo(px,py); started=true; } else dtx.lineTo(px,py); }
+  if(started){
+    dtx.lineTo(X(1),mid); dtx.closePath();
+    const g=dtx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,(cars[0].colour||'#e10600')+'55');
+    g.addColorStop(0.5,(cars[0].colour||'#e10600')+'14');
+    g.addColorStop(0.5,(cars[1].colour||'#38bdf8')+'14');
+    g.addColorStop(1,(cars[1].colour||'#38bdf8')+'55');
+    dtx.fillStyle=g; dtx.fill();
+  }
+  // çizgi
+  dtx.beginPath(); started=false;
+  for(let i=0;i<DT.length;i++){ const v=DT[i]; if(v===null){ started=false; continue; }
+    const px=X(i/(DT.length-1)), py=Y(v);
+    started?dtx.lineTo(px,py):dtx.moveTo(px,py); started=true; }
+  dtx.strokeStyle='#e7eef6'; dtx.lineWidth=1.7; dtx.stroke();
+  // oynatma imleci
+  const f=Math.min(adv(cars[0]),adv(cars[1]));
+  const cx=X(f); dtx.strokeStyle='rgba(255,255,255,.5)'; dtx.lineWidth=1;
+  dtx.beginPath(); dtx.moveTo(cx,0); dtx.lineTo(cx,h); dtx.stroke();
+  const idx=Math.round(f*(DT.length-1)); const cv=DT[idx];
+  if(cv!==null&&cv!==undefined){ dtx.fillStyle='#fff'; dtx.beginPath(); dtx.arc(cx,Y(cv),3,0,7); dtx.fill(); }
+}
+function dtReadout(){
+  const el=$('dtnow'); if(!el||!DT) return;
+  const f=Math.min(adv(cars[0]),adv(cars[1]));
+  const v=DT[Math.round(f*(DT.length-1))];
+  if(v===null||v===undefined){ el.textContent='Δ --'; return; }
+  el.textContent='Δ '+Math.abs(v).toFixed(3)+' sn · '+(Math.abs(v)<0.02?'eşit':(v>0?cars[0].code:cars[1].code)+' önde');
+}
+
 function buildStatic(){
   $('tags').innerHTML = cars.map(function(c){return '<span class="tag" style="--team:'+c.colour+'">'+c.code+' - '+c.lap+'</span>';}).join(' ');
+  const c0=$('dtc0'); if(c0&&cars[0]){ c0.textContent=cars[0].code; c0.style.color=cars[0].colour||'#e7eef6'; }
   buildMinisectors();
+  buildDeltaTrace();
   if(cars.length<2){ $('sectors').innerHTML=''; return; }
   $('sectors').innerHTML=[0,1,2].map(function(i){
     const a=(cars[0].sectors||[])[i]||'-', b=(cars[1].sectors||[])[i]||'-';
@@ -2272,7 +2359,7 @@ function tick(t){
     p += dt*rate/maxLap;
     if(p>=1){ p=1; playing=false; $('play').textContent='Bastan'; }
   }
-  draw(); updateHud();
+  draw(); drawDT(); updateHud();
 }
 function loop(t){ tick(t); raf=requestAnimationFrame(loop); }
 
@@ -2281,11 +2368,18 @@ document.querySelectorAll('[data-rate]').forEach(function(b){ b.onclick=function
   rate=+b.dataset.rate;
   document.querySelectorAll('[data-rate]').forEach(function(x){ x.classList.toggle('active',x===b); });
 }; });
-$('range').oninput=function(e){ p=+e.target.value/1000; playing=false; $('play').textContent='Oynat'; draw(); updateHud(); };
-window.addEventListener('resize',fit);
+$('range').oninput=function(e){ p=+e.target.value/1000; playing=false; $('play').textContent='Oynat'; draw(); drawDT(); updateHud(); };
+if(dtcv){
+  const seek=function(e){ const r=dtcv.getBoundingClientRect();
+    const f=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+    p=f; playing=false; $('play').textContent='Oynat'; draw(); drawDT(); updateHud(); };
+  dtcv.addEventListener('pointerdown',function(e){ seek(e); dtcv.setPointerCapture(e.pointerId); });
+  dtcv.addEventListener('pointermove',function(e){ if(e.buttons) seek(e); });
+}
+window.addEventListener('resize',function(){ fit(); fitDT(); });
 document.addEventListener('visibilitychange',function(){ if(document.hidden) playing=false; });
 
-buildStatic(); fit();
+buildStatic(); fit(); fitDT();
 raf=requestAnimationFrame(loop);
 setInterval(function(){ if(performance.now()-last>60) tick(); }, 40);
 })();
@@ -6412,8 +6506,8 @@ def _router_page_telemetry():
                                 duel_lap_1['LapTime'].total_seconds(), duel_lap_2['LapTime'].total_seconds(), duel_overlay,
                                 duel_sectors_1, duel_sectors_2
                             ),
-                            height=620,
-                            scrolling=False
+                            height=880,
+                            scrolling=True
                         )
                         fp_ui.data_state("ICGORU", get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2), "success")
 
