@@ -3435,6 +3435,223 @@ def live_race_hud_html_v19(snapshot):
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
+# =========================================================
+# FAZ 2 · #12 — HAVA & PİST EVRİMİ ZAMAN ÇİZELGESİ
+# =========================================================
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def get_weather_evolution_v42(year, event_name, session_code):
+    """Hava (hava/pist sıcaklığı, nem, rüzgâr, yağış) + pist evrimi (temsili tur
+    zamanının seans boyunca nasıl düştüğü) — tek FastF1 seans yüklemesinden."""
+    try:
+        session = fastf1.get_session(int(year), event_name, str(session_code))
+        session.load(laps=True, telemetry=False, weather=True, messages=False)
+    except Exception as error:
+        return {'ok': False, 'reason': str(error)}
+
+    weather = session.weather_data.copy() if getattr(session, 'weather_data', None) is not None else pd.DataFrame()
+    laps = session.laps.copy() if session.laps is not None else pd.DataFrame()
+
+    raw_weather, rained = [], False
+    if not weather.empty and 'Time' in weather.columns:
+        step = max(1, len(weather) // 60)
+        for _, row in weather.iloc[::step].iterrows():
+            secs = _timedelta_seconds(row.get('Time'))
+            if secs is None:
+                continue
+            rain = bool(row.get('Rainfall', False))
+            rained = rained or rain
+            raw_weather.append({
+                '_s': secs,
+                'air': _career_float_v27(row.get('AirTemp')),
+                'track': _career_float_v27(row.get('TrackTemp')),
+                'hum': _career_float_v27(row.get('Humidity')),
+                'wind': _career_float_v27(row.get('WindSpeed')),
+                'rain': rain,
+            })
+
+    raw_evo = []
+    if not laps.empty and 'LapTime' in laps.columns and 'LapStartTime' in laps.columns:
+        frame = laps.copy()
+        frame['_sec'] = frame['LapTime'].apply(_timedelta_seconds)
+        frame['_start'] = frame['LapStartTime'].apply(_timedelta_seconds)
+        frame = frame.dropna(subset=['_sec', '_start'])
+        if not frame.empty:
+            fastest = float(frame['_sec'].min())
+            frame = frame[frame['_sec'] <= fastest * 1.08]
+            if len(frame) >= 4:
+                lo, hi = float(frame['_start'].min()), float(frame['_start'].max())
+                buckets = max(6, min(20, int((hi - lo) // 180) or 6))
+                edges = np.linspace(lo, hi + 1, buckets + 1)
+                for i in range(buckets):
+                    chunk = frame[(frame['_start'] >= edges[i]) & (frame['_start'] < edges[i + 1])]
+                    if chunk.empty:
+                        continue
+                    raw_evo.append({
+                        '_s': float(edges[i]),
+                        'best': round(float(chunk['_sec'].min()), 3),
+                        'median': round(float(chunk['_sec'].median()), 3),
+                    })
+
+    origin = min([r['_s'] for r in raw_weather] + [r['_s'] for r in raw_evo], default=0.0)
+    w_points = [{**{k: v for k, v in r.items() if k != '_s'}, 't': round((r['_s'] - origin) / 60, 1)}
+                for r in raw_weather]
+    evo = [{'t': round((r['_s'] - origin) / 60, 1), 'best': r['best'], 'median': r['median']}
+           for r in raw_evo]
+
+    improvement = round(evo[0]['best'] - evo[-1]['best'], 3) if len(evo) >= 2 else None
+
+    def _mm(key):
+        vals = [p[key] for p in w_points if p.get(key) is not None]
+        return [round(min(vals), 1), round(max(vals), 1)] if vals else [None, None]
+
+    return {
+        'ok': bool(w_points or evo),
+        'event': str(session.event['EventName']) if getattr(session, 'event', None) is not None else str(event_name),
+        'weather': w_points, 'evolution': evo, 'rained': rained,
+        'air_range': _mm('air'), 'track_range': _mm('track'), 'improvement': improvement,
+    }
+
+
+def weather_evolution_html(p):
+    """İki panelli HUD: üstte tur zamanı evrimi, altta hava zaman çizelgesi."""
+    if not p.get('ok'):
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+                "Bu seans için hava / pist evrimi verisi henüz alınamadı.</div>")
+    packed = fp_ui.json_for_script(p)
+    return r'''<style>
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #26313f;border-radius:13px;padding:13px;background:#11161f}
+.hd{font:950 13px Inter,Arial,sans-serif;letter-spacing:.09em}
+.sub{font:10px Inter,Arial,sans-serif;color:#9fb0c0;margin-top:5px}
+.kpis{display:flex;gap:7px;flex-wrap:wrap;margin:11px 0}
+.kpi{border:1px solid #2b3a4d;border-radius:8px;background:#141b26;padding:7px 10px;font:800 11px ui-monospace,Consolas,monospace}
+.kpi s{display:block;font:700 8px 'Saira Condensed',Inter,sans-serif;letter-spacing:.09em;color:#8496a8;text-decoration:none;margin-bottom:3px}
+.kpi b{font-size:13px}
+.panel{position:relative;border:1px solid #212b38;border-radius:9px;background:#0c121b;margin-top:8px}
+.panel .lab{position:absolute;top:6px;left:10px;font:900 9px Inter,Arial,sans-serif;letter-spacing:.08em;color:#7c90a4;z-index:2}
+.panel canvas{width:100%;display:block;cursor:crosshair}
+.leg{display:flex;gap:11px;flex-wrap:wrap;margin-top:7px;font:700 9.5px ui-monospace,Consolas,monospace;color:#9fb0c0}
+.leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.read{margin-top:8px;font:800 11px ui-monospace,Consolas,monospace;color:#c7d6e6;min-height:15px}
+</style>
+<div class="hud">
+  <div class="hd">HAVA & PIST EVRIMI</div>
+  <div class="sub">__EVENT__ · imleci grafiğin üzerinde gezdir</div>
+  <div class="kpis" id="kpis"></div>
+  <div class="panel"><span class="lab">TUR ZAMANI EVRIMI (sn)</span><canvas id="evo"></canvas></div>
+  <div class="leg"><span><i style="background:#45c8ff"></i>en hızlı tur</span><span><i style="background:#5b6b7e"></i>ortalama tur</span></div>
+  <div class="panel"><span class="lab">HAVA</span><canvas id="wx"></canvas></div>
+  <div class="leg"><span><i style="background:#ff7a45"></i>pist °C</span><span><i style="background:#ffd23f"></i>hava °C</span><span><i style="background:#4ea981"></i>nem %</span><span><i style="background:#3aa9ff"></i>yağış</span></div>
+  <div class="read" id="read"></div>
+</div>
+<script>
+"use strict";
+(function(){
+const D=__PAYLOAD__, EV=D.evolution||[], WX=D.weather||[];
+const $=function(s){return document.querySelector(s);};
+const evo=$('#evo'), ex=evo.getContext('2d'), wx=$('#wx'), wc=wx.getContext('2d');
+let EB=null, WB=null, cursorMin=null;
+
+$('#kpis').innerHTML=[
+  D.improvement!=null ? '<div class="kpi"><s>Pist kazancı</s><b>'+(D.improvement>0?'−':'+')+Math.abs(D.improvement).toFixed(2)+' sn</b></div>' : '',
+  (D.track_range&&D.track_range[0]!=null) ? '<div class="kpi"><s>Pist °C</s><b>'+D.track_range[0]+'–'+D.track_range[1]+'</b></div>' : '',
+  (D.air_range&&D.air_range[0]!=null) ? '<div class="kpi"><s>Hava °C</s><b>'+D.air_range[0]+'–'+D.air_range[1]+'</b></div>' : '',
+  '<div class="kpi"><s>Yağış</s><b>'+(D.rained?'VAR':'yok')+'</b></div>',
+].join('');
+
+function fit(cv, h){ const r=cv.getBoundingClientRect(), d=Math.min(2,devicePixelRatio||1);
+  cv.style.height=h+'px'; cv.width=Math.max(2,r.width*d); cv.height=Math.max(2,h*d);
+  cv.getContext('2d').setTransform(d,0,0,d,0,0); return {w:r.width,h:h}; }
+
+function tRange(arr){ if(!arr.length) return [0,1]; let a=1e9,b=-1e9;
+  arr.forEach(function(p){ if(p.t<a)a=p.t; if(p.t>b)b=p.t; }); return [a, b>a?b:a+1]; }
+
+function drawEvo(){
+  if(!EB) return; const w=EB.w,h=EB.h,pl=44,pr=10,pt=16,pb=20;
+  ex.clearRect(0,0,w,h);
+  if(EV.length<2){ ex.fillStyle='#6b7d8f';ex.font='700 11px Inter,Arial';ex.textAlign='center';
+    ex.fillText('Bu seansta temsili tur zamanı verisi yok.',w/2,h/2); return; }
+  const tr=tRange(EV);
+  let lo=1e9,hi=-1e9; EV.forEach(function(p){ lo=Math.min(lo,p.best); hi=Math.max(hi,p.median); });
+  const pad=(hi-lo)*0.12||0.4; lo-=pad; hi+=pad;
+  const X=function(t){ return pl+(t-tr[0])/(tr[1]-tr[0])*(w-pl-pr); };
+  const Y=function(v){ return pt+(1-(v-lo)/(hi-lo))*(h-pt-pb); };
+  ex.strokeStyle='#1a2330';ex.lineWidth=1;ex.fillStyle='#63748a';ex.font='9px Inter,Arial';ex.textAlign='right';
+  for(let k=0;k<=3;k++){ const v=lo+(hi-lo)*k/3, gy=Y(v);
+    ex.beginPath();ex.moveTo(pl,gy);ex.lineTo(w-pr,gy);ex.stroke(); ex.fillText(v.toFixed(1),pl-5,gy+3); }
+  // median band
+  ex.beginPath();
+  EV.forEach(function(p,i){ const x=X(p.t),y=Y(p.median); i?ex.lineTo(x,y):ex.moveTo(x,y); });
+  ex.strokeStyle='#5b6b7e';ex.lineWidth=1.6;ex.stroke();
+  // best line
+  ex.beginPath();
+  EV.forEach(function(p,i){ const x=X(p.t),y=Y(p.best); i?ex.lineTo(x,y):ex.moveTo(x,y); });
+  ex.strokeStyle='#45c8ff';ex.lineWidth=2;ex.stroke();
+  EV.forEach(function(p){ const x=X(p.t),y=Y(p.best); ex.fillStyle='#45c8ff';ex.beginPath();ex.arc(x,y,2.4,0,7);ex.fill(); });
+  cursorLine(ex,X,tr,h,pt,pb,w,pl,pr);
+}
+function drawWx(){
+  if(!WB) return; const w=WB.w,h=WB.h,pl=34,pr=32,pt=16,pb=20;
+  wc.clearRect(0,0,w,h);
+  if(WX.length<2){ wc.fillStyle='#6b7d8f';wc.font='700 11px Inter,Arial';wc.textAlign='center';
+    wc.fillText('Bu seans için hava verisi yok.',w/2,h/2); return; }
+  const tr=tRange(WX);
+  const X=function(t){ return pl+(t-tr[0])/(tr[1]-tr[0])*(w-pl-pr); };
+  // rain shading
+  wc.fillStyle='rgba(58,169,255,.16)';
+  for(let i=1;i<WX.length;i++){ if(WX[i].rain){ wc.fillRect(X(WX[i-1].t),pt,X(WX[i].t)-X(WX[i-1].t),h-pt-pb); } }
+  const series=function(key,col,mn,mx){
+    const vals=WX.map(function(p){return p[key];}).filter(function(v){return v!=null;});
+    if(!vals.length) return;
+    const a=mn!=null?mn:Math.min.apply(null,vals), b=mx!=null?mx:Math.max.apply(null,vals);
+    const Y=function(v){ return pt+(1-(v-a)/((b-a)||1))*(h-pt-pb); };
+    wc.beginPath(); let started=false;
+    WX.forEach(function(p){ if(p[key]==null){return;} const x=X(p.t),y=Y(p[key]);
+      started?wc.lineTo(x,y):wc.moveTo(x,y); started=true; });
+    wc.strokeStyle=col;wc.lineWidth=1.7;wc.stroke();
+  };
+  let tlo=1e9,thi=-1e9;
+  WX.forEach(function(p){ [p.air,p.track].forEach(function(v){ if(v!=null){ tlo=Math.min(tlo,v);thi=Math.max(thi,v);} }); });
+  series('track','#ff7a45',tlo-1,thi+1);
+  series('air','#ffd23f',tlo-1,thi+1);
+  series('hum','#4ea981',0,100);
+  wc.fillStyle='#63748a';wc.font='9px Inter,Arial';wc.textAlign='right';
+  wc.fillText(Math.round(thi)+'°',pl-4,pt+8); wc.fillText(Math.round(tlo)+'°',pl-4,h-pb);
+  wc.textAlign='left'; wc.fillText('100%',w-pr+4,pt+8); wc.fillText('0%',w-pr+4,h-pb);
+  for(let k=0;k<=4;k++){ const t=tr[0]+(tr[1]-tr[0])*k/4;
+    wc.fillStyle='#63748a';wc.textAlign='center';wc.fillText(Math.round(t)+'dk',X(t),h-6); }
+  cursorLine(wc,X,tr,h,pt,pb,w,pl,pr);
+}
+function cursorLine(ctx,X,tr,h,pt,pb){
+  if(cursorMin==null) return; const x=X(cursorMin);
+  ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,pt);ctx.lineTo(x,h-pb);ctx.stroke();
+}
+function nearest(arr,t){ let best=arr[0],bd=1e9; arr.forEach(function(p){ const d=Math.abs(p.t-t); if(d<bd){bd=d;best=p;} }); return best; }
+function readout(){
+  const el=$('#read'); if(cursorMin==null){ el.textContent=''; return; }
+  const parts=['@ '+cursorMin.toFixed(0)+' dk'];
+  if(EV.length){ const e=nearest(EV,cursorMin); parts.push('en hızlı '+e.best.toFixed(3)+' sn'); }
+  if(WX.length){ const wxp=nearest(WX,cursorMin);
+    if(wxp.track!=null) parts.push('pist '+wxp.track.toFixed(1)+'°');
+    if(wxp.air!=null) parts.push('hava '+wxp.air.toFixed(1)+'°');
+    if(wxp.rain) parts.push('YAĞIŞ'); }
+  el.textContent=parts.join('  ·  ');
+}
+function allT(){ return (EV.concat(WX)).map(function(p){return p.t;}); }
+function bounds(){ const t=allT(); return t.length?[Math.min.apply(null,t),Math.max.apply(null,t)]:[0,1]; }
+function hover(e,cv){ const r=cv.getBoundingClientRect(); const b=bounds();
+  const pl=cv.id==='evo'?44:34, pr=cv.id==='evo'?10:32;
+  const f=Math.max(0,Math.min(1,(e.clientX-r.left-pl)/(r.width-pl-pr)));
+  cursorMin=b[0]+f*(b[1]-b[0]); drawEvo(); drawWx(); readout(); }
+[evo,wx].forEach(function(cv){ cv.addEventListener('pointermove',function(e){ hover(e,cv); }); });
+function fitAll(){ EB=fit(evo,168); WB=fit(wx,150); drawEvo(); drawWx(); }
+let rz=0; window.addEventListener('resize',function(){ clearTimeout(rz); rz=setTimeout(fitAll,120); });
+fitAll(); setTimeout(fitAll,60);
+})();
+</script>'''.replace('__PAYLOAD__', packed).replace('__EVENT__', html_lib.escape(str(p.get('event', ''))))
+
+
 def get_race_intelligence_v19(year, event_name):
     """Tamamlanmış yarışın hava, pit-lane, lastik ve Race Control özetini FastF1'den çıkarır."""
     try:
@@ -7342,8 +7559,9 @@ def _router_page_telemetry():
         "🛑 Telemetri & Fren Analizi",
         "📊 Top Hız & Sürücü Tablosu",
         "🛞 Lastik Stratejisi & Stintler",
+        "🌦️ Hava & Pist Evrimi",
     ]
-    _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Top Hız", "Lastik Stratejisi"]
+    _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Top Hız", "Lastik Stratejisi", "Hava & Evrim"]
     if hasattr(st, "segmented_control"):
         _picked = st.segmented_control("Görünüm", _MODE_LABELS, default=_MODE_LABELS[0], key="tel_mode")
     else:
@@ -7377,6 +7595,12 @@ def _router_page_telemetry():
             ("Renk", "kırmızı Soft, sarı Medium, beyaz Hard, yeşil Intermediate, mavi Wet."),
             ("Ne aramalı", "en anlamlı görünüm yarış seansında; farklı stratejiler (ör. 1 durak vs 2 durak) burada ayrışır."),
         ], [("#ff3b3b", "Soft"), ("#ffd234", "Medium"), ("#f0f4f8", "Hard"), ("#3fd66a", "Inter"), ("#3aa9ff", "Wet")]),
+        "Hava & Evrim": ([
+            ("Üst grafik", "seans boyunca temsili tur zamanı: mavi = o an atılan en hızlı tur, gri = ortalama. Çizgi aşağı gidiyorsa pist 'lastikleniyor' (hızlanıyor)."),
+            ("Pist kazancı", "ilk dilimdeki en hızlı turdan son dilime kaç saniye düştüğü — yağmur yoksa bu tipik pist evrimidir."),
+            ("Alt grafik", "pist °C (turuncu), hava °C (sarı), nem % (yeşil); mavi gölge = o anda yağış kaydı."),
+            ("İmleç", "fareyi gezdir; alttaki satır o dakikadaki tur zamanı ve hava değerlerini verir."),
+        ], [("#45c8ff", "en hızlı tur"), ("#5b6b7e", "ortalama tur"), ("#ff7a45", "pist °C"), ("#ffd23f", "hava °C"), ("#4ea981", "nem %"), ("#3aa9ff", "yağış")]),
     }
     _ht = _HOWTO.get(_picked if _picked in _MODE_LABELS else "Pist Dominasyonu")
     if _ht:
@@ -7670,6 +7894,22 @@ def _router_page_telemetry():
                     axis.set_xlabel('Tur')
                     st.pyplot(figure, width='stretch')
                     st.dataframe(strategy, width='stretch', hide_index=True)
+
+            # --- MOD 6: HAVA & PİST EVRİMİ ---
+            elif analiz_turu == _MODES[5]:
+                fp_ui.section_title(f"{session.event['EventName']} · Hava & Pist Evrimi{header_suffix}")
+                with st.spinner("Hava ve tur zamanı verisi hazırlanıyor..."):
+                    _wx_evo = get_weather_evolution_v42(year, gp, session_type)
+                if not _wx_evo.get('ok'):
+                    st.warning("Bu seans için hava / pist evrimi verisi henüz alınamadı.")
+                else:
+                    render_html_hud(
+                        weather_evolution_html(_wx_evo),
+                        height=545,
+                        scrolling=True,
+                    )
+                    if _wx_evo.get('rained'):
+                        fp_ui.data_state("YAĞIŞ KAYDI", "Bu seansta en az bir hava ölçümünde yağış işaretlendi; pist evrimi eğrisi kuru sürtünme değil, ıslak/kuruma etkisini de yansıtır.", "warning")
 
     except Exception as e:
         st.error(f"Veriler çekilirken hata oluştu: {e}")
