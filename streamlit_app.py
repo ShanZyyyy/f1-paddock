@@ -5588,6 +5588,12 @@ def render_learning_centre_v20():
         'İki pilot arasındaki fark nerede?': 'Pilot Karşılaştırma bölümünde tur, sektör, fren ve gaz verilerini aç.',
     }
     st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>SANA ÖNERİ</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(watch_copy[watch])}</div></div>", unsafe_allow_html=True)
+    st.markdown("#### Hazırsan, bir yarışı adım adım izle")
+    st.caption("Tam 2D yarış tekrarını açar ve ilk açılışta 5 adımlık rehberli tur seni ekranda gezdirir: lider kim, lastikler, pit, zaman çizelgesi ve kontroller.")
+    if st.button('▶ İlk yarışını rehberli izle', key='learn_replay_tour_v20', width='stretch', type='primary'):
+        st.session_state['page'] = 'live'
+        st.session_state['_want_replay_tour'] = True
+        st.rerun()
     buttons = st.columns(3)
     with buttons[0]:
         if st.button('Hafta Sonu Merkezini aç', key='learn_weekend_v20', width='stretch'):
@@ -6249,7 +6255,23 @@ def stable_race_replay_html(payload):
 .pilot .pg .pt{width:15px;height:15px;border-radius:4px;font:900 9px ui-monospace,Consolas,monospace;color:#0a121c;text-align:center;line-height:15px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
 .pilot .pg.pit{color:#ffd46b}
 .slider{accent-color:#ff4051;flex:1;min-width:135px}.clock{font:900 12px ui-monospace,Consolas,monospace}.note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.grid{grid-template-columns:1fr}.map canvas{height:390px}.strip{grid-template-columns:1fr 1fr}}
-</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div><div class="legend"><span class="key" title="Düzlükte düşük sürtünme bölgesi. 2024 ve öncesinde yayında buna DRS bölgesi deniyordu."><i style="background:#45c8ff"></i>Straight Mode <em>(≈ DRS)</em></span><span class="key" title="Öndeki araca yakınken ekstra elektrik gücü kullanılabilen bölge — geçiş şansı yüksek. Yayın diliyle push-to-pass / ERS hücum."><i style="background:#71e6a1"></i>Overtake Mode <em>(≈ ERS hücum)</em></span><span class="key" title="Pilotun pite girip çıktığı yaklaşık konum."><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key" title="Pit yolu koordinatı resmî olarak yayımlanmaz; bu çizgi yalnızca şematiktir."><i style="background:#ffd46b"></i>Pit şeridi (şematik)</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="evwrap"><div class="evnow" id="evnow"></div><div class="evbar" id="evbar"></div><div class="evlist" id="evlist"></div></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Olay çizgisi bu verilerden otomatik türetilir. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
+.tourpill{border:1px solid #3a5675;border-radius:8px;background:#122238;color:#cfe0f2;font:800 10px Inter,Arial,sans-serif;letter-spacing:.05em;padding:7px 10px;cursor:pointer;white-space:nowrap}
+.tourpill:hover{border-color:#6ee7ff;color:#eef6ff}
+#tourblock{position:fixed;inset:0;z-index:50;display:none}
+#tourhi{position:fixed;z-index:51;border-radius:10px;box-shadow:0 0 0 9999px rgba(4,7,12,.82),0 0 0 2px #6ee7ff inset;pointer-events:none;display:none;transition:top .2s ease,left .2s ease,width .2s ease,height .2s ease}
+#tourcard{position:fixed;z-index:52;width:300px;max-width:calc(100vw - 24px);background:linear-gradient(150deg,#16273f,#0f1826);border:1px solid #37536f;border-radius:12px;padding:14px 15px;box-shadow:0 20px 46px rgba(0,0,0,.55);display:none}
+#tourcard .tstep{font:800 9.5px ui-monospace,Consolas,monospace;letter-spacing:.14em;color:#6ee7ff}
+#tourcard h4{margin:5px 0 6px;font:900 15px Inter,Arial,sans-serif;color:#f2f7fc}
+#tourcard p{margin:0;font:500 12px Inter,Arial,sans-serif;line-height:1.5;color:#bacadb}
+#tourcard .trow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:13px}
+#tourcard .tskip{background:none;border:0;color:#8ea4bc;font:600 11px Inter,Arial,sans-serif;cursor:pointer;padding:4px}
+#tourcard .tskip:hover{color:#cfe0f2}
+#tourcard .tnav{display:flex;gap:6px}
+#tourcard .tnav button{border:1px solid #3a5675;border-radius:7px;background:#182a44;color:#eef4fa;font:800 11px Inter,Arial,sans-serif;padding:6px 12px;cursor:pointer}
+#tourcard .tnav button:hover{border-color:#6ee7ff}
+#tourcard .tnav button.pri{background:#1f6feb;border-color:#1f6feb}
+@media(prefers-reduced-motion:reduce){#tourhi{transition:none}}
+</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="tourpill" id="tourbtn" type="button">❔ REHBERLİ TUR</button><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div></div><div class="legend"><span class="key" title="Düzlükte düşük sürtünme bölgesi. 2024 ve öncesinde yayında buna DRS bölgesi deniyordu."><i style="background:#45c8ff"></i>Straight Mode <em>(≈ DRS)</em></span><span class="key" title="Öndeki araca yakınken ekstra elektrik gücü kullanılabilen bölge — geçiş şansı yüksek. Yayın diliyle push-to-pass / ERS hücum."><i style="background:#71e6a1"></i>Overtake Mode <em>(≈ ERS hücum)</em></span><span class="key" title="Pilotun pite girip çıktığı yaklaşık konum."><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key" title="Pit yolu koordinatı resmî olarak yayımlanmaz; bu çizgi yalnızca şematiktir."><i style="background:#ffd46b"></i>Pit şeridi (şematik)</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="evwrap"><div class="evnow" id="evnow"></div><div class="evbar" id="evbar"></div><div class="evlist" id="evlist"></div></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Olay çizgisi bu verilerden otomatik türetilir. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
 const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],overlay=data.overlay||{},canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.code||'',playing=true,speed=6,time=0,last=performance.now(),lastHud=0,lastKey='',view=null;const tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const fmt=n=>{n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};const fmtLap=x=>{if(!x||x<=0)return '—';const m=Math.floor(x/60),s=x-m*60;return m+':'+s.toFixed(3).padStart(6,'0')};const avgLap=(data.total_seconds||1)/(data.total_laps||1);
 function lap(c,t){const a=c.laps||[];for(let i=0;i<a.length;i++)if(t<=a[i].end)return a[i];return a[a.length-1]||null}function pitEvent(c,t){return(c.pit_events||[]).find(e=>t>=e.start&&t<=e.end)||null}function state(c,t){const l=lap(c,t),a=c.laps||[],last=a[a.length-1],out=!!c.retired&&t>=(last?.end||0);if(!l)return{lap:0,frac:0,pos:c.grid||20,pit:false,out};const i=a.indexOf(l),previous=a[Math.max(0,i-1)]?.position||l.start_position||c.grid||20,frac=Math.max(0,Math.min(1,(t-l.start)/(l.end-l.start||1)));return{lap:l.lap,frac,pos:frac>.997?(l.position||previous):previous,pit:!out&&!!pitEvent(c,t),out}}
@@ -6338,6 +6360,87 @@ function syncEvents(){
 function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap+((c.pit_events||[]).filter(x=>x.end<=time).length)).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML='<div class="striphd">CANLI SIRALAMA · P · PİLOT · ÖNDEKİNE ARALIK · LASTİK</div>'+list.map((c,i)=>{const s=state(c,time);let gap='LİDER';if(i>0){const a=list[i-1],sa=state(a,time);const dp=((sa.lap-1)+(sa.frac||0))-((s.lap-1)+(s.frac||0));gap=dp>=0.9?'+'+Math.round(dp)+' tur':'+'+(dp*avgLap).toFixed(1)+'s';}const flm=(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">FL</s>':'';const l=lap(c,time),comp=((l&&l.compound)||'').toUpperCase(),cl=comp.slice(0,1)||'–',tcol=tyres[comp]||'#5a6b7e';const np=(c.pit_events||[]).filter(x=>x.end<=time).length;return`<button class="pilot ${c.code===selected?'active':''} ${s.pit?'inpit':''}" style="--team:${c.colour}" data-c="${c.code}"><span class="pp">${s.pos}</span><span class="pc">${c.code}${flm}<small>${np} pit</small></span><span class="pg ${s.pit?'pit':''}">${s.pit?'PIT':gap}<i class="pt" style="background:${tcol}">${cl}</i></span></button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div>${tyreHud(c,s.lap)}<div class="stat"><span>En hızlı tur</span><b>${c.fastest?fmtLap(c.fastest.seconds)+' · T'+c.fastest.lap:'—'}${(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">MOR</s>':''}</b></div><div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds);syncEvents()}
 let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}function frame(now){raf=0;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!playing)return;time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}if(now-lastPaint>=33||!playing){lastPaint=now;draw();update()}if(playing)raf=requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(1.5,devicePixelRatio||1);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat';if(playing)startLoop();else{draw();update()}};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;playing=false;document.getElementById('play').textContent='▶ Oynat';lastHud=0;draw();update()};document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;document.getElementById('play').textContent='▶ Oynat'}});document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · doğrulanmış yarış saati';window.addEventListener('resize',resize);buildEvents();resize();startLoop();
 setInterval(function(){if(playing&&performance.now()-last>120){frame(performance.now());}},50);
+(function(){
+  var STEPS=[
+    {sel:'.map',t:'2D pist',b:'Gerçek yarış turu. Her nokta bir araç, kendi takım renginde. Beyaz çerçeveli olan, sağ panelde seçili olan pilot.'},
+    {sel:'#strip',t:'Canlı sıralama',b:'En üstteki lider. Sıra yarış boyunca değişir. "PIT" yazıyorsa araç o an pit yolunda. Bir isme tıkla — sağ panel o pilota geçer.'},
+    {sel:'#panel .tyrehud',t:'Lastik',b:'Renkli kare lastik tipini gösterir: kırmızı Soft (hızlı, çabuk biter), sarı Medium, beyaz Hard (dayanıklı). Alttaki bar doldukça pit yaklaşır.'},
+    {sel:'#evbar',t:'Yarışın anları',b:'Noktalar önemli olaylar: geçiş, pit, en hızlı tur. Bir noktaya tıkla — replay o ana atlar.'},
+    {sel:'.controls',t:'Kontroller',b:'Oynat / duraklat, hız (1× gerçek → 60×) ve zaman çubuğu. İstediğin ana ileri-geri sarabilirsin.'}
+  ];
+  var KEY='fp_replay_tour_v1', i=0, on=false;
+  function pget(k){try{return window.parent.localStorage.getItem(k)}catch(e){}try{return localStorage.getItem(k)}catch(e){}return null}
+  function pset(k,v){try{window.parent.localStorage.setItem(k,v);return}catch(e){}try{localStorage.setItem(k,v)}catch(e){}}
+  function pscroll(dy){ if(!dy) return;
+    try{ var h=window.parent.document.querySelector('[data-testid="stMain"]');
+      if(h && h.scrollHeight>h.clientHeight){ h.scrollBy({top:dy,left:0}); return; } }catch(e){}
+    try{ window.parent.scrollBy({top:dy,left:0}); }catch(e){} }
+  var block=document.createElement('div');block.id='tourblock';
+  var hi=document.createElement('div');hi.id='tourhi';
+  var card=document.createElement('div');card.id='tourcard';
+  document.body.appendChild(block);document.body.appendChild(hi);document.body.appendChild(card);
+  function target(){try{return document.querySelector(STEPS[i].sel)}catch(e){return null}}
+  function frame(){ try{ var fe=window.frameElement; if(!fe) return null;
+    return {top:fe.getBoundingClientRect().top, vh:window.parent.innerHeight}; }catch(e){ return null } }
+  function render(){
+    var s=STEPS[i],el=target();
+    if(!el){ if(i<STEPS.length-1){i++;return render();} return finish(); }
+    // 1) iframe kendi içinde kaydırsın (evbar HUD'un altındadır), sonra gerçek
+    //    tarayıcı penceresini stMain üzerinden hedefin ortasına getir.
+    try{ el.scrollIntoView({block:'center',inline:'nearest'}); }catch(e){}
+    var r=el.getBoundingClientRect(), fi=frame();
+    if(fi){
+      var mid=fi.top+r.top+r.height/2, want=fi.vh*0.45;
+      if(Math.abs(mid-want)>70){ pscroll(mid-want); fi=frame(); r=el.getBoundingClientRect(); }
+    }
+    // #tourhi / #tourcard position:fixed -> iframe viewport koordinatları (kaydırma eklenmez)
+    var frameH=window.innerHeight, last=i===STEPS.length-1;
+    hi.style.display='block';
+    hi.style.top=(r.top-6)+'px';hi.style.left=(r.left-6)+'px';
+    hi.style.width=(r.width+12)+'px';hi.style.height=(r.height+12)+'px';
+    card.innerHTML='<div class="tstep">ADIM '+(i+1)+' / '+STEPS.length+'</div><h4>'+s.t+'</h4><p>'+s.b+'</p>'
+      +'<div class="trow"><button class="tskip" id="tourskip">Turu geç</button><div class="tnav">'
+      +(i>0?'<button id="tourprev">← Geri</button>':'')
+      +'<button class="pri" id="tournext">'+(last?'Bitir':'İleri →')+'</button></div></div>';
+    card.style.display='block';
+    var cw=card.offsetWidth, ch=card.offsetHeight, docW=document.documentElement.clientWidth, HEAD=62;
+    // görünür dilim (iframe viewport ∩ gerçek pencere), iframe viewport koordinatlarında
+    var visTop=(fi?Math.max(0,-fi.top):0)+HEAD;
+    var visBot=Math.min(frameH, fi?(fi.vh-fi.top):frameH)-ch-12;
+    if(visBot<visTop) visBot=visTop;
+    var below=r.top+r.height+12, above=r.top-ch-12, ctop;
+    if(below>=visTop && below<=visBot) ctop=below;
+    else if(above>=visTop && above<=visBot) ctop=above;
+    else ctop=visBot; // eleman ekrandan uzun: kartı görünür alanın altına sabitle
+    card.style.top=ctop+'px';
+    card.style.left=Math.max(8,Math.min(r.left,docW-cw-8))+'px';
+    document.getElementById('tournext').onclick=function(){ if(last){finish();} else {i++;render();} };
+    var pv=document.getElementById('tourprev'); if(pv) pv.onclick=function(){ i--;render(); };
+    document.getElementById('tourskip').onclick=finish;
+  }
+  function start(){ i=0;on=true;block.style.display='block';render();
+    setTimeout(function(){ if(on) render(); },260); }
+  function finish(){ on=false;block.style.display='none';hi.style.display='none';card.style.display='none';pset(KEY,'1'); }
+  var tb=document.getElementById('tourbtn'); if(tb) tb.onclick=start;
+  window.addEventListener('resize',function(){ if(on) render(); });
+  block.addEventListener('click',function(ev){ if(ev.target===block) finish(); });
+  function ready(){
+    var st=document.querySelector('#strip'), mp=document.querySelector('.map');
+    return st && st.children.length>1 && mp && mp.getBoundingClientRect().width>40;
+  }
+  // İlk açılışta bir kez: replay HUD görünür ve yerleşmiş olduğu an turu başlat.
+  // Sekme başta gizliyse (Streamlit st.tabs) HUD 0 genişlikte olur; görünür olana
+  // kadar sessizce bekleriz (60 sn sınır).
+  var polled=0;
+  function autostart(){
+    if(on||pget(KEY)) return true;
+    if(ready()){ start(); return true; }
+    return false;
+  }
+  var pollId=setInterval(function(){
+    if(autostart() || ++polled>120){ clearInterval(pollId); }
+  },500);
+})();
 </script></div></body></html>""".replace('__PAYLOAD__', packed)
 
 
@@ -8113,7 +8216,13 @@ def _router_page_live():
     fp_ui.page_header(T("page.live.title"), T("page.live.sub"), eyebrow=T("section.live"))
     st.caption(f"Aktif hafta sonu: {gp_name}")
 
-    timing_tab, replay_tab = st.tabs(["Seans Sonuçları", "Yarış Tekrarı"])
+    # "İlk yarışını rehberli izle" ile gelen yeni izleyici doğrudan tekrarı görsün.
+    # Bayrak Seans Merkezi'nden ayrılınca router'da temizlenir.
+    if st.session_state.get('_want_replay_tour'):
+        replay_tab, timing_tab = st.tabs(["Yarış Tekrarı", "Seans Sonuçları"])
+        st.caption("2D yarış tekrarı hazırlanıyor — ilk açılışta 5 adımlık rehberli tur seni gezdirecek.")
+    else:
+        timing_tab, replay_tab = st.tabs(["Seans Sonuçları", "Yarış Tekrarı"])
     if False:  # Alpha: doğrulanmış canlı konum altyapısı tamamlanana kadar gizli.
         token, openf1_username, openf1_password = get_openf1_access_v19()
         refresh_live = st.button("🔄 Açık canlı veri paketini yenile", key='refresh_live_v19')
@@ -9309,6 +9418,10 @@ def render_not_found_page(bad):
 # ROUTER
 # =========================================================
 _active_page = '__404__' if _bad_page else st.session_state['page']
+# "İlk yarışını rehberli izle" niyeti yalnızca Seans Merkezi'nde geçerli; başka
+# sayfaya geçildiğinde temizle ki sekme sırası normale dönsün.
+if _active_page != 'live':
+    st.session_state.pop('_want_replay_tour', None)
 # İç sayfalarda kırıntı yolu bölüm bağlamını verir; page_header eyebrow'u bastırılır.
 fp_ui._SUPPRESS_EYEBROW = _active_page != 'home'
 if _active_page != 'home':
