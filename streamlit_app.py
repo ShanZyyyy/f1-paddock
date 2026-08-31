@@ -6579,6 +6579,167 @@ def _career_panel_v28(info, stats, colour):
     )
 
 
+# =========================================================
+# FAZ 2 · #11 — "BU PİSTTE" KARİYER KAFA KAFAYA
+# get_driver_full_profile_v33 (disk önbellekli) kayıtlarından; ağ yok.
+# =========================================================
+
+def _circuit_career_v41(prof, circuit):
+    """Bir pilotun tek pistteki kariyer özeti — prof['races'] filtrelenerek."""
+    out = {'races': 0, 'wins': 0, 'podiums': 0, 'poles': 0, 'dnf': 0,
+           'points': 0.0, 'best': None, 'by_year': {}}
+    finishes = []
+    for race in prof.get('races', []) if isinstance(prof, dict) else []:
+        if str(race.get('circuit', '')).strip() != circuit:
+            continue
+        out['races'] += 1
+        out['points'] += float(race.get('points') or 0)
+        grid = race.get('grid')
+        if grid == 1:
+            out['poles'] += 1
+        pos_text = str(race.get('pos', '')).strip()
+        pos = int(pos_text) if pos_text.isdigit() else None
+        if race.get('dnf'):
+            out['dnf'] += 1
+        elif pos is not None:
+            finishes.append(pos)
+            if pos == 1:
+                out['wins'] += 1
+            if pos <= 3:
+                out['podiums'] += 1
+            if out['best'] is None or pos < out['best']:
+                out['best'] = pos
+        year = race.get('year')
+        if year:
+            out['by_year'][str(year)] = {'grid': grid, 'pos': pos_text or '—', 'dnf': bool(race.get('dnf'))}
+    out['avg'] = round(sum(finishes) / len(finishes), 1) if finishes else None
+    return out
+
+
+def circuit_h2h_v41(prof_a, prof_b, circuit):
+    """İki pilotun aynı pistteki kariyer kafa-kafaya dökümü + ortak yıllar."""
+    a = _circuit_career_v41(prof_a, circuit)
+    b = _circuit_career_v41(prof_b, circuit)
+    shared = sorted(set(a['by_year']) & set(b['by_year']), reverse=True)
+    h2h_a = h2h_b = 0
+    duel = []
+    for year in shared:
+        ra, rb = a['by_year'][year], b['by_year'][year]
+        pa = int(ra['pos']) if str(ra['pos']).isdigit() else None
+        pb = int(rb['pos']) if str(rb['pos']).isdigit() else None
+        winner = None
+        if pa is not None and pb is not None:
+            winner = 'a' if pa < pb else 'b' if pb < pa else None
+        elif pa is not None:
+            winner = 'a'
+        elif pb is not None:
+            winner = 'b'
+        if winner == 'a':
+            h2h_a += 1
+        elif winner == 'b':
+            h2h_b += 1
+        duel.append({'year': year, 'a_pos': ra['pos'], 'b_pos': rb['pos'], 'winner': winner})
+    return {'ok': (a['races'] + b['races']) > 0, 'circuit': circuit, 'a': a, 'b': b,
+            'h2h_a': h2h_a, 'h2h_b': h2h_b, 'shared': len(shared), 'duel': duel}
+
+
+def _circuit_options_v41(prof_a, prof_b):
+    """İki pilotun birlikte yarıştığı pistler önce, sonra tekil olanlar."""
+    def circuits(prof):
+        return {str(r.get('circuit', '')).strip() for r in (prof.get('races', []) if isinstance(prof, dict) else [])
+                if str(r.get('circuit', '')).strip()}
+    ca, cb = circuits(prof_a), circuits(prof_b)
+    shared = sorted(ca & cb)
+    solo = sorted((ca | cb) - (ca & cb))
+    return shared + solo, set(shared)
+
+
+def circuit_h2h_html(h, name_a, name_b, colour_a, colour_b):
+    if not h.get('ok'):
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+                "Bu pistte iki pilottan da doğrulanmış yarış kaydı yok.</div>")
+    ca, cb = colour_a or '#e10600', colour_b or '#38e1d0'
+    name_a, name_b = str(name_a), str(name_b)
+
+    def stat_col(code, s, col, right=False):
+        cells = "".join(
+            f"<div><s>{lbl}</s><b>{val}</b></div>" for lbl, val in [
+                ("Yarış", s['races']), ("Galibiyet", s['wins']), ("Podyum", s['podiums']),
+                ("Pole", s['poles']), ("En iyi", f"P{s['best']}" if s['best'] else "—"),
+                ("Ort. bitiş", s['avg'] if s['avg'] is not None else "—"),
+                ("Yarış dışı", s['dnf']), ("Puan", _num_v33(s['points'])),
+            ]
+        )
+        return (f"<div class='cc-col{' r' if right else ''}' style='--c:{col}'>"
+                f"<div class='cc-name'>{html_lib.escape(code)}</div><div class='cc-grid'>{cells}</div></div>")
+
+    duel_rows = "".join(
+        f"<div class='cc-drow'>"
+        f"<span class='yr'>{html_lib.escape(str(d['year']))}</span>"
+        f"<span class='dp {'w' if d['winner'] == 'a' else ''}'>{html_lib.escape(str(d['a_pos']))}</span>"
+        f"<span class='vs'>{'◀' if d['winner'] == 'a' else '▶' if d['winner'] == 'b' else '='}</span>"
+        f"<span class='dp {'w' if d['winner'] == 'b' else ''}' style='text-align:left'>{html_lib.escape(str(d['b_pos']))}</span>"
+        "</div>"
+        for d in h['duel']
+    ) or "<div class='cc-empty'>İki pilot bu pistte aynı yıl birlikte yarışmadı.</div>"
+
+    tally = ""
+    if h['shared']:
+        tw = max(1, h['h2h_a'] + h['h2h_b'])
+        tally = (f"<div class='cc-tally'><span class='tl' style='--c:{ca}'>{html_lib.escape(name_a)} "
+                 f"<b>{h['h2h_a']}</b></span><span class='tbar'>"
+                 f"<i style='width:{round(h['h2h_a'] / tw * 100)}%;background:{ca}'></i></span>"
+                 f"<span class='tl r' style='--c:{cb}'><b>{h['h2h_b']}</b> {html_lib.escape(name_b)}</span></div>"
+                 f"<div class='cc-sub'>{h['shared']} ortak yarışta önde biten</div>")
+
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .cc{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
+      .cc-hd{{padding:13px 16px;border-bottom:1px solid #26313f;font:800 14px 'Saira Condensed',sans-serif;
+        text-transform:uppercase;letter-spacing:.03em}}
+      .cc-hd small{{display:block;font:600 10px 'JetBrains Mono',monospace;color:#63748a;letter-spacing:.1em;margin-top:3px}}
+      .cc-cols{{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1b2330}}
+      .cc-col{{background:#131a24;padding:13px 14px;border-top:3px solid var(--c)}}
+      .cc-col.r{{text-align:right}}
+      .cc-name{{font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
+      .cc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
+      .cc-col.r .cc-grid{{direction:rtl}}
+      .cc-grid s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.09em;color:#63748a;text-decoration:none}}
+      .cc-grid b{{font:700 15px 'JetBrains Mono',monospace;margin-top:2px;display:block}}
+      .cc-tally{{display:grid;grid-template-columns:1fr 2fr 1fr;gap:9px;align-items:center;padding:13px 16px 4px}}
+      .tl{{font:700 11px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c)}}
+      .tl.r{{text-align:right}} .tl b{{font-family:'JetBrains Mono',monospace;font-size:15px}}
+      .tbar{{height:12px;background:#0a111b;border-radius:3px;overflow:hidden}} .tbar i{{display:block;height:100%}}
+      .cc-sub{{text-align:center;font:600 10px 'Saira',sans-serif;color:#8a9bb0;padding:0 16px 10px}}
+      .cc-duel{{padding:6px 16px 14px}}
+      .cc-drow{{display:grid;grid-template-columns:52px 1fr 34px 1fr;gap:8px;align-items:center;
+        padding:6px 0;border-top:1px solid #1b2330;font:700 12px 'JetBrains Mono',monospace}}
+      .cc-drow .yr{{color:#63748a;font-size:11px}}
+      .cc-drow .dp{{text-align:right;color:#9fb0c0}} .cc-drow .dp.w{{color:#f2f5f8}}
+      .cc-drow .vs{{text-align:center;color:#4a5a6c;font-size:10px}}
+      .cc-empty,.cc-duel .cc-empty{{padding:12px 0;color:#8a9bb0;font:500 12px 'Saira',sans-serif}}
+      @media(max-width:560px){{.cc-grid{{grid-template-columns:1fr 1fr}}.cc-name{{font-size:14px}}}}
+    </style>
+    <div class="cc">
+      <div class="cc-hd">{html_lib.escape(h['circuit'])}<small>KARİYER · BU PİSTTE</small></div>
+      <div class="cc-cols">{stat_col(name_a, h['a'], ca)}{stat_col(name_b, h['b'], cb, right=True)}</div>
+      {tally}
+      <div class="cc-duel">
+        <div class="cc-drow" style="border-top:0;color:#63748a"><span class="yr">YIL</span>
+          <span class="dp">{html_lib.escape(name_a)}</span><span class="vs"></span>
+          <span class="dp" style="text-align:left">{html_lib.escape(name_b)}</span></div>
+        {duel_rows}
+      </div>
+    </div>
+    """
+
+
+def circuit_h2h_component_height(h):
+    duel = len((h or {}).get('duel', []) or []) if h else 0
+    return min(720, 330 + max(1, duel) * 30)
+
+
 def render_driver_comparison_centre():
     """Career-only comparison with verified historical rows, never session data."""
     render_page_header(T('page.compare.title'), T('page.compare.sub'))
@@ -6636,6 +6797,38 @@ def render_driver_comparison_centre():
     with right:
         st.markdown(_career_panel_v28(info_b, stats_b, team_colour(info_b['team'])), unsafe_allow_html=True)
     st.caption('Kariyer istatistikleri yalnızca seçilen sürücünün tarihî yarış sonucu satırlarından hesaplanır. Kaynak yanıt vermezse istatistik uydurulmaz; “—” görünür.')
+
+    st.write("")
+    fp_ui.section_title("Bu Pistte")
+    _api_a = STEWARDLE_ACTIVE_API_IDS_V24.get(code_a, str(code_a).lower())
+    _api_b = STEWARDLE_ACTIVE_API_IDS_V24.get(code_b, str(code_b).lower())
+    with st.spinner('Pist kayıtları hazırlanıyor...'):
+        _prof_a = get_driver_full_profile_v33(_api_a)
+        _prof_b = get_driver_full_profile_v33(_api_b)
+    _circuits, _shared_circuits = _circuit_options_v41(_prof_a, _prof_b)
+    if not (_prof_a.get('ok') and _prof_b.get('ok')):
+        _who = info_a['name'] if not _prof_a.get('ok') else info_b['name']
+        st.info(f'{_who} için kariyer yarış kaydı şu an alınamadı — birazdan tekrar dene. (İlk açılış yavaş olabilir; sonrası önbellekten anında gelir.)')
+    elif not _circuits:
+        st.info('Bu iki pilotun pist bazında ortak kaydı bulunamadı.')
+    else:
+        _default_idx = 0
+        for _pref in ('Silverstone Circuit', 'Autodromo Nazionale Monza', 'Circuit de Monaco', 'Circuit de Spa-Francorchamps'):
+            if _pref in _circuits:
+                _default_idx = _circuits.index(_pref)
+                break
+        _circuit = st.selectbox(
+            'Pist', _circuits, index=_default_idx,
+            format_func=lambda c: (('★ ' if c in _shared_circuits else '') + c),
+            key='compare_circuit_v41',
+        )
+        _ch2h = circuit_h2h_v41(_prof_a, _prof_b, _circuit)
+        render_html_hud(
+            circuit_h2h_html(_ch2h, code_a, code_b, team_colour(info_a['team']), team_colour(info_b['team'])),
+            height=circuit_h2h_component_height(_ch2h),
+            scrolling=False,
+        )
+        st.caption('★ = iki pilotun da yarıştığı pist. Kafa-kafaya sayacı yalnızca ikisinin aynı sezon birlikte yarıştığı yılları sayar.')
 
 
 st.markdown(r"""
