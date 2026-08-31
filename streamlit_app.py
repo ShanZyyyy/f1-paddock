@@ -2033,11 +2033,11 @@ def championship_scenarios_html(scn, colour_of):
     for c in scn['contenders']:
         col = colour_of(c['team']) or '#8a9bb0'
         if _over:
-            state = ("<span class='pill live'>ŞAMPİYON</span>" if c['rank'] == 1
+            state = ("<span class='pill live'>★ ŞAMPİYON</span>" if c['rank'] == 1
                      else "<span class='pill done'>—</span>")
         else:
-            state = ("<span class='pill live'>YARIŞTA</span>" if c['alive']
-                     else "<span class='pill out'>ELENDİ</span>")
+            state = ("<span class='pill live'>✓ YARIŞTA</span>" if c['alive']
+                     else "<span class='pill out'>✗ ELENDİ</span>")
         gaptext = "—" if c['rank'] == 1 else f"-{int(c['gap'])}"
         rows += (
             f"<div class='scn-row' style='--c:{col}'>"
@@ -2056,19 +2056,19 @@ def championship_scenarios_html(scn, colour_of):
       .scn-hd{{padding:13px 16px;border-bottom:1px solid #26313f;font:600 12px 'Saira',sans-serif;color:#c4d2e0}}
       .scn-hd b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
       .scn-ban{{margin:10px 12px 0;padding:9px 12px;border-radius:7px;background:#12212f;
-        border:1px solid #24445c;font:600 11.5px 'Saira',sans-serif;color:#9fd0ea}}
+        border:1px solid #24445c;font:600 12px 'Saira',sans-serif;color:#9fd0ea;line-height:1.5}}
       .scn-ban.win{{background:#12241a;border-color:#2c5a3b;color:#7fe0a6}}
       .scn-list{{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}}
-      .scn-row{{display:grid;grid-template-columns:26px 1.6fr repeat(3,64px) 78px;gap:10px;align-items:center;
+      .scn-row{{display:grid;grid-template-columns:26px 1.6fr repeat(3,64px) 84px;gap:10px;align-items:center;
         padding:9px 11px;background:#131a24;border:1px solid #222c39;border-left:3px solid var(--c);border-radius:8px}}
       .pos{{font:700 13px 'JetBrains Mono',monospace;color:#7c8ea0;text-align:center}}
       .who b{{font:700 13px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
-      .who small{{font:500 10.5px 'Saira',sans-serif;color:#8a9bb0;display:block;margin-top:1px;
+      .who small{{font:500 11px 'Saira',sans-serif;color:#93a3b6;display:block;margin-top:1px;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .num{{text-align:right;font:700 13px 'JetBrains Mono',monospace}}
-      .num s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.09em;color:#63748a;text-decoration:none;margin-bottom:2px}}
+      .num s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.06em;color:#8090a2;text-decoration:none;margin-bottom:2px}}
       .st{{text-align:right}}
-      .pill{{font:800 9px 'Saira Condensed',sans-serif;letter-spacing:.08em;padding:4px 7px;border-radius:5px}}
+      .pill{{display:inline-block;font:800 11px 'Saira Condensed',sans-serif;letter-spacing:.05em;padding:4px 8px;border-radius:5px;white-space:nowrap}}
       .pill.live{{background:#12241a;color:#7fe0a6}} .pill.out{{background:#241417;color:#ff8b78}}
       .pill.done{{background:#151b25;color:#63748a}}
       @media(max-width:620px){{
@@ -2251,31 +2251,35 @@ def season_h2h_html(h, colour_a, colour_b):
       .h2h-d{{display:flex;flex-direction:column;gap:3px}}
       .h2h-d.r{{align-items:flex-end;text-align:right}}
       .h2h-d b{{font:800 20px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-      .h2h-d s{{font:600 10.5px 'Saira',sans-serif;color:#8a9bb0;text-decoration:none;
+      .h2h-d s{{font:600 11px 'Saira',sans-serif;color:#93a3b6;text-decoration:none;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}}
       .h2h-d i{{font:700 15px 'JetBrains Mono',monospace;font-style:normal;margin-top:2px}}
       .h2h-gap{{text-align:center}}
-      .h2h-gap s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.12em;color:#63748a;text-decoration:none}}
+      .h2h-gap s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#8090a2;text-decoration:none}}
       .h2h-gap b{{font:800 22px 'JetBrains Mono',monospace;color:{ahead_col}}}
-      .h2h-gap em{{display:block;font:600 10px 'Saira',sans-serif;font-style:normal;color:#9fb0c0;margin-top:2px}}
+      .h2h-gap em{{display:block;font:600 11px 'Saira',sans-serif;font-style:normal;color:#a8b8c8;margin-top:2px}}
       .h2h-body{{padding:14px 16px}}
-      .h2h-hd{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63748a;margin:2px 0 7px}}
-      .h2h-bar{{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #26313f;font:800 11px 'JetBrains Mono',monospace}}
+      .h2h-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin:2px 0 7px}}
+      .h2h-bar{{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #26313f;font:800 12px 'JetBrains Mono',monospace}}
       .h2h-bar i{{display:flex;align-items:center;justify-content:center;color:#05080d;min-width:34px}}
       .h2h-bar .ba{{background:{ca};width:{a_share}%}} .h2h-bar .bb{{background:{cb};flex:1}}
-      .h2h-sub{{margin-top:9px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
+      .h2h-sub{{margin-top:9px;font:600 12px 'Saira',sans-serif;color:#a8b8c8}}
       .h2h-sub b{{color:#e8eef4}}
       .h2h-mom{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}}
       .h2h-mom>div{{border:1px solid #222c39;border-radius:8px;padding:9px 11px;background:#131a24}}
-      .h2h-mom s{{display:block;font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#63748a;text-decoration:none}}
+      .h2h-mom s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.08em;color:#8090a2;text-decoration:none}}
       .h2h-mom b{{font:700 17px 'JetBrains Mono',monospace;margin-top:3px;display:block}}
-      .h2h-mom em{{font:600 10px 'Saira',sans-serif;font-style:normal;color:#7fe0a6}}
+      .h2h-mom em{{font:600 11px 'Saira',sans-serif;font-style:normal;color:#7fe0a6}}
       .h2h-strip{{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px}}
-      .cell{{flex:1 0 46px;text-align:center;font:700 9px 'JetBrains Mono',monospace;padding:6px 2px;border-radius:4px;
+      .cell{{flex:1 0 48px;text-align:center;font:700 10px 'JetBrains Mono',monospace;padding:6px 2px;border-radius:4px;
         border:1px solid #222c39;cursor:help;color:#c9d6e2}}
+      .cell::before{{font-size:9px;margin-right:2px;opacity:.9}}
       .cell.a{{background:color-mix(in srgb,{ca} 26%,#11161f);border-color:{ca}}}
+      .cell.a::before{{content:"◂"}}
       .cell.b{{background:color-mix(in srgb,{cb} 26%,#11161f);border-color:{cb}}}
+      .cell.b::before{{content:"▸"}}
       .cell.d{{background:#161d28}}
+      .cell.d::before{{content:"=";opacity:.5}}
       @media(max-width:560px){{.h2h-top{{grid-template-columns:1fr auto 1fr;gap:6px}}.h2h-d b{{font-size:16px}}.h2h-mom{{grid-template-columns:1fr}}}}
     </style>
     <div class="h2h">
@@ -2292,7 +2296,7 @@ def season_h2h_html(h, colour_a, colour_b):
           <div><s>Son {h['mom_span']} yarış · {html_lib.escape(h['a'])}</s><b style="color:{ca}">{h['mom_a']:g} P</b>{'<em>daha formda</em>' if mom_leader == h['a'] else ''}</div>
           <div><s>Son {h['mom_span']} yarış · {html_lib.escape(h['b'])}</s><b style="color:{cb}">{h['mom_b']:g} P</b>{'<em>daha formda</em>' if mom_leader == h['b'] else ''}</div>
         </div>
-        <div class="h2h-hd" style="margin-top:14px">Tur tur — kutu rengi o yarışta önde biteni gösterir</div>
+        <div class="h2h-hd" style="margin-top:14px">Tur tur — ◂ {html_lib.escape(h['a'])} · ▸ {html_lib.escape(h['b'])} o yarışta önde bitti (kutu rengi de aynı)</div>
         <div class="h2h-strip">{strip}</div>
       </div>
     </div>
@@ -2302,7 +2306,7 @@ def season_h2h_html(h, colour_a, colour_b):
 def season_h2h_component_height(h):
     rounds = len((h or {}).get('rounds', []) or [])
     strip_rows = (max(0, rounds - 1) // 12) + 1
-    return min(760, 430 + strip_rows * 34)
+    return min(820, 470 + strip_rows * 36)
 
 
 def career_h2h_v49(prof_a, prof_b):
@@ -2388,10 +2392,12 @@ def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=
     if h['teammate_years']:
         def bar(label, va, vb):
             tw = max(1, va + vb)
-            return (f"<div class='ch-tl'><span style='color:{ca}'>{va}</span>"
+            ma = " ▲" if va > vb else ""
+            mb = "▲ " if vb > va else ""
+            return (f"<div class='ch-tl'><span style='color:{ca}'>{va}{ma}</span>"
                     f"<span class='ch-bar'><i style='width:{round(va / tw * 100)}%;background:{ca}'></i>"
                     f"<i style='width:{round(vb / tw * 100)}%;background:{cb}'></i></span>"
-                    f"<span style='color:{cb}'>{vb}</span>"
+                    f"<span style='color:{cb}'>{mb}{vb}</span>"
                     f"<em>{html_lib.escape(label)}</em></div>")
         rows = "".join(
             f"<div class='ch-srow'><span class='yr'>{html_lib.escape(s['year'])}</span>"
@@ -2418,14 +2424,15 @@ def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=
       .ch-col.r{{text-align:right}} .ch-col.r .ch-grid{{direction:rtl}}
       .ch-name{{font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
       .ch-grid{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
-      .ch-grid s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.09em;color:#63748a;text-decoration:none}}
+      .ch-grid s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.06em;color:#8090a2;text-decoration:none}}
       .ch-grid b{{font:700 14px 'JetBrains Mono',monospace;margin-top:2px;display:block}}
       .ch-tm{{padding:13px 15px}}
-      .ch-tmhd{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a;margin-bottom:9px}}
-      .ch-tl{{display:grid;grid-template-columns:34px 1fr 34px;gap:8px;align-items:center;
-        font:800 13px 'JetBrains Mono',monospace;margin-bottom:6px;position:relative}}
-      .ch-tl em{{position:absolute;left:50%;transform:translateX(-50%);top:-1px;font:700 8.5px 'Saira Condensed',sans-serif;
-        font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:#8a9bb0}}
+      .ch-tmhd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin-bottom:12px}}
+      .ch-tl{{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center;
+        font:800 13px 'JetBrains Mono',monospace;margin:16px 0 8px;position:relative}}
+      .ch-tl:first-of-type{{margin-top:4px}}
+      .ch-tl em{{position:absolute;left:50%;transform:translateX(-50%);top:-13px;font:700 11px 'Saira Condensed',sans-serif;
+        font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:#93a3b6}}
       .ch-bar{{display:flex;height:13px;border-radius:3px;overflow:hidden;background:#0a111b}}
       .ch-bar i{{display:block;height:100%}}
       .ch-srows{{margin-top:10px;border-top:1px solid #1b2330}}
@@ -2447,7 +2454,7 @@ def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=
 
 def career_h2h_component_height(h):
     n = len((h or {}).get('seasons', []) or []) if h else 0
-    return min(720, 330 + max(0, n) * 26 + (60 if n else 0))
+    return min(780, 360 + max(0, n) * 28 + (70 if n else 0))
 
 
 def session_leaderboard_html(table, title):
@@ -2676,20 +2683,22 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
 .hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}
 .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .title{font-size:13px;font-weight:950;letter-spacing:.09em}
-.sub{font-size:10px;color:#9fb0c0;margin-top:5px}
+.sub{font-size:11px;color:#a8b8c8;margin-top:5px;line-height:1.5}
 .tag{border:1px solid #35506d;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:900;color:var(--team)}
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.legend span{border:1px solid #35506d;border-radius:99px;padding:4px 8px;font:800 9.5px Inter,Arial,sans-serif;color:#c2d4e6;background:#101f34}
+.legend span{border:1px solid #35506d;border-radius:99px;padding:4px 9px;font:800 11px Inter,Arial,sans-serif;color:#c2d4e6;background:#101f34}
 .legend span[title]{cursor:help}
 .map{margin-top:9px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
 canvas{width:100%;height:392px;display:block}
 .sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
-.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 11px ui-monospace,Consolas,monospace}
-.sector small{display:block;color:#9fb0c0;font-family:Inter,Arial,sans-serif;margin-bottom:6px}
-.sector .win,.sector .lose{opacity:1}
-.sector .lose{opacity:.55}
+.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 12px ui-monospace,Consolas,monospace}
+.sector small{display:block;color:#a8b8c8;font-family:Inter,Arial,sans-serif;margin-bottom:6px;font-size:11px}
+.sector .win{opacity:1}
+.sector .lose{opacity:.62}
+.sector .win::before{content:"\25B2 ";font-size:9px;vertical-align:1px}
+.sector .lose::before{content:"\2013 ";opacity:.6}
 .msec{margin-top:12px}
-.mslab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-bottom:5px}
+.mslab{display:flex;justify-content:space-between;gap:8px;font:700 11px ui-monospace,Consolas,monospace;color:#8ea4bc;margin-bottom:5px}
 .mslab s{font-style:normal;font-weight:900}
 .msrow{position:relative;display:flex;align-items:stretch;gap:1px;height:48px}
 .msrow::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#3a4a5e;z-index:1}
@@ -2699,7 +2708,7 @@ canvas{width:100%;height:392px;display:block}
 .msbar.c1 i{top:50%;background:var(--mc1,#d3576a)}
 .msbar.big i{box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .dtrace{margin-top:12px}
-.dtlab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-bottom:5px}
+.dtlab{display:flex;justify-content:space-between;gap:8px;font:700 11px ui-monospace,Consolas,monospace;color:#8ea4bc;margin-bottom:5px;flex-wrap:wrap}
 .dtlab s{font-style:normal;font-weight:900}
 .dtrace canvas{width:100%;height:104px;display:block;border:1px solid #26313f;border-radius:8px;background:#0d131c;cursor:crosshair}
 .bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
@@ -4563,7 +4572,7 @@ def stint_pace_html(payload):
 *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
 .hud{border:1px solid #2c425c;border-radius:13px;background:#11161f;padding:13px}
 .head{font-size:13px;font-weight:950;letter-spacing:.08em}
-.sub{font-size:10px;color:#90a7be;margin-top:5px}
+.sub{font-size:11px;color:#9db2c6;margin-top:5px;line-height:1.5}
 .chips{display:flex;gap:5px;flex-wrap:wrap;margin:11px 0}
 .chip{border:1px solid #36506e;border-left:4px solid var(--team);border-radius:6px;background:#132137;color:#f1f7ff;padding:5px 8px;font-weight:900;font-size:11px;cursor:pointer}
 .chip.active{background:#20334d;box-shadow:0 0 0 1px var(--team) inset}
@@ -4573,7 +4582,7 @@ def stint_pace_html(payload):
 .side{border:1px solid #2b405a;border-radius:9px;padding:10px;background:#11161f;display:flex;flex-direction:column;gap:7px}
 .st{border:1px solid #253a51;border-left:4px solid var(--tc);border-radius:7px;padding:7px 9px;background:#0e1826}
 .st b{font:900 12px ui-monospace,Consolas,monospace;display:block}
-.st small{display:block;color:#9fb0c0;font-size:10px;margin-top:3px}
+.st small{display:block;color:#a6b7c8;font-size:11px;margin-top:3px;line-height:1.45}
 .st .slope{font:900 13px ui-monospace,Consolas,monospace;margin-top:4px}
 .st .slope.up{color:#ff8b78}.st .slope.flat{color:#9fb0c0}.st .slope.down{color:#7fe0a6}
 .empty{color:#8da2b8;font-size:11px;padding:8px}
@@ -4626,8 +4635,9 @@ function render(){
   const side=document.getElementById('side');
   if(!S.length){ side.innerHTML="<div class='empty'>Bu pilot için temiz tur verisi yetersiz.</div>"; resize(S); return; }
   side.innerHTML=S.map(s=>{
-    const spl=s.slope==null?'—':(s.slope>0?'+':'')+s.slope.toFixed(3)+' sn/tur';
     const cls=s.slope==null?'flat':s.slope>0.03?'up':s.slope<-0.03?'down':'flat';
+    const arr=cls==='up'?'▲ ':cls==='down'?'▼ ':'▬ ';
+    const spl=s.slope==null?'—':arr+(s.slope>0?'+':'')+s.slope.toFixed(3)+' sn/tur';
     const verdict=s.slope==null?'':s.slope>0.06?' · hızlı aşınıyor':s.slope>0.02?' · normal düşüş':s.slope<-0.02?' · pist gelişti / yakıt yandı':' · sabit';
     return "<div class='st' style='--tc:"+(TYRE[s.compound]||TYRE.UNKNOWN)+"'>"
       +"<b>"+s.compound+" · stint "+(s.stint||1)+"</b>"
@@ -4853,7 +4863,7 @@ def render_weekend_centre():
         st.info('Bu seansın doğrulanmış sonuçları henüz paketlenmedi.')
         return
     st.markdown(f"#### {html_lib.escape(selected['title'])} sonuçları", unsafe_allow_html=True)
-    render_html_hud(session_leaderboard_html(table, f'{selected_name} // {selected["title"].upper()}'), height=leaderboard_component_height(table), scrolling=False)
+    render_html_hud(session_leaderboard_html(table, f'{selected_name} // {selected["title"].upper()}'), height=leaderboard_component_height(table), scrolling=True)
 
 
 # =========================================================
@@ -5558,7 +5568,7 @@ def render_race_story_centre_v20():
     if points:
         st.dataframe(pd.DataFrame(points).rename(columns={'position':'Sıra', 'code':'Pilot', 'team':'Takım', 'points':'Puan'}), width='stretch', hide_index=True)
     with st.expander('Tam yarış sonucu', expanded=False):
-        render_html_hud(session_leaderboard_html(table, f'{selected} // YARIŞ SONUCU'), height=leaderboard_component_height(table), scrolling=False)
+        render_html_hud(session_leaderboard_html(table, f'{selected} // YARIŞ SONUCU'), height=leaderboard_component_height(table), scrolling=True)
 
 
 def render_learning_centre_v20():
@@ -7664,26 +7674,26 @@ def circuit_h2h_html(h, name_a, name_b, colour_a, colour_b):
       .cc{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
       .cc-hd{{padding:13px 16px;border-bottom:1px solid #26313f;font:800 14px 'Saira Condensed',sans-serif;
         text-transform:uppercase;letter-spacing:.03em}}
-      .cc-hd small{{display:block;font:600 10px 'JetBrains Mono',monospace;color:#63748a;letter-spacing:.1em;margin-top:3px}}
+      .cc-hd small{{display:block;font:600 11px 'JetBrains Mono',monospace;color:#8090a2;letter-spacing:.08em;margin-top:3px}}
       .cc-cols{{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1b2330}}
       .cc-col{{background:#131a24;padding:13px 14px;border-top:3px solid var(--c)}}
       .cc-col.r{{text-align:right}}
       .cc-name{{font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
       .cc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
       .cc-col.r .cc-grid{{direction:rtl}}
-      .cc-grid s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.09em;color:#63748a;text-decoration:none}}
+      .cc-grid s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.06em;color:#8090a2;text-decoration:none}}
       .cc-grid b{{font:700 15px 'JetBrains Mono',monospace;margin-top:2px;display:block}}
       .cc-tally{{display:grid;grid-template-columns:1fr 2fr 1fr;gap:9px;align-items:center;padding:13px 16px 4px}}
-      .tl{{font:700 11px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c)}}
+      .tl{{font:700 12px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c)}}
       .tl.r{{text-align:right}} .tl b{{font-family:'JetBrains Mono',monospace;font-size:15px}}
       .tbar{{height:12px;background:#0a111b;border-radius:3px;overflow:hidden}} .tbar i{{display:block;height:100%}}
-      .cc-sub{{text-align:center;font:600 10px 'Saira',sans-serif;color:#8a9bb0;padding:0 16px 10px}}
+      .cc-sub{{text-align:center;font:600 11px 'Saira',sans-serif;color:#93a3b6;padding:0 16px 10px}}
       .cc-duel{{padding:6px 16px 14px}}
       .cc-drow{{display:grid;grid-template-columns:52px 1fr 34px 1fr;gap:8px;align-items:center;
         padding:6px 0;border-top:1px solid #1b2330;font:700 12px 'JetBrains Mono',monospace}}
-      .cc-drow .yr{{color:#63748a;font-size:11px}}
+      .cc-drow .yr{{color:#8090a2;font-size:11px}}
       .cc-drow .dp{{text-align:right;color:#9fb0c0}} .cc-drow .dp.w{{color:#f2f5f8}}
-      .cc-drow .vs{{text-align:center;color:#4a5a6c;font-size:10px}}
+      .cc-drow .vs{{text-align:center;color:#6a7a8c;font-size:12px}}
       .cc-empty,.cc-duel .cc-empty{{padding:12px 0;color:#8a9bb0;font:500 12px 'Saira',sans-serif}}
       @media(max-width:560px){{.cc-grid{{grid-template-columns:1fr 1fr}}.cc-name{{font-size:14px}}}}
     </style>
@@ -7703,7 +7713,7 @@ def circuit_h2h_html(h, name_a, name_b, colour_a, colour_b):
 
 def circuit_h2h_component_height(h):
     duel = len((h or {}).get('duel', []) or []) if h else 0
-    return min(720, 330 + max(1, duel) * 30)
+    return min(760, 360 + max(1, duel) * 30)
 
 
 def render_driver_comparison_centre():
@@ -7792,7 +7802,7 @@ def render_driver_comparison_centre():
         render_html_hud(
             circuit_h2h_html(_ch2h, code_a, code_b, team_colour(info_a['team']), team_colour(info_b['team'])),
             height=circuit_h2h_component_height(_ch2h),
-            scrolling=False,
+            scrolling=True,
         )
         st.caption('★ = iki pilotun da yarıştığı pist. Kafa-kafaya sayacı yalnızca ikisinin aynı sezon birlikte yarıştığı yılları sayar.')
 
@@ -8239,7 +8249,7 @@ def _router_page_live():
 
         def render_live_v19():
             snapshot = get_openf1_live_snapshot_v19(token, openf1_username, openf1_password)
-            render_html_hud(live_race_hud_html_v19(snapshot), height=690, scrolling=False)
+            render_html_hud(live_race_hud_html_v19(snapshot), height=690, scrolling=True)
             if not snapshot.get('ok'):
                 st.info(
                     "Şu an doğrulanmış canlı konum paketi yok. Bu normaldir: seans dışında veya açık veri erişimi yokken "
@@ -8392,7 +8402,7 @@ def _router_page_live():
                             render_html_hud(
                                 strategy_wall_html(replay_payload),
                                 height=strategy_wall_component_height(replay_payload),
-                                scrolling=False,
+                                scrolling=True,
                             )
                             # Ağır ikincil paneller varsayılan olarak kapalı — 2D tekrar
                             # anında açılsın, sayfa donmuş hissi vermesin.
@@ -9234,8 +9244,8 @@ def _router_page_standings():
             else:
                 render_html_hud(
                     championship_scenarios_html(_scn, _scn_colour),
-                    height=min(620, 170 + 56 * len(_scn['contenders'])),
-                    scrolling=False,
+                    height=min(680, 190 + 58 * len(_scn['contenders'])),
+                    scrolling=True,
                 )
                 _alive = [c for c in _scn['contenders'] if c['alive']]
                 if _rem['races'] > 0 and len(_alive) >= 2:
@@ -9312,7 +9322,7 @@ def _router_page_standings():
                             career_h2h_html(_ch, _a, _b, _ca, _cb,
                                             _driver_titles_v33(_api_a, _a), _driver_titles_v33(_api_b, _b)),
                             height=career_h2h_component_height(_ch),
-                            scrolling=False,
+                            scrolling=True,
                         )
                         st.caption("Sıralama & yarış H2H yalnızca iki pilotun aynı takımda geçirdiği sezonları sayar.")
                 else:
@@ -9320,7 +9330,7 @@ def _router_page_standings():
                     render_html_hud(
                         season_h2h_html(_h2h, _ca, _cb),
                         height=season_h2h_component_height(_h2h),
-                        scrolling=False,
+                        scrolling=True,
                     )
     st.write("")
     fp_ui.section_title("Favorilerin")

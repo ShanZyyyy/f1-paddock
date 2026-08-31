@@ -210,7 +210,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
 
 /* ---- kırıntı yolu (breadcrumb) ---- */
 .fp-crumb{display:flex;flex-wrap:wrap;align-items:center;gap:.15rem;margin:2px 0 10px;
-  font:600 10.5px/1 var(--fp-f-mono);letter-spacing:.08em;text-transform:uppercase}
+  font:600 11px/1.4 var(--fp-f-mono);letter-spacing:.07em;text-transform:uppercase}
 .fp-crumb a{color:var(--fp-text-mute);text-decoration:none;transition:color .12s ease}
 .fp-crumb a:hover{color:var(--fp-cyan)}
 .fp-crumb span{color:var(--fp-text-dim)}
@@ -228,7 +228,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
 @media(max-width:620px){.fp-foot .yr{margin-left:0}}
 
 /* ---- eyebrow / bölüm başlığı ---- */
-.fp-eyebrow{font-weight:700;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-eyebrow{font-weight:700;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute)}
 .fp-section{font-family:var(--fp-f-display);font-weight:700;font-size:19px;letter-spacing:.05em;text-transform:uppercase;
   padding-left:10px;border-left:var(--fp-edge) solid var(--fp-red);margin:6px 0 2px}
 
@@ -260,7 +260,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
   background-color:var(--fp-bg-2);background-image:var(--fp-dot);background-size:var(--fp-dot-size);
   clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham));
   box-shadow:inset 0 0 0 1px var(--fp-line), inset 3px 0 0 var(--accent,var(--fp-red))}
-.fp-hud .lbl{font-family:var(--fp-f-mono);font-weight:700;font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+.fp-hud .lbl{font-family:var(--fp-f-mono);font-weight:700;font-size:11px;letter-spacing:.15em;text-transform:uppercase;
   color:var(--fp-text-mute);display:flex;align-items:center;gap:7px}
 .fp-hud .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent,var(--fp-red));
   box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--fp-red)) 20%,transparent);flex:0 0 auto}
@@ -300,7 +300,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
   clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
   box-shadow:inset 0 0 0 1px var(--fp-line-soft), inset 3px 0 0 var(--accent,var(--fp-cyan));
   padding:12px 15px;height:100%;min-height:96px;display:flex;flex-direction:column;justify-content:flex-start}
-.fp-tile .lbl{font-family:var(--fp-f-mono);font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text-mute);
+.fp-tile .lbl{font-family:var(--fp-f-mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fp-text-mute);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:18px;letter-spacing:-.01em;
   margin-top:7px;color:var(--fp-text);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -315,7 +315,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
   background-color:var(--fp-bg-2);background-image:var(--fp-tgrid);background-size:var(--fp-tgrid-size);
   clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham));
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sc,var(--fp-cyan)) 42%,var(--fp-line)), inset 3px 0 0 var(--sc,var(--fp-cyan))}
-.fp-state .st{font-family:var(--fp-f-mono);font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+.fp-state .st{font-family:var(--fp-f-mono);font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--sc,var(--fp-cyan));display:flex;align-items:center;gap:7px}
 .fp-state .st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--sc,var(--fp-cyan));
   box-shadow:0 0 0 3px color-mix(in srgb,var(--sc,var(--fp-cyan)) 22%,transparent);flex:0 0 auto}
@@ -329,7 +329,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
     linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));
   border:1px solid var(--fp-line);border-left:5px solid var(--tc);border-radius:var(--fp-r-md);
   padding:16px 24px;box-shadow:var(--fp-shadow)}
-.fp-result .eb{font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-result .eb{font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--fp-text-mute)}
 .fp-result .nm{font-family:var(--fp-f-display);font-weight:800;font-size:36px;line-height:1;text-transform:uppercase;margin-top:8px}
 .fp-result .nm b{color:var(--tc)}
 .fp-result .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
@@ -348,7 +348,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
   color:#2b3a4d;font-size:24px;letter-spacing:.1em}
 .fp-news .ph img{width:100%;height:100%;object-fit:cover}
 .fp-news .bd{padding:12px 15px;display:flex;flex-direction:column;gap:6px;flex:1}
-.fp-news .src{font-family:var(--fp-f-mono);font-size:10px;letter-spacing:.06em;color:var(--fp-red-bright);text-transform:uppercase}
+.fp-news .src{font-family:var(--fp-f-mono);font-size:11px;letter-spacing:.05em;color:var(--fp-red-bright);text-transform:uppercase}
 .fp-news .hl{font-family:var(--fp-f-display);font-weight:700;font-size:15px;line-height:1.25}
 .fp-news .ex{font-size:12px;color:var(--fp-text-dim);flex:1}
 .fp-news .lk{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
@@ -400,7 +400,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
   .fp-page-header .sub{font-size:12px;max-width:100%}
   .fp-badge{align-self:flex-start}
   .fp-section{font-size:15px;letter-spacing:.04em}
-  .fp-eyebrow{font-size:9.5px}
+  .fp-eyebrow{font-size:11px}
 
   .fp-hud{padding:13px}
   .fp-hud .val{font-size:18px}
@@ -410,7 +410,7 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
 
   .fp-result{padding:14px 15px;border-left-width:4px}
   .fp-result .nm{font-size:24px}
-  .fp-result .eb{font-size:9.5px}
+  .fp-result .eb{font-size:11px}
   .fp-result .row{gap:8px}
   .fp-result .gap,.fp-result .next{font-size:11px}
 
