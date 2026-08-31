@@ -6272,25 +6272,99 @@ def _career_profile_to_disk(api_code, profile):
         log_data_error('career cache write', error)
 
 
+_CAREER_SEED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'driver_careers_seed.json')
+
+
+@st.cache_data(show_spinner=False)
+def _career_seed_all_v45():
+    """Repoda paketli kariyer profilleri (ağ yok) — Jolpica çökse bile mevcut
+    gridin Pilotlar / Karşılaştır / 'Bu Pistte' sayfaları çalışsın diye.
+    Dönüş: {'built': epoch, 'drivers': {api_code: profile}}."""
+    try:
+        with open(_CAREER_SEED_FILE, encoding='utf-8') as handle:
+            payload = json.load(handle)
+        entries = payload.get('drivers', {}) if isinstance(payload, dict) else {}
+        drivers = {str(k): v for k, v in entries.items() if isinstance(v, dict) and v.get('ok')}
+        return {'built': float(payload.get('built', 0) or 0), 'drivers': drivers}
+    except (OSError, ValueError, TypeError):
+        return {'built': 0.0, 'drivers': {}}
+
+
+def _career_seed_get_v45(api_code, strict=True):
+    """Paketli profil. ``strict`` (varsayılan): emekli pilot -> hep seed; aktif
+    pilot -> seed 4 günden eskiyse None (taze veri istensin). ``strict=False``:
+    ağ tamamen çöktüğünde son çare — bayat da olsa seed'i döndür."""
+    seed = _career_seed_all_v45()
+    entry = seed['drivers'].get(str(api_code or ''))
+    if not isinstance(entry, dict):
+        return None
+    if strict:
+        try:
+            latest = _career_number_v27(_stewarlde_row_by_api_v33(api_code).get('latest_season'))
+            current = datetime.datetime.now(datetime.timezone.utc).year
+            if latest and latest >= current - 1 and (time.time() - seed['built']) > 4 * 86400:
+                return None
+        except Exception:
+            pass
+    return dict(entry)
+
+
 def get_driver_full_profile_v33(api_code, allow_network=True):
-    """Pilotlar sayfasi icin tam profil. Once disk onbellegi (aninda), sonra
-    12 saatlik bellek onbellegi, en son ag. Aktarim hatasi ONBELLEGE ALINMAZ."""
+    """Pilotlar sayfasi icin tam profil. Sirasiyla: disk onbellegi (aninda) ->
+    repoda paketli seed -> 12 saatlik bellek onbellegi / ag. Ag hatasi profili
+    ONBELLEGE ALMAZ ama paketli seed varsa onu doner."""
     if not api_code:
         return {'ok': False}
     disk = _career_profile_from_disk(api_code)
     if disk is not None:
         return disk
     if not allow_network:
-        return None
+        return _career_seed_get_v45(api_code)
     try:
         profile = _driver_full_profile_raw_v33(api_code)
     except LookupError:
         return {'ok': False, 'empty': True}
     except Exception as error:
         log_data_error('driver full profile', error)
-        return {'ok': False}
+        return _career_seed_get_v45(api_code, strict=False) or {'ok': False}
     _career_profile_to_disk(api_code, profile)
     return profile
+
+
+def _build_career_seed_v45(api_codes=None):
+    """`data/driver_careers_seed.json`'i yeniden üretir — deploy öncesi / API
+    toparlayınca elle çalıştırılır. Streamlit dışında da çağrılabilir."""
+    if api_codes is None:
+        api_codes = []
+        seen = set()
+        for _team in TEAM_DIRECTORY_2026.values():
+            for _n, _c, *_ in _team.get('drivers', []):
+                api = STEWARDLE_ACTIVE_API_IDS_V24.get(_c, str(_c).lower())
+                if api and api not in seen:
+                    seen.add(api)
+                    api_codes.append(api)
+        for _row in _load_stewarlde_database_v29():
+            api = str(_row.get('api_code', '')).strip()
+            if api and api not in seen and int(_career_number_v27(_row.get('titles')) or 0) >= 1:
+                seen.add(api)
+                api_codes.append(api)
+    out, failed = {}, []
+    for api in api_codes:
+        try:
+            prof = _driver_full_profile_raw_v33.__wrapped__(api)
+            if prof.get('ok'):
+                out[api] = prof
+            else:
+                failed.append(api)
+        except Exception as error:  # noqa: BLE001
+            failed.append(api)
+            log_data_error(f'career seed {api}', error)
+    if out:
+        os.makedirs(os.path.dirname(_CAREER_SEED_FILE), exist_ok=True)
+        with open(_CAREER_SEED_FILE, 'w', encoding='utf-8') as handle:
+            json.dump({'built': time.time(), 'count': len(out), 'drivers': out},
+                      handle, ensure_ascii=False)
+    return {'written': len(out), 'failed': failed}
 
 
 @st.cache_data(ttl=60 * 60 * 12, show_spinner=False)
