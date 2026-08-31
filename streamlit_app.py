@@ -4649,6 +4649,21 @@ def _last_year_race_v63(prev_year, event_name):
     }
 
 
+def _gp_last_edition_v66(event_name, from_year, back=3):
+    """#7 (Faz 6-C) — bu GP en son ne zaman yarışıldı: ``from_year``'dan geriye
+    ``back`` yıl dener (yeni pist / takvim rotasyonu için). Dönüş
+    `_last_year_race_v63` sonucudur; ``year`` alanı bulunan gerçek yıldır."""
+    for candidate in range(int(from_year), max(2017, int(from_year) - back - 1), -1):
+        try:
+            hit = _last_year_race_v63(candidate, event_name)
+        except Exception as error:  # noqa: BLE001
+            log_data_error('gp last edition', error)
+            continue
+        if hit.get('ok'):
+            return hit
+    return {'ok': False}
+
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def _last_year_weather_v63(prev_year, event_name):
     """Geçen yılki yarışın havası — sadece weather yüklemesi (hafif)."""
@@ -4810,21 +4825,24 @@ def render_gp_hub_v63(event, event_name, sessions):
         )
 
     try:
-        last = _last_year_race_v63(prev_year, event_name)
+        last = _gp_last_edition_v66(event_name, prev_year, back=3)
     except Exception as error:  # noqa: BLE001
         log_data_error('gp hub last year', error)
         last = {'ok': False}
     if last.get('ok'):
+        _ly = int(last.get('year') or prev_year)
         weather = {}
         try:
-            weather = _last_year_weather_v63(prev_year, event_name)
+            weather = _last_year_weather_v63(_ly, event_name)
         except Exception as error:  # noqa: BLE001
             log_data_error('gp hub weather', error)
-        st.markdown(f"#### {prev_year} — bu yarışta ne olmuştu?")
+        st.markdown(f"#### {_ly} — bu yarışta ne olmuştu?"
+                    if _ly == prev_year else
+                    f"#### Bu pistte en son: {_ly} — ne olmuştu?")
         pod = last['podium']
         cols = st.columns(3)
         for col, entry, place in zip(cols, pod, ('1.', '2.', '3.')):
-            tcol = season_team_colour(entry['team'], prev_year) or '#8a9bb0'
+            tcol = season_team_colour(entry['team'], _ly) or '#8a9bb0'
             with col:
                 st.markdown(
                     f"<div class='hud-card' style='border-left:4px solid {tcol};min-height:74px'>"
@@ -4846,9 +4864,9 @@ def render_gp_hub_v63(event, event_name, sessions):
                 extra.append(f"Kuru · hava ~{weather['air']}°C, pist ~{weather['track']}°C")
         if extra:
             st.caption(" · ".join(extra))
-    elif prev_year >= 2018:
-        st.caption(f"{prev_year} yılında bu GP için doğrulanmış sonuç bulunamadı "
-                   "(yeni pist veya takvim değişikliği olabilir).")
+    else:
+        st.caption("Bu GP için son 3 sezonda doğrulanmış sonuç bulunamadı — "
+                   "yeni pist ya da takvimden çıkıp dönen bir yarış olabilir.")
 
     circuit = _gp_circuit_name_v63(event_name)
     fav_code = _code_for_name(st.session_state.get('favourite_driver'))
@@ -5263,7 +5281,118 @@ def paddock_record_answer_v19(question):
     return ''
 
 
+# =========================================================
+# FAZ 6-C · #6 — ASİSTANI SİTENİN KENDİ VERİSİNE BAĞLA
+# "tahmin puanım", "kim lider", "<pilot> bu sezon", "<GP>'de kim kazandı"
+# soruları uygulamanın hesapladığı katmanlardan yanıtlanır. Ağ yok, uydurma yok.
+# =========================================================
+def _assistant_paddock_data_v66(question, year):
+    text = _normalise_question_v19(question)
+
+    # 1) Kendi tahmin performansın (tarayıcı tercihlerinden)
+    if ('tahmin' in text and any(w in text for w in ('puan', 'isabet', 'kac', 'nasil', 'skor', 'benim'))) \
+       or 'tahmin puanim' in text:
+        ps = int(fp_ui.get_pref('ps') or 0)
+        pn = int(fp_ui.get_pref('pn') or 0)
+        if pn == 0:
+            return {'title': 'Tahmin oyunu', 'source': 'Tarayıcı tercihlerin',
+                    'answer': 'Henüz puanlanmış bir hafta sonu tahminin yok. '
+                              'Hafta Sonu Tahmini sayfasından pole + podyum seç.'}
+        acc = min(100, round(ps / (pn * _PRED_MAX) * 100))
+        plog = [r for r in (fp_ui.get_pref('plog') or []) if isinstance(r, dict) and r.get('g')]
+        best = max(plog, key=lambda r: r.get('p', 0)) if plog else None
+        extra = f" En iyi yarışın: {best['g']} ({best.get('p', 0)} puan)." if best else ""
+        return {'title': 'Tahmin performansın', 'source': 'Tarayıcı tercihlerin · uygulama verisi',
+                'answer': f"Bu sezon {pn} hafta sonu tahmini puanlandı: toplam {ps} puan, "
+                          f"%{acc} isabet (yarış başı ort. {round(ps / pn, 1)} / {_PRED_MAX})." + extra}
+
+    # 2) Şampiyona lideri / puan durumu (uygulamanın stabil klasman verisi)
+    if any(w in text for w in ('sampiyona lider', 'sampiyonada lider', 'kim lider',
+                               'kim onde', 'puan durumu', 'klasman', 'lider kim', 'sampiyonluk yolu')):
+        try:
+            ds, *_ = get_championship_data_stable(int(year))
+        except Exception:
+            ds = None
+        if ds is not None and not ds.empty and len(ds) >= 2:
+            p1, p2 = ds.iloc[0], ds.iloc[1]
+            gap = int(round(float(p1.get('Puan', 0)) - float(p2.get('Puan', 0))))
+            n1 = _DRIVER_NAME_BY_CODE.get(str(p1.get('Pilot', '')).upper(), p1.get('Pilot', '—'))
+            n2 = _DRIVER_NAME_BY_CODE.get(str(p2.get('Pilot', '')).upper(), p2.get('Pilot', '—'))
+            return {'title': f'{year} şampiyona durumu', 'source': 'Şampiyona Merkezi · FastF1 (tamamlanan yarışlar)',
+                    'answer': f"{n1} {int(float(p1.get('Puan', 0)))} puanla lider; ikinci {n2} "
+                              f"({int(float(p2.get('Puan', 0)))} puan, {gap} puan geride). "
+                              "Bu bir ara tablodur — sezon sürüyor."}
+
+    # 3) Bir pilotun bu sezonu — favori ise sezon hikâyesi, değilse klasman satırı
+    driver = _driver_from_question_v19(question)
+    if driver and any(w in text for w in ('bu sezon', 'sezonu', 'nasil gidiyor',
+                                          'kac puan', 'sezonum', 'formda', 'gidisat')):
+        fav_code = _code_for_name(st.session_state.get('favourite_driver'))
+        if driver == fav_code:
+            story = _season_story_v57(int(year), driver)
+            if story.get('ok'):
+                t = story.get('turning')
+                gap = story['final_gap']
+                gtxt = (f"title rakibi {story['rival']}'in {abs(gap)} puan önünde" if gap > 0
+                        else f"title rakibi {story['rival']}'e {abs(gap)} puan geride" if gap < 0
+                        else f"{story['rival']} ile eşit")
+                line = (f"{_DRIVER_NAME_BY_CODE.get(driver, driver)}: {story['fav_total']} puan, {gtxt}. "
+                        f"Son 3 yarışta {story['momentum']} puan topladı.")
+                if t:
+                    line += f" Sezonun dönüm noktası: {t['event']} ({'+' if t['swing'] > 0 else ''}{t['swing']} puanlık makas)."
+                return {'title': f"{driver} · {year} sezonu", 'answer': line,
+                        'source': 'Senin Sezonun · Şampiyona Merkezi verisi'}
+        try:
+            ds, *_ = get_championship_data_stable(int(year))
+        except Exception:
+            ds = None
+        if ds is not None and not ds.empty:
+            row = next((r for _, r in ds.iterrows()
+                        if str(r.get('Pilot', '')).upper() == driver), None)
+            if row is not None:
+                return {'title': f"{driver} · {year}", 'source': 'Şampiyona Merkezi · FastF1',
+                        'answer': f"{_DRIVER_NAME_BY_CODE.get(driver, driver)} şampiyonada "
+                                  f"{clean_position_value(row.get('Sıra'))} sırada, "
+                                  f"{int(float(row.get('Puan', 0)))} puan."}
+
+    # 4) "<GP>'de / <pist>'te kim kazandı" — geçen yılki aynı yarış (GP hub verisi)
+    if any(w in text for w in ('kim kazandi', 'kazanan', 'galip', 'podyum')):
+        try:
+            calendar = get_calendar_details(int(year))
+        except Exception:
+            calendar = []
+        hit_event = None
+        for ev in calendar or []:
+            name = str(ev.get('EventName', ''))
+            loc = str(ev.get('Location', ''))
+            norm_name = _normalise_question_v19(name).replace(' grand prix', '').strip()
+            if norm_name and norm_name in text:
+                hit_event = name
+                break
+            if loc and _normalise_question_v19(loc) in text:
+                hit_event = name
+                break
+        if hit_event:
+            prev = datetime.datetime.now(datetime.timezone.utc).year - 1
+            ed = _gp_last_edition_v66(hit_event, prev, back=3)
+            if ed.get('ok'):
+                pod = " · ".join(f"{i + 1}. {p['code']}" for i, p in enumerate(ed['podium']))
+                extra = f" Pole: {ed['pole']}." if ed.get('pole') else ""
+                return {'title': f"{hit_event} · {ed['year']}",
+                        'source': f"Hafta Sonu Merkezi · {ed['year']} · FastF1",
+                        'answer': f"{ed['year']} {hit_event}: podyum {pod}.{extra} "
+                                  "(Bu sezon henüz yarışılmadıysa en son yarışılan yıl gösterilir.)"}
+    return None
+
+
 def paddock_assistant_answer_v19_pro(question, year=2026):
+    try:
+        own = _assistant_paddock_data_v66(question, year)
+    except Exception as _asst_err:  # noqa: BLE001
+        log_data_error('assistant paddock data', _asst_err)
+        own = None
+    if own:
+        return own
     record = paddock_record_answer_v19(question)
     if record:
         return {'title': 'F1 rekor arşivi', 'answer': record, 'source': 'F1 tarih arşivi'}
@@ -5281,13 +5410,15 @@ def render_paddock_assistant_v20():
     description = (
         'OpenAI bağlantısı aktif. Sonuç sorularında FastF1 verisi önce gelir; genel F1 sorularında AI yanıtı devreye girer.'
         if api_ready else
-        'Sonuç, pole, lastik, tarihî şampiyon ve temel rekor sorularını anahtarsız cevaplar. Genel F1 sohbeti için isteğe bağlı OpenAI anahtarı gerekir.'
+        'Şampiyona durumu, bir pilotun sezonu, senin tahmin puanın, bir GP\'de kim kazandı, '
+        'pole / lastik ve tarihî rekor sorularını — hepsini sitenin kendi doğrulanmış verisinden, '
+        'anahtarsız cevaplar. Genel F1 sohbeti için isteğe bağlı OpenAI anahtarı gerekir.'
     )
     st.markdown(f"<div class='hud-card ai-command-card' style='border-top:5px solid {accent}'><div class='hud-label'>{mode}</div><div style='font-size:1.25rem;font-weight:950;margin-top:7px'>F1 sorunu yaz, kaynaklı yanıt al.</div><div class='history-copy' style='margin-top:6px'>{description}</div></div>", unsafe_allow_html=True)
     if 'paddock_chat_history_v19' not in st.session_state:
         st.session_state['paddock_chat_history_v19'] = []
 
-    examples = ['1985 sampiyonu kim?', '1 sezonda en cok galibiyet alan isim kim?', 'Pole kim?', 'Alonso kacinci oldu?']
+    examples = ['Kim lider?', 'Tahmin puanim ne durumda?', 'Verstappen bu sezon nasil gidiyor?', 'Monza\'da kim kazandi?']
     columns = st.columns(4)
     for col, question in zip(columns, examples):
         with col:
@@ -6610,7 +6741,7 @@ function syncEvents(){
     now.innerHTML='<span class="lap">TUR '+e.lap+'</span>'+(e.kind==='undercut'?'<b>':'')+esc(e.text)+(e.kind==='undercut'?'</b>':'');
   } else { now.textContent=''; }
 }
-function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap+((c.pit_events||[]).filter(x=>x.end<=time).length)).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML='<div class="striphd">CANLI SIRALAMA · P · PİLOT · ÖNDEKİNE ARALIK · LASTİK</div>'+list.map((c,i)=>{const s=state(c,time);let gap='LİDER';if(i>0){const a=list[i-1],sa=state(a,time);const dp=((sa.lap-1)+(sa.frac||0))-((s.lap-1)+(s.frac||0));gap=dp>=0.9?'+'+Math.round(dp)+' tur':'+'+(dp*avgLap).toFixed(1)+'s';}const flm=(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">FL</s>':'';const l=lap(c,time),comp=((l&&l.compound)||'').toUpperCase(),cl=comp.slice(0,1)||'–',tcol=tyres[comp]||'#5a6b7e';const np=(c.pit_events||[]).filter(x=>x.end<=time).length;return`<button class="pilot ${c.code===selected?'active':''} ${s.pit?'inpit':''}" style="--team:${c.colour}" data-c="${c.code}"><span class="pp">${s.pos}</span><span class="pc">${c.code}${flm}<small>${np} pit</small></span><span class="pg ${s.pit?'pit':''}">${s.pit?'PIT':gap}<i class="pt" style="background:${tcol}">${cl}</i></span></button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div>${tyreHud(c,s.lap)}<div class="stat"><span>En hızlı tur</span><b>${c.fastest?fmtLap(c.fastest.seconds)+' · T'+c.fastest.lap:'—'}${(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">MOR</s>':''}</b></div><div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds);syncEvents()}
+function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap+((c.pit_events||[]).filter(x=>x.end<=time).length)).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML='<div class="striphd" title="Aralık tur ve pozisyon verisinden tahmin edilir. Yarış başında araçlar henüz açılmadığı için ≈ görünür; lap verisi olmayan araçta —.">CANLI SIRALAMA · P · PİLOT · ÖNDEKİNE ARALIK (TAHMİNİ) · LASTİK</div>'+list.map((c,i)=>{const s=state(c,time);let gap='LİDER';if(i>0){const a=list[i-1],sa=state(a,time);if(s.lap<1||sa.lap<1){gap='—';}else{const dp=((sa.lap-1)+(sa.frac||0))-((s.lap-1)+(s.frac||0));gap=(dp>=0.9&&time>avgLap)?'+'+Math.round(dp)+' tur':(dp>0&&dp<0.9&&dp*avgLap>=0.1)?'+'+(dp*avgLap).toFixed(1)+'s':'≈';}}const flm=(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">FL</s>':'';const l=lap(c,time),comp=((l&&l.compound)||'').toUpperCase(),cl=comp.slice(0,1)||'–',tcol=tyres[comp]||'#5a6b7e';const np=(c.pit_events||[]).filter(x=>x.end<=time).length;return`<button class="pilot ${c.code===selected?'active':''} ${s.pit?'inpit':''}" style="--team:${c.colour}" data-c="${c.code}"><span class="pp">${s.pos}</span><span class="pc">${c.code}${flm}<small>${np} pit</small></span><span class="pg ${s.pit?'pit':''}">${s.pit?'PIT':gap}<i class="pt" style="background:${tcol}">${cl}</i></span></button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div>${tyreHud(c,s.lap)}<div class="stat"><span>En hızlı tur</span><b>${c.fastest?fmtLap(c.fastest.seconds)+' · T'+c.fastest.lap:'—'}${(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">MOR</s>':''}</b></div><div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds);syncEvents()}
 let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}function frame(now){raf=0;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!playing)return;time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}if(now-lastPaint>=33||!playing){lastPaint=now;draw();update()}if(playing)raf=requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(1.5,devicePixelRatio||1);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat';if(playing)startLoop();else{draw();update()}};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;playing=false;document.getElementById('play').textContent='▶ Oynat';lastHud=0;draw();update()};document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;document.getElementById('play').textContent='▶ Oynat'}});document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · doğrulanmış yarış saati';window.addEventListener('resize',resize);buildEvents();resize();startLoop();
 setInterval(function(){if(playing&&performance.now()-last>120){frame(performance.now());}},50);
 (function(){
