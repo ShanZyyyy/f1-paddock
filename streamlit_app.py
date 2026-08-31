@@ -1622,9 +1622,9 @@ def _replay_driver_visual_v34(result, team_name, year):
     code = _val('Abbreviation') or '—'
     raw_colour = _val('TeamColor')
     colour = ('#' + raw_colour.lstrip('#')) if raw_colour else season_team_colour(team_name, year)
-    photo = _val('HeadshotUrl')                    # yalnız bu seansın resmî headshot'ı
     name = _val('FullName') or ' '.join(part for part in (_val('FirstName'), _val('LastName')) if part) or code
     flag = _val('CountryCode').lower() or DRIVER_DISPLAY.get(code, ('', ''))[0]
+    photo = _season_headshot_url_v35(year, name) or _val('HeadshotUrl')   # önce o sezonun portresi
     return {
         'name': name,
         'photo': photo,
@@ -1633,6 +1633,30 @@ def _replay_driver_visual_v34(result, team_name, year):
         'age': '—',
         'colour': colour,
     }
+
+
+def _season_headshot_url_v35(year, name):
+    """F1.com'un O SEZONA ait sürücü portresi — o yılın takım tulumuyla çekilmiş.
+    Kalıp: /drivers/{yıl}Drivers/{soyadı}.jpg.transform/2col/image.jpg
+    2019–2025 için doğrulandı; aralık dışında None döner (ham HeadshotUrl kullanılır)."""
+    try:
+        yr = int(year)
+    except (TypeError, ValueError):
+        return None
+    if yr < 2019 or yr > 2025:
+        return None
+    parts = [p for p in str(name or '').replace('.', ' ').split() if p]
+    if not parts:
+        return None
+    surname = '-'.join(parts[1:]) if len(parts) > 1 else parts[0]
+    surname = unicodedata.normalize('NFKD', surname).encode('ascii', 'ignore').decode('ascii').lower()
+    surname = re.sub(r'[^a-z-]', '', surname).strip('-')
+    if not surname:
+        return None
+    return (
+        "https://www.formula1.com/content/dam/fom-website/drivers/"
+        f"{yr}Drivers/{surname}.jpg.transform/2col/image.jpg"
+    )
 
 
 def championship_matrix_html(matrix, rounds):
@@ -3010,7 +3034,7 @@ def _race_position(value):
 
 
 @st.cache_data(ttl=604800, show_spinner=False)
-def _build_stable_race_replay_payload_v35(year, event_name):
+def _build_stable_race_replay_payload_v36(year, event_name):
     """FastF1-yalnız yedek kurucu (v2.5). Dışarıdan `build_stable_race_replay_payload`
     (aşağıda, OpenF1 önce) çağrılır; bu, o fonksiyonun FastF1 yedeğidir.
 
@@ -4307,10 +4331,21 @@ def _replay_overlay_v26(payload):
 
 
 @st.cache_data(ttl=21600, show_spinner=False)
-def _race_replay_payload_raw_v35(year, event_name):
+def _race_replay_payload_raw_v36(year, event_name):
     """Yalnızca BAŞARILI paket önbelleğe alınır. Veri hazır değilse / geçici
     hata varsa `RuntimeError` firlatir (önbelleğe girmez), böylece yarıştan
     hemen sonra 'hazır değil' cevabı 6 saat donup kalmaz."""
+    def _apply_season_portraits(payload):
+        # Kaynak ne olursa olsun (OpenF1 veya FastF1) sağ paneldeki portre
+        # SEÇİLEN SEZONA ait olsun — o yılın takım tulumuyla.
+        for car in (payload.get('cars') or []):
+            profile = car.get('profile')
+            if isinstance(profile, dict):
+                season_photo = _season_headshot_url_v35(year, profile.get('name') or car.get('code'))
+                if season_photo:
+                    profile['photo'] = season_photo
+        return payload
+
     openf1_payload = openf1_fallback.build_race_replay(int(year), str(event_name))
     if isinstance(openf1_payload, dict) and openf1_payload.get('ok'):
         valid, reason = validate_stable_replay_payload(openf1_payload)
@@ -4318,12 +4353,12 @@ def _race_replay_payload_raw_v35(year, event_name):
             payload = _replay_overlay_v26(openf1_payload)
             payload['replay_source'] = 'OpenF1 doğrulanmış tur, konum, sıra, pit ve lastik kayıtları.'
             payload['version'] = '3.2-openf1-fast'
-            return payload
+            return _apply_season_portraits(payload)
         openf1_reason = reason
     else:
         openf1_reason = openf1_payload.get('reason', '') if isinstance(openf1_payload, dict) else ''
 
-    payload = _build_stable_race_replay_payload_v35(year, event_name)
+    payload = _build_stable_race_replay_payload_v36(year, event_name)
     if not isinstance(payload, dict) or not payload.get('ok'):
         fastf1_reason = payload.get('reason', '') if isinstance(payload, dict) else ''
         raise RuntimeError(' · '.join(item for item in (openf1_reason, fastf1_reason) if item)
@@ -4331,13 +4366,13 @@ def _race_replay_payload_raw_v35(year, event_name):
     payload = _replay_overlay_v26(payload)
     payload['version'] = '3.2-fastf1-fallback'
     payload['replay_source'] = 'FastF1 doğrulanmış tur, sıra, pit ve lastik kayıtları.'
-    return payload
+    return _apply_season_portraits(payload)
 
 
 def build_stable_race_replay_payload(year, event_name):
     """OpenF1 hızlı geçmişi önce, ağır FastF1 yalnızca yedek."""
     try:
-        return _race_replay_payload_raw_v35(year, event_name)
+        return _race_replay_payload_raw_v36(year, event_name)
     except Exception as error:
         log_data_error('stable race replay', error)
         return {'ok': False, 'reason': str(error)}
@@ -4419,7 +4454,7 @@ function tyreHud(c,curLap){
     +'<div class="tstriplab"><span>STRATEJİ</span><span>'+stintSummary(c)+'</span></div>'
     +'</div>';
 }
-function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML=list.map(c=>{const s=state(c,time);return`<button class="pilot ${c.code===selected?'active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div>${tyreHud(c,s.lap)}<div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds)}
+function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML=list.map(c=>{const s=state(c,time);return`<button class="pilot ${c.code===selected?'active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div>${tyreHud(c,s.lap)}<div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds)}
 let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}function frame(now){raf=0;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!playing)return;time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}if(now-lastPaint>=33||!playing){lastPaint=now;draw();update()}if(playing)raf=requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(1.5,devicePixelRatio||1);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat';if(playing)startLoop();else{draw();update()}};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;playing=false;document.getElementById('play').textContent='▶ Oynat';lastHud=0;draw();update()};document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;document.getElementById('play').textContent='▶ Oynat'}});document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · doğrulanmış yarış saati';window.addEventListener('resize',resize);resize();startLoop();
 setInterval(function(){if(playing&&performance.now()-last>120){frame(performance.now());}},50);
 </script></div></body></html>""".replace('__PAYLOAD__', packed)
