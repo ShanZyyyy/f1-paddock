@@ -184,6 +184,18 @@ def test_prefs_encode_roundtrip():
     assert ui._prefs_encode(dict(reversed(list(prefs.items())))) == blob
 
 
+def test_cell_pts_v57():
+    import pandas as _pd
+    assert app._cell_pts_v57(None, 'r1') == 0.0
+    row = _pd.Series({'r1': 25, 'r2': '18 / 8', 'r3': '—', 'r4': '', 'r5': 'DNF'})
+    assert app._cell_pts_v57(row, 'r1') == 25.0
+    assert app._cell_pts_v57(row, 'r2') == 26.0     # yaris + sprint
+    assert app._cell_pts_v57(row, 'r3') == 0.0
+    assert app._cell_pts_v57(row, 'r4') == 0.0
+    assert app._cell_pts_v57(row, 'r5') == 0.0
+    assert app._cell_pts_v57(row, 'missing') == 0.0
+
+
 def test_score_prediction_v55():
     race = [
         {'code': 'VER', 'position': '1', 'grid': 1},

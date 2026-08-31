@@ -336,6 +336,30 @@ def _sync_favourite_to_prefs():
         if code and code not in current:
             _set_follow_list([code] + list(current))
 
+
+# Faz 4 #9 — hafif "Paddock kimliği" sayaçları (oturumda bir kez artar).
+def _track_replay_watched_v56(race_key):
+    _seen = st.session_state.setdefault('_replays_seen_v56', set())
+    if race_key in _seen:
+        return
+    _seen.add(race_key)
+    fp_ui.set_pref('rw', int(fp_ui.get_pref('rw') or 0) + 1)
+
+
+def _track_compare_v56(code_a, code_b):
+    key = tuple(sorted((code_a, code_b)))
+    _seen = st.session_state.setdefault('_compares_seen_v56', set())
+    if key in _seen:
+        return
+    _seen.add(key)
+    tally = dict(fp_ui.get_pref('cmp') or {})
+    for c in key:
+        if c in _DRIVER_NAME_BY_CODE:
+            tally[c] = int(tally.get(c, 0)) + 1
+    # en çok karşılaştırılan ~8 pilotu tut
+    tally = dict(sorted(tally.items(), key=lambda kv: -kv[1])[:8])
+    fp_ui.set_pref('cmp', tally or None)
+
 # BOOT FIX 1.4.2
 # Eski Streamlit tarayıcı oturumları, daha önce tıklanmış "veri yükle"
 # düğmelerinin durumunu bellekte tutar. Bu sürüm açıldığında o eski durumları
@@ -5133,6 +5157,16 @@ def render_favourites_centre():
     _cur_year = datetime.datetime.now(datetime.timezone.utc).year
     _last_race = _latest_completed_race_v43(_cur_year)
 
+    # Faz 4 #9 — Paddock kimliği
+    render_html_hud(_paddock_profile_html(), height=260, scrolling=True)
+    fp_ui.share_panel(
+        "🏎️ Formula Paddock — benim paddock'um\n"
+        f"Favori: {driver_name} · {team_name}\n"
+        + (f"Takip: {', '.join(_follow_list())}\n" if _follow_list() else "")
+        + "Aşağıdaki bağlantıyı aç, aynı favori ve takip listesiyle başla:",
+        label="🔗 Paddock'unu paylaş",
+    )
+
     # Faz 4 #3 — takip listesi
     st.write("")
     fp_ui.section_title("Takip Ettiklerin")
@@ -5171,8 +5205,29 @@ def render_favourites_centre():
                 height=personal_race_digest_height(_digest),
                 scrolling=True,
             )
+            fp_ui.share_panel(_digest_share_text_v59(_digest, _last_race['last']))
         else:
             st.caption("Son yarışın doğrulanmış sonucu henüz FastF1'e düşmedi.")
+
+    # Faz 4 #10 — Senin Sezonun
+    if _fav_code:
+        st.write("")
+        fp_ui.section_title("Senin Sezonun")
+        with st.spinner("Sezon hikâyen hazırlanıyor..."):
+            _story = _season_story_v57(_cur_year, _fav_code)
+        if _story.get('ok'):
+            render_html_hud(
+                season_story_html(
+                    _story,
+                    season_team_colour(team_name, _cur_year),
+                    season_team_colour(_DRIVER_TEAM_BY_CODE.get(_story['rival'], ''), _cur_year),
+                ),
+                height=season_story_component_height(_story),
+                scrolling=True,
+            )
+            fp_ui.share_panel(_season_share_text_v59(_story, _cur_year))
+        else:
+            st.caption("Sezon anlatısı için henüz yeterli doğrulanmış yarış yok.")
 
     cols = st.columns(2)
     with cols[0]:
@@ -7860,6 +7915,7 @@ def render_driver_comparison_centre():
     if code_a == code_b:
         st.warning('Karşılaştırma için iki farklı pilot seç.')
         return
+    _track_compare_v56(code_a, code_b)
     info_a = next(row for row in driver_rows if row['code'] == code_a)
     info_b = next(row for row in driver_rows if row['code'] == code_b)
     with st.spinner('Kariyer kayıtları sürücü kimliğiyle doğrulanıyor...'):
@@ -8069,13 +8125,48 @@ def _prediction_maybe_score_v55(year):
     fp_ui.set_pref('ps', int(fp_ui.get_pref('ps') or 0) + scored['points'])
     fp_ui.set_pref('pn', int(fp_ui.get_pref('pn') or 0) + 1)
     log = list(fp_ui.get_pref('plog') or [])
-    log.append({'g': gp, 'p': scored['points']})
+    log.append({'g': gp, 'p': scored['points'], 'pl': pred.get('pl'), 'po': pred.get('po')})
     fp_ui.set_pref('plog', log[-24:])
     fp_ui.set_pref('pc', None)
     scored['gp'] = gp
     scored['pred'] = pred
     st.session_state['_pred_just_scored'] = scored
     return scored
+
+
+def _prediction_history_html(plog):
+    """#8 — sezon boyu tahmin puanı çubuk grafiği + en iyi tahmin."""
+    rows = [r for r in (plog or []) if isinstance(r, dict) and r.get('g')]
+    if not rows:
+        return ''
+    best = max(rows, key=lambda r: r.get('p', 0))
+    bars = ''.join(
+        f"<div class='ph-bar' title='{html_lib.escape(r['g'])} — {r.get('p', 0)} puan'>"
+        f"<i style='height:{max(4, round((r.get('p', 0) / _PRED_MAX) * 100))}%'></i>"
+        f"<s>{html_lib.escape(r['g'].split()[0][:3])}</s></div>"
+        for r in rows
+    )
+    avg = round(sum(r.get('p', 0) for r in rows) / len(rows), 1)
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ph{{border:1px solid #26313f;border-left:3px solid #f7c948;border-radius:12px;background:#11161f;padding:13px 15px}}
+      .ph-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin-bottom:10px}}
+      .ph-chart{{display:flex;align-items:flex-end;gap:4px;height:96px}}
+      .ph-bar{{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}}
+      .ph-bar i{{display:block;width:100%;max-width:22px;background:linear-gradient(180deg,#f7c948,#e8862b);border-radius:3px 3px 0 0}}
+      .ph-bar s{{font:600 8.5px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none;margin-top:4px;
+        white-space:nowrap;overflow:hidden;max-width:100%}}
+      .ph-ft{{display:flex;justify-content:space-between;gap:10px;margin-top:11px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
+      .ph-ft b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
+    </style>
+    <div class="ph">
+      <div class="ph-hd">Sezon boyu tahmin puanların</div>
+      <div class="ph-chart">{bars}</div>
+      <div class="ph-ft"><span>Yarış başı ort. <b>{avg}</b> / {_PRED_MAX}</span>
+        <span>En iyi: <b>{html_lib.escape(best['g'])}</b> ({best.get('p', 0)})</span></div>
+    </div>
+    """
 
 
 def render_prediction_game_v55():
@@ -8086,10 +8177,12 @@ def render_prediction_game_v55():
     _season_pts = int(fp_ui.get_pref('ps') or 0)
     _season_n = int(fp_ui.get_pref('pn') or 0)
     _acc = round(_season_pts / (_season_n * _PRED_MAX) * 100) if _season_n else 0
-    m1, m2, m3 = st.columns(3)
+    _next_days = _latest_completed_race_v43(year).get('next_in_days')
+    m1, m2, m3, m4 = st.columns(4)
     m1.metric("Sezon puanı", _season_pts)
     m2.metric("Puanlanan yarış", _season_n)
     m3.metric("İsabet", f"%{_acc}")
+    m4.metric("Sıradaki yarış", f"{_next_days} gün" if _next_days is not None else "—")
 
     if scored:
         _ap = " · ".join(f"{i + 1}. {c or '—'}" for i, c in enumerate(scored['actual_podium']))
@@ -8131,10 +8224,10 @@ def render_prediction_game_v55():
         if st.button("Tahmini değiştir", key="pred_edit_v55"):
             fp_ui.set_pref('pc', None)
             st.rerun()
-        _hist = fp_ui.get_pref('plog') or []
-        if _hist:
-            _spark = " ".join(f"{h['g'].split()[0][:3]}·{h['p']}" for h in _hist[-8:])
-            st.caption(f"Son tahminler: {_spark}")
+        _phist = _prediction_history_html(fp_ui.get_pref('plog'))
+        if _phist:
+            st.write("")
+            render_html_hud(_phist, height=210, scrolling=True)
         return
 
     _pole = st.selectbox("Pole pozisyonu", _codes, format_func=_fmt,
@@ -8153,6 +8246,11 @@ def render_prediction_game_v55():
         fp_ui.set_pref('pc', {'g': target, 'pl': _pole, 'po': [_p1, _p2, _p3]})
         st.toast("Tahminin kaydedildi — yarıştan sonra puanlanır.")
         st.rerun()
+
+    _phist = _prediction_history_html(fp_ui.get_pref('plog'))
+    if _phist:
+        st.write("")
+        render_html_hud(_phist, height=210, scrolling=True)
 
 
 def _game_shell(title, subtitle="", colour="#e10600"):
@@ -8520,6 +8618,355 @@ def follow_board_html(board, year):
     <div class="fb">
       <div class="fb-hd">Takip Panosu{f" · son yarış <b>{race_label}</b>" if race_label else ""}</div>
       {body}
+    </div>
+    """
+
+
+def _paddock_profile_html():
+    """#9 — hafif 'Paddock kimliği': favori · takip · tahmin · replay · karşılaştırma.
+    Hepsi tarayıcıda tutulan tercihlerden; hesap yok."""
+    fav_name = st.session_state.get('favourite_driver') or '—'
+    fav_team = st.session_state.get('favourite_team') or ''
+    follow = _follow_list()
+    ps, pn = int(fp_ui.get_pref('ps') or 0), int(fp_ui.get_pref('pn') or 0)
+    acc = round(ps / (pn * _PRED_MAX) * 100) if pn else 0
+    rw = int(fp_ui.get_pref('rw') or 0)
+    cmp_tally = fp_ui.get_pref('cmp') or {}
+    top_cmp = [c for c, _ in sorted(cmp_tally.items(), key=lambda kv: -kv[1])[:3]]
+    gp = st.session_state.get('paddock_game_profile_v30', {}) or {}
+
+    def _row(label, value):
+        return (f"<div class='pp-row'><span class='pp-k'>{html_lib.escape(label)}</span>"
+                f"<span class='pp-v'>{value}</span></div>")
+
+    rows = _row("Favori", f"{html_lib.escape(fav_name)}"
+                + (f" <s>· {html_lib.escape(fav_team)}</s>" if fav_team else ""))
+    rows += _row("Takip", (f"{len(follow)} pilot — " + html_lib.escape(', '.join(follow))) if follow else "—")
+    rows += _row("Tahmin", f"{ps} puan · %{acc} isabet <s>· {pn} yarış</s>" if pn else "henüz tahmin yok")
+    rows += _row("Yarış tekrarı", f"{rw} izlendi" if rw else "—")
+    rows += _row("En çok karşılaştırdığın", html_lib.escape(', '.join(top_cmp)) if top_cmp else "—")
+    if gp.get('played'):
+        rows += _row("Oyun", f"XP {gp.get('xp', 0)} <s>· {gp.get('played', 0)} oyun</s>")
+
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .pp{{border:1px solid #26313f;border-left:3px solid var(--fp-cyan,#2ee6c9);border-radius:12px;
+        background:#11161f;overflow:hidden}}
+      .pp-hd{{padding:12px 15px 8px;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;
+        text-transform:uppercase;color:#8090a2}}
+      .pp-row{{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:8px 15px;
+        border-top:1px solid #1b2330;font-size:13px}}
+      .pp-k{{font:700 10.5px 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;
+        color:#8090a2;padding-top:1px}}
+      .pp-v{{color:#e8eef4}} .pp-v s{{color:#8a9bb0;text-decoration:none;font-size:12px}}
+      @media(max-width:520px){{.pp-row{{grid-template-columns:1fr;gap:2px}}}}
+    </style>
+    <div class="pp">
+      <div class="pp-hd">Paddock Kimliğin</div>
+      {rows}
+    </div>
+    """
+
+
+# =========================================================
+# FAZ 4 · #10 — "SENİN SEZONUN" (favori pilotun sezon anlatısı)
+# =========================================================
+def _cell_pts_v57(row, key):
+    """result/points matrix hücresi -> toplam puan (yarış + varsa sprint)."""
+    if row is None:
+        return 0.0
+    val = row.get(key, 0)
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return 0.0
+    if isinstance(val, str):
+        val = val.strip()
+        if val in ('', '—'):
+            return 0.0
+        total = 0.0
+        for part in val.split('/'):
+            try:
+                total += float(part.strip())
+            except ValueError:
+                pass
+        return total
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _season_story_v57(year, fav_code):
+    """Favori pilotun sezonu — tek cached çağrıdan (get_championship_data_stable):
+    kümülatif puan (favori vs title rakibi), yarış-yarış sonuç, dönüm noktası."""
+    fav_code = str(fav_code or '').upper()
+    if not fav_code:
+        return {'ok': False}
+    try:
+        ds, _cs, rmat, pmat, rounds = get_championship_data_stable(year)
+    except Exception:
+        return {'ok': False}
+    if pmat is None or pmat.empty or ds is None or ds.empty or not rounds:
+        return {'ok': False}
+
+    def _find(df, code):
+        for _, row in df.iterrows():
+            if str(row.get('Pilot', '')).upper() == code:
+                return row
+        return None
+
+    fav_p, fav_r = _find(pmat, fav_code), _find(rmat, fav_code)
+    if fav_p is None:
+        return {'ok': False}
+    team = fav_p.get('Takım', '')
+    mate_p = next((r for _, r in pmat.iterrows()
+                   if r.get('Takım') == team and str(r.get('Pilot', '')).upper() != fav_code), None)
+    leader = str(ds.iloc[0].get('Pilot', '')).upper()
+    rival_code = leader if leader != fav_code else (
+        str(ds.iloc[1].get('Pilot', '')).upper() if len(ds) > 1 else fav_code)
+    rival_p = _find(pmat, rival_code)
+
+    keys = [rd['key'] for rd in rounds]
+    labels = [(rd.get('badge') or rd['event_name']).split()[-1][:3].upper() for rd in rounds]
+    fc = rc = mc = 0.0
+    per_round = []
+    for i, key in enumerate(keys):
+        fp = _cell_pts_v57(fav_p, key)
+        rp = _cell_pts_v57(rival_p, key)
+        mp = _cell_pts_v57(mate_p, key)
+        fc += fp
+        rc += rp
+        mc += mp
+        pos = str(fav_r.get(key)) if fav_r is not None else '—'
+        pos = pos.split('/')[0].strip() or '—'      # sprint hafta sonu: "yarış / sprint"
+        per_round.append({
+            'label': labels[i], 'event': rounds[i]['event_name'],
+            'pts': fp, 'pos': pos, 'fav_cum': fc, 'rival_cum': rc,
+            'mate_cum': mc, 'gap': round(fc - rc),
+        })
+    if not per_round:
+        return {'ok': False}
+    turning = None
+    if len(per_round) > 1:
+        deltas = [(i, per_round[i]['gap'] - per_round[i - 1]['gap']) for i in range(1, len(per_round))]
+        bi, bd = max(deltas, key=lambda x: abs(x[1]))
+        if bd:
+            turning = {'event': per_round[bi]['event'], 'label': per_round[bi]['label'], 'swing': int(bd)}
+    return {
+        'ok': True, 'fav': fav_code, 'rival': rival_code,
+        'mate': (str(mate_p.get('Pilot', '')).upper() if mate_p is not None else None),
+        'team': team, 'per_round': per_round, 'turning': turning,
+        'momentum': round(sum(r['pts'] for r in per_round[-3:])),
+        'final_gap': per_round[-1]['gap'], 'fav_total': round(fc), 'rival_total': round(rc),
+    }
+
+
+def season_story_component_height(story):
+    return min(560, 300 + (len((story or {}).get('per_round', [])) // 8) * 40)
+
+
+def season_story_html(story, colour_fav, colour_rival):
+    if not story.get('ok'):
+        return ''
+    pr = story['per_round']
+    n = len(pr)
+    cf, cr = colour_fav or '#38e1d0', colour_rival or '#e10600'
+    maxc = max([r['fav_cum'] for r in pr] + [r['rival_cum'] for r in pr] + [1])
+
+    def _poly(field):
+        pts = []
+        for i, r in enumerate(pr):
+            x = 6 + (i / max(1, n - 1)) * 388
+            y = 116 - (r[field] / maxc) * 108
+            pts.append(f"{x:.1f},{y:.1f}")
+        return " ".join(pts)
+
+    strip = "".join(
+        f"<span class='ss-chip' title='{html_lib.escape(r['event'])} — {r['pos']}. sıra, {r['pts']:g} puan' "
+        f"style='--pc:{_pos_chip_colour_v57(r['pos'])}'>{html_lib.escape(r['label'])}"
+        f"<i>{html_lib.escape(r['pos'])}</i></span>"
+        for r in pr
+    )
+    gap = story['final_gap']
+    gap_txt = (f"title rakibinin <b>{abs(gap)} puan</b> önünde" if gap > 0
+               else f"title rakibine <b>{abs(gap)} puan</b> geride" if gap < 0
+               else "title rakibiyle <b>eşit</b>")
+    turn = ""
+    if story.get('turning'):
+        t = story['turning']
+        _sw = t['swing']
+        turn = (f"<div class='ss-turn'><s>DÖNÜM NOKTASI</s>{html_lib.escape(t['event'])} — "
+                f"o hafta sonu {('+' if _sw > 0 else '')}{_sw} puanlık makas.</div>")
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ss{{border:1px solid #26313f;border-left:3px solid {cf};border-radius:12px;background:#11161f;padding:14px 15px}}
+      .ss-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2}}
+      .ss-hd b{{color:#e8eef4}}
+      .ss-sum{{font:600 13px 'Saira',sans-serif;color:#c4d2e0;margin:6px 0 12px}}
+      .ss-sum b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
+      .ss-chart{{width:100%;height:130px;display:block}}
+      .ss-leg{{display:flex;gap:14px;margin:6px 0 12px;font:700 10px 'JetBrains Mono',monospace}}
+      .ss-leg i{{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:5px}}
+      .ss-strip{{display:flex;flex-wrap:wrap;gap:4px}}
+      .ss-chip{{flex:0 0 auto;text-align:center;border:1px solid #2a3a4d;border-top:3px solid var(--pc);
+        border-radius:5px;padding:4px 6px;font:700 9px 'JetBrains Mono',monospace;color:#c9d6e2;min-width:34px}}
+      .ss-chip i{{display:block;font-style:normal;font-size:11px;color:#f2f5f8;margin-top:2px}}
+      .ss-turn{{margin-top:12px;border:1px solid #3a3320;border-left:3px solid #f7c948;border-radius:8px;
+        padding:9px 12px;font:600 12px 'Saira',sans-serif;color:#d9c9a0}}
+      .ss-turn s{{display:block;font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#8a7a4a;text-decoration:none;margin-bottom:3px}}
+    </style>
+    <div class="ss">
+      <div class="ss-hd"><b>{html_lib.escape(story['fav'])}</b> — {story['fav_total']} puan · {gap_txt} <b>({html_lib.escape(story['rival'])})</b></div>
+      <div class="ss-sum">Son 3 yarışta {story['momentum']} puan topladı.</div>
+      <svg class="ss-chart" viewBox="0 0 400 130" preserveAspectRatio="none">
+        <polyline points="{_poly('rival_cum')}" fill="none" stroke="{cr}" stroke-width="2" opacity=".65"/>
+        <polyline points="{_poly('fav_cum')}" fill="none" stroke="{cf}" stroke-width="2.5"/>
+      </svg>
+      <div class="ss-leg"><span style="color:{cf}"><i style="background:{cf}"></i>{html_lib.escape(story['fav'])}</span>
+        <span style="color:{cr}"><i style="background:{cr}"></i>{html_lib.escape(story['rival'])}</span>
+        <span style="color:#8090a2">kümülatif puan</span></div>
+      <div class="ss-strip">{strip}</div>
+      {turn}
+    </div>
+    """
+
+
+def _pos_chip_colour_v57(pos):
+    p = str(pos)
+    if p == '1':
+        return '#ffd100'
+    if p in ('2', '3'):
+        return '#38e1d0'
+    if p.isdigit() and int(p) <= 10:
+        return '#5cc8ff'
+    if p.isdigit():
+        return '#8a9bb0'
+    return '#ff5f6d'
+
+
+# =========================================================
+# FAZ 4 · #11 — ŞAMPİYONA "NE DEĞİŞTİ" ZAMAN TÜNELİ
+# =========================================================
+def _champ_timeline_v58(points_matrix, rounds):
+    """Her yarıştan sonra kümülatif puandan sıralamayı türet; liderlik el
+    değişimlerini ve büyük yükselişleri işaretle. Yeni ağ yok."""
+    if points_matrix is None or points_matrix.empty or not rounds:
+        return {'ok': False}
+    rows = [(str(r.get('Pilot', '')).upper(), r) for _, r in points_matrix.iterrows()]
+    if len(rows) < 2:
+        return {'ok': False}
+    cum = {code: 0.0 for code, _ in rows}
+    prev_order, timeline = None, []
+    for rd in rounds:
+        for code, row in rows:
+            cum[code] += _cell_pts_v57(row, rd['key'])
+        order = [c for c, _ in sorted(cum.items(), key=lambda kv: (-kv[1], kv[0]))]
+        note = None
+        if prev_order and order[0] != prev_order[0]:
+            note = f"Liderlik: {prev_order[0]} → {order[0]}"
+        elif prev_order:
+            movers = []
+            for new_i, code in enumerate(order[:6]):
+                old_i = prev_order.index(code)
+                if old_i - new_i >= 2:
+                    movers.append((code, old_i - new_i, old_i + 1, new_i + 1))
+            if movers:
+                mv = max(movers, key=lambda x: x[1])
+                note = f"{mv[0]} P{mv[2]}→P{mv[3]}"
+        timeline.append({
+            'label': (rd.get('badge') or rd['event_name']).split()[-1][:3].upper(),
+            'event': rd['event_name'], 'leader': order[0],
+            'leader_pts': round(cum[order[0]]),
+            'gap': round(cum[order[0]] - cum[order[1]]),
+            'note': note,
+        })
+        prev_order = order
+    return {'ok': bool(timeline), 'timeline': timeline}
+
+
+def champ_timeline_component_height(tl):
+    return 168 if (tl or {}).get('ok') else 0
+
+
+# =========================================================
+# FAZ 4 · #12 — PAYLAŞILABİLİR METİN ÖZETLERİ
+# =========================================================
+def _digest_share_text_v59(digest, race_name):
+    drv = digest.get('driver') or {}
+    pod = " · ".join(f"{i + 1}. {p['code']}" for i, p in enumerate(digest.get('podium', [])))
+    lines = [f"🏁 {race_name} — Formula Paddock"]
+    if pod:
+        lines.append(f"Podyum: {pod}")
+    if drv:
+        if drv.get('dnf'):
+            lines.append(f"{drv['code']}: yarış dışı ({drv.get('status') or 'DNF'})")
+        else:
+            mv = drv.get('moved')
+            mvtxt = (f", gridden {mv:+d} sıra" if isinstance(mv, int) and mv else "")
+            lines.append(f"{drv['code']}: P{drv['pos']}{mvtxt}, {drv.get('points', 0):g} puan")
+            if drv.get('mate'):
+                lines.append(f"Takım arkadaşı {drv['mate']} (P{drv.get('mate_pos', '—')}) — "
+                             + ("önde bitirdi" if drv.get('beat_mate') else "geride bitirdi"))
+    return "\n".join(lines)
+
+
+def _season_share_text_v59(story, year):
+    gap = story['final_gap']
+    rel = (f"{abs(gap)} puan önde" if gap > 0 else f"{abs(gap)} puan geride" if gap < 0 else "eşit")
+    lines = [
+        f"📊 {story['fav']} — {year} sezonu · Formula Paddock",
+        f"{story['fav_total']} puan · title rakibi {story['rival']}'e {rel}",
+        f"Son 3 yarışta {story['momentum']} puan",
+    ]
+    if story.get('turning'):
+        t = story['turning']
+        lines.append(f"Dönüm noktası: {t['event']} ({t['swing']:+d} puanlık makas)")
+    return "\n".join(lines)
+
+
+def _champ_share_text_v59(driver_standings, year, rounds):
+    if driver_standings is None or driver_standings.empty:
+        return ""
+    rn = len(rounds or [])
+    lines = [f"🏆 F1 {year} şampiyona — {rn}. yarış sonrası · Formula Paddock"]
+    for _, row in driver_standings.head(5).iterrows():
+        lines.append(f"{int(row.get('Sıra', 0))}. {row.get('Pilot', '')} — {row.get('Puan', 0)}")
+    return "\n".join(lines)
+
+
+def champ_timeline_html(tl, colour_of):
+    if not tl.get('ok'):
+        return ''
+    cards = ''
+    for step in tl['timeline']:
+        col = colour_of(_DRIVER_TEAM_BY_CODE.get(step['leader'], '')) or '#8a9bb0'
+        note = (f"<span class='ct-note'>{html_lib.escape(step['note'])}</span>"
+                if step.get('note') else "")
+        cards += (
+            f"<div class='ct-card' style='--c:{col}' title='{html_lib.escape(step['event'])}'>"
+            f"<s>{html_lib.escape(step['label'])}</s>"
+            f"<b>{html_lib.escape(step['leader'])}</b>"
+            f"<i>+{step['gap']}</i>{note}</div>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ct{{border:1px solid #26313f;border-left:3px solid var(--fp-cyan,#2ee6c9);border-radius:12px;
+        background:#11161f;padding:12px 14px}}
+      .ct-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin-bottom:9px}}
+      .ct-scroll{{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}}
+      .ct-card{{flex:0 0 auto;min-width:66px;border:1px solid #2a3a4d;border-top:3px solid var(--c);
+        border-radius:7px;background:#0e1826;padding:7px 9px;text-align:center;position:relative}}
+      .ct-card s{{display:block;font:700 8.5px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none}}
+      .ct-card b{{display:block;font:800 14px 'JetBrains Mono',monospace;color:var(--c);margin-top:3px}}
+      .ct-card i{{display:block;font:600 10px 'JetBrains Mono',monospace;font-style:normal;color:#9fb0c0;margin-top:2px}}
+      .ct-note{{display:block;margin-top:5px;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.02em;
+        color:#f7c948;line-height:1.25;white-space:normal}}
+    </style>
+    <div class="ct">
+      <div class="ct-hd">Sezonun gidişatı — her yarıştan sonra lider + arası</div>
+      <div class="ct-scroll">{cards}</div>
     </div>
     """
 
@@ -9030,6 +9477,7 @@ def _router_page_live():
                                 ("#b79cff", "pit giriş/çıkış"), ("#ff3b3b", "Soft"), ("#ffd234", "Medium"), ("#f0f4f8", "Hard"),
                             ], key=f"howto_replay_{replay_year}")
                             render_html_hud(stable_race_replay_html(replay_payload), height=1010, scrolling=True)
+                            _track_replay_watched_v56(f"{replay_year}·{replay_event_name}")
                             st.markdown("#### 🛞 Tyre Strategy Wall")
                             render_html_hud(
                                 strategy_wall_html(replay_payload),
@@ -9852,6 +10300,12 @@ def _router_page_standings():
                 height=championship_matrix_component_height(active_matrix),
                 scrolling=False,
             )
+            _tl = _champ_timeline_v58(points_matrix, completed_rounds)
+            if _tl.get('ok') and len(_tl['timeline']) > 1:
+                st.write("")
+                render_html_hud(champ_timeline_html(_tl, lambda t: season_team_colour(t, champ_year)),
+                                height=champ_timeline_component_height(_tl), scrolling=True)
+            fp_ui.share_panel(_champ_share_text_v59(driver_standings, champ_year, completed_rounds))
         with team_tab:
             st.caption("Podyumda ilk üç takım; altında kalan takımlar aynı HUD diliyle sıralanır.")
             render_html_hud(
