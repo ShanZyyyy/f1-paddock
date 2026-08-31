@@ -1842,6 +1842,201 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds, y
     """
 
 
+# =========================================================
+# FAZ 2 · #10 — ŞAMPİYONLUK SENARYO / PERMÜTASYON HESAPLAYICI
+# Yalnızca doğrulanmış puan tablosu + resmî takvimden hesaplanır.
+# =========================================================
+
+_F1_RACE_POINTS_V40 = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+_F1_SPRINT_POINTS_V40 = [8, 7, 6, 5, 4, 3, 2, 1]
+
+
+def _f1_points_v40(finish_pos, sprint=False):
+    """1-tabanlı bitiş sırası -> puan. Puan dışıysa 0."""
+    table = _F1_SPRINT_POINTS_V40 if sprint else _F1_RACE_POINTS_V40
+    try:
+        pos = int(finish_pos)
+    except (TypeError, ValueError):
+        return 0
+    return table[pos - 1] if 1 <= pos <= len(table) else 0
+
+
+@st.cache_data(ttl=60 * 60 * 3, show_spinner=False)
+def _championship_remaining_v40(year, completed_count):
+    """Resmî takvimden kalan yarış + sprint sayısı ve sıradaki yarış adı."""
+    try:
+        calendar = get_calendar_details(int(year))
+    except Exception:
+        return {'races': 0, 'sprints': 0, 'next': None, 'total': int(completed_count)}
+    now = datetime.datetime.now(datetime.timezone.utc)
+    races = sprints = 0
+    nxt = None
+    for event in calendar:
+        race_date = event.get('Session5DateUtc')
+        if pd.isnull(race_date):
+            continue
+        race_time = pd.to_datetime(race_date)
+        race_time = race_time.tz_localize('UTC') if race_time.tzinfo is None else race_time.tz_convert('UTC')
+        if race_time + datetime.timedelta(hours=3) <= now:
+            continue
+        races += 1
+        if 'sprint' in str(event.get('EventFormat', '')).lower():
+            sprints += 1
+        if nxt is None:
+            nxt = str(event.get('EventName', '')).strip() or None
+    return {'races': races, 'sprints': sprints, 'next': nxt,
+            'total': int(completed_count) + races}
+
+
+def championship_scenarios_v40(driver_standings, remaining):
+    """Saf hesap: her üst pilot için güncel puan, teorik maksimum, matematiksel
+    durum ve lidere fark. `remaining` = _championship_remaining_v40 çıktısı."""
+    if driver_standings is None or driver_standings.empty:
+        return {'ok': False}
+    rows = []
+    for _, row in driver_standings.iterrows():
+        try:
+            pts = float(row.get('Puan', 0) or 0)
+        except (TypeError, ValueError):
+            pts = 0.0
+        rows.append({'code': str(row.get('Pilot', '')).strip(),
+                     'team': str(row.get('Takım', '')).strip(), 'points': pts})
+    if not rows:
+        return {'ok': False}
+    rows.sort(key=lambda r: -r['points'])
+    leader = rows[0]
+    swing = remaining['races'] * 25 + remaining['sprints'] * 8
+    contenders = []
+    for i, r in enumerate(rows[:6]):
+        ceiling = r['points'] + swing
+        gap = leader['points'] - r['points']
+        alive = i == 0 or ceiling >= leader['points']
+        contenders.append({**r, 'rank': i + 1, 'ceiling': ceiling,
+                           'gap': gap, 'alive': alive})
+    runner_ceiling = rows[1]['points'] + swing if len(rows) > 1 else 0
+    clinched = len(rows) > 1 and leader['points'] > runner_ceiling
+    return {
+        'ok': True, 'leader': leader['code'], 'leader_points': leader['points'],
+        'contenders': contenders, 'swing': swing, 'clinched': clinched,
+        'races': remaining['races'], 'sprints': remaining['sprints'],
+        'next': remaining['next'],
+        'still_alive': sum(1 for c in contenders if c['alive']),
+    }
+
+
+def championship_scenarios_html(scn, colour_of):
+    """Matematiksel durum HUD'u — güncel puan, tavan, lidere fark, elendi/yarışta."""
+    if not scn.get('ok'):
+        return "<div style='padding:18px;color:#8a9bb0;font-family:Saira,sans-serif'>Senaryo için yeterli puan verisi yok.</div>"
+    head = (f"{scn['races']} yarış" + (f" · {scn['sprints']} sprint" if scn['sprints'] else "")
+            + f" kaldı · sahadaki en yüksek kazanç <b>{int(scn['swing'])} puan</b>")
+    if scn['races'] == 0:
+        head = "Sezon tamamlandı — unvan kesinleşti."
+    banner = ""
+    if scn['clinched'] and scn['races'] > 0:
+        banner = (f"<div class='scn-ban win'>{html_lib.escape(scn['leader'])} şampiyonluğu "
+                  f"matematiksel olarak GARANTİLEDİ — takipçi artık yetişemez.</div>")
+    elif scn['races'] > 0:
+        banner = (f"<div class='scn-ban'>{scn['still_alive']} pilot hâlâ matematiksel olarak "
+                  f"şampiyon olabilir.</div>")
+    rows = ""
+    _over = scn['races'] == 0
+    for c in scn['contenders']:
+        col = colour_of(c['team']) or '#8a9bb0'
+        if _over:
+            state = ("<span class='pill live'>ŞAMPİYON</span>" if c['rank'] == 1
+                     else "<span class='pill done'>—</span>")
+        else:
+            state = ("<span class='pill live'>YARIŞTA</span>" if c['alive']
+                     else "<span class='pill out'>ELENDİ</span>")
+        gaptext = "—" if c['rank'] == 1 else f"-{int(c['gap'])}"
+        rows += (
+            f"<div class='scn-row' style='--c:{col}'>"
+            f"<span class='pos'>{c['rank']}</span>"
+            f"<span class='who'><b>{html_lib.escape(c['code'])}</b><small>{html_lib.escape(c['team'])}</small></span>"
+            f"<span class='num'><s>PUAN</s>{int(c['points'])}</span>"
+            f"<span class='num'><s>TAVAN</s>{int(c['ceiling'])}</span>"
+            f"<span class='num'><s>LİDERE</s>{gaptext}</span>"
+            f"<span class='st'>{state}</span>"
+            "</div>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .scn{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
+      .scn-hd{{padding:13px 16px;border-bottom:1px solid #26313f;font:600 12px 'Saira',sans-serif;color:#c4d2e0}}
+      .scn-hd b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
+      .scn-ban{{margin:10px 12px 0;padding:9px 12px;border-radius:7px;background:#12212f;
+        border:1px solid #24445c;font:600 11.5px 'Saira',sans-serif;color:#9fd0ea}}
+      .scn-ban.win{{background:#12241a;border-color:#2c5a3b;color:#7fe0a6}}
+      .scn-list{{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}}
+      .scn-row{{display:grid;grid-template-columns:26px 1.6fr repeat(3,64px) 78px;gap:10px;align-items:center;
+        padding:9px 11px;background:#131a24;border:1px solid #222c39;border-left:3px solid var(--c);border-radius:8px}}
+      .pos{{font:700 13px 'JetBrains Mono',monospace;color:#7c8ea0;text-align:center}}
+      .who b{{font:700 13px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
+      .who small{{font:500 10.5px 'Saira',sans-serif;color:#8a9bb0;display:block;margin-top:1px;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .num{{text-align:right;font:700 13px 'JetBrains Mono',monospace}}
+      .num s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.09em;color:#63748a;text-decoration:none;margin-bottom:2px}}
+      .st{{text-align:right}}
+      .pill{{font:800 9px 'Saira Condensed',sans-serif;letter-spacing:.08em;padding:4px 7px;border-radius:5px}}
+      .pill.live{{background:#12241a;color:#7fe0a6}} .pill.out{{background:#241417;color:#ff8b78}}
+      .pill.done{{background:#151b25;color:#63748a}}
+      @media(max-width:620px){{
+        .scn-row{{grid-template-columns:22px 1fr 56px 78px;row-gap:4px}}
+        .num:nth-of-type(3){{display:none}} .st{{grid-column:3/-1;text-align:left}}
+      }}
+    </style>
+    <div class="scn">
+      <div class="scn-hd">{head}</div>
+      {banner}
+      <div class="scn-list">{rows}</div>
+    </div>
+    """
+
+
+def championship_projection_html(leader, challenger, leader_pts, challenger_pts,
+                                 leader_finish, challenger_finish, races, sprints, colour_l, colour_c):
+    """Etkileşimli senaryo sonucu: iki pilot kalan yarışlarda verilen sırada
+    biterse nihai puanlar ve unvan sahibi."""
+    lp = leader_pts + races * _f1_points_v40(leader_finish) + sprints * _f1_points_v40(leader_finish, sprint=True)
+    cp = challenger_pts + races * _f1_points_v40(challenger_finish) + sprints * _f1_points_v40(challenger_finish, sprint=True)
+    champ, champ_col, other = ((leader, colour_l, challenger) if lp >= cp else (challenger, colour_c, leader))
+    margin = abs(lp - cp)
+    verdict = (f"{html_lib.escape(champ)} unvanı {int(margin)} puan farkla alır"
+               if margin else f"{html_lib.escape(champ)} eşit puanda, galibiyet üstünlüğüyle şampiyon")
+    bars = ""
+    top = max(lp, cp, 1)
+    for who, val, col in [(leader, lp, colour_l), (challenger, cp, colour_c)]:
+        bars += (
+            f"<div class='pj-row'><span class='pj-n'>{html_lib.escape(who)}</span>"
+            f"<span class='pj-bar'><i style='width:{round(val / top * 100)}%;background:{col}'></i></span>"
+            f"<span class='pj-v'>{int(val)}</span></div>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .pj{{border:1px solid #26313f;border-radius:12px;background:#11161f;padding:15px 16px}}
+      .pj-v-hd{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63748a}}
+      .pj-verdict{{font:700 16px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;
+        color:{champ_col};margin:6px 0 14px}}
+      .pj-row{{display:grid;grid-template-columns:120px 1fr 46px;gap:10px;align-items:center;padding:5px 0}}
+      .pj-n{{font:600 12px 'Saira',sans-serif;color:#c4d2e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .pj-bar{{height:14px;background:#0a111b;border-radius:4px;overflow:hidden}}
+      .pj-bar i{{display:block;height:100%}}
+      .pj-v{{font:700 14px 'JetBrains Mono',monospace;text-align:right}}
+      .pj-note{{margin-top:12px;font:500 11px 'Saira',sans-serif;color:#8a9bb0}}
+    </style>
+    <div class="pj">
+      <div class="pj-v-hd">Senaryo sonucu</div>
+      <div class="pj-verdict">{verdict}</div>
+      {bars}
+      <div class="pj-note">Varsayım: kalan {races} yarış (+{sprints} sprint) boyunca her ikisi de
+        sabit sırada bitiyor. Gerçek sonuçlar farklı olacaktır — bu yalnızca puan matematiğini gösterir.</div>
+    </div>
+    """
+
+
 def session_leaderboard_html(table, title):
     """FP, sıralama ve yarış sonuçlarını takım renkli HUD leaderboard'a çevirir."""
     if table.empty:
@@ -7394,7 +7589,9 @@ def _router_page_standings():
             scrolling=False,
         )
         st.write("")
-        driver_tab, team_tab, stat_tab = st.tabs(["Sezon Tablosu", "Takim Puanlari", "Pilot Istatistikleri"])
+        driver_tab, team_tab, scenario_tab, stat_tab = st.tabs(
+            ["Sezon Tablosu", "Takim Puanlari", "Şampiyonluk Senaryoları", "Pilot Istatistikleri"]
+        )
         with driver_tab:
             if 'championship_matrix_mode' not in st.session_state:
                 st.session_state['championship_matrix_mode'] = 'sıralama'
@@ -7428,6 +7625,64 @@ def _router_page_standings():
                 height=constructor_hud_component_height(constructor_standings),
                 scrolling=False,
             )
+        with scenario_tab:
+            _rem = _championship_remaining_v40(champ_year, len(completed_rounds))
+            _scn = championship_scenarios_v40(driver_standings, _rem)
+            _scn_colour = (lambda t: season_team_colour(t, champ_year))
+            fp_ui.how_to_hud(
+                [
+                    ("Tavan", "pilotun güncel puanı + kalan tüm yarış ve sprintleri kazanırsa ulaşabileceği en yüksek puan."),
+                    ("Yarışta / Elendi", "tavanı liderin güncel puanına ulaşmıyorsa o pilot matematiksel olarak şampiyon olamaz."),
+                    ("Senaryo", "aşağıda bir rakip ve iki pilotun kalan yarışlardaki sabit bitiş sırasını seç; nihai puan matematiğini gösterir."),
+                ],
+                note="Tüm rakamlar doğrulanmış puan tablosu ve resmî takvimden. Tahmin veya olasılık yok — yalnızca 'bu sırayla biterse ne olur'.",
+            )
+            if not _scn.get('ok'):
+                st.info("Senaryo hesaplaması için yeterli puan verisi yok.")
+            else:
+                render_html_hud(
+                    championship_scenarios_html(_scn, _scn_colour),
+                    height=min(620, 170 + 56 * len(_scn['contenders'])),
+                    scrolling=False,
+                )
+                _alive = [c for c in _scn['contenders'] if c['alive']]
+                if _rem['races'] > 0 and len(_alive) >= 2:
+                    st.write("")
+                    fp_ui.section_title("Senaryo Hesaplayıcı")
+                    _leader = _alive[0]
+                    _rivals = _alive[1:]
+                    _rc1, _rc2 = st.columns([2, 1])
+                    _riv_code = _rc1.selectbox(
+                        "Rakip", [c['code'] for c in _rivals],
+                        format_func=lambda c: f"{directory_driver_by_code(c)['name']} ({c})",
+                        key="champ_scn_rival",
+                    )
+                    _riv = next(c for c in _rivals if c['code'] == _riv_code)
+                    with _rc2:
+                        fp_ui.stat_tile(f"{_riv_code} · lidere fark", f"-{int(_riv['gap'])} P", accent="amber")
+                    _finish_opts = ["1.", "2.", "3.", "4.", "5.", "6.", "8.", "10.", "Puan yok"]
+                    _to_pos = lambda label: 30 if label == "Puan yok" else int(label.rstrip("."))
+                    _pc1, _pc2 = st.columns(2)
+                    _l_fin = _pc1.select_slider(
+                        f"{_leader['code']} kalan her yarışta", options=_finish_opts, value="2.",
+                        key="champ_scn_leader_fin",
+                    )
+                    _c_fin = _pc2.select_slider(
+                        f"{_riv_code} kalan her yarışta", options=_finish_opts, value="1.",
+                        key="champ_scn_rival_fin",
+                    )
+                    render_html_hud(
+                        championship_projection_html(
+                            _leader['code'], _riv_code, _leader['points'], _riv['points'],
+                            _to_pos(_l_fin), _to_pos(_c_fin), _rem['races'], _rem['sprints'],
+                            _scn_colour(_leader['team']), _scn_colour(_riv['team']),
+                        ),
+                        height=290,
+                        scrolling=False,
+                    )
+                elif _rem['races'] == 0:
+                    st.caption("Sezon tamamlandığı için senaryo hesaplayıcı kapalı — unvan kesinleşti.")
+
         with stat_tab:
             _codes = [str(r.get('Pilot', '')).strip() for _, r in driver_standings.iterrows() if str(r.get('Pilot', '')).strip()]
             _team_of = {str(r.get('Pilot', '')).strip(): str(r.get('Takım', '')).strip() for _, r in driver_standings.iterrows()}
