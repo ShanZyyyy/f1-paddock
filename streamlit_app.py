@@ -8359,6 +8359,102 @@ def follow_board_html(board, year):
     """
 
 
+# =========================================================
+# FAZ 4 · #4 — "SON ZİYARETİNDEN BU YANA" ŞERİDİ
+# =========================================================
+def _races_between_v52(year, since_epoch, until_epoch):
+    """`since` ile `until` arasında tamamlanmış yarış sayısı (resmî takvimden)."""
+    try:
+        calendar = get_calendar_details(int(year))
+    except Exception:
+        return 0
+    count = 0
+    for event in calendar or []:
+        raw = event.get('Session5DateUtc')
+        if pd.isnull(raw):
+            continue
+        race_time = pd.to_datetime(raw)
+        race_time = race_time.tz_localize('UTC') if race_time.tzinfo is None else race_time.tz_convert('UTC')
+        done_at = race_time.timestamp() + 3 * 3600
+        if since_epoch < done_at <= until_epoch:
+            count += 1
+    return count
+
+
+def _return_strip_v52():
+    """İlk oturumda bir kez: önceki ziyaretten bu yana neyin değiştiğini gösterir,
+    sonra 'görüldü' durumunu günceller. Kapatılabilir."""
+    if st.session_state.get('_return_dismissed'):
+        return
+    now = time.time()
+    year = datetime.datetime.now(datetime.timezone.utc).year
+
+    if not st.session_state.get('_visit_recorded_v52'):
+        st.session_state['_visit_recorded_v52'] = True
+        prev_visit = fp_ui.get_pref('lv')
+        prev_leader = fp_ui.get_pref('slc')
+        prev_lpts = fp_ui.get_pref('slp')
+
+        cur_race = _latest_completed_race_v43(year).get('last')
+        leader = leader_pts = None
+        try:
+            _ds, *_rest = get_championship_data_stable(year)
+            if _ds is not None and not _ds.empty:
+                leader = (str(_ds.iloc[0].get('Pilot', '')).strip().upper() or None)
+                _p = _ds.iloc[0].get('Puan')
+                leader_pts = int(float(_p)) if pd.notna(_p) else None
+        except Exception:
+            pass
+
+        parts = []
+        if prev_visit:
+            n_races = _races_between_v52(year, prev_visit, now)
+            if n_races >= 1:
+                parts.append((f"{n_races} yarış tamamlandı", 'favourites'))
+            if prev_leader and leader and prev_leader != leader:
+                _pl = _DRIVER_NAME_BY_CODE.get(prev_leader, prev_leader).split()[-1]
+                _nl = _DRIVER_NAME_BY_CODE.get(leader, leader).split()[-1]
+                parts.append((f"şampiyona lideri: {_pl} → {_nl}", 'standings'))
+            elif (prev_leader and leader == prev_leader and prev_lpts is not None
+                  and leader_pts is not None and leader_pts != prev_lpts):
+                _d = leader_pts - prev_lpts
+                parts.append((f"lider {leader} {'+' if _d > 0 else ''}{_d} puan", 'standings'))
+
+        st.session_state['_return_parts'] = parts
+        st.session_state['_return_days'] = int((now - prev_visit) / 86400) if prev_visit else None
+        fp_ui.set_pref('lv', int(now))
+        if cur_race:
+            fp_ui.set_pref('sr', cur_race)
+        if leader:
+            fp_ui.set_pref('slc', leader)
+        if leader_pts is not None:
+            fp_ui.set_pref('slp', leader_pts)
+
+    parts = st.session_state.get('_return_parts') or []
+    if not parts:
+        return
+    days = st.session_state.get('_return_days')
+    since_txt = "bugün erken" if not days else "dün" if days == 1 else f"{days} gün önce"
+    chips = " · ".join(
+        f"<a href='?p={p}'>{html_lib.escape(t)}</a>" for t, p in parts
+    )
+    _rc1, _rc2 = st.columns([9, 1.1])
+    with _rc1:
+        st.markdown(
+            "<style>.fp-return{border:1px solid var(--fp-line);border-left:3px solid var(--fp-amber);"
+            "border-radius:8px;background:var(--fp-bg-2);padding:10px 14px;font-size:13px;"
+            "color:var(--fp-text-dim);margin-bottom:6px;line-height:1.5}"
+            ".fp-return b{color:var(--fp-text)}.fp-return a{color:var(--fp-cyan);text-decoration:none;font-weight:600}"
+            ".fp-return a:hover{text-decoration:underline}</style>"
+            f"<div class='fp-return'>Son ziyaretin <b>{since_txt}</b> — o zamandan beri: {chips}</div>",
+            unsafe_allow_html=True,
+        )
+    with _rc2:
+        if st.button("Kapat", key="_return_dismiss_v52", width='stretch'):
+            st.session_state['_return_dismissed'] = True
+            st.rerun()
+
+
 def _home_setup_card_v50():
     """Favori seçilmemişse: tek adımda pilot seç, site kişiselleşsin (Faz 4 #2)."""
     if fp_ui.get_pref('fav_driver') or fp_ui.get_pref('fav_skip'):
@@ -8465,6 +8561,11 @@ def _router_page_home():
     except Exception as _hero_err:  # noqa: BLE001 — hero asla sayfayı düşürmesin
         log_data_error('hero', _hero_err)
         fp_ui.page_header("Formula Paddock", T("page.home.sub"), eyebrow="Formula Paddock")
+
+    try:
+        _return_strip_v52()
+    except Exception as _return_err:  # noqa: BLE001
+        log_data_error('home return strip', _return_err)
 
     try:
         _home_setup_card_v50()
