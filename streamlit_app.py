@@ -240,7 +240,7 @@ VALID_PAGES = {
     'compare', 'drivers', 'learn', 'favourites', 'teams', 'standings',
     'f2f3', 'glossary', 'assistant', 'games',
     # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
-    'stewarlde', 'paddock_career',
+    'stewarlde', 'paddock_career', 'predict',
     # yardımcı sayfalar (ayaktan / breadcrumb'dan)
     'faq', 'privacy',
 }
@@ -463,6 +463,7 @@ for _pk, _plbl in NAV_STANDALONE:
     _PAGE_META[_pk] = (_plbl, _plbl, _pk)
 _PAGE_META['stewarlde'] = ("Stewardle", T("section.games"), "games")
 _PAGE_META['paddock_career'] = ("Paddock Career", T("section.games"), "games")
+_PAGE_META['predict'] = ("Hafta Sonu Tahmini", T("section.games"), "games")
 _PAGE_META['faq'] = ("SSS", "Bilgi", "faq")
 _PAGE_META['privacy'] = ("Gizlilik", "Bilgi", "privacy")
 
@@ -7995,6 +7996,165 @@ def render_team_personnel_hud(team_name, section='all'):
         render_pit_wall_v30(team_name, compact=False)
 
 
+# =========================================================
+# FAZ 4 · #7/#8 — HAFTA SONU TAHMİN OYUNU
+# =========================================================
+_PRED_MAX = 20  # pole 5 + 3 podyum × (3 var + 2 tam yer)
+
+
+def _prediction_target_gp_v55(year):
+    """Tahmin edilecek yarış = sıradaki tamamlanmamış GP."""
+    try:
+        calendar = get_calendar_details(int(year))
+    except Exception:
+        return None
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for event in calendar or []:
+        raw = event.get('Session5DateUtc')
+        if pd.isnull(raw):
+            continue
+        rt = pd.to_datetime(raw)
+        rt = rt.tz_localize('UTC') if rt.tzinfo is None else rt.tz_convert('UTC')
+        if rt + datetime.timedelta(hours=3) > now:
+            return str(event.get('EventName', '')).strip()
+    return None
+
+
+def _score_prediction_v55(pred, race_entries):
+    """Saf skorlayıcı. race_entries: get_championship_round_v19 'race' listesi
+    (her biri code/position/grid). Pole = grid==1. Dönüş: {points, detail, ...}."""
+    if not pred or not race_entries:
+        return None
+    by_pos, pole_code = {}, None
+    for entry in race_entries:
+        pos = entry.get('position')
+        if str(pos).isdigit():
+            by_pos[int(pos)] = entry['code']
+        if entry.get('grid') == 1:
+            pole_code = entry['code']
+    actual_podium = [by_pos.get(1), by_pos.get(2), by_pos.get(3)]
+    points, detail = 0, []
+    if pred.get('pl') and pred['pl'] == pole_code:
+        points += 5
+        detail.append(('Pole doğru', 5))
+    for i, code in enumerate((pred.get('po') or [])[:3]):
+        if not code or code not in actual_podium:
+            continue
+        if actual_podium[i] == code:
+            points += 5
+            detail.append((f'{code} — P{i + 1} tam', 5))
+        else:
+            points += 3
+            detail.append((f'{code} podyumda', 3))
+    return {'points': points, 'detail': detail,
+            'actual_pole': pole_code, 'actual_podium': actual_podium}
+
+
+def _prediction_maybe_score_v55(year):
+    """Bekleyen tahminin GP'si tamamlandıysa skorla, toplamları prefs'e yaz,
+    bekleyeni temizle. Skorlandıysa sonuç sözlüğünü döndürür."""
+    pred = fp_ui.get_pref('pc')
+    if not isinstance(pred, dict) or not pred.get('g'):
+        return None
+    gp = pred['g']
+    target = _prediction_target_gp_v55(year)
+    if target == gp:            # yarış henüz gelmedi
+        return None
+    rnd = get_championship_round_v19(year, gp)
+    if not rnd.get('ok') or not rnd.get('race'):
+        return None
+    scored = _score_prediction_v55(pred, rnd['race'])
+    if scored is None:
+        return None
+    fp_ui.set_pref('ps', int(fp_ui.get_pref('ps') or 0) + scored['points'])
+    fp_ui.set_pref('pn', int(fp_ui.get_pref('pn') or 0) + 1)
+    log = list(fp_ui.get_pref('plog') or [])
+    log.append({'g': gp, 'p': scored['points']})
+    fp_ui.set_pref('plog', log[-24:])
+    fp_ui.set_pref('pc', None)
+    scored['gp'] = gp
+    scored['pred'] = pred
+    st.session_state['_pred_just_scored'] = scored
+    return scored
+
+
+def render_prediction_game_v55():
+    _game_shell("Hafta Sonu Tahmini", "Pole + podyum tahmin et, yarıştan sonra puanla.", colour="#f7c948")
+    year = datetime.datetime.now(datetime.timezone.utc).year
+    scored = st.session_state.get('_pred_just_scored') or _prediction_maybe_score_v55(year)
+
+    _season_pts = int(fp_ui.get_pref('ps') or 0)
+    _season_n = int(fp_ui.get_pref('pn') or 0)
+    _acc = round(_season_pts / (_season_n * _PRED_MAX) * 100) if _season_n else 0
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Sezon puanı", _season_pts)
+    m2.metric("Puanlanan yarış", _season_n)
+    m3.metric("İsabet", f"%{_acc}")
+
+    if scored:
+        _ap = " · ".join(f"{i + 1}. {c or '—'}" for i, c in enumerate(scored['actual_podium']))
+        _lines = "".join(f"<li>{html_lib.escape(t)} <b>+{p}</b></li>" for t, p in scored['detail']) \
+            or "<li>Bu yarıştan puan çıkmadı.</li>"
+        st.markdown(
+            f"<div class='hud-card' style='border-left:4px solid #f7c948'>"
+            f"<div class='hud-label'>{html_lib.escape(scored['gp'])} SONUCU · +{scored['points']} PUAN</div>"
+            f"<div class='history-copy' style='margin-top:6px'>Gerçek pole: <b>{html_lib.escape(scored['actual_pole'] or '—')}</b>"
+            f" · Podyum: {html_lib.escape(_ap)}</div>"
+            f"<ul style='margin:8px 0 0 1.1rem;font-size:.9rem;line-height:1.6'>{_lines}</ul></div>",
+            unsafe_allow_html=True,
+        )
+        st.write("")
+
+    target = _prediction_target_gp_v55(year)
+    if not target:
+        st.info("Takvimde sıradaki yarış görünmüyor — tahmin için birazdan tekrar bak.")
+        return
+
+    _codes = [
+        code for tinfo in TEAM_DIRECTORY_2026.values()
+        for _n, code, *_r in tinfo['drivers']
+    ]
+    _fmt = lambda c: f"{_DRIVER_NAME_BY_CODE.get(c, c)} · {_DRIVER_TEAM_BY_CODE.get(c, '')}"
+    _cur = fp_ui.get_pref('pc') if isinstance(fp_ui.get_pref('pc'), dict) else {}
+    _locked = _cur.get('g') == target
+
+    fp_ui.section_title(f"{target} — tahminin")
+    if _locked:
+        _pp = _cur.get('po') or []
+        st.markdown(
+            f"<div class='hud-card' style='border-left:4px solid #7fe0a6'>"
+            f"<div class='hud-label'>KAYITLI TAHMİN</div>"
+            f"<div class='history-copy' style='margin-top:6px'>Pole: <b>{html_lib.escape(_cur.get('pl') or '—')}</b>"
+            f" · Podyum: {html_lib.escape(' · '.join(f'{i+1}. {c}' for i, c in enumerate(_pp)))}</div></div>",
+            unsafe_allow_html=True,
+        )
+        if st.button("Tahmini değiştir", key="pred_edit_v55"):
+            fp_ui.set_pref('pc', None)
+            st.rerun()
+        _hist = fp_ui.get_pref('plog') or []
+        if _hist:
+            _spark = " ".join(f"{h['g'].split()[0][:3]}·{h['p']}" for h in _hist[-8:])
+            st.caption(f"Son tahminler: {_spark}")
+        return
+
+    _pole = st.selectbox("Pole pozisyonu", _codes, format_func=_fmt,
+                         index=_codes.index(_cur['pl']) if _cur.get('pl') in _codes else 0,
+                         key="pred_pole_v55")
+    c1, c2, c3 = st.columns(3)
+    _p1 = c1.selectbox("Podyum P1", _codes, format_func=_fmt, key="pred_p1_v55",
+                       index=_codes.index((_cur.get('po') or [None])[0]) if (_cur.get('po') or [None])[0] in _codes else 0)
+    _p2 = c2.selectbox("Podyum P2", _codes, format_func=_fmt, key="pred_p2_v55",
+                       index=_codes.index((_cur.get('po') or [None, None])[1]) if len(_cur.get('po') or []) > 1 and _cur['po'][1] in _codes else 1)
+    _p3 = c3.selectbox("Podyum P3", _codes, format_func=_fmt, key="pred_p3_v55",
+                       index=_codes.index((_cur.get('po') or [None, None, None])[2]) if len(_cur.get('po') or []) > 2 and _cur['po'][2] in _codes else 2)
+    if len({_p1, _p2, _p3}) < 3:
+        st.warning("Podyum için üç farklı pilot seç.")
+    elif st.button("Tahmini kaydet", type="primary", key="pred_save_v55"):
+        fp_ui.set_pref('pc', {'g': target, 'pl': _pole, 'po': [_p1, _p2, _p3]})
+        st.toast("Tahminin kaydedildi — yarıştan sonra puanlanır.")
+        st.rerun()
+
+
 def _game_shell(title, subtitle="", colour="#e10600"):
     """Her oyun sayfasının TEK başlığı: 'Oyun Merkezi'ne dönüş linki + başlık +
     oyun motoru satırı. Oyunlar bunu bir kez çağırır; ikinci başlık basmaz."""
@@ -8075,6 +8235,7 @@ def render_games_hub_v30():
     games = [
         ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu bul.", "#ff385c", "Stewardle aç", "stewarlde"),
         ("2D YARIŞ", "Paddock Career", "Çok rakipli grid, DRS + ERS, lastik aşınması ve pit yolu ile 2D yarış motoru.", "#e10600", "Motoru çalıştır", "paddock_career"),
+        ("HAFTA SONU", "Hafta Sonu Tahmini", "Sıradaki GP'nin pole ve podyumunu tahmin et; yarıştan sonra otomatik puanlanır. Sezon boyu puan biriktir.", "#f7c948", "Tahmin yap", "predict"),
     ]
     for start in range(0, len(games), 2):
         columns = st.columns(2)
@@ -9856,9 +10017,11 @@ kişisel veri toplanmaz, saklanmaz veya satılmaz.**
 **Çerezler.** Reklam veya takip çerezi kullanılmaz. Yalnızca uygulamayı çalıştıran
 Streamlit'in kendi oturum çerezi bulunur.
 
-**Yerel tarayıcı depolaması.** Tema tercihi ve açılış animasyonunun bir kez oynatılması
-gibi küçük ayarlar tarayıcının `localStorage` / `sessionStorage` alanında tutulur.
-Bu veriler cihazından çıkmaz, sunucuya gönderilmez.
+**Yerel tarayıcı depolaması.** Tema tercihi, açılış animasyonunun bir kez oynatılması,
+ve seçtiğin favori/takip ettiğin pilotlar ile hafta sonu tahminlerin gibi kişisel
+ayarlar tarayıcının `localStorage` alanında tutulur. Bu veriler cihazında kalır;
+yalnızca aynı ayarları taşıyan paylaşılabilir bir bağlantı (`?fp=...`) oluşturmak
+için URL'ye yazılır. Sunucuda hesabınla ilişkilendirilmez, saklanmaz.
 
 **Dış servisler.** Sayfalar şu servislere istek yapar; herhangi bir web sitesinde
 olduğu gibi bu isteklerde IP adresin ilgili servise ulaşır:
@@ -9955,6 +10118,8 @@ elif st.session_state['page'] == 'stewarlde':
     render_stewarlde()
 elif st.session_state['page'] == 'paddock_career':
     render_paddock_career_alpha_v01()
+elif st.session_state['page'] == 'predict':
+    render_prediction_game_v55()
 
 # SAYFA 9: F1 SÖZLÜĞÜ
 elif st.session_state['page'] == 'glossary':

@@ -25,7 +25,7 @@ PAGES = [
     "home", "news", "telemetry", "live", "calendar", "weekend", "story",
     "compare", "drivers", "learn", "favourites", "teams", "standings", "f2f3",
     "assistant", "glossary", "games", "stewarlde", "gridmaster",
-    "team_manager", "predictor", "draft", "paddock_career",
+    "team_manager", "predictor", "draft", "paddock_career", "predict",
 ]
 
 TIMEOUT = 90

@@ -184,6 +184,23 @@ def test_prefs_encode_roundtrip():
     assert ui._prefs_encode(dict(reversed(list(prefs.items())))) == blob
 
 
+def test_score_prediction_v55():
+    race = [
+        {'code': 'VER', 'position': '1', 'grid': 1},
+        {'code': 'NOR', 'position': '2', 'grid': 3},
+        {'code': 'LEC', 'position': '3', 'grid': 2},
+        {'code': 'HAM', 'position': '4', 'grid': 4},
+    ]
+    # tam isabet: pole + P1 tam + P2 (NOR) tam + P3 (LEC) tam
+    perfect = app._score_prediction_v55({'pl': 'VER', 'po': ['VER', 'NOR', 'LEC']}, race)
+    assert perfect['points'] == 5 + 5 + 5 + 5           # pole 5, 3× P-tam 5
+    # podyumda ama yanlış yer: HAM tahmin, aslında P4 -> 0; LEC P2 tahmin ama P3 -> 3
+    partial = app._score_prediction_v55({'pl': 'NOR', 'po': ['HAM', 'LEC', 'VER']}, race)
+    assert partial['points'] == 0 + 3 + 3               # pole yanlış, LEC & VER podyumda yanlış yerde
+    assert app._score_prediction_v55(None, race) is None
+    assert app._score_prediction_v55({'pl': 'VER'}, []) is None
+
+
 def test_prefs_decode_bad_input():
     assert ui._prefs_decode("") == {}
     assert ui._prefs_decode(None) == {}
