@@ -610,6 +610,82 @@ def how_to_hud(sections, *, title="Bu ekran nasıl okunur?", legend=None, note=N
     )
 
 
+_TERM_VIZ = {
+    "drs": (
+        "<svg viewBox='0 0 132 62' aria-hidden='true'>"
+        "<rect x='22' y='36' width='78' height='7' rx='2' fill='var(--tv-line)'/>"
+        "<rect x='24' y='23' width='66' height='6' rx='2' fill='var(--tv-mid)'/>"
+        "<g class='tv-flap'><rect x='24' y='14' width='60' height='5' rx='2' fill='#45c8ff'/></g>"
+        "<line class='tv-air' x1='6' y1='16' x2='22' y2='16' stroke='#45c8ff' stroke-width='2'/>"
+        "<line class='tv-air tv-air2' x1='6' y1='24' x2='22' y2='24' stroke='#45c8ff' stroke-width='2'/>"
+        "</svg>",
+        "arka kanat düzlükte açılır → sürtünme düşer → hız artar",
+    ),
+    "ers": (
+        "<svg viewBox='0 0 132 62' aria-hidden='true'>"
+        "<rect x='26' y='18' width='72' height='26' rx='4' fill='none' stroke='var(--tv-line)' stroke-width='2'/>"
+        "<rect x='98' y='26' width='5' height='10' rx='1' fill='var(--tv-line)'/>"
+        "<rect class='tv-lvl' x='29' y='21' width='0' height='20' rx='1' fill='#4ea981'/>"
+        "<path class='tv-bolt' d='M64 12 L55 33 L63 33 L57 50 L74 27 L65 27 Z' fill='#ffd23f'/>"
+        "</svg>",
+        "frende şarj olur (yeşil) → düzlükte boşalır, ekstra güç verir (sarı)",
+    ),
+    "wear": (
+        "<svg viewBox='0 0 132 62' aria-hidden='true'>"
+        "<g transform='translate(66 31)'>"
+        "<circle r='22' fill='none' stroke='var(--tv-line)' stroke-width='8'/>"
+        "<circle class='tv-tread' r='22' fill='none' stroke='#4ea981' stroke-width='8'"
+        " stroke-dasharray='138' transform='rotate(-90)'/>"
+        "</g></svg>",
+        "tur geçtikçe diş aşınır: yeşil → sarı → kırmızı (bitik)",
+    ),
+    "stint": (
+        "<svg viewBox='0 0 132 62' aria-hidden='true'>"
+        "<rect x='14' y='27' width='104' height='8' rx='4' fill='var(--tv-bg)' stroke='var(--tv-line)'/>"
+        "<rect class='tv-fill' x='14' y='27' width='0' height='8' rx='4' fill='#45c8ff'/>"
+        "<circle class='tv-dot' cx='14' cy='31' r='6' fill='#ffd23f'/>"
+        "</svg>",
+        "iki pit arası aynı lastikle atılan tur bloğu — sonunda pit, yeni stint",
+    ),
+}
+
+
+def term_viz(kind, *, label=None):
+    """Bir terim için küçük, döngüsel açıklayıcı animasyon (DRS / ERS / lastik
+    aşınması / stint). `st.markdown(..., unsafe_allow_html=True)` ile basılır."""
+    entry = _TERM_VIZ.get(kind)
+    if not entry:
+        return ""
+    svg, caption = entry
+    caption = label or caption
+    return (
+        "<style>"
+        ".fp-tv{--tv-line:#3a4a5e;--tv-mid:#7aa2c8;--tv-bg:#0a111b;display:flex;align-items:center;gap:12px;"
+        "border:1px solid var(--fp-line);border-radius:8px;background:var(--fp-bg-2);padding:9px 12px;margin:2px 0 10px}"
+        ".fp-tv svg{width:112px;height:54px;flex:0 0 auto}"
+        ".fp-tv figcaption{font:500 12px var(--fp-f-body),sans-serif;color:var(--fp-text-dim);line-height:1.45}"
+        ".fp-tv .tv-flap{transform-origin:80px 16px;animation:fp-tv-drsflap 3.2s ease-in-out infinite}"
+        "@keyframes fp-tv-drsflap{0%,38%{transform:rotate(0)}52%,88%{transform:rotate(-50deg)}100%{transform:rotate(0)}}"
+        ".fp-tv .tv-air{stroke-dasharray:4 4;opacity:0;animation:fp-tv-drsair 3.2s linear infinite}"
+        ".fp-tv .tv-air2{animation-delay:.15s}"
+        "@keyframes fp-tv-drsair{0%,44%,100%{opacity:0}54%,92%{opacity:.9}}"
+        ".fp-tv .tv-lvl{animation:fp-tv-erslvl 3.6s ease-in-out infinite}"
+        "@keyframes fp-tv-erslvl{0%{width:0;fill:#4ea981}42%{width:66px;fill:#4ea981}48%{fill:#ff9142}100%{width:0;fill:#ff9142}}"
+        ".fp-tv .tv-bolt{opacity:0;animation:fp-tv-ersbolt 3.6s ease-in-out infinite}"
+        "@keyframes fp-tv-ersbolt{0%,46%,100%{opacity:0}54%,88%{opacity:1}}"
+        ".fp-tv .tv-tread{animation:fp-tv-wear 4.2s linear infinite}"
+        "@keyframes fp-tv-wear{0%{stroke-dashoffset:0;stroke:#4ea981}50%{stroke:#ffd23f}78%{stroke:#ef5350}100%{stroke-dashoffset:138;stroke:#ef5350}}"
+        ".fp-tv .tv-fill{animation:fp-tv-stintfill 3.8s ease-in-out infinite}"
+        "@keyframes fp-tv-stintfill{0%{width:0}78%{width:104px}84%,100%{width:0}}"
+        ".fp-tv .tv-dot{animation:fp-tv-stintdot 3.8s ease-in-out infinite}"
+        "@keyframes fp-tv-stintdot{0%{cx:14px;fill:#ffd23f}78%{cx:112px;fill:#ffd23f}80%{fill:#ef5350}84%,100%{cx:14px;fill:#ffd23f}}"
+        "@media(prefers-reduced-motion:reduce){.fp-tv *{animation:none !important}"
+        ".fp-tv .tv-lvl{width:44px}.fp-tv .tv-fill{width:60px}.fp-tv .tv-tread{stroke-dashoffset:60;stroke:#ffd23f}.fp-tv .tv-dot{cx:74px}}"
+        "</style>"
+        f"<figure class='fp-tv'>{svg}<figcaption>{_esc(caption)}</figcaption></figure>"
+    )
+
+
 def result_hero(event, session_label, winner_name, team, gap_text, runners=None):
     """Yaris bitince: kim, hangi takim, kac saniye farkla kazandi.
 

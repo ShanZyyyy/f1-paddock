@@ -5565,18 +5565,20 @@ def render_learning_centre_v20():
     render_page_header(T('page.learn.title'), T('page.learn.sub'))
     st.markdown("<div class='hud-card learning-hero-v20'><div class='hud-label'>F1'E BAŞLA // 5 DAKİKALIK ROTA</div><div class='hud-value'>Önce yarışı anla, sonra veriyi oku.</div><div class='history-copy'>Buradaki kartlar terim ezberletmez; bir hafta sonunda ekranda neye bakacağını öğretir.</div></div>", unsafe_allow_html=True)
     tracks = [
-        ('1', 'Hafta sonu', 'FP1–FP3 hazırlıktır. Sıralama başlangıç sırasını, yarış ise puanları belirler.', '#7dd3fc'),
-        ('2', 'Start ve ilk tur', 'İlk virajda konum kazanmak önemlidir; ama lastiği gereksiz yıpratmak sonraki turları zorlaştırır.', '#ff385c'),
-        ('3', 'Lastik kararı', 'Soft (kırmızı) hız verir, Hard (beyaz) uzun sürer, Medium (sarı) ortadadır. Doğru seçim pist sıcaklığına ve pit penceresine bağlıdır.', '#f7c948'),
-        ('4', 'Pit duvarı', 'Takım, trafiği ve lastik ömrünü izleyerek pit zamanını seçer. Rakipten önce pit = "undercut", sonra pit = "overcut". Bir tur erken/geç karar sonucu değiştirir.', '#2ee6c9'),
-        ('5', 'Geçiş ve enerji', 'Düzlükte Straight Mode (yayında eski adıyla "DRS") sürtünmeyi azaltır; mücadelede Overtake Mode (ERS hücum / push-to-pass) ek elektrik gücü verir.', '#a78bfa'),
-        ('6', 'Yarış sonrası', 'Sonuçtan sonra en hızlı tur, pitler, sıra değişimi ve takım arkadaşları arasındaki fark okunur.', '#fb923c'),
+        ('1', 'Hafta sonu', 'FP1–FP3 hazırlıktır. Sıralama başlangıç sırasını, yarış ise puanları belirler.', '#7dd3fc', None),
+        ('2', 'Start ve ilk tur', 'İlk virajda konum kazanmak önemlidir; ama lastiği gereksiz yıpratmak sonraki turları zorlaştırır.', '#ff385c', None),
+        ('3', 'Lastik kararı', 'Soft (kırmızı) hız verir, Hard (beyaz) uzun sürer, Medium (sarı) ortadadır. Tur geçtikçe lastik aşınır ve yavaşlar.', '#f7c948', 'wear'),
+        ('4', 'Pit duvarı', 'Takım, trafiği ve lastik ömrünü izleyerek pit zamanını seçer. İki pit arası "stint" denir. Rakipten önce pit = "undercut", sonra pit = "overcut".', '#2ee6c9', 'stint'),
+        ('5', 'Geçiş ve enerji', 'Düzlükte Straight Mode (yayında eski adıyla "DRS") sürtünmeyi azaltır; mücadelede Overtake Mode (ERS hücum / push-to-pass) ek elektrik gücü verir.', '#a78bfa', 'drs'),
+        ('6', 'Yarış sonrası', 'Sonuçtan sonra en hızlı tur, pitler, sıra değişimi ve takım arkadaşları arasındaki fark okunur.', '#fb923c', None),
     ]
     for start in range(0, len(tracks), 3):
         columns = st.columns(3)
-        for column, (number, title, copy, color) in zip(columns, tracks[start:start + 3]):
+        for column, (number, title, copy, color, viz) in zip(columns, tracks[start:start + 3]):
             with column:
                 st.markdown(f"<div class='hud-card learning-step-v20' style='border-top:4px solid {color}'><div class='learning-number-v20'>{number}</div><div style='font-size:1.18rem;font-weight:950'>{html_lib.escape(title)}</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(copy)}</div></div>", unsafe_allow_html=True)
+                if viz:
+                    st.markdown(fp_ui.term_viz(viz), unsafe_allow_html=True)
     st.markdown('#### İlk yarışını izlerken buna bak')
     watch = st.radio('En çok neyi anlamak istiyorsun?', ['Kim önde?', 'Lastikler ne durumda?', 'Neden pit yaptılar?', 'İki pilot arasındaki fark nerede?'], horizontal=True, key='learning_watch_v20')
     watch_copy = {

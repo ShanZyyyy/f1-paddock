@@ -74,6 +74,11 @@ def render():
         ('Pilotluk', 'Lift and Coast', 'Yakıt veya enerji yönetimi için fren öncesi gazdan erken çekilmektir.', False),
         ('Pilotluk', 'Late Braking', 'Viraja rakibinden daha geç fren yaparak atak denemektir.', False),
     ]
+    _term_viz = {
+        'Straight Mode': 'drs', 'Overtake Mode': 'ers', 'ERS': 'ers', 'MGU-K': 'ers',
+        'Recharge': 'ers', 'Boost Mode': 'ers', 'Stint': 'stint',
+        'Degradation': 'wear', 'Graining': 'wear',
+    }
     category_names = ['Tümü'] + sorted({term[0] for term in terms})
     filter_col, search_col = st.columns([1, 2])
     with filter_col:
@@ -86,4 +91,7 @@ def render():
         badge = "<span class='new-badge'>2026 YENİ</span>" if is_new else f"<span class='term-badge'>{category.upper()}</span>"
         with st.expander(term):
             st.markdown(badge, unsafe_allow_html=True)
+            _vk = _term_viz.get(term)
+            if _vk:
+                st.markdown(fp_ui.term_viz(_vk), unsafe_allow_html=True)
             st.markdown(explanation)
