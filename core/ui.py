@@ -976,6 +976,13 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
   height:0 !important;min-height:0 !important;pointer-events:none}
 [data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],#MainMenu{
   display:none !important}
+/* Sayfa yalnızca dikey kayar. Tam-genişlik hero'su ve sabit üst bar `100vw`
+   kullanır; `100vw` dikey kaydırma çubuğunun genişliğini de içerdiği için
+   ~10-15px yatay taşma oluşur — onu burada kırpıyoruz. Geniş tablolar/HUD'lar
+   zaten kendi içlerinde yatay kayar, bu yüzden güvenli. */
+html,body{overflow-x:hidden !important}
+.stApp,[data-testid="stAppViewContainer"]{overflow-x:hidden !important;max-width:100vw}
+.stApp [data-testid="stMain"]{overflow-x:hidden !important}
 .stApp [data-testid="stMain"] .block-container{padding-top:5.8rem;max-width:1200px}
 
 /* açılış hero'su tam genişlik; hero'nun altındaki kokpit normal (max-width'li)
