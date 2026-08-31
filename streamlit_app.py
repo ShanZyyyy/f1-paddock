@@ -2081,6 +2081,16 @@ canvas{width:100%;height:392px;display:block}
 .sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 11px ui-monospace,Consolas,monospace}
 .sector small{display:block;color:#9fb0c0;font-family:Inter,Arial,sans-serif;margin-bottom:6px}
 .win{color:#79e7a7}.lose{color:#ff8793}
+.msec{margin-top:12px}
+.mslab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-bottom:5px}
+.mslab s{font-style:normal;font-weight:900}
+.msrow{position:relative;display:flex;align-items:stretch;gap:1px;height:48px}
+.msrow::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#3a4a5e;z-index:1}
+.msbar{flex:1;position:relative;cursor:help}
+.msbar i{position:absolute;left:0;right:0;display:block;border-radius:1px}
+.msbar.c0 i{bottom:50%;background:#4ea981}
+.msbar.c1 i{top:50%;background:#d3576a}
+.msbar.big i{box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .btn{border:1px solid #2b3a4d;border-radius:7px;background:#161d28;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}
 .btn.active{border-color:#ff4757;background:#3a0f12}
@@ -2218,8 +2228,31 @@ function updateHud(){
   $('range').value = Math.round(p*1000);
 }
 
+function buildMinisectors(){
+  const el=$('msec'); if(!el) return;
+  if(cars.length<2 || !(cars[0].samples||{}).distance || !(cars[1].samples||{}).distance){ el.innerHTML=''; return; }
+  const N=20, seg=[]; let maxAbs=0.0005, cum0=0;
+  for(let i=0;i<N;i++){
+    const a0=lerp(cars[0].samples.distance,i/N), a1=lerp(cars[0].samples.distance,(i+1)/N);
+    const b0=lerp(cars[1].samples.distance,i/N), b1=lerp(cars[1].samples.distance,(i+1)/N);
+    if(!a0||!a1||!b0||!b1){ seg.push(null); continue; }
+    const d=(a1.elapsed-a0.elapsed)-(b1.elapsed-b0.elapsed);   // >0 => car0 bu dilimde daha yavaş
+    seg.push(d); if(Math.abs(d)>maxAbs) maxAbs=Math.abs(d);
+  }
+  const bars=seg.map(function(d,i){
+    if(d===null) return '<div class="msbar"></div>';
+    const h=(Math.min(1,Math.abs(d)/maxAbs)*46).toFixed(1);
+    const faster=d<0?cars[0].code:cars[1].code;
+    const cls='msbar '+(d<0?'c0':'c1')+(Math.abs(d)>=maxAbs*0.6?' big':'');
+    return '<div class="'+cls+'" title="Mini-sektör '+(i+1)+'/'+N+' — '+faster+' '+Math.abs(d).toFixed(3)+' sn hızlı"><i style="height:'+h+'%"></i></div>';
+  }).join('');
+  el.innerHTML='<div class="mslab"><span>MİNİ-SEKTÖR Δ · '+N+' DİLİM · zamanın nerede kazanıldığı</span>'
+    +'<span><s style="color:#4ea981">▲ '+cars[0].code+'</s> · <s style="color:#d3576a">▼ '+cars[1].code+'</s></span></div>'
+    +'<div class="msrow">'+bars+'</div>';
+}
 function buildStatic(){
   $('tags').innerHTML = cars.map(function(c){return '<span class="tag" style="--team:'+c.colour+'">'+c.code+' - '+c.lap+'</span>';}).join(' ');
+  buildMinisectors();
   if(cars.length<2){ $('sectors').innerHTML=''; return; }
   $('sectors').innerHTML=[0,1,2].map(function(i){
     const a=(cars[0].sectors||[])[i]||'-', b=(cars[1].sectors||[])[i]||'-';
@@ -3196,10 +3229,57 @@ def _build_stable_race_replay_payload_v36(year, event_name):
 
 # Shared replay HUD: portrait, tyre history, pits and track-mode overlays.
 
+def _pit_move_notes_v37(payload):
+    """Strateji duvarı alt satırı — hepsi kayıtlı veriden, spekülasyon yok:
+    gün sonucu (grid→finiş), stop sayısı + ilk pit turu ve pit yolu süresi,
+    ve (payload olay akışında tespit edildiyse) undercut/overcut hamlesi."""
+    events = payload.get('events') or []
+    notes = {}
+    for car in payload.get('cars', []):
+        code = car.get('code', '')
+        pits = car.get('pit_events', []) or []
+        laps = car.get('laps', []) or []
+        grid = _race_int(car.get('grid'))
+        finish = _race_int(car.get('final_position'))
+        parts = []
+
+        if car.get('retired'):
+            last_lap = int(laps[-1].get('lap', 0)) if laps else 0
+            parts.append(f"T{last_lap}'de yarış dışı")
+        elif grid is not None and finish is not None:
+            net = grid - finish
+            tag = f"+{net}" if net > 0 else (str(net) if net < 0 else "±0")
+            parts.append(f"grid P{grid}→P{finish} ({tag})")
+        elif finish is not None:
+            parts.append(f"finiş P{finish}")
+
+        if pits:
+            first = min(pits, key=lambda pe: int(pe.get('lap', 0)))
+            lap_no = int(first.get('lap', 0))
+            lane = round(float(first.get('end', 0)) - float(first.get('start', 0)), 1)
+            parts.append(f"{len(pits)} stop · pit T{lap_no}·{lane:.0f}s")
+        else:
+            parts.append("duraksız (tek stint)")
+
+        move = next(
+            (str(e.get('text', '')).split('—', 1)[1].strip()
+             for e in events
+             if e.get('kind') == 'undercut' and e.get('code') == code and '—' in str(e.get('text', ''))),
+            None,
+        )
+        if move:
+            parts.append(move)
+
+        if parts:
+            notes[code] = "  ·  ".join(parts)
+    return notes
+
+
 def strategy_wall_html(payload):
     """Stint tablosunu yarış mühendisliği strateji duvarı HUD'una dönüştürür."""
     total = max(1, int(payload.get('total_laps', 1)))
     tyre = {'SOFT': '#ef3340', 'MEDIUM': '#ffd23f', 'HARD': '#eef2f7', 'INTERMEDIATE': '#36c96a', 'WET': '#39a9ff'}
+    pit_notes = _pit_move_notes_v37(payload)
     rows = []
     for car in payload.get('cars', []):
         groups = []
@@ -3213,13 +3293,15 @@ def strategy_wall_html(payload):
             f"<span class='stint' style='--tyre:{tyre.get(group['compound'], '#738197')};width:{max(2, (group['end']-group['start']+1)/total*100):.2f}%'><b>{group['compound'][:1]}</b><small>{group['start']}–{group['end']}</small></span>"
             for group in groups
         )
-        rows.append(f"<div class='row' style='--team:{car['colour']}'><div class='driver'>{html_lib.escape(car['code'])}<small>{html_lib.escape(car['team'])}</small></div><div class='stints'>{blocks}</div><div class='finish'>P{car['final_position'] or '—'}<small>{len(groups)-1} PIT</small></div></div>")
-    return f"""<style>body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}.wall{{border:1px solid #2c425c;border-radius:13px;background:#11161f;overflow:hidden}}.head{{padding:13px 15px;border-bottom:1px solid #2b4058;font-size:13px;font-weight:950;letter-spacing:.08em}}.sub{{font-size:10px;color:#91a8bf;margin-top:5px}}.row{{display:grid;grid-template-columns:110px 1fr 58px;gap:10px;align-items:center;min-height:54px;padding:8px 12px;border-top:1px solid #23364b;border-left:4px solid var(--team)}}.driver{{font-weight:950;color:var(--team)}}.driver small,.finish small{{display:block;font-size:10px;color:#8fa6bd;margin-top:4px}}.stints{{display:flex;min-width:380px;height:29px;border-radius:6px;overflow:hidden;background:#0a111b;gap:2px}}.stint{{min-width:20px;display:flex;align-items:center;justify-content:center;gap:5px;background:color-mix(in srgb,var(--tyre) 23%,#11161f);border-top:3px solid var(--tyre);color:#f6f9ff;font-size:11px;font-weight:950}}.stint small{{font-size:9px;color:#bdcadd}}.finish{{font-weight:950;text-align:right}}@media(max-width:700px){{.row{{grid-template-columns:84px 1fr 42px;padding:8px}}.stints{{min-width:220px}}.stint small{{display:none}}}}</style><div class='wall'><div class='head'>TYRE STRATEGY WALL<div class='sub'>HER BLOK BİR STINT • ÇİZGİLER PIT STOP GEÇİŞLERİNİ GÖSTERİR • TOPLAM {total} TUR</div></div><div class='scroll'>{''.join(rows)}</div></div>"""
+        note = pit_notes.get(car['code'], '')
+        note_html = f"<div class='pitnote'>{html_lib.escape(note)}</div>" if note else ""
+        rows.append(f"<div class='row' style='--team:{car['colour']}'><div class='driver'>{html_lib.escape(car['code'])}<small>{html_lib.escape(car['team'])}</small></div><div class='stints'>{blocks}{note_html}</div><div class='finish'>P{car['final_position'] or '—'}<small>{len(groups)-1} PIT</small></div></div>")
+    return f"""<style>body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}.wall{{border:1px solid #2c425c;border-radius:13px;background:#11161f;overflow:hidden}}.head{{padding:13px 15px;border-bottom:1px solid #2b4058;font-size:13px;font-weight:950;letter-spacing:.08em}}.sub{{font-size:10px;color:#91a8bf;margin-top:5px}}.row{{display:grid;grid-template-columns:110px 1fr 58px;gap:10px;align-items:center;min-height:62px;padding:9px 12px;border-top:1px solid #23364b;border-left:4px solid var(--team)}}.driver{{font-weight:950;color:var(--team)}}.driver small,.finish small{{display:block;font-size:10px;color:#8fa6bd;margin-top:4px}}.stints{{display:flex;min-width:380px;height:29px;border-radius:6px;overflow:hidden;background:#0a111b;gap:2px}}.stint{{min-width:20px;display:flex;align-items:center;justify-content:center;gap:5px;background:color-mix(in srgb,var(--tyre) 23%,#11161f);border-top:3px solid var(--tyre);color:#f6f9ff;font-size:11px;font-weight:950}}.stint small{{font-size:9px;color:#bdcadd}}.finish{{font-weight:950;text-align:right}}.stints{{flex-wrap:wrap}}.pitnote{{flex:1 0 100%;font:600 10px ui-monospace,Consolas,monospace;color:#9db3c7;margin-top:5px;line-height:1.4}}@media(max-width:700px){{.row{{grid-template-columns:84px 1fr 42px;padding:8px}}.stints{{min-width:220px}}.stint small{{display:none}}}}</style><div class='wall'><div class='head'>TYRE STRATEGY WALL<div class='sub'>HER BLOK BİR STINT • ALT SATIR: GRID→FİNİŞ SONUCU · İLK PİT · TESPİT EDİLEN UNDERCUT/OVERCUT (kayıtlı veriden) • TOPLAM {total} TUR</div></div><div class='scroll'>{''.join(rows)}</div></div>"""
 
 
 def strategy_wall_component_height(payload):
     """Lastik duvarının tüm 20+ pilotunu ana sayfada görünür tutar."""
-    return min(1560, max(320, 105 + len(payload.get('cars', [])) * 54))
+    return min(2000, max(320, 110 + len(payload.get('cars', [])) * 82))
 
 
 def position_flow_html(payload):
@@ -6118,7 +6200,8 @@ def _router_page_telemetry():
             ("Δ (delta)", "aynı pist noktasında iki pilot arasındaki saniye farkı. Δ 0.30 = öndeki 0,30 sn hızlı."),
             ("Oynat / hız", "turu 1×–8× hızda izle; alttaki çubukla istediğin ana atla."),
             ("Sektörler", "hangi pilotun hangi sektörde daha hızlı olduğu alttaki üç kutuda."),
-        ], [("#f4d35e", "sektör sınırı"), ("#45c8ff", "SM · düzlük (≈DRS)"), ("#71e6a1", "OM · geçiş (≈ERS)")]),
+            ("Mini-sektör Δ", "tur 20 dilime bölünür; yukarı-yeşil çubuk 1. pilotun, aşağı-kırmızı 2. pilotun o dilimde kazandığı süre. Zamanın tam nerede kaybedildiğini gösterir."),
+        ], [("#4ea981", "1. pilot dilimde hızlı"), ("#d3576a", "2. pilot dilimde hızlı"), ("#45c8ff", "SM (≈DRS)"), ("#71e6a1", "OM (≈ERS)")]),
         "Fren Analizi": ([
             ("Dört grafik", "üstten alta: hız, fren, gaz, vites — hepsi pist mesafesine göre hizalı."),
             ("Geç frenleme", "fren grafiğindeki dikey sıçrama daha sağdaysa, o pilot viraja daha geç fren yapmış demektir."),
