@@ -279,6 +279,50 @@ if _fav_pref_driver and 'favourite_driver' not in st.session_state:
     st.session_state['favourite_driver'] = _fav_pref_driver
 
 
+# Faz 4 #3 — takip listesi (kod tabanlı, en fazla 6). Kod<->ad haritaları
+# TEAM_DIRECTORY_2026'dan bir kez kurulur.
+_FOLLOW_MAX = 6
+_DRIVER_NAME_BY_CODE = {
+    dcode: dname
+    for tinfo in TEAM_DIRECTORY_2026.values()
+    for dname, dcode, *_rest in tinfo['drivers']
+}
+_DRIVER_TEAM_BY_CODE = {
+    dcode: tname
+    for tname, tinfo in TEAM_DIRECTORY_2026.items()
+    for _dname, dcode, *_rest in tinfo['drivers']
+}
+_DRIVER_CODE_BY_NAME = {name: code for code, name in _DRIVER_NAME_BY_CODE.items()}
+
+
+def _code_for_name(name):
+    return _DRIVER_CODE_BY_NAME.get(str(name or '').strip())
+
+
+def _follow_list():
+    """Takip edilen pilot kodları (en fazla _FOLLOW_MAX). Henüz kurulmadıysa
+    favori pilottan tohumlanır (salt-okunur; kalıcılık _sync ile)."""
+    raw = fp_ui.get_pref('follow')
+    if isinstance(raw, list):
+        seen, out = set(), []
+        for c in raw:
+            if isinstance(c, str) and c in _DRIVER_NAME_BY_CODE and c not in seen:
+                seen.add(c)
+                out.append(c)
+        return out[:_FOLLOW_MAX]
+    code = _code_for_name(st.session_state.get('favourite_driver'))
+    return [code] if code else []
+
+
+def _set_follow_list(codes):
+    clean, seen = [], set()
+    for c in codes:
+        if c in _DRIVER_NAME_BY_CODE and c not in seen:
+            seen.add(c)
+            clean.append(c)
+    fp_ui.set_pref('follow', clean[:_FOLLOW_MAX] or None)
+
+
 def _sync_favourite_to_prefs():
     """Favori widget'ları değiştiyse kalıcı tercihe yaz (script sonunda flush eder)."""
     team = st.session_state.get('favourite_team')
@@ -287,6 +331,10 @@ def _sync_favourite_to_prefs():
         fp_ui.set_pref('fav_team', team)
     if driver and driver != fp_ui.get_pref('fav_driver'):
         fp_ui.set_pref('fav_driver', driver)
+        code = _code_for_name(driver)
+        current = fp_ui.get_pref('follow') or []
+        if code and code not in current:
+            _set_follow_list([code] + list(current))
 
 # BOOT FIX 1.4.2
 # Eski Streamlit tarayıcı oturumları, daha önce tıklanmış "veri yükle"
@@ -5079,6 +5127,33 @@ def render_favourites_centre():
     _fav_code = next((c for n, c, *_ in team['drivers'] if n == driver_name), '')
     _cur_year = datetime.datetime.now(datetime.timezone.utc).year
     _last_race = _latest_completed_race_v43(_cur_year)
+
+    # Faz 4 #3 — takip listesi
+    st.write("")
+    fp_ui.section_title("Takip Ettiklerin")
+    _all_codes = [
+        code for tinfo in TEAM_DIRECTORY_2026.values()
+        for _n, code, *_r in tinfo['drivers']
+    ]
+    _follow_now = _follow_list()
+    _picked_follow = st.multiselect(
+        f"En fazla {_FOLLOW_MAX} pilot — ana sayfada ve burada mini durum panosu görünür",
+        _all_codes,
+        default=[c for c in _follow_now if c in _all_codes],
+        format_func=lambda c: f"{_DRIVER_NAME_BY_CODE.get(c, c)} · {_DRIVER_TEAM_BY_CODE.get(c, '')}",
+        max_selections=_FOLLOW_MAX,
+        key="_follow_ms_v51",
+    )
+    if set(_picked_follow) != set(_follow_now):
+        _set_follow_list(_picked_follow)
+        st.rerun()
+    _fb = _follow_board_v51(_picked_follow or _follow_now, _cur_year, _last_race.get('last'))
+    if _fb.get('ok'):
+        render_html_hud(follow_board_html(_fb, _cur_year),
+                        height=follow_board_component_height(_fb), scrolling=True)
+    else:
+        st.caption("Henüz kimseyi takip etmiyorsun. Yukarıdan pilot ekle.")
+
     if _last_race.get('last') and _fav_code:
         st.write("")
         fp_ui.section_title("Senin Yarış Özetin")
@@ -7414,9 +7489,17 @@ def render_drivers_page_v33():
 
     if selected and selected in by_api:
         code, name, api, nation, number, team, colour, is_2026 = by_api[selected]
-        if st.button(T("drivers.back"), key="drivers_back_v33"):
+        _dbcols = st.columns([1, 1.3])
+        if _dbcols[0].button(T("drivers.back"), key="drivers_back_v33"):
             st.session_state.pop('driver_view_v33', None)
             st.rerun()
+        if code in _DRIVER_NAME_BY_CODE:
+            _following = code in _follow_list()
+            if _dbcols[1].button("★ Takipten çık" if _following else "☆ Takip et",
+                                 key=f"drv_follow_{code}", width='stretch'):
+                _fl = list(_follow_list())
+                _set_follow_list([c for c in _fl if c != code] if _following else _fl + [code])
+                st.rerun()
         fp_ui.anchor("fp-driver-detail")
         _info = directory_driver_by_code(code)
         colour = team_colour(team) if team else colour
@@ -8177,6 +8260,105 @@ def _home_champ_top_html(driver_standings, constructor_standings, year):
     """
 
 
+# =========================================================
+# FAZ 4 · #3 — TAKİP PANOSU
+# =========================================================
+def _follow_board_v51(codes, year, last_race_name):
+    """Takip edilen her pilot için: şampiyona sırası + puanı, son yarış sonucu.
+    Yeni ağ yok — home'da zaten yüklü olan şampiyona verisi + son yarış turu."""
+    codes = [c for c in (codes or []) if c in _DRIVER_NAME_BY_CODE]
+    if not codes:
+        return {'ok': False}
+    try:
+        _ds, *_rest = get_championship_data_stable(year)
+    except Exception:
+        _ds = pd.DataFrame()
+    stand = {}
+    if _ds is not None and not _ds.empty:
+        for _, row in _ds.iterrows():
+            # get_championship_data_v19: 'Pilot' sütunu pilot KODUDUR (ör. "VER")
+            stand[str(row.get('Pilot', '')).strip().upper()] = (row.get('Sıra'), row.get('Puan'))
+    last = {}
+    if last_race_name:
+        try:
+            for entry in get_championship_round_v19(year, last_race_name).get('race', []):
+                last[entry['code']] = entry
+        except Exception:
+            pass
+    rows = []
+    for code in codes:
+        name = _DRIVER_NAME_BY_CODE.get(code, code)
+        team = _DRIVER_TEAM_BY_CODE.get(code, '')
+        pos, pts = stand.get(code.upper(), (None, None))
+        lr = last.get(code)
+        move = None
+        if lr and lr.get('grid') and str(lr.get('position', '')).isdigit():
+            move = int(lr['grid']) - int(lr['position'])
+        rows.append({
+            'code': code, 'name': name, 'team': team,
+            'champ_pos': int(pos) if pd.notna(pos) else None,
+            'champ_pts': int(float(pts)) if pd.notna(pts) else None,
+            'last_pos': (lr or {}).get('position'),
+            'last_pts': (lr or {}).get('points'),
+            'move': move,
+        })
+    return {'ok': True, 'rows': rows, 'race': last_race_name or ''}
+
+
+def follow_board_component_height(board):
+    return min(430, 78 + 46 * max(1, len((board or {}).get('rows', []))))
+
+
+def follow_board_html(board, year):
+    if not board.get('ok'):
+        return ''
+    race_label = html_lib.escape(board.get('race') or '')
+    body = ''
+    for r in board['rows']:
+        col = season_team_colour(r['team'], year)
+        champ = (f"P{r['champ_pos']} · {r['champ_pts']}p"
+                 if r['champ_pos'] is not None else '—')
+        if r['last_pos'] is None:
+            last = "<span class='fb-none'>yarış yok</span>"
+        else:
+            mv = r['move']
+            arrow = (f"<i class='up'>▲{mv}</i>" if mv and mv > 0
+                     else f"<i class='dn'>▼{abs(mv)}</i>" if mv and mv < 0
+                     else "<i class='fl'>–</i>")
+            last = f"P{html_lib.escape(str(r['last_pos']))} {arrow}"
+        body += (
+            f"<div class='fb-row' style='--c:{col}'>"
+            f"<span class='fb-code'>{html_lib.escape(r['code'])}</span>"
+            f"<span class='fb-name'>{html_lib.escape(r['name'])}</span>"
+            f"<span class='fb-ch'>{champ}</span>"
+            f"<span class='fb-last'>{last}</span></div>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .fb{{border:1px solid #26313f;border-left:3px solid var(--fp-cyan,#2ee6c9);border-radius:12px;
+        background:#11161f;overflow:hidden}}
+      .fb-hd{{padding:12px 15px 8px;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;
+        text-transform:uppercase;color:#8090a2}}
+      .fb-hd b{{color:#e8eef4}}
+      .fb-row{{display:grid;grid-template-columns:40px 1fr auto auto;gap:10px;align-items:center;
+        padding:8px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
+      .fb-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
+      .fb-name{{font:600 12px 'Saira',sans-serif;color:#c4d2e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .fb-ch{{font:700 12px 'JetBrains Mono',monospace;color:#9fb0c0;white-space:nowrap}}
+      .fb-last{{font:700 12px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap;display:flex;align-items:center;gap:5px}}
+      .fb-last i{{font-style:normal;font-size:11px}}
+      .fb-last .up{{color:#7fe0a6}} .fb-last .dn{{color:#ff8b78}} .fb-last .fl{{color:#8a9bb0}}
+      .fb-none{{color:#63748a;font:600 11px 'Saira',sans-serif}}
+      @media(max-width:520px){{.fb-row{{grid-template-columns:38px 1fr;row-gap:2px}}.fb-ch,.fb-last{{grid-column:2;text-align:right}}}}
+    </style>
+    <div class="fb">
+      <div class="fb-hd">Takip Panosu{f" · son yarış <b>{race_label}</b>" if race_label else ""}</div>
+      {body}
+    </div>
+    """
+
+
 def _home_setup_card_v50():
     """Favori seçilmemişse: tek adımda pilot seç, site kişiselleşsin (Faz 4 #2)."""
     if fp_ui.get_pref('fav_driver') or fp_ui.get_pref('fav_skip'):
@@ -8259,6 +8441,14 @@ def _home_cockpit_v44():
             render_html_hud(_home_champ_top_html(_ds, _cs, year), height=278, scrolling=False)
         else:
             st.caption("Puan tablosu şu an alınamadı.")
+
+    _follow = _follow_list()
+    if len(_follow) > 1 or (_follow and not fav_code):
+        _board = _follow_board_v51(_follow, year, last.get('last'))
+        if _board.get('ok'):
+            fp_ui.section_title("Takip Panosu")
+            render_html_hud(follow_board_html(_board, year),
+                            height=follow_board_component_height(_board), scrolling=True)
 
     st.markdown(_home_quick_tiles_html(), unsafe_allow_html=True)
 
