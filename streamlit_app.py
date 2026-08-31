@@ -850,6 +850,27 @@ def get_driver_fastest_lap(session, driver, q_sub=None):
     return drv_laps.pick_fastest()
 
 
+def _telem_pick_lap_v48(session, driver, q_sub, lap_mode, lap_number):
+    """'En hızlı tur' varsayımını kaldırır: lap_mode='specific' ise yarışın
+    verilen turundaki lap satırını döner (telemetrisi olan ilki). OpenF1
+    yedeğinde ve tur bulunamazsa en hızlı tura düşer."""
+    if lap_mode == 'specific' and lap_number and not isinstance(session, openf1_fallback.OpenF1Session):
+        try:
+            drv_laps = session.laps.pick_drivers(driver)
+            cand = drv_laps[drv_laps['LapNumber'] == int(lap_number)]
+            if not cand.empty:
+                with_time = cand[pd.notna(cand['LapTime'])]
+                return (with_time if not with_time.empty else cand).iloc[0]
+        except Exception:
+            pass
+        return None
+    return get_driver_fastest_lap(session, driver, q_sub)
+
+
+def _telem_lap_label_v48(lap_mode, lap_number):
+    return f"tur {int(lap_number)}" if (lap_mode == 'specific' and lap_number) else "en hızlı tur"
+
+
 def get_speed_difference_insight(session, driver_1, driver_2, telemetry_1, telemetry_2):
     """Hız farkının en belirgin olduğu pist bölümünü sade dille açıklar."""
     try:
@@ -8309,6 +8330,28 @@ def _router_page_telemetry():
 
             header_suffix = f" ({target_q})" if target_q else ""
 
+            # --- TUR SEÇİCİ: "en hızlı tur" varsayımını kaldırır (yarış modları) ---
+            lap_mode, lap_number = 'fastest', None
+            _cmp_modes = {_MODES[0], _MODES[1], _MODES[2]}
+            if session_type in ('R', 'FP1', 'FP2', 'FP3') and analiz_turu in _cmp_modes:
+                try:
+                    _lapnums = pd.to_numeric(session.laps['LapNumber'], errors='coerce').dropna()
+                    _max_lap = int(_lapnums.max()) if not _lapnums.empty else 0
+                except Exception:
+                    _max_lap = 0
+                if _max_lap > 3:
+                    _lc1, _lc2 = st.columns([1, 2])
+                    _lm = _lc1.radio("Tur seçimi", ["En hızlı tur", "Belirli tur"],
+                                     horizontal=True, key="tel_lap_mode")
+                    if _lm == "Belirli tur":
+                        lap_mode = 'specific'
+                        lap_number = _lc2.slider("Yarış turu", 2, _max_lap,
+                                                 min(max(2, _max_lap // 2), _max_lap), key="tel_lap_num")
+                        st.caption(
+                            f"İki pilot da {lap_number}. turda karşılaştırılır — aynı yakıt yükü ve benzer "
+                            "lastik yaşında. Turda pit / trafik varsa telemetri o turu yansıtır."
+                        )
+
             # --- MOD 1: KUŞ BAKIŞI PİST DOMİNASYON HARİTASI ---
             if analiz_turu == "🗺️ Kuş Bakışı Pist Dominasyonu":
                 fp_ui.section_title(f"{session.event['EventName']} · Pist Dominasyonu{header_suffix}")
@@ -8323,8 +8366,8 @@ def _router_page_telemetry():
                 if d1 == d2:
                     st.warning("Lütfen iki farklı pilot seç kanka!")
                 else:
-                    lap1 = get_driver_fastest_lap(session, d1, target_q)
-                    lap2 = get_driver_fastest_lap(session, d2, target_q)
+                    lap1 = _telem_pick_lap_v48(session, d1, target_q, lap_mode, lap_number)
+                    lap2 = _telem_pick_lap_v48(session, d2, target_q, lap_mode, lap_number)
 
                     if lap1 is None or lap2 is None:
                         st.error("Seçilen sürücülerden birinin bu seans evresinde geçerli turu bulunamadı.")
@@ -8381,8 +8424,8 @@ def _router_page_telemetry():
                 if duel_driver_1 == duel_driver_2:
                     st.warning("Düello için iki farklı pilot seç kanka.")
                 else:
-                    duel_lap_1 = get_driver_fastest_lap(session, duel_driver_1, target_q)
-                    duel_lap_2 = get_driver_fastest_lap(session, duel_driver_2, target_q)
+                    duel_lap_1 = _telem_pick_lap_v48(session, duel_driver_1, target_q, lap_mode, lap_number)
+                    duel_lap_2 = _telem_pick_lap_v48(session, duel_driver_2, target_q, lap_mode, lap_number)
                     if duel_lap_1 is None or duel_lap_2 is None:
                         st.error("Seçilen pilotlardan biri için geçerli tur bulunamadı.")
                     else:
@@ -8457,8 +8500,8 @@ def _router_page_telemetry():
                 if d1 == d2:
                     st.warning("Lütfen iki farklı pilot seç kanka!")
                 else:
-                    lap1 = get_driver_fastest_lap(session, d1, target_q)
-                    lap2 = get_driver_fastest_lap(session, d2, target_q)
+                    lap1 = _telem_pick_lap_v48(session, d1, target_q, lap_mode, lap_number)
+                    lap2 = _telem_pick_lap_v48(session, d2, target_q, lap_mode, lap_number)
 
                     if lap1 is None or lap2 is None:
                         st.error("Seçilen sürücülerden birinin bu seans evresinde geçerli turu bulunamadı.")
