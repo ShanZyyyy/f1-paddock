@@ -2827,21 +2827,21 @@ canvas{width:100%;height:392px;display:block}
 </style>
 <div class="hud">
   <div class="head">
-    <div><div class="title">2D TUR DUELLOSU</div><div class="sub">IKI TUR ORTAK ZAMAN EKSENINDE - AYNI PIST NOKTASINDAKI DELTA</div></div>
+    <div><div class="title">2D TUR DÜELLOSU</div><div class="sub">İKİ TUR ORTAK ZAMAN EKSENİNDE — AYNI PİST NOKTASINDAKİ DELTA</div></div>
     <div id="tags"></div>
   </div>
-  <div class="legend" id="legend"><span>START / BITIS</span><span style="border-color:#45c8ff;color:#8fd8ff" title="Straight Mode - duzlukte dusuk surtunme bolgesi. Eski adiyla DRS.">SM · duzluk (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode - ekstra elektrik gucu kullanilabilen, gecis sansi yuksek bolge. Yayin diliyle ERS hucum / push-to-pass.">OM · gecis (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektor</span></div>
+  <div class="legend" id="legend"><span>START / BİTİŞ</span><span style="border-color:#45c8ff;color:#8fd8ff" title="Straight Mode — düzlükte düşük sürtünme bölgesi. Eski adıyla DRS.">SM · düzlük (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode — ekstra elektrik gücü kullanılabilen, geçiş şansı yüksek bölge. Yayın diliyle ERS hücum / push-to-pass.">OM · geçiş (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektör</span></div>
   <div class="sub" id="colnote" style="margin-top:6px">Renk kodu: her yerde <b id="cn0">1. pilot</b> ve <b id="cn1">2. pilot</b> kendi takım renginde — sektör kutuları, mini-sektör çubukları ve Δ izi dahil.</div>
   <div class="map"><canvas id="duel"></canvas></div>
   <div class="sectors" id="sectors"></div>
   <div class="msec" id="msec"></div>
-  <div class="dtrace" id="dtrace"><div class="dtlab"><span>KUMULATIF &Delta; - tur boyunca zaman farkinin gelisimi (cizgi yukarida = <s id="dtc0">1.</s> pilot onde) - imlece tikla</span><span><s id="dtnow">&Delta; --</s></span></div><canvas id="dtcv"></canvas></div>
+  <div class="dtrace" id="dtrace"><div class="dtlab"><span>KÜMÜLATİF &Delta; — tur boyunca zaman farkının gelişimi (çizgi yukarıda = <s id="dtc0">1.</s> pilot önde) — imlece tıkla</span><span><s id="dtnow">&Delta; --</s></span></div><canvas id="dtcv"></canvas></div>
   <div class="bottom">
     <button class="btn" id="play">Oynat</button>
     <button class="btn active" data-rate="1">1x</button><button class="btn" data-rate="2">2x</button>
     <button class="btn" data-rate="4">4x</button><button class="btn" data-rate="8">8x</button>
     <input id="range" class="slider" type="range" min="0" max="1000" value="0">
-    <span class="delta" id="delta">D --</span>
+    <span class="delta" id="delta">Δ --</span>
   </div>
 </div>
 <script>
@@ -2952,8 +2952,8 @@ function updateHud(){
     const a=lerp(cars[0].samples.distance,f), b=lerp(cars[1].samples.distance,f);
     if(a&&b&&Number.isFinite(a.elapsed)&&Number.isFinite(b.elapsed)) raw=a.elapsed-b.elapsed;
   }
-  $('delta').textContent = raw===null ? 'D --'
-    : 'D '+Math.abs(raw).toFixed(3)+' sn - '+(raw<0?cars[0].code:raw>0?cars[1].code:'esit')+' onde';
+  $('delta').textContent = raw===null ? 'Δ --'
+    : 'Δ '+Math.abs(raw).toFixed(3)+' sn — '+(raw<0?cars[0].code:raw>0?cars[1].code:'eşit')+' önde';
   $('range').value = Math.round(p*1000);
   dtReadout();
 }
@@ -3208,7 +3208,7 @@ def telemetry_trace_html(payload):
 </style>
 <div class="hud">
   <div class="head">
-    <div><div class="title">ETKILESIMLI TELEMETRI</div><div class="sub">Fareyi grafigin veya pistin uzerinde gezdir - imlec dort izi ve pist noktasini eszamanli okur. Fren izindeki dikey sicrama = fren noktasi.</div></div>
+    <div><div class="title">ETKİLEŞİMLİ TELEMETRİ</div><div class="sub">Fareyi grafiğin veya pistin üzerinde gezdir — imleç dört izi ve pist noktasını eşzamanlı okur. Fren izindeki dikey sıçrama = fren noktası.</div></div>
     <div class="tags" id="tags"></div>
   </div>
   <div class="wrap">
@@ -3313,8 +3313,8 @@ function drawMap(){
 
 function readout(){
   const d=DIST[cursor]||0;
-  let html='<div class="rh">MESAFE '+Math.round(d)+' m - imlec '+(Math.round((cursor/(N-1))*100))+'% tur</div>';
-  [['Hiz','speed',' km/h'],['Gaz','throttle',' %'],['Fren','brake',''],['Vites','gear','']].forEach(function(r){
+  let html='<div class="rh">MESAFE '+Math.round(d)+' m — imleç '+(Math.round((cursor/(N-1))*100))+'% tur</div>';
+  [['Hız','speed',' km/h'],['Gaz','throttle',' %'],['Fren','brake',''],['Vites','gear','']].forEach(function(r){
     html+='<div class="rd"><span>'+r[0]+'</span><b>'+drv.map(function(c){
       const v=(c[r[1]]||[])[cursor];
       return '<span style="color:'+c.colour+'">'+(v==null?'-':Math.round(v))+'</span>';
@@ -3322,7 +3322,7 @@ function readout(){
   });
   if(drv.length>=2){
     const ds=((drv[0].speed||[])[cursor]||0)-((drv[1].speed||[])[cursor]||0);
-    html+='<div class="rd"><span>&Delta; hiz</span><b>'+(ds>0?'+':'')+Math.round(ds)+' km/h - '+(Math.abs(ds)<1?'esit':(ds>0?drv[0].code:drv[1].code)+' hizli')+'</b></div>';
+    html+='<div class="rd"><span>&Delta; hız</span><b>'+(ds>0?'+':'')+Math.round(ds)+' km/h — '+(Math.abs(ds)<1?'eşit':(ds>0?drv[0].code:drv[1].code)+' hızlı')+'</b></div>';
   }
   $('#readout').innerHTML=html;
 }
@@ -3378,12 +3378,12 @@ def dominance_map_html(payload):
 </style>
 <div class="hud">
   <div class="head">
-    <div><div class="title">KUS BAKISI PIST DOMINASYONU</div><div class="sub">Pist her noktada o an daha hizli olan pilotun rengiyle boyanir. Fareyi pistin uzerinde gezdir: alttaki panel o noktadaki iki hizi ve farki verir.</div></div>
+    <div><div class="title">KUŞ BAKIŞI PİST DOMİNASYONU</div><div class="sub">Pist her noktada o an daha hızlı olan pilotun rengiyle boyanır. Fareyi pistin üzerinde gezdir: alttaki panel o noktadaki iki hızı ve farkı verir.</div></div>
     <div class="tags" id="tags"></div>
   </div>
   <div class="mapbox"><canvas id="dom"></canvas></div>
   <div class="share" id="share"></div>
-  <div class="rowline" id="cur"><span>Imlec</span><b>pistin uzerine gel</b></div>
+  <div class="rowline" id="cur"><span>İmleç</span><b>pistin üzerine gel</b></div>
 </div>
 <script>
 "use strict";
@@ -3391,7 +3391,7 @@ def dominance_map_html(payload):
 const D=__PAYLOAD__, drv=(D.drivers||[]).slice(0,2), DIST=D.distance||[], TRACK=D.track||[];
 const N=Math.min(DIST.length, TRACK.length);
 const $=function(s){return document.querySelector(s);};
-if(drv.length<2 || N<4){ $('#cur').innerHTML='<span>Hata</span><b>iki tur icin konum telemetrisi yok</b>'; return; }
+if(drv.length<2 || N<4){ $('#cur').innerHTML='<span>Hata</span><b>iki tur için konum telemetrisi yok</b>'; return; }
 const cv=$('#dom'), ctx=cv.getContext('2d'); let MB=null, cursor=-1;
 const c0=drv[0].colour||'#e10600', c1=drv[1].colour||'#38e1d0';
 const faster=[]; let lead0=0;
@@ -3437,7 +3437,7 @@ function readout(){
   $('#cur').innerHTML='<span>'+Math.round(DIST[cursor]||0)+' m</span><b>'
     +'<span style="color:'+c0+'">'+drv[0].code+' '+Math.round(a)+'</span>  '
     +'<span style="color:'+c1+'">'+drv[1].code+' '+Math.round(b)+'</span>  km/h  ·  '
-    +(Math.abs(dd)<1?'esit':(dd>0?drv[0].code:drv[1].code)+' +'+Math.abs(Math.round(dd)))+'</b>';
+    +(Math.abs(dd)<1?'eşit':(dd>0?drv[0].code:drv[1].code)+' +'+Math.abs(Math.round(dd)))+'</b>';
 }
 cv.addEventListener('pointermove',function(e){ if(e.pointerType==='mouse'||e.buttons) pick(e.clientX,e.clientY); });
 cv.addEventListener('pointerdown',function(e){ pick(e.clientX,e.clientY); try{cv.setPointerCapture(e.pointerId);}catch(_){} });
@@ -3447,43 +3447,8 @@ tags(); share(); fit(); setTimeout(fit,60);
 </script>'''.replace('__PAYLOAD__', packed)
 
 
-def _openf1_credentials():
-    """Canlı erişim bilgilerini yalnızca Streamlit sunucusundan okur; tarayıcıya göndermez."""
-    try:
-        username = str(st.secrets.get('OPENF1_USERNAME', '')).strip()
-        password = str(st.secrets.get('OPENF1_PASSWORD', '')).strip()
-    except Exception:
-        username = os.getenv('OPENF1_USERNAME', '').strip()
-        password = os.getenv('OPENF1_PASSWORD', '').strip()
-    return username, password
-
-
-@st.cache_data(ttl=3300, show_spinner=False)
-def _openf1_token(username, password):
-    """OAuth tokeni sunucuda yeniler; token hiçbir HTML/JavaScript içine yazılmaz."""
-    if not username or not password:
-        return ''
-    try:
-        encoded = urllib.parse.urlencode({'username': username, 'password': password}).encode('utf-8')
-        request = urllib.request.Request(
-            'https://api.openf1.org/token', data=encoded, method='POST',
-            headers={'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'PaddockDataCentre/1.0'}
-        )
-        with urllib.request.urlopen(request, timeout=8) as response:
-            return str(json.loads(response.read().decode('utf-8')).get('access_token', ''))
-    except Exception:
-        return ''
-
-
-def _api_duration_text(value):
-    try:
-        return format_time(pd.to_timedelta(float(value), unit='s'))
-    except (TypeError, ValueError):
-        return '-'
-
-
 # =========================================================
-# V19: AÇIK VERİ, YARIŞ İSTİHBARATI VE PADDOCK ASİSTAN
+# ORTAK: SIR / ORTAM DEĞİŞKENİ OKUYUCU
 # =========================================================
 
 def _secret_or_environment(name):
@@ -3495,305 +3460,6 @@ def _secret_or_environment(name):
     return str(value or '').strip()
 
 
-def get_openf1_access_v19():
-    """OpenF1 erişimi isteğe bağlıdır; token yoksa uygulama sahte canlı veri üretmez."""
-    token = _secret_or_environment('OPENF1_TOKEN') or _secret_or_environment('OPENF1_ACCESS_TOKEN')
-    username, password = _openf1_credentials()
-    return token, username, password
-
-
-@st.cache_data(ttl=3300, show_spinner=False)
-def _openf1_token_v19(explicit_token, username, password):
-    """Varsa doğrudan tokeni, yoksa eski kullanıcı adı/parola yolunu kullanır."""
-    if explicit_token:
-        return explicit_token
-    return _openf1_token(username, password)
-
-
-def _openf1_get_optional_v19(endpoint, token=''):
-    """Tek endpoint bozulsa bile tüm canlı HUD'un çökmesini engeller."""
-    headers = {
-        'Accept': 'application/json',
-        'User-Agent': 'PaddockDataCentre/1.9',
-    }
-    if token:
-        headers['Authorization'] = f'Bearer {token}'
-    request = urllib.request.Request(
-        f'https://api.openf1.org/v1/{endpoint}',
-        headers=headers,
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=7) as response:
-            decoded = json.loads(response.read().decode('utf-8'))
-        return decoded if isinstance(decoded, list) else []
-    except Exception:
-        return []
-
-
-def _latest_by_driver_v19(records):
-    latest = {}
-    for record in records or []:
-        number = record.get('driver_number')
-        if number is None:
-            continue
-        key = str(number)
-        current = latest.get(key)
-        if current is None or str(record.get('date', '')) >= str(current.get('date', '')):
-            latest[key] = record
-    return latest
-
-
-def _openf1_track_outline_v19(locations):
-    """Konum paketi birden fazla nokta içerdiğinde gerçek kayıttan hafif bir pist izi çıkarır."""
-    grouped = {}
-    for item in locations or []:
-        number = str(item.get('driver_number', ''))
-        try:
-            point = {
-                'x': float(item.get('x')),
-                'y': float(item.get('y')),
-                'date': str(item.get('date', '')),
-            }
-        except (TypeError, ValueError):
-            continue
-        grouped.setdefault(number, []).append(point)
-    if not grouped:
-        return []
-    source = max(grouped.values(), key=len)
-    source = sorted(source, key=lambda item: item['date'])
-    if len(source) < 24:
-        return []
-    step = max(1, len(source) // 620)
-    return [{'x': round(item['x'], 1), 'y': round(item['y'], 1)} for item in source[::step]]
-
-
-def _openf1_weather_summary_v19(records):
-    if not records:
-        return {}
-    latest = max(records, key=lambda item: str(item.get('date', '')))
-
-    def number(name):
-        value = pd.to_numeric(latest.get(name), errors='coerce')
-        return None if pd.isna(value) else round(float(value), 1)
-
-    return {
-        'air': number('air_temperature'),
-        'track': number('track_temperature'),
-        'humidity': number('humidity'),
-        'wind': number('wind_speed'),
-        'rainfall': bool(latest.get('rainfall', False)),
-        'date': str(latest.get('date', '')),
-    }
-
-
-def _openf1_race_control_v19(records, limit=5):
-    messages = []
-    seen = set()
-    for item in sorted(records or [], key=lambda row: str(row.get('date', '')), reverse=True):
-        raw = str(item.get('message') or item.get('Message') or '').strip()
-        translated = translate_race_control_message(raw)
-        if translated and translated not in seen:
-            seen.add(translated)
-            messages.append({
-                'time': str(item.get('date', ''))[-8:],
-                'text': translated,
-            })
-        if len(messages) >= limit:
-            break
-    return list(reversed(messages))
-
-
-def _openf1_utc_v19(value):
-    """OpenF1 zamanını karşılaştırma için UTC'ye çevirir; bozuk tarih gelirse None döner."""
-    try:
-        timestamp = pd.to_datetime(value)
-        return timestamp.tz_localize('UTC') if timestamp.tzinfo is None else timestamp.tz_convert('UTC')
-    except Exception:
-        return None
-
-
-def _openf1_endpoint_v19(resource, **params):
-    clean = {str(key): str(value) for key, value in params.items() if value not in (None, '')}
-    return resource if not clean else f"{resource}?{urllib.parse.urlencode(clean)}"
-
-
-@st.cache_data(ttl=60, show_spinner=False)
-def get_openf1_live_session_context_v19(token=''):
-    """`latest` seansının gerçekten açık olup olmadığını doğrular.
-
-    Tamamlanmış bir seansın konum kayıtlarını canlı gibi göstermemek için önce
-    yalnızca bu hafif meta paketi okunur.
-    """
-    records = _openf1_get_optional_v19('sessions?session_key=latest', token)
-    session = records[0] if records else {}
-    start = _openf1_utc_v19(session.get('date_start'))
-    end = _openf1_utc_v19(session.get('date_end'))
-    now = pd.Timestamp.now(tz='UTC')
-    active = False
-    if start is not None and now >= start:
-        # date_end yoksa API'nin açık seans için verdiği en güvenli kısa pencere.
-        active = now <= ((end + pd.Timedelta(minutes=3)) if end is not None else (start + pd.Timedelta(hours=4)))
-    if not session:
-        reason = 'Açık bir OpenF1 seans paketi bulunamadı.'
-    elif not active:
-        reason = 'OpenF1’deki son paket tamamlanmış bir seansa ait; geçmiş kayıt canlı diye gösterilmez.'
-    else:
-        reason = ''
-    return {'session': session, 'active': bool(active), 'reason': reason}
-
-
-@st.cache_data(ttl=1800, show_spinner=False)
-def get_openf1_session_track_outline_v19(session_key, driver_number, token=''):
-    """Tek bir aracın kayıtlı konumundan hafif bir pist izi çıkarır.
-
-    Tüm gridin tüm konum geçmişini istemez; bu, canlı sayfayı gereksizce
-    ağırlaştırmadan gerçek koordinatlı pist izi sağlamayı amaçlar.
-    """
-    endpoint = _openf1_endpoint_v19(
-        'location', session_key=session_key, driver_number=driver_number
-    )
-    return _openf1_track_outline_v19(_openf1_get_optional_v19(endpoint, token))
-
-
-@st.cache_data(ttl=20, show_spinner=False)
-def get_openf1_live_snapshot_verified_v19(explicit_token='', username='', password=''):
-    """Sadece doğrulanmış açık seans için sınırlı, düşük frekanslı canlı HUD paketi döndürür."""
-    token = _openf1_token_v19(explicit_token, username, password)
-    context = get_openf1_live_session_context_v19(token)
-    session = context.get('session', {})
-    if not context.get('active'):
-        return {
-            'ok': False, 'reason': context.get('reason', 'Canlı seans bekleniyor.'),
-            'authenticated': bool(token), 'source': 'OpenF1 seans doğrulaması',
-            'cars': [], 'track': [], 'session': session, 'weather': {}, 'race_control': [],
-        }
-    if not token:
-        return {
-            'ok': False,
-            'reason': 'Açık canlı seans doğrulandı; ancak bu sağlayıcı canlı konum paketi için yetkili erişim istiyor. Site sahte araç konumu çizmez.',
-            'authenticated': False, 'source': 'OpenF1 seans doğrulaması',
-            'cars': [], 'track': [], 'session': session, 'weather': {}, 'race_control': [],
-        }
-
-    session_key = session.get('session_key') or 'latest'
-    drivers = _openf1_get_optional_v19(
-        _openf1_endpoint_v19('drivers', session_key=session_key), token
-    )
-    if not drivers:
-        return {
-            'ok': False, 'reason': 'Canlı seans için sürücü paketi henüz gelmedi.',
-            'authenticated': True, 'source': 'OpenF1 canlı paket',
-            'cars': [], 'track': [], 'session': session, 'weather': {}, 'race_control': [],
-        }
-
-    recent_iso = (pd.Timestamp.now(tz='UTC') - pd.Timedelta(seconds=50)).isoformat().replace('+00:00', 'Z')
-    dynamic = {
-        'session_key': session_key,
-        'date>': recent_iso,
-    }
-    # 20 saniyede bir dokuz küçük paket: ücretsiz tarihsel limitini zorlamaz;
-    # otomatik yenileme zaten yalnızca tokenli canlı pakette açılır.
-    locations = _openf1_get_optional_v19(_openf1_endpoint_v19('location', **dynamic), token)
-    laps = _openf1_get_optional_v19(_openf1_endpoint_v19('laps', session_key=session_key), token)
-    stints = _openf1_get_optional_v19(_openf1_endpoint_v19('stints', session_key=session_key), token)
-    pits = _openf1_get_optional_v19(_openf1_endpoint_v19('pit', session_key=session_key), token)
-    positions = _openf1_get_optional_v19(_openf1_endpoint_v19('position', **dynamic), token)
-    intervals = _openf1_get_optional_v19(_openf1_endpoint_v19('intervals', **dynamic), token)
-    weather = _openf1_get_optional_v19(_openf1_endpoint_v19('weather', **dynamic), token)
-    race_control = _openf1_get_optional_v19(_openf1_endpoint_v19('race_control', session_key=session_key), token)
-
-    driver_map = {
-        str(item.get('driver_number')): item for item in drivers
-        if item.get('driver_number') is not None
-    }
-    location_map = _latest_by_driver_v19(locations)
-    lap_map = _latest_by_driver_v19(laps)
-    stint_map = _latest_by_driver_v19(stints)
-    pit_map = _latest_by_driver_v19(pits)
-    position_map = _latest_by_driver_v19(positions)
-    interval_map = _latest_by_driver_v19(intervals)
-
-    cars = []
-    for number, location in location_map.items():
-        try:
-            x, y = float(location.get('x')), float(location.get('y'))
-        except (TypeError, ValueError):
-            continue
-        driver = driver_map.get(number, {})
-        lap, stint = lap_map.get(number, {}), stint_map.get(number, {})
-        pit, position, interval = pit_map.get(number, {}), position_map.get(number, {}), interval_map.get(number, {})
-        code = str(driver.get('name_acronym') or driver.get('last_name') or f'#{number}').strip()
-        team = canonical_team_name(driver.get('team_name') or 'Formula 1')
-        pit_passage = pd.to_numeric(pit.get('pit_duration'), errors='coerce')
-        cars.append({
-            'number': number, 'code': code, 'team': team, 'colour': team_colour(team),
-            'x': x, 'y': y, 'position': position.get('position') or '—',
-            'lap': lap.get('lap_number') or '—',
-            'last_lap': _api_duration_text(lap.get('lap_duration')) if lap.get('lap_duration') else '—',
-            'compound': str(stint.get('compound') or '—').upper(),
-            'tyre_age_start': stint.get('tyre_age_at_start') if stint.get('tyre_age_at_start') is not None else '—',
-            'gap': str(interval.get('gap_to_leader') or interval.get('interval') or '—'),
-            'last_pit_lap': pit.get('lap_number') or '—',
-            # Bu değer servis süresi diye yorumlanmaz; sağlayıcının pit geçiş ölçümüdür.
-            'pit_passage': None if pd.isna(pit_passage) else round(float(pit_passage), 2),
-            'profile': race_driver_profile(code, team), 'date': str(location.get('date', '')),
-        })
-
-    def position_key(item):
-        try:
-            return int(float(item['position']))
-        except (TypeError, ValueError):
-            return 999
-
-    cars.sort(key=lambda item: (position_key(item), item['number']))
-    outline_driver = str(drivers[0].get('driver_number', '')) if drivers else ''
-    outline = get_openf1_session_track_outline_v19(session_key, outline_driver, token) if outline_driver else []
-    return {
-        'ok': bool(cars),
-        'reason': '' if cars else 'Canlı seans açık, fakat son 50 saniyeye ait doğrulanmış araç konumu henüz gelmedi.',
-        'authenticated': True, 'source': 'OpenF1 yetkili canlı paket', 'cars': cars,
-        'track': outline, 'session': session,
-        'weather': _openf1_weather_summary_v19(weather),
-        'race_control': _openf1_race_control_v19(race_control),
-    }
-
-
-# Eski fonksiyon adı korunur; sayfanın diğer kısmı yalnızca doğrulanmış V19 paketini kullanır.
-get_openf1_live_snapshot_v19 = get_openf1_live_snapshot_verified_v19
-
-
-def live_race_hud_html_v19(snapshot):
-    """Gerçek paket geldiğinde pist izi, seçilebilir araç, lastik/pit/hava/Race Control HUD'u üretir."""
-    payload = fp_ui.json_for_script(snapshot)
-    return r"""
-    <style>
-      *{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-      .hud{border:1px solid #2c425c;border-radius:14px;background:linear-gradient(135deg,#11161f,#09111b);padding:14px}
-      .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.title{font-size:13px;font-weight:950;letter-spacing:.11em}.sub{font-size:11px;color:#91a9c1;margin-top:5px}.signal{font-size:11px;color:#6ee7a4;font-weight:900;border:1px solid #2d5f4b;background:#102b23;border-radius:7px;padding:6px 8px}
-      .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-top:12px}.map{border:1px solid #28405a;border-radius:11px;background:radial-gradient(circle at 50% 42%,#17263b,#080d14 73%);overflow:hidden}.map canvas{width:100%;height:455px;display:block}.panel{border:1px solid #2d4057;border-radius:11px;background:#11161f;padding:12px}
-      .hero{position:relative;overflow:hidden;min-height:76px;border-bottom:1px solid #293c53;padding-bottom:10px}.portrait{position:absolute;right:-4px;bottom:0;max-height:94px;max-width:92px;object-fit:contain;opacity:.86}.selected{font-size:20px;font-weight:950;color:var(--team);position:relative;z-index:1}.team{font-size:12px;color:#9ab0c6;margin:4px 0 9px;position:relative;z-index:1}.stat{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #26394f;padding:8px 0;font-size:12px}.stat span{color:#91a7be}.tyre{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:50%;border:2px solid var(--tyre);color:var(--tyre);font-weight:950}
-      .weather{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.weather div{background:#0d1725;border:1px solid #26394f;border-radius:7px;padding:7px;font-size:10px;color:#96abc0}.weather b{display:block;color:#f2f5f8;font-size:13px;margin-top:3px}.strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.pilot .flm,.stat .flm{color:#b06cff;font-style:normal;font-weight:900;font-size:9px;margin-left:4px;letter-spacing:.04em}.pilot{border:1px solid #334b68;border-left:4px solid var(--team);border-radius:7px;background:#111d2e;color:#f2f5f8;font-size:11px;font-weight:900;padding:6px 8px;cursor:pointer}.pilot.active{background:#21344c;box-shadow:0 0 0 1px var(--team) inset}.control{margin-top:10px;border-top:1px solid #26394f;padding-top:9px}.control h4{margin:0 0 6px;font-size:11px;letter-spacing:.08em}.msg{font-size:10px;color:#b7c7d7;border-left:3px solid #ffcc62;padding:5px 7px;margin:5px 0;background:#171a1b}.note{font-size:10px;color:#8299b3;margin-top:8px}
-      @media(max-width:860px){.layout{grid-template-columns:1fr}.map canvas{height:365px}}
-    </style>
-    <div class="hud"><div class="top"><div><div class="title">LIVE RACE CONTROL // OPEN DATA HUD</div><div class="sub" id="sub">Doğrulanmış canlı paket bekleniyor</div></div><div class="signal" id="signal">● VERİ DURUMU</div></div>
-      <div class="layout"><div><div class="map"><canvas id="track"></canvas></div><div class="strip" id="strip"></div><div class="note">Araç veya pilot kartına basarak sürücü ayrıntısını seç. Pist çizgisi yalnızca konum paketinden yeterli nokta gelirse çizilir.</div></div><aside class="panel" id="panel"></aside></div>
-    </div>
-    <script>
-      const data=__LIVE_V19_PAYLOAD__,cars=data.cars||[],route=data.track||[],canvas=document.getElementById('track'),ctx=canvas.getContext('2d');
-      const tyres={SOFT:'#ff4654',MEDIUM:'#ffd23e',HARD:'#f0f4f8',INTERMEDIATE:'#44d97a',WET:'#45a9ff'};let selected=cars[0]?.number||null;
-      function all(){return route.length?route:cars}function transform(){const pts=all();if(!pts.length)return null;const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),w=canvas.clientWidth,h=canvas.clientHeight,p=30,s=Math.min((w-p*2)/(maxX-minX||1),(h-p*2)/(maxY-minY||1));return{minX,maxX,minY,maxY,w,h,s}}
-      function xy(p,t){return[((p.x-t.minX)*t.s)+(t.w-(t.maxX-t.minX)*t.s)/2,((t.maxY-p.y)*t.s)+(t.h-(t.maxY-t.minY)*t.s)/2]}
-      function f1(x,y,c,label,on){ctx.save();ctx.translate(x,y);ctx.fillStyle='#05090e';ctx.fillRect(-11,-7,5,14);ctx.fillRect(8,-8,4,16);ctx.fillStyle=c;ctx.fillRect(-7,-4,17,8);ctx.fillRect(8,-2,8,4);ctx.fillRect(11,-8,3,16);ctx.fillStyle='#f1f6ff';ctx.fillRect(0,-1,6,2);if(on){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.strokeRect(-13,-10,30,20)}ctx.restore();ctx.fillStyle=c;ctx.font='bold 10px Arial';ctx.textAlign='center';ctx.fillText(label,x,y-15)}
-      function draw(){const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);const t=transform();if(!t){ctx.fillStyle='#9eb0c2';ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.fillText(data.reason||'Canlı konum bekleniyor',w/2,h/2);return}if(route.length>1){ctx.beginPath();route.forEach((p,i)=>{const q=xy(p,t);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.strokeStyle='#8296ae';ctx.globalAlpha=.58;ctx.lineWidth=3;ctx.stroke();ctx.globalAlpha=1}cars.forEach(c=>{const q=xy(c,t);f1(q[0],q[1],c.colour,c.code,c.number===selected)})}
-      function panel(){const c=cars.find(item=>item.number===selected)||cars[0],panel=document.getElementById('panel');if(!c){panel.innerHTML='<div class="selected">Canlı veri bekleniyor</div><div class="note">'+(data.reason||'')+'</div>';return}const tyre=String(c.compound||'—').toUpperCase(),tc=tyres[tyre]||'#8190a4',p=c.profile||{},w=data.weather||{};panel.style.setProperty('--team',c.colour);panel.innerHTML='<div class="hero"><img class="portrait" src="'+(p.photo||'')+'" alt="" onerror="this.remove()"><div class="selected">'+(p.name||c.code)+' <span style="font-size:12px;color:#a8b7c9">P'+c.position+'</span></div><div class="team">'+c.team+' · '+c.code+'</div></div><div class="stat"><span>Son tur</span><b>'+c.last_lap+'</b></div><div class="stat"><span>Tur</span><b>'+c.lap+'</b></div><div class="stat"><span>Delta / fark</span><b>'+c.gap+'</b></div><div class="stat"><span>Lastik</span><b><i class="tyre" style="--tyre:'+tc+'">'+tyre.slice(0,1)+'</i> '+tyre+'</b></div><div class="stat"><span>Set başlangıç yaşı</span><b>'+c.tyre_age_start+' tur</b></div><div class="stat"><span>Son pit geçişi</span><b>Tur '+c.last_pit_lap+(c.pit_passage!==null&&c.pit_passage!==undefined?' · '+c.pit_passage.toFixed(1)+' sn':'')+'</b></div><div class="weather"><div>HAVA<b>'+(w.air===null||w.air===undefined?'—':w.air+'°C')+'</b></div><div>PİST<b>'+(w.track===null||w.track===undefined?'—':w.track+'°C')+'</b></div><div>RÜZGAR<b>'+(w.wind===null||w.wind===undefined?'—':w.wind+' km/s')+'</b></div><div>KOŞUL<b>'+(w.rainfall?'YAĞMUR':'KURU / BİLİNMİYOR')+'</b></div></div><div class="control"><h4>RACE CONTROL</h4>'+((data.race_control||[]).map(m=>'<div class="msg">'+(m.time?m.time+' · ':'')+m.text+'</div>').join('')||'<div class="note">Yeni Race Control mesajı yok.</div>')+'</div>'}
-      function strip(){document.getElementById('strip').innerHTML=cars.map(c=>'<button class="pilot '+(c.number===selected?'active':'')+'" style="--team:'+c.colour+'" data-n="'+c.number+'">P'+c.position+' · '+c.code+' · T'+c.lap+'</button>').join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.n;draw();panel();strip()})}
-      function resize(){const b=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=b.width*d;canvas.height=b.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}canvas.onclick=e=>{const t=transform();if(!t)return;const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let found=null,best=28;cars.forEach(c=>{const q=xy(c,t),d=Math.hypot(q[0]-mx,q[1]-my);if(d<best){best=d;found=c}});if(found){selected=found.number;draw();panel();strip()}};document.getElementById('sub').textContent=(data.session?.meeting_name||'Formula 1')+' · '+(data.session?.session_name||'Aktif seans')+' · '+(data.source||'açık veri');document.getElementById('signal').textContent=data.ok?'● CANLI PAKET AKTİF':'● CANLI PAKET BEKLENİYOR';window.addEventListener('resize',resize);resize();panel();strip();
-    </script>
-    """.replace('__LIVE_V19_PAYLOAD__', payload)
-
-
-@st.cache_data(ttl=1800, show_spinner=False)
 # =========================================================
 # FAZ 2 · #12 — HAVA & PİST EVRİMİ ZAMAN ÇİZELGESİ
 # =========================================================
@@ -5440,15 +5106,13 @@ def render_favourites_centre():
 
     # Faz 4 #9 — Paddock kimliği
     render_html_hud(_paddock_profile_html(), height=260, scrolling=True)
-    _share_min = {'fav_driver': driver_name, 'fav_team': team_name}
-    if _follow_list():
-        _share_min['follow'] = _follow_list()
     fp_ui.share_panel(
         "🏎️ Formula Paddock — benim paddock'um\n"
         f"Favori: {driver_name} · {team_name}\n"
         + (f"Takip: {', '.join(_follow_list())}\n" if _follow_list() else "")
         + "Aşağıdaki bağlantıyı aç, aynı favori ve takip listesiyle başla:",
-        url_query="/?p=home&fp=" + fp_ui._prefs_encode(_share_min),
+        include_url=False,
+        url_query=_fp_share_query_v65('home'),
         label="🔗 Paddock'unu paylaş",
     )
 
@@ -5490,7 +5154,8 @@ def render_favourites_centre():
                 height=personal_race_digest_height(_digest),
                 scrolling=True,
             )
-            fp_ui.share_panel(_digest_share_text_v59(_digest, _last_race['last']))
+            fp_ui.share_panel(_digest_share_text_v59(_digest, _last_race['last']),
+                              include_url=False, url_query=_fp_share_query_v65('favourites'))
         else:
             st.caption("Son yarışın doğrulanmış sonucu henüz FastF1'e düşmedi.")
 
@@ -5511,7 +5176,8 @@ def render_favourites_centre():
                 height=season_story_component_height(_story),
                 scrolling=True,
             )
-            fp_ui.share_panel(_season_share_text_v59(_story, _cur_year))
+            fp_ui.share_panel(_season_share_text_v59(_story, _cur_year),
+                              include_url=False, url_query=_fp_share_query_v65('favourites'))
         else:
             st.caption("Sezon anlatısı için henüz yeterli doğrulanmış yarış yok.")
 
@@ -8548,6 +8214,49 @@ def _prediction_history_html(plog):
     """
 
 
+# --- FAZ 6-B · #3 — İLK-TEMAS PRİMERİ ---
+def _prediction_primer_v65(year):
+    """Henüz tahmin yapmamış kullanıcıya: puanlama kuralı + kilitli rozet
+    önizlemesi + 'geçen yarışı şampiyona sırasına göre tahmin etseydin' örneği."""
+    st.markdown(
+        "<div class='hud-card' style='border-left:4px solid #f7c948'>"
+        "<div class='hud-label'>NASIL ÇALIŞIR</div>"
+        "<div class='history-copy' style='margin-top:6px'>Her yarıştan önce <b>pole</b> ve "
+        "<b>ilk 3</b>'ü seç. Yarış bitince tahminin otomatik puanlanır:</div>"
+        "<ul style='margin:8px 0 0 1.1rem;font-size:.9rem;line-height:1.7'>"
+        "<li>Pole doğru → <b>+5</b></li>"
+        "<li>Podyum pilotu doğru ama yer yanlış → <b>+3</b></li>"
+        "<li>Podyum yeri tam → <b>+5</b></li>"
+        "<li>Sprint hafta sonu: sprint galibi doğru → <b>+3</b></li>"
+        "</ul></div>",
+        unsafe_allow_html=True,
+    )
+    try:
+        _last = _latest_completed_race_v43(year).get('last')
+        if _last:
+            _rnd = get_championship_round_v19(year, _last)
+            _ds, *_ = get_championship_data_stable(year)
+            if _rnd.get('ok') and _ds is not None and not _ds.empty:
+                _naive = [str(p).strip().upper() for p in _ds['Pilot'].head(3).tolist()]
+                if len(_naive) == 3:
+                    _demo = _score_prediction_v55(
+                        {'pl': _naive[0], 'po': _naive}, _rnd['race'])
+                    if _demo:
+                        st.caption(
+                            f"Örnek: **{html_lib.escape(_last)}** öncesi tahminini şampiyona "
+                            f"ilk 3'üne göre ({' · '.join(_naive)}) yapsaydın → "
+                            f"**+{_demo['points']} / {_PRED_MAX} puan**. Aşağıda kendi tahminini yap."
+                        )
+    except Exception as _pp_err:  # noqa: BLE001
+        log_data_error('prediction primer demo', _pp_err)
+
+    _locked = _prediction_badges_v63([], 0, 0)
+    st.caption("Kazanabileceğin rozetler:")
+    render_html_hud(_prediction_badges_html(_locked),
+                    height=90 + 46 * ((len(_locked) + 2) // 3), scrolling=True)
+    st.write("")
+
+
 def render_prediction_game_v55():
     _game_shell("Hafta Sonu Tahmini", "Pole + podyum tahmin et, yarıştan sonra puanla.", colour="#f7c948")
     year = datetime.datetime.now(datetime.timezone.utc).year
@@ -8581,6 +8290,9 @@ def render_prediction_game_v55():
             unsafe_allow_html=True,
         )
         st.write("")
+
+    if _season_n == 0 and not scored:
+        _prediction_primer_v65(year)
 
     target = _prediction_target_gp_v55(year)
     if not target:
@@ -9300,6 +9012,23 @@ def champ_timeline_component_height(tl):
 # =========================================================
 # FAZ 4 · #12 — PAYLAŞILABİLİR METİN ÖZETLERİ
 # =========================================================
+def _fp_share_query_v65(page='favourites'):
+    """Faz 6-B #4 — paylaşım linkleri için MİNİMAL ?fp=: yalnız favori pilot/
+    takım + takip listesi. Tahmin geçmişi (plog) ve ziyaret durumu taşınmaz;
+    link sezon boyunca kısa ve sabit kalır. Favori yoksa None (link eklenmez)."""
+    mini = {}
+    if st.session_state.get('favourite_driver'):
+        mini['fav_driver'] = st.session_state['favourite_driver']
+    if st.session_state.get('favourite_team'):
+        mini['fav_team'] = st.session_state['favourite_team']
+    _f = _follow_list()
+    if _f:
+        mini['follow'] = _f
+    if not mini:
+        return None
+    return f"/?p={page}&fp=" + fp_ui._prefs_encode(mini)
+
+
 def _digest_share_text_v59(digest, race_name):
     drv = digest.get('driver') or {}
     pod = " · ".join(f"{i + 1}. {p['code']}" for i, p in enumerate(digest.get('podium', [])))
@@ -9683,7 +9412,7 @@ def _home_cockpit_v44():
 
     left, right = st.columns([1.35, 1])
     with left:
-        fp_ui.section_title("Son Yarış")
+        fp_ui.section_title("Yarış Özetin" if fav_code else "Son Yarış")
         with st.spinner("Son yarış sonucu hazırlanıyor..."):
             if fav_code:
                 _dg = personal_race_digest_v43(year, last['last'], fav_team, fav_code)
@@ -10134,7 +9863,7 @@ def _router_page_telemetry():
     fp_ui.page_header(T("page.telemetry.title"), T("page.telemetry.sub"), eyebrow=T("section.data"))
 
     # --- SEANS SEÇİMİ (artik sayfa govdesinde, sidebar yerine) ---
-    fp_ui.section_title("Seans Ayarlari")
+    fp_ui.section_title("Seans Ayarları")
     if not st.session_state['telemetry_schedule_requested']:
         fp_ui.data_state("Takvim İsteğe Bağlı", "Sitenin hızlı açılması için takvim yalnızca sen istediğinde yüklenir.", "info")
         if st.button("Telemetri takvimini yukle", key="load_telemetry_schedule", width='stretch'):
@@ -10332,12 +10061,12 @@ def _router_page_telemetry():
                         else:
                             st.warning("Bu turlar için pist dominasyon haritası çıkarılamadı (konum verisi eksik).")
 
-                        fp_ui.data_state("BOLGE OKUMA", f"{driver_options.get(d1, d1)} renginde boyalı bölümlerde 1. pilot, {driver_options.get(d2, d2)} renginde boyalı bölümlerde 2. pilot o an daha hızlı. Alttaki bar tur boyunca kimin ne kadar önde olduğunu özetler.", "info")
-                        fp_ui.data_state("ICGORU", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
+                        fp_ui.data_state("BÖLGE OKUMA", f"{driver_options.get(d1, d1)} renginde boyalı bölümlerde 1. pilot, {driver_options.get(d2, d2)} renginde boyalı bölümlerde 2. pilot o an daha hızlı. Alttaki bar tur boyunca kimin ne kadar önde olduğunu özetler.", "info")
+                        fp_ui.data_state("İÇGÖRÜ", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
             # --- MOD 2: 2D TUR DÜELLOSU ---
             elif analiz_turu == "🏎️ 2D Tur Düellosu":
-                fp_ui.section_title(f"{session.event['EventName']} · 2D Tur Duellosu{header_suffix}")
+                fp_ui.section_title(f"{session.event['EventName']} · 2D Tur Düellosu{header_suffix}")
                 st.caption("Mesafe modu aynı virajdaki hız farkını; gerçek zaman modu iki turun fiziksel zaman farkını gösterir.")
 
                 duel_col_1, duel_col_2 = st.columns(2)
@@ -10415,7 +10144,7 @@ def _router_page_telemetry():
                             height=880,
                             scrolling=True
                         )
-                        fp_ui.data_state("ICGORU", get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2), "success")
+                        fp_ui.data_state("İÇGÖRÜ", get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2), "success")
 
             # --- MOD 3: DETAYLI TELEMETRİ & FREN ANALİZİ ---
             elif analiz_turu == "🛑 Telemetri & Fren Analizi":
@@ -10452,8 +10181,8 @@ def _router_page_telemetry():
                             render_html_hud(telemetry_trace_html(trace_payload), height=560, scrolling=True)
                         else:
                             st.warning("Bu turlar için telemetri izi çıkarılamadı (konum/mesafe verisi eksik).")
-                        fp_ui.data_state("GEC FRENLEME IPUCU", "Fren izindeki dikey sıçrama fren noktasıdır; hangi pilotunki daha sağdaysa o pilot viraja daha geç fren yapmıştır. Hız izinde çizgiler ayrışan yerde bir pilot belirgin hızlıdır.", "info")
-                        fp_ui.data_state("ICGORU", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
+                        fp_ui.data_state("GEÇ FRENLEME İPUCU", "Fren izindeki dikey sıçrama fren noktasıdır; hangi pilotunki daha sağdaysa o pilot viraja daha geç fren yapmıştır. Hız izinde çizgiler ayrışan yerde bir pilot belirgin hızlıdır.", "info")
+                        fp_ui.data_state("İÇGÖRÜ", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
             # --- MOD 4: TOP HIZ & SÜRÜCÜ TABLOSU ---
             elif analiz_turu == _MODES[3]:
@@ -10873,7 +10602,8 @@ def _router_page_standings():
                 st.write("")
                 render_html_hud(champ_timeline_html(_tl, lambda t: season_team_colour(t, champ_year)),
                                 height=champ_timeline_component_height(_tl), scrolling=True)
-            fp_ui.share_panel(_champ_share_text_v59(driver_standings, champ_year, completed_rounds))
+            fp_ui.share_panel(_champ_share_text_v59(driver_standings, champ_year, completed_rounds),
+                              include_url=False, url_query=_fp_share_query_v65('standings'))
         with team_tab:
             st.caption("Podyumda ilk üç takım; altında kalan takımlar aynı HUD diliyle sıralanır.")
             render_html_hud(

@@ -30,7 +30,7 @@ streamlit run streamlit_app.py
 
 ```
 OPENAI_API_KEY = "..."        # Asistanda genel F1 sohbeti
-OPENF1_TOKEN   = "..."        # Canlı OpenF1 paketi (yoksa anonim denenir)
+DEEPL_API_KEY  = "...:fx"      # Haber çevirisi (yoksa MyMemory ücretsiz yedeği)
 ```
 
 ## Proje yapısı

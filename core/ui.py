@@ -66,6 +66,14 @@ _FP_PREFS_LASTBLOB = "_fp_prefs_lastblob"
 _FP_PREFS_BOOT = "_fp_prefs_boot"       # localStorage bootstrap bir kez denendi
 _FP_PREFS_PARAM = "fp"                  # URL query anahtarı
 _FP_PREFS_LSKEY = "fp_prefs_v1"         # localStorage anahtarı
+# Faz 6-B #4 — bu anahtarlar yalnız kalıcılık içindir, paylaşılan linke girmez:
+# tahmin geçmişi sezon boyunca büyür (URL şişer), ziyaret durumu kişiseldir.
+# localStorage aynası hepsini tutar; yalnız ?fp= paramı kırpılır.
+_FP_URL_SKIP = frozenset({"plog", "lv", "sr", "slc", "slp"})
+
+
+def _prefs_for_url(prefs):
+    return {k: v for k, v in (prefs or {}).items() if k not in _FP_URL_SKIP}
 
 
 def _prefs_encode(prefs):
@@ -166,10 +174,15 @@ def flush_prefs():
     prefs = st.session_state.get(_FP_PREFS)
     if not prefs:
         return
-    blob = _prefs_encode(prefs)
+    blob = _prefs_encode(prefs)                        # tam durum -> localStorage aynası
+    shareable = _prefs_for_url(prefs)                  # kırpılmış -> paylaşılabilir ?fp=
     try:
-        if blob != st.query_params.get(_FP_PREFS_PARAM):
-            st.query_params[_FP_PREFS_PARAM] = blob
+        if shareable:
+            url_blob = _prefs_encode(shareable)
+            if url_blob != st.query_params.get(_FP_PREFS_PARAM):
+                st.query_params[_FP_PREFS_PARAM] = url_blob
+        elif st.query_params.get(_FP_PREFS_PARAM):
+            del st.query_params[_FP_PREFS_PARAM]
     except Exception:
         pass
     if blob != st.session_state.get(_FP_PREFS_LASTBLOB):

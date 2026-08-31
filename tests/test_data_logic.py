@@ -184,6 +184,20 @@ def test_prefs_encode_roundtrip():
     assert ui._prefs_encode(dict(reversed(list(prefs.items())))) == blob
 
 
+def test_prefs_for_url_strips_bulky_keys():
+    # Faz 6-B #4 — tahmin gecmisi + ziyaret durumu paylasilan linke girmez
+    full = {
+        "fav_driver": "PIA", "fav_team": "McLaren", "follow": ["NOR", "VER"],
+        "plog": [{"g": "A", "p": 12}] * 12, "lv": 1788000000, "sr": "Dutch GP",
+        "slc": "ANT", "slp": 242, "ps": 55, "pn": 4, "ob": "done",
+    }
+    slim = ui._prefs_for_url(full)
+    assert set(slim) == {"fav_driver", "fav_team", "follow", "ps", "pn", "ob"}
+    assert "plog" not in slim and "lv" not in slim
+    # localStorage aynasi tam kalir (kirpma yalniz URL icin)
+    assert ui._prefs_for_url({}) == {}
+
+
 def test_cell_pts_v57():
     import pandas as _pd
     assert app._cell_pts_v57(None, 'r1') == 0.0
