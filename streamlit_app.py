@@ -2037,6 +2037,185 @@ def championship_projection_html(leader, challenger, leader_pts, challenger_pts,
     """
 
 
+def season_h2h_v41(result_matrix, points_matrix, rounds, standings, code_a, code_b):
+    """İki pilotun bu sezonki kafa-kafaya dökümü — yalnızca hazır puan/sonuç
+    matrisinden. Ağ yok. Dönüş: tur tur kim önde + galibiyet sayısı + form."""
+    if result_matrix is None or result_matrix.empty or not rounds:
+        return {'ok': False}
+
+    def _row(df, code):
+        match = df[df['Pilot'] == code]
+        return match.iloc[0].to_dict() if not match.empty else None
+
+    ra, rb = _row(result_matrix, code_a), _row(result_matrix, code_b)
+    pa, pb = _row(points_matrix, code_a), _row(points_matrix, code_b)
+    if not (ra and rb and pa and pb):
+        return {'ok': False}
+    sa, sb = _row(standings, code_a) or {}, _row(standings, code_b) or {}
+
+    def _split(value):
+        text = str(value).strip() if value is not None else ''
+        if text.lower() in ('', '—', '-', 'nan'):
+            return (None, None)
+        if '/' in text:
+            left, right = (part.strip() for part in text.split('/', 1))
+            clean = lambda x: None if x in ('—', '-', '') else x
+            return (clean(left), clean(right))
+        return (text, None)
+
+    def _pos(text):
+        try:
+            return int(text)
+        except (TypeError, ValueError):
+            return None
+
+    def _num(text):
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            return 0.0
+
+    out_rounds, mom_a, mom_b = [], [], []
+    race_w_a = race_w_b = spr_w_a = spr_w_b = 0
+    for rnd in rounds:
+        key = rnd['key']
+        a_race, a_spr = _split(ra.get(key))
+        b_race, b_spr = _split(rb.get(key))
+        ap_race, ap_spr = _split(pa.get(key))
+        bp_race, bp_spr = _split(pb.get(key))
+        a_pos, b_pos = _pos(a_race), _pos(b_race)
+
+        winner = None
+        if a_pos is not None and b_pos is not None:
+            winner = 'a' if a_pos < b_pos else 'b' if b_pos < a_pos else None
+        elif a_pos is not None and b_race is not None:
+            winner = 'a'
+        elif b_pos is not None and a_race is not None:
+            winner = 'b'
+        elif a_pos is not None:
+            winner = 'a'
+        elif b_pos is not None:
+            winner = 'b'
+        if winner == 'a':
+            race_w_a += 1
+        elif winner == 'b':
+            race_w_b += 1
+
+        if rnd.get('has_sprint'):
+            asp, bsp = _pos(a_spr), _pos(b_spr)
+            if asp is not None and (bsp is None or asp < bsp):
+                spr_w_a += 1
+            elif bsp is not None and (asp is None or bsp < asp):
+                spr_w_b += 1
+
+        tot_a = _num(ap_race) + _num(ap_spr)
+        tot_b = _num(bp_race) + _num(bp_spr)
+        mom_a.append(tot_a)
+        mom_b.append(tot_b)
+        out_rounds.append({
+            'badge': rnd['badge'], 'sprint': bool(rnd.get('has_sprint')),
+            'a_pos': a_race or 'YOK', 'b_pos': b_race or 'YOK',
+            'a_pts': tot_a, 'b_pts': tot_b, 'winner': winner,
+        })
+
+    span = min(5, len(out_rounds)) or 1
+    return {
+        'ok': True, 'a': code_a, 'b': code_b,
+        'team_a': str(sa.get('Takım', '')), 'team_b': str(sb.get('Takım', '')),
+        'pts_a': _num(sa.get('Puan')), 'pts_b': _num(sb.get('Puan')),
+        'rounds': out_rounds, 'has_sprints': any(r['sprint'] for r in out_rounds),
+        'race_w_a': race_w_a, 'race_w_b': race_w_b,
+        'spr_w_a': spr_w_a, 'spr_w_b': spr_w_b,
+        'mom_a': round(sum(mom_a[-span:]), 1), 'mom_b': round(sum(mom_b[-span:]), 1),
+        'mom_span': span,
+    }
+
+
+def season_h2h_html(h, colour_a, colour_b):
+    """Kafa-kafaya HUD'u — güncel puan farkı, yarışta önde sayısı, form, tur şeridi."""
+    if not h.get('ok'):
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+                "Bu iki pilot için bu sezona ait karşılaştırma verisi yok.</div>")
+    ca, cb = colour_a or '#e10600', colour_b or '#38e1d0'
+    gap = h['pts_a'] - h['pts_b']
+    ahead, ahead_col = (h['a'], ca) if gap >= 0 else (h['b'], cb)
+    total_races = max(1, h['race_w_a'] + h['race_w_b'])
+    a_share = round(h['race_w_a'] / total_races * 100)
+    mom_leader = h['a'] if h['mom_a'] > h['mom_b'] else h['b'] if h['mom_b'] > h['mom_a'] else None
+    strip = "".join(
+        f"<span class='cell {('a' if r['winner'] == 'a' else 'b' if r['winner'] == 'b' else 'd')}'"
+        f" title=\"{html_lib.escape(r['badge'])} · {html_lib.escape(h['a'])} P{html_lib.escape(str(r['a_pos']))}"
+        f" ({r['a_pts']:g}p) · {html_lib.escape(h['b'])} P{html_lib.escape(str(r['b_pos']))} ({r['b_pts']:g}p)\">"
+        f"{html_lib.escape(r['badge'].split(' ')[-1][:4])}</span>"
+        for r in h['rounds']
+    )
+    sprint_line = ""
+    if h['has_sprints']:
+        sprint_line = (f"<div class='h2h-sub'>Sprint · <b>{h['a']}</b> {h['spr_w_a']} — "
+                       f"{h['spr_w_b']} <b>{h['b']}</b></div>")
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .h2h{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
+      .h2h-top{{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
+        padding:16px;border-bottom:1px solid #26313f}}
+      .h2h-d{{display:flex;flex-direction:column;gap:3px}}
+      .h2h-d.r{{align-items:flex-end;text-align:right}}
+      .h2h-d b{{font:800 20px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .h2h-d s{{font:600 10.5px 'Saira',sans-serif;color:#8a9bb0;text-decoration:none;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}}
+      .h2h-d i{{font:700 15px 'JetBrains Mono',monospace;font-style:normal;margin-top:2px}}
+      .h2h-gap{{text-align:center}}
+      .h2h-gap s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.12em;color:#63748a;text-decoration:none}}
+      .h2h-gap b{{font:800 22px 'JetBrains Mono',monospace;color:{ahead_col}}}
+      .h2h-gap em{{display:block;font:600 10px 'Saira',sans-serif;font-style:normal;color:#9fb0c0;margin-top:2px}}
+      .h2h-body{{padding:14px 16px}}
+      .h2h-hd{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63748a;margin:2px 0 7px}}
+      .h2h-bar{{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #26313f;font:800 11px 'JetBrains Mono',monospace}}
+      .h2h-bar i{{display:flex;align-items:center;justify-content:center;color:#05080d;min-width:34px}}
+      .h2h-bar .ba{{background:{ca};width:{a_share}%}} .h2h-bar .bb{{background:{cb};flex:1}}
+      .h2h-sub{{margin-top:9px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
+      .h2h-sub b{{color:#e8eef4}}
+      .h2h-mom{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}}
+      .h2h-mom>div{{border:1px solid #222c39;border-radius:8px;padding:9px 11px;background:#131a24}}
+      .h2h-mom s{{display:block;font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#63748a;text-decoration:none}}
+      .h2h-mom b{{font:700 17px 'JetBrains Mono',monospace;margin-top:3px;display:block}}
+      .h2h-mom em{{font:600 10px 'Saira',sans-serif;font-style:normal;color:#7fe0a6}}
+      .h2h-strip{{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px}}
+      .cell{{flex:1 0 46px;text-align:center;font:700 9px 'JetBrains Mono',monospace;padding:6px 2px;border-radius:4px;
+        border:1px solid #222c39;cursor:help;color:#c9d6e2}}
+      .cell.a{{background:color-mix(in srgb,{ca} 26%,#11161f);border-color:{ca}}}
+      .cell.b{{background:color-mix(in srgb,{cb} 26%,#11161f);border-color:{cb}}}
+      .cell.d{{background:#161d28}}
+      @media(max-width:560px){{.h2h-top{{grid-template-columns:1fr auto 1fr;gap:6px}}.h2h-d b{{font-size:16px}}.h2h-mom{{grid-template-columns:1fr}}}}
+    </style>
+    <div class="h2h">
+      <div class="h2h-top">
+        <div class="h2h-d" style="color:{ca}"><b>{html_lib.escape(h['a'])}</b><s>{html_lib.escape(h['team_a'])}</s><i>{h['pts_a']:g} P</i></div>
+        <div class="h2h-gap"><s>Fark</s><b>{abs(gap):g}</b><em>{html_lib.escape(ahead)} önde</em></div>
+        <div class="h2h-d r" style="color:{cb}"><b>{html_lib.escape(h['b'])}</b><s>{html_lib.escape(h['team_b'])}</s><i>{h['pts_b']:g} P</i></div>
+      </div>
+      <div class="h2h-body">
+        <div class="h2h-hd">Yarışta önde biten — {h['race_w_a']} / {h['race_w_b']}</div>
+        <div class="h2h-bar"><i class="ba">{h['a']} {h['race_w_a']}</i><i class="bb">{h['race_w_b']} {h['b']}</i></div>
+        {sprint_line}
+        <div class="h2h-mom">
+          <div><s>Son {h['mom_span']} yarış · {html_lib.escape(h['a'])}</s><b style="color:{ca}">{h['mom_a']:g} P</b>{'<em>daha formda</em>' if mom_leader == h['a'] else ''}</div>
+          <div><s>Son {h['mom_span']} yarış · {html_lib.escape(h['b'])}</s><b style="color:{cb}">{h['mom_b']:g} P</b>{'<em>daha formda</em>' if mom_leader == h['b'] else ''}</div>
+        </div>
+        <div class="h2h-hd" style="margin-top:14px">Tur tur — kutu rengi o yarışta önde biteni gösterir</div>
+        <div class="h2h-strip">{strip}</div>
+      </div>
+    </div>
+    """
+
+
+def season_h2h_component_height(h):
+    rounds = len((h or {}).get('rounds', []) or [])
+    strip_rows = (max(0, rounds - 1) // 12) + 1
+    return min(760, 430 + strip_rows * 34)
+
+
 def session_leaderboard_html(table, title):
     """FP, sıralama ve yarış sonuçlarını takım renkli HUD leaderboard'a çevirir."""
     if table.empty:
@@ -7589,8 +7768,8 @@ def _router_page_standings():
             scrolling=False,
         )
         st.write("")
-        driver_tab, team_tab, scenario_tab, stat_tab = st.tabs(
-            ["Sezon Tablosu", "Takim Puanlari", "Şampiyonluk Senaryoları", "Pilot Istatistikleri"]
+        driver_tab, team_tab, scenario_tab, h2h_tab = st.tabs(
+            ["Sezon Tablosu", "Takim Puanlari", "Şampiyonluk Senaryoları", "Kafa Kafaya"]
         )
         with driver_tab:
             if 'championship_matrix_mode' not in st.session_state:
@@ -7683,22 +7862,34 @@ def _router_page_standings():
                 elif _rem['races'] == 0:
                     st.caption("Sezon tamamlandığı için senaryo hesaplayıcı kapalı — unvan kesinleşti.")
 
-        with stat_tab:
+        with h2h_tab:
             _codes = [str(r.get('Pilot', '')).strip() for _, r in driver_standings.iterrows() if str(r.get('Pilot', '')).strip()]
             _team_of = {str(r.get('Pilot', '')).strip(): str(r.get('Takım', '')).strip() for _, r in driver_standings.iterrows()}
-            _sc1, _sc2 = st.columns([2, 1])
-            _pick = _sc1.selectbox("Pilot", _codes, format_func=lambda c: f"{directory_driver_by_code(c)['name']} ({c})", key="champ_stat_driver")
-            _scope_label = _sc2.radio("Kapsam", ["Bu Sezon", "Kariyer"], horizontal=True, key="champ_stat_scope")
-            _scope = "career" if _scope_label == "Kariyer" else "season"
-            _info = directory_driver_by_code(_pick)
-            _dstats = get_driver_deep_stats_v32(_pick, _scope, str(champ_year))
-            _dcol = team_colour(_team_of.get(_pick) or _info.get('team') or '')
-            _rows_n = len(_dstats.get('circuit_wins', [])) if _scope == 'career' else 0
-            render_html_hud(
-                driver_deep_stats_hud_html(_info['name'], _pick, _team_of.get(_pick) or _info.get('team') or '—', _dstats, _scope, _dcol),
-                height=(255 if (_dstats.get('verified') and not _dstats.get('empty')) else 90) + _rows_n * 33 + (36 if _rows_n else 0),
-                scrolling=False,
+            fp_ui.how_to_hud(
+                [
+                    ("Fark", "iki pilotun bu sezon puanları arasındaki güncel fark ve kim önde."),
+                    ("Yarışta önde biten", "kaç yarışta A, kaç yarışta B daha yüksek sırada bitti — çubukta oran."),
+                    ("Form", "son 5 yarışta toplanan puan; hangisi daha sıcak."),
+                    ("Tur tur şerit", "her kutu bir yarış; kutunun rengi o hafta sonu önde biteni gösterir (üzerine gelince detay)."),
+                ],
+                note="Tümü tamamlanmış yarış ve sprint sonuçlarından hesaplanır — Pilot listesindeki tekil kariyer profillerinden farklı olarak burası doğrudan iki pilotun sezonluk düellosudur.",
             )
+            if len(_codes) < 2:
+                st.info("Karşılaştırma için en az iki pilot gerekiyor.")
+            else:
+                _hc1, _hc2 = st.columns(2)
+                _fmt = lambda c: f"{directory_driver_by_code(c)['name']} ({c})"
+                _a = _hc1.selectbox("1. pilot", _codes, index=0, format_func=_fmt, key="champ_h2h_a")
+                _b_opts = [c for c in _codes if c != _a] or _codes
+                _b = _hc2.selectbox("2. pilot", _b_opts, index=0, format_func=_fmt, key="champ_h2h_b")
+                _h2h = season_h2h_v41(result_matrix, points_matrix, completed_rounds, driver_standings, _a, _b)
+                _ca = season_team_colour(_team_of.get(_a, ''), champ_year)
+                _cb = season_team_colour(_team_of.get(_b, ''), champ_year)
+                render_html_hud(
+                    season_h2h_html(_h2h, _ca, _cb),
+                    height=season_h2h_component_height(_h2h),
+                    scrolling=False,
+                )
     st.write("")
     fp_ui.section_title("Favorilerin")
     _ft, _fd = st.columns(2)
