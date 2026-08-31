@@ -12,7 +12,7 @@ Canlı: <https://appmanagertrackfixedv28verifiedcareerandduelpy-fteph2y8up6ft3g.
 - **Takvim & Pistler**, **Takımlar & Pilotlar (2026)**, **F2 & F3**
 - **Hafta Sonu Merkezi**, **Yarış Hikayesi**, **Pilot Karşılaştırma**
 - **Paddock Asistanı** — doğrulanmış F1 verisinden yanıt (isteğe bağlı OpenAI katmanı)
-- **Oyunlar** — Stewardle, GridMaster, Takım Patronu, Paddock Draft, Tahmin, Sürüş prototipi
+- **Oyunlar** — Stewardle (kariyer bulmacası), Sıralama Kartları (Top Trumps), Hafta Sonu Tahmini, Kızgın Tur (sıralama pole farkı), Paddock Career (2D yarış). Ortak XP/rütbe ilerlemesi tarayıcıda saklanır.
 
 Veri kaynakları: FastF1, OpenF1, Jolpica/Ergast, resmî RSS akışları. Kaynak
 erişilemezse uygulama **sahte veri üretmez**; boş/bekleme durumu gösterir.

@@ -105,7 +105,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 <canvas id="game"></canvas>
 
 <div id="hud" class="panel">
-  <div class="eyebrow">PADDOCK RING · SEN</div>
+  <div class="eyebrow">PADDOCK RING · __FP_PLAYER_CODE__</div>
   <div class="speed"><span id="speed">0</span> <small>KM/S</small></div>
   <div id="gear" class="gear">N</div>
   <div class="row"><span>ERS</span><b id="ersT">100%</b></div>
@@ -300,6 +300,8 @@ const PIT = (()=>{ const s=SF_I; const arr=[]; for(let k=-18;k<=14;k++){ const i
 /* ==================================================================
    2 · ARAÇLAR
    ================================================================== */
+const FP_PLAYER = {n:'SENİN GARAJIN', a:'__FP_PLAYER_COLOUR__', b:'#101820'};
+const FP_PLAYER_CODE = '__FP_PLAYER_CODE__';
 const TEAMS = [
   {n:'MERCEDES', a:'#00d7b6', b:'#0b2b28'},
   {n:'FERRARI',  a:'#ff2b3d', b:'#3a0a0e'},
@@ -334,7 +336,8 @@ function buildGrid(){
     const p = pAt(idx), n = normalAt(idx);
     const side = (k%2===0 ? -1 : 1) * sideGap;
     const car = makeCar({
-      code:codes[k], team:TEAMS[k], isPlayer:k===0,
+      code:(k===0 ? (FP_PLAYER_CODE||'SEN') : codes[k]),
+      team:(k===0 ? FP_PLAYER : TEAMS[k]), isPlayer:k===0,
       x: p[0] + n[0]*side, y: p[1] + n[1]*side,
       heading: tangentAt(idx),
       _li: Math.round(idx), prog: -(arcBehind/STEP), pos:k+1,
@@ -602,6 +605,24 @@ function endRace(){
   const box=document.createElement('div'); box.className='result';
   box.innerHTML=ord.map((c,k)=>`<div class="rr ${c.isPlayer?'me':''}"><span class="p">P${k+1}</span><span>${c.code} · ${c.team.n}</span><span>${fmt(c.best)}</span></div>`).join('');
   s.querySelector('.card').insertBefore(box, $('startBtn'));
+
+  // Faz 7-A: kişisel en iyi tur (tarayıcıda) + Oyun Motoru XP ödülü
+  try{
+    var P = window.parent, KEY='fp_ring_v66';
+    var prev = {}; try{ prev = JSON.parse(P.localStorage.getItem(KEY)||'{}'); }catch(_){}
+    var bl = player.best || 0;
+    var isBest = bl>0 && (!prev.bestLap || bl<prev.bestLap);
+    var rec = { bestLap: isBest ? bl : (prev.bestLap||bl||0),
+                races: (prev.races||0)+1, wins: (prev.wins||0)+(player.pos===1?1:0) };
+    P.localStorage.setItem(KEY, JSON.stringify(rec));
+    var pb=document.createElement('div'); pb.className='rr';
+    pb.style.cssText='margin-top:8px;border-top:1px solid var(--line);padding-top:8px;color:var(--dim)';
+    pb.innerHTML='<span>KİŞİSEL EN İYİ TUR</span><span></span><span style="color:'+(isBest?'#4ade80':'var(--text)')+'">'
+      + (rec.bestLap? fmt(rec.bestLap) : '—') + (isBest?' · yeni rekor!':'') + '</span>';
+    box.appendChild(pb);
+    var xb = P.document.querySelector('[class*="st-key-ringxp"] button');
+    if(xb && !window.__fpRingXP){ window.__fpRingXP=true; xb.click(); }
+  }catch(e){}
 }
 
 function updateHUD(){
@@ -730,7 +751,7 @@ function drawCar(c,sc,ox,oy){
   // etiket + numara
   ctx.fillStyle = c.isPlayer ? '#fff' : c.team.a;
   ctx.font=`900 ${Math.max(8,9*sc)}px "JetBrains Mono",monospace`; ctx.textAlign='center';
-  ctx.fillText(c.isPlayer?'SEN':c.code, q[0], q[1]-20*sc);
+  ctx.fillText(c.isPlayer?(FP_PLAYER_CODE||'SEN'):c.code, q[0], q[1]-20*sc);
   // kayma izi
   if(c.slipAmt>0.25 && !c.offT && Math.hypot(c.vx,c.vy)>18){ skid.push({x:c.x,y:c.y,t:1}); if(skid.length>500) skid.shift(); }
 }

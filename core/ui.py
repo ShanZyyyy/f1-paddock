@@ -69,7 +69,13 @@ _FP_PREFS_LSKEY = "fp_prefs_v1"         # localStorage anahtarı
 # Faz 6-B #4 — bu anahtarlar yalnız kalıcılık içindir, paylaşılan linke girmez:
 # tahmin geçmişi sezon boyunca büyür (URL şişer), ziyaret durumu kişiseldir.
 # localStorage aynası hepsini tutar; yalnız ?fp= paramı kırpılır.
-_FP_URL_SKIP = frozenset({"plog", "lv", "sr", "slc", "slp"})
+# Paylaşılan linke YALNIZ kimlik girer (fav_driver/fav_team/follow/ob/fav_skip);
+# aşağıdakiler kişisel ilerleme/ziyaret durumu — localStorage aynası tutar.
+_FP_URL_SKIP = frozenset({
+    "plog", "lv", "sr", "slc", "slp",            # tahmin geçmişi + ziyaret durumu
+    "gp", "sds", "sdd", "hl",                     # oyun ilerlemesi + Stewardle/hotlap seri
+    "rw", "cmp", "ps", "pn", "pc",                # replay/compare sayaçları + tahmin puanı
+})
 
 
 def _prefs_for_url(prefs):

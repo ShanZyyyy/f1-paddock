@@ -185,15 +185,16 @@ def test_prefs_encode_roundtrip():
 
 
 def test_prefs_for_url_strips_bulky_keys():
-    # Faz 6-B #4 — tahmin gecmisi + ziyaret durumu paylasilan linke girmez
+    # Faz 6-B #4 / 7-A — paylasilan linke YALNIZ kimlik girer; ilerleme/sayaclar cikar
     full = {
-        "fav_driver": "PIA", "fav_team": "McLaren", "follow": ["NOR", "VER"],
+        "fav_driver": "PIA", "fav_team": "McLaren", "follow": ["NOR", "VER"], "ob": "done",
         "plog": [{"g": "A", "p": 12}] * 12, "lv": 1788000000, "sr": "Dutch GP",
-        "slc": "ANT", "slp": 242, "ps": 55, "pn": 4, "ob": "done",
+        "slc": "ANT", "slp": 242, "ps": 55, "pn": 4, "gp": {"xp": 40}, "hl": {"s": 3},
+        "rw": 5, "cmp": {"VER": 3},
     }
     slim = ui._prefs_for_url(full)
-    assert set(slim) == {"fav_driver", "fav_team", "follow", "ps", "pn", "ob"}
-    assert "plog" not in slim and "lv" not in slim
+    assert set(slim) == {"fav_driver", "fav_team", "follow", "ob"}
+    assert "plog" not in slim and "gp" not in slim and "ps" not in slim
     # localStorage aynasi tam kalir (kirpma yalniz URL icin)
     assert ui._prefs_for_url({}) == {}
 
@@ -302,6 +303,33 @@ def test_free_translate_strict_v64_empty():
     assert app._free_translate_strict_v64("") == ""
     assert app._free_translate_strict_v64("   ") == ""
     assert app._mymemory_translate_v64("") == ""
+
+
+def test_hl_bucket_v66():
+    assert app._hl_bucket_v66(0.05) == "< 0.1 sn"
+    assert app._hl_bucket_v66(0.1) == "0.1 – 0.3 sn"
+    assert app._hl_bucket_v66(0.319) == "0.3 – 0.6 sn"
+    assert app._hl_bucket_v66(0.9) == "0.6 – 1.0 sn"
+    assert app._hl_bucket_v66(2.4) == "1.0 sn+"
+
+
+def test_top_trumps_deck_and_resolve_v66():
+    deck = app._tt_deck_v66()
+    assert len(deck) >= 6
+    for c in deck:
+        assert {"code", "wins", "podiums", "poles", "titles", "starts", "ppr"} <= set(c)
+        assert c["starts"] >= 5
+    # yüksek stat kazanır; kartlar 'Devam'a kadar taşınmaz
+    g = {"p": [0, 1], "c": [2, 3], "pot": [], "turn": "p", "phase": "pick",
+         "round": 1, "reveal": None}
+    hi = max(range(len(deck)), key=lambda i: deck[i]["starts"])
+    lo = min(range(len(deck)), key=lambda i: deck[i]["starts"])
+    g["p"], g["c"] = [hi], [lo]
+    app._tt_compare_v66(g, deck, "starts")
+    assert g["phase"] == "reveal" and g["reveal"]["win"] == "p"
+    assert g["p"] == [hi] and g["c"] == [lo]      # henüz taşınmadı
+    app._tt_advance_v66(g)
+    assert not g["c"] and sorted(g["p"]) == sorted([hi, lo])   # kazanan hepsini aldı
 
 
 def test_prefs_decode_bad_input():

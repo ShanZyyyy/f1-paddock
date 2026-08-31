@@ -3,6 +3,7 @@ import os
 import time
 import functools
 import datetime
+import random
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -240,7 +241,7 @@ VALID_PAGES = {
     'compare', 'drivers', 'learn', 'favourites', 'teams', 'standings',
     'f2f3', 'glossary', 'assistant', 'games',
     # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
-    'stewarlde', 'paddock_career', 'predict',
+    'stewarlde', 'paddock_career', 'predict', 'cards', 'hotlap',
     # yardımcı sayfalar (ayaktan / breadcrumb'dan)
     'faq', 'privacy',
 }
@@ -488,6 +489,8 @@ for _pk, _plbl in NAV_STANDALONE:
 _PAGE_META['stewarlde'] = ("Stewardle", T("section.games"), "games")
 _PAGE_META['paddock_career'] = ("Paddock Career", T("section.games"), "games")
 _PAGE_META['predict'] = ("Hafta Sonu Tahmini", T("section.games"), "games")
+_PAGE_META['cards'] = ("Sıralama Kartları", T("section.games"), "games")
+_PAGE_META['hotlap'] = ("Kızgın Tur", T("section.games"), "games")
 _PAGE_META['faq'] = ("SSS", "Bilgi", "faq")
 _PAGE_META['privacy'] = ("Gizlilik", "Bilgi", "privacy")
 
@@ -6223,6 +6226,21 @@ def stewarlde_profile_v25(driver, stats, colour):
     )
 
 
+def _stewarlde_daily_streak_v66(solved):
+    """Günlük Stewardle serisi (prefs `sds`/`sdd`). Bugün çözüldü ve dün de
+    çözülmüşse +1; boşluk varsa 1. Çözülemezse seri değişmez (yarın tekrar dene)."""
+    today = datetime.date.today()
+    last_iso = fp_ui.get_pref('sdd')
+    streak = int(fp_ui.get_pref('sds') or 0)
+    if not solved or last_iso == today.isoformat():
+        return streak
+    yesterday = (today - datetime.timedelta(days=1)).isoformat()
+    streak = streak + 1 if last_iso == yesterday else 1
+    fp_ui.set_pref('sds', streak)
+    fp_ui.set_pref('sdd', today.isoformat())
+    return streak
+
+
 def render_stewarlde_v25():
     _game_shell(
         "Stewardle",
@@ -6272,7 +6290,13 @@ def render_stewarlde_v25():
         pick = st.selectbox('Pilot tahminin', options, format_func=lambda item: f"{item['name']} — {item['team']} ({item['latest_season']})", key=f"stewarlde_pick_v25_{mode}_{game['round']}_{len(game['guesses'])}")
         if st.button('Tahmini gönder', type='primary', width='stretch', key=f"stewarlde_submit_v25_{mode}_{game['round']}_{len(game['guesses'])}"):
             game['guesses'].append(pick['identity'])
-            game['finished'] = pick['identity'] == target['identity'] or len(game['guesses']) >= 6
+            _solved = pick['identity'] == target['identity']
+            game['finished'] = _solved or len(game['guesses']) >= 6
+            if game['finished'] and not game.get('_awarded'):
+                game['_awarded'] = True
+                _sxp = (max(6, 42 - 6 * len(game['guesses'])) if _solved else 3)
+                _dstreak = _stewarlde_daily_streak_v66(_solved) if mode == 'Günlük' else None
+                _game_award_v66(xp=_sxp, played=True, streak=_dstreak)
             st.session_state[state_key] = game
             st.rerun()
 
@@ -6308,6 +6332,10 @@ def render_stewarlde_v25():
             st.success(f"Doğru cevap: {target['name']}. {len(game['guesses'])}/6 tahminde buldun.")
         else:
             st.error(f"Bu tur bitti. Doğru cevap: {target['name']} ({target['team']}).")
+        if mode == 'Günlük':
+            _sds = int(fp_ui.get_pref('sds') or 0)
+            _line = (f"🔥 Günlük seri: {_sds} gün. " if _sds > 1 else "")
+            st.caption(f"{_line}Yeni bulmaca yarın — seriyi sürdür.")
         colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
         st.markdown(stewarlde_profile_v25(target, target_stats or {}, colour), unsafe_allow_html=True)
         if mode == 'Sınırsız':
@@ -8235,6 +8263,7 @@ def _prediction_maybe_score_v55(year):
     })
     fp_ui.set_pref('plog', log[-12:])
     fp_ui.set_pref('pc', None)
+    _game_award_v66(xp=max(3, scored['points']), played=True)
     scored['gp'] = gp
     scored['pred'] = pred
     st.session_state['_pred_just_scored'] = scored
@@ -8501,36 +8530,426 @@ def _pred_history_and_badges_v63():
                         height=90 + 46 * ((len(_badges) + 2) // 3), scrolling=True)
 
 
+# =========================================================
+# FAZ 7-A · #1 — OYUN İLERLEMESİ KALICI (prefs 'gp' anahtarı)
+# {xp, played, best_streak} — daha önce hiç yazılmıyordu; artık her oyun
+# _game_award_v66 ile besliyor, tercih köprüsüyle oturumlar arası kalıyor.
+# =========================================================
+_GAME_PROFILE_KEY = 'paddock_game_profile_v30'
+_GAME_RANKS_V66 = [(0, 'ÇAYLAK'), (120, 'YARIŞÇI'), (400, 'UZMAN'), (1000, 'ŞAMPİYON')]
+
+
+def _game_profile_v66():
+    """Oturum kopyası; ilk erişimde prefs'ten ('gp') hidratlanır."""
+    prof = st.session_state.get(_GAME_PROFILE_KEY)
+    if not isinstance(prof, dict):
+        stored = fp_ui.get_pref('gp')
+        prof = {'xp': 0, 'played': 0, 'best_streak': 0}
+        if isinstance(stored, dict):
+            for k in prof:
+                try:
+                    prof[k] = int(stored.get(k, 0) or 0)
+                except (TypeError, ValueError):
+                    pass
+        st.session_state[_GAME_PROFILE_KEY] = prof
+    return prof
+
+
+def _game_award_v66(xp=0, played=False, streak=None):
+    """Bir oyun turu bitince: XP ekle, oynanan sayacını artır, en iyi seriyi
+    güncelle. Değişiklik varsa prefs'e yazar (flush_prefs footer'da taşır)."""
+    prof = _game_profile_v66()
+    changed = False
+    if xp:
+        prof['xp'] = int(prof.get('xp', 0)) + int(xp)
+        changed = True
+    if played:
+        prof['played'] = int(prof.get('played', 0)) + 1
+        changed = True
+    if streak is not None and int(streak) > int(prof.get('best_streak', 0)):
+        prof['best_streak'] = int(streak)
+        changed = True
+    if changed:
+        st.session_state[_GAME_PROFILE_KEY] = prof
+        fp_ui.set_pref('gp', dict(prof))
+    return prof
+
+
 def _game_shell(title, subtitle="", colour="#e10600"):
     """Her oyun sayfasının TEK başlığı: 'Oyun Merkezi'ne dönüş linki + başlık +
     oyun motoru satırı. Oyunlar bunu bir kez çağırır; ikinci başlık basmaz."""
     if st.button("← Oyun Merkezi", key=f"game_back_{title[:16]}"):
         st.session_state['page'] = 'games'
         st.rerun()
-    profile = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
+    profile = _game_profile_v66()
     fp_ui.page_header(title, subtitle, eyebrow="Oyunlar")
+    _rank = next((r for t, r in reversed(_GAME_RANKS_V66) if profile['xp'] >= t), 'ÇAYLAK')
     st.caption(
-        f"Paddock Oyun Motoru 3.0 · XP {profile['xp']} · "
+        f"Paddock Oyun Motoru · {_rank} · XP {profile['xp']} · "
         f"tamamlanan oyun {profile['played']} · en iyi seri {profile['best_streak']}"
     )
 
 
 def render_paddock_career_alpha_v01():
-    """Instant browser prototype while the full Unity WebGL production is prepared."""
+    """Tarayıcıda çalışan 2D yarış motoru — çok rakipli grid, Straight/Overtake
+    Mode, lastik aşınması, pit yolu. Araç favori pilotun takım renginde;
+    en iyi tur zamanı tarayıcıda saklanır, yarış bitince Oyun Motoru XP verir."""
+    _year = datetime.datetime.now(datetime.timezone.utc).year
+    _fav_team = st.session_state.get('favourite_team') or ''
+    _fav_code = _code_for_name(st.session_state.get('favourite_driver')) or ''
+    _pcol = season_team_colour(_fav_team, _year) or '#e10600'
     _game_shell(
         "Paddock Career · 2D Yarış",
-        "Paddock Ring GP · 6 araçlık grid · DRS + ERS · lastik aşınması · pit yolu · çarpışma.",
+        "Paddock Ring GP · 6 araçlık grid · Straight/Overtake Mode · lastik aşınması · pit yolu.",
         "#e10600",
     )
+    # gizli ödül düğmesi — 2D motor yarış bitince tıklar (bkz. paddock_ring_alpha.html endRace)
+    st.markdown("<style>[class*='st-key-ringxp']{position:fixed !important;width:1px !important;"
+                "height:1px !important;overflow:hidden !important;opacity:0 !important}</style>",
+                unsafe_allow_html=True)
+    st.button("xp", key="ringxp", on_click=lambda: _game_award_v66(xp=18, played=True))
+
     game_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paddock_ring_alpha.html")
     try:
         with open(game_path, "r", encoding="utf-8") as game_file:
             game_markup = game_file.read()
+        game_markup = (game_markup
+                       .replace("__FP_PLAYER_COLOUR__", _pcol)
+                       .replace("__FP_PLAYER_CODE__", html_lib.escape(_fav_code or "SEN")))
         fp_ui._embed_html(game_markup, height=790, scrolling=False)
-        st.info("Kontroller: W gaz · S fren · A/D direksiyon · Space ERS · E DRS · P pit isteği · R sıfırla")
+        st.caption("Kontroller: W gaz · S fren · A/D direksiyon · Space Overtake Mode · E Straight Mode · "
+                   "P pit · R sıfırla — en iyi tur zamanın tarayıcında saklanır.")
     except OSError as error:
-        log_data_error("Paddock Career prototype", error)
+        log_data_error("Paddock Career engine", error)
         st.error("Sürüş paketi yüklenemedi. Oyun dosyasının yayın paketinde bulunduğunu kontrol ediyoruz.")
+
+
+# =========================================================
+# FAZ 7-B · #5 — SIRALAMA KARTLARI (Top Trumps · kariyer seed'inden, ağ yok)
+# =========================================================
+_TT_STATS_V66 = [
+    ('wins', 'Galibiyet'), ('podiums', 'Podyum'), ('poles', 'Pole'),
+    ('titles', 'Şampiyonluk'), ('starts', 'Yarış'), ('ppr', 'Puan / yarış'),
+]
+
+
+@st.cache_data(show_spinner=False)
+def _tt_deck_v66():
+    """2026 gridinin kariyer istatistik kartları — seed/disk, ağ yok."""
+    seed = _career_seed_all_v45().get('drivers', {})
+    cards = []
+    for code, name in _DRIVER_NAME_BY_CODE.items():
+        api = STEWARDLE_ACTIVE_API_IDS_V24.get(code, str(code).lower())
+        prof = seed.get(api) or {}
+        if not (isinstance(prof, dict) and prof.get('ok') and int(prof.get('starts') or 0) >= 5):
+            continue
+        starts = int(prof.get('starts') or 0)
+        cards.append({
+            'code': code, 'name': name, 'team': _DRIVER_TEAM_BY_CODE.get(code, ''),
+            'wins': int(prof.get('wins') or 0), 'podiums': int(prof.get('podiums') or 0),
+            'poles': int(prof.get('poles') or 0), 'starts': starts,
+            'titles': int(CAREER_TITLES_V27.get(code, 0)),
+            'ppr': round(float(prof.get('points') or 0) / max(1, starts), 1),
+        })
+    cards.sort(key=lambda c: -c['starts'])
+    return cards[:18]
+
+
+def _tt_new_game_v66():
+    deck = _tt_deck_v66()
+    order = list(range(len(deck)))
+    random.shuffle(order)
+    half = len(order) // 2
+    st.session_state['tt66'] = {
+        'p': order[:half], 'c': order[half:2 * half], 'pot': [],
+        'turn': 'p', 'phase': 'pick', 'round': 1, 'msg': '', 'reveal': None, 'awarded': False,
+    }
+
+
+def _tt_compare_v66(g, deck, stat):
+    """Statı karşılaştır ve sonucu işaretle — kartlar HENÜZ taşınmaz
+    (reveal ekranı karşılaştırılan çifti göstermeye devam etsin)."""
+    pc, cc = deck[g['p'][0]], deck[g['c'][0]]
+    pv, cv = pc[stat], cc[stat]
+    win = 'p' if pv > cv else 'c' if cv > pv else 'tie'
+    g['reveal'] = {'stat': stat, 'pv': pv, 'cv': cv, 'win': win,
+                   'pc': pc['code'], 'cc': cc['code'], 'by': g['turn']}
+    g['phase'] = 'reveal'
+
+
+def _tt_advance_v66(g):
+    """'Devam' — kazanan kartları alır, sıra kazanana geçer, yeni tura."""
+    r = g['reveal'] or {}
+    stack = [g['p'].pop(0), g['c'].pop(0)] + g['pot']
+    g['pot'] = []
+    if r.get('win') == 'p':
+        g['p'].extend(stack); g['turn'] = 'p'
+    elif r.get('win') == 'c':
+        g['c'].extend(stack); g['turn'] = 'c'
+    else:
+        g['pot'] = stack   # berabere: sıra değişmez
+    g['reveal'] = None
+    g['phase'] = 'pick'
+    g['round'] += 1
+
+
+def _tt_cpu_stat_v66(deck, g):
+    cc = deck[g['c'][0]]
+    tops = {k: max((deck[i][k] for i in range(len(deck))), default=1) or 1 for k, _ in _TT_STATS_V66}
+    return max(_TT_STATS_V66, key=lambda kv: cc[kv[0]] / tops[kv[0]])[0]
+
+
+def _tt_card_html_v66(card, year, face_down=False, highlight=None):
+    col = season_team_colour(card['team'], year) or '#8a9bb0'
+    if face_down:
+        return ("<div style='border:1px solid #26313f;border-radius:12px;background:"
+                "repeating-linear-gradient(45deg,#11161f,#11161f 8px,#161d28 8px,#161d28 16px);"
+                "min-height:210px;display:grid;place-items:center;color:#63748a;"
+                "font:800 13px Saira,sans-serif'>RAKİP KARTI</div>")
+    rows = ''.join(
+        f"<div style='display:flex;justify-content:space-between;padding:6px 0;"
+        f"border-top:1px solid #1b2330;font:700 13px \"JetBrains Mono\",monospace;"
+        f"{'color:#f7c948' if highlight == k else 'color:#c4d2e0'}'>"
+        f"<span style='font-family:Saira,sans-serif;font-weight:600;color:#9fb0c0'>{lbl}</span>"
+        f"<b>{card[k]}</b></div>"
+        for k, lbl in _TT_STATS_V66
+    )
+    return (f"<div style='border:1px solid #26313f;border-left:3px solid {col};border-radius:12px;"
+            f"background:#11161f;padding:13px 15px'>"
+            f"<div style='font:800 20px \"Saira Condensed\",sans-serif;text-transform:uppercase;color:{col}'>"
+            f"{html_lib.escape(card['code'])}</div>"
+            f"<div style='font:600 11px Saira,sans-serif;color:#8a9bb0;margin-bottom:4px'>"
+            f"{html_lib.escape(card['name'])} · {html_lib.escape(card['team'])}</div>{rows}</div>")
+
+
+def render_top_trumps_v66():
+    _game_shell("Sıralama Kartları",
+                "Gerçek kariyer istatistikleriyle Top Trumps. Daha yüksek stat turu kazanır; "
+                "hedefin bütün desteyi toplamak.", "#38e1d0")
+    year = datetime.datetime.now(datetime.timezone.utc).year
+    deck = _tt_deck_v66()
+    if len(deck) < 6:
+        st.info("Kart destesi için kariyer verisi şu an hazır değil.")
+        return
+    if 'tt66' not in st.session_state:
+        _tt_new_game_v66()
+    g = st.session_state['tt66']
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Senin deste", len(g['p']))
+    c2.metric("Rakip deste", len(g['c']))
+    c3.metric("Ortak (beraberlik)", len(g['pot']))
+
+    game_over = not g['p'] or not g['c'] or g['round'] > 40
+    if game_over and g['phase'] != 'over':
+        g['phase'] = 'over'
+
+    if g['phase'] == 'over':
+        won = len(g['p']) >= len(g['c'])
+        if won and not g['awarded']:
+            g['awarded'] = True
+            _game_award_v66(xp=35 if len(g['c']) == 0 else 18, played=True)
+        (st.success if won else st.error)(
+            f"{'Bütün desteyi topladın! 🏆' if len(g['c']) == 0 else 'Oyun bitti.'} "
+            f"Sen {len(g['p'])} — Rakip {len(g['c'])} kart."
+        )
+        if st.button("Yeni oyun", type="primary", key="tt_new"):
+            _tt_new_game_v66()
+            st.rerun()
+        return
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Senin kartın**")
+        st.markdown(_tt_card_html_v66(deck[g['p'][0]], year,
+                    highlight=g['reveal']['stat'] if g['reveal'] else None), unsafe_allow_html=True)
+    with right:
+        st.markdown("**Rakip**")
+        st.markdown(_tt_card_html_v66(deck[g['c'][0]], year,
+                    face_down=(g['phase'] == 'pick'),
+                    highlight=g['reveal']['stat'] if g['reveal'] else None), unsafe_allow_html=True)
+
+    if g['phase'] == 'pick' and g['turn'] == 'p':
+        st.caption("Bir stat seç — rakip kartındaki aynı stat ile karşılaştırılır.")
+        cols = st.columns(3)
+        for i, (k, lbl) in enumerate(_TT_STATS_V66):
+            if cols[i % 3].button(f"{lbl} · {deck[g['p'][0]][k]}", key=f"tt_pick_{k}", width='stretch'):
+                _tt_compare_v66(g, deck, k)
+                st.rerun()
+    elif g['phase'] == 'pick' and g['turn'] == 'c':
+        _tt_compare_v66(g, deck, _tt_cpu_stat_v66(deck, g))
+        st.rerun()
+    elif g['phase'] == 'reveal':
+        r = g['reveal']
+        lbl = dict(_TT_STATS_V66)[r['stat']]
+        who = "Rakip seçti" if r.get('by') == 'c' else "Sen seçtin"
+        verdict = ("Turu sen aldın." if r['win'] == 'p'
+                   else "Rakip aldı." if r['win'] == 'c' else "Berabere — kartlar ortaya gider.")
+        st.markdown(
+            f"<div class='hud-card' style='border-left:4px solid "
+            f"{'#7fe0a6' if r['win'] == 'p' else '#ff8b78' if r['win'] == 'c' else '#f7c948'}'>"
+            f"<div class='hud-label'>{html_lib.escape(who)} · {html_lib.escape(lbl.upper())}</div>"
+            f"<div class='history-copy' style='margin-top:5px'>{r['pc']} <b>{r['pv']}</b> — "
+            f"{r['cc']} <b>{r['cv']}</b> · {verdict}</div></div>", unsafe_allow_html=True)
+        if st.button("Devam →", type="primary", key=f"tt_cont_{g['round']}"):
+            _tt_advance_v66(g)
+            st.rerun()
+
+
+# =========================================================
+# FAZ 7-B · #6 — KIZGIN TUR (sıralama pole farkı tahmini)
+# =========================================================
+_HL_BUCKETS_V66 = [
+    (0.0, 0.1, '< 0.1 sn'), (0.1, 0.3, '0.1 – 0.3 sn'), (0.3, 0.6, '0.3 – 0.6 sn'),
+    (0.6, 1.0, '0.6 – 1.0 sn'), (1.0, 99.0, '1.0 sn+'),
+]
+
+
+def _hl_bucket_v66(gap):
+    for lo, hi, lbl in _HL_BUCKETS_V66:
+        if lo <= gap < hi:
+            return lbl
+    return _HL_BUCKETS_V66[-1][2]
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _hotlap_quali_v66(year, gp):
+    try:
+        sess = fastf1.get_session(int(year), gp, 'Q')
+        sess.load(laps=False, telemetry=False, weather=False, messages=False)
+    except Exception:
+        return {'ok': False}
+    res = getattr(sess, 'results', None)
+    if res is None or getattr(res, 'empty', True):
+        return {'ok': False}
+    rows = []
+    for _, r in res.iterrows():
+        code = str(r.get('Abbreviation', '') or '').strip()
+        pos = pd.to_numeric(r.get('Position'), errors='coerce')
+        best = None
+        for q in ('Q3', 'Q2', 'Q1'):
+            v = r.get(q)
+            if pd.notna(v):
+                try:
+                    s = pd.to_timedelta(v).total_seconds()
+                except Exception:
+                    continue
+                if s and s > 0:
+                    best = s if best is None else min(best, s)
+        if code and best and pd.notna(pos):
+            rows.append({'code': code, 'pos': int(pos), 'secs': best})
+    rows.sort(key=lambda x: x['pos'])
+    if len(rows) < 6:
+        return {'ok': False}
+    pole = rows[0]
+    others = [{'code': x['code'], 'pos': x['pos'], 'gap': round(x['secs'] - pole['secs'], 3)}
+              for x in rows[1:11] if x['secs'] - pole['secs'] > 0.02]
+    if not others:
+        return {'ok': False}
+    return {'ok': True, 'gp': str(gp), 'year': int(year), 'pole_code': pole['code'],
+            'pole_secs': round(pole['secs'], 3), 'others': others}
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _hotlap_gp_list_v66(year):
+    try:
+        cal = get_calendar_details(int(year))
+    except Exception:
+        return []
+    now = datetime.datetime.now(datetime.timezone.utc)
+    out = []
+    for ev in cal or []:
+        raw = ev.get('Session4DateUtc') or ev.get('Session5DateUtc')
+        if pd.isnull(raw):
+            continue
+        qt = pd.to_datetime(raw)
+        qt = qt.tz_localize('UTC') if qt.tzinfo is None else qt.tz_convert('UTC')
+        if qt + datetime.timedelta(hours=6) < now:
+            out.append(str(ev.get('EventName', '')).strip())
+    return [n for n in out if n]
+
+
+def _hotlap_new_round_v66():
+    now_year = datetime.datetime.now(datetime.timezone.utc).year
+    years = [now_year - 1, now_year - 2, now_year]
+    tries = 0
+    while tries < 8:
+        tries += 1
+        yr = random.choice(years)
+        gps = _hotlap_gp_list_v66(yr)
+        if not gps:
+            continue
+        q = _hotlap_quali_v66(yr, random.choice(gps))
+        if q.get('ok'):
+            pick = random.choice(q['others'])
+            st.session_state['hl66'] = {
+                'gp': q['gp'], 'year': q['year'], 'pole_code': q['pole_code'],
+                'pole_secs': q['pole_secs'], 'hidden_code': pick['code'],
+                'hidden_pos': pick['pos'], 'gap': pick['gap'],
+                'answer': _hl_bucket_v66(pick['gap']), 'phase': 'guess', 'pick': None,
+            }
+            return True
+    st.session_state['hl66'] = {'phase': 'error'}
+    return False
+
+
+def render_hotlap_game_v66():
+    _game_shell("Kızgın Tur",
+                "Pole zamanını görüyorsun. Gizli pilot pole'a ne kadar yakın bitirdi? "
+                "Doğru aralığı seç, seriyi uzat.", "#7c5cff")
+    hl_pref = fp_ui.get_pref('hl') if isinstance(fp_ui.get_pref('hl'), dict) else {}
+    streak = int(hl_pref.get('s') or 0)
+    best = int(hl_pref.get('b') or 0)
+    m1, m2 = st.columns(2)
+    m1.metric("Güncel seri", streak)
+    m2.metric("En iyi seri", best)
+
+    if 'hl66' not in st.session_state:
+        with st.spinner("Sıralama turu seçiliyor…"):
+            _hotlap_new_round_v66()
+    r = st.session_state['hl66']
+    if r.get('phase') == 'error':
+        st.info("Sıralama verisi şu an alınamadı. Biraz sonra tekrar dene.")
+        if st.button("Tekrar dene", key="hl_retry"):
+            st.session_state.pop('hl66', None)
+            st.rerun()
+        return
+
+    def _fmt(s):
+        return f"{int(s // 60)}:{s % 60:06.3f}"
+
+    st.markdown(
+        f"<div class='hud-card' style='border-left:4px solid #7c5cff'>"
+        f"<div class='hud-label'>{html_lib.escape(r['gp'])} · {r['year']} · SIRALAMA</div>"
+        f"<div class='history-copy' style='margin-top:6px'>Pole: <b>{html_lib.escape(r['pole_code'])}</b> "
+        f"— {_fmt(r['pole_secs'])}<br>Gizli pilot <b>P{r['hidden_pos']}</b> oldu. "
+        f"Pole'a farkı hangi aralıkta?</div></div>", unsafe_allow_html=True)
+
+    if r['phase'] == 'guess':
+        cols = st.columns(len(_HL_BUCKETS_V66))
+        for i, (_lo, _hi, lbl) in enumerate(_HL_BUCKETS_V66):
+            if cols[i].button(lbl, key=f"hl_b_{i}", width='stretch'):
+                r['pick'] = lbl
+                r['phase'] = 'reveal'
+                correct = lbl == r['answer']
+                new_streak = streak + 1 if correct else 0
+                fp_ui.set_pref('hl', {'s': new_streak, 'b': max(best, new_streak)})
+                _game_award_v66(xp=8 if correct else 1, played=True,
+                                streak=new_streak if correct else None)
+                st.rerun()
+    else:
+        correct = r['pick'] == r['answer']
+        st.markdown(
+            f"<div class='hud-card' style='border-left:4px solid "
+            f"{'#7fe0a6' if correct else '#ff8b78'}'>"
+            f"<div class='hud-label'>{'DOĞRU' if correct else 'YANLIŞ'} · +{8 if correct else 1} XP</div>"
+            f"<div class='history-copy' style='margin-top:5px'>"
+            f"<b>{html_lib.escape(r['hidden_code'])}</b> pole'a <b>+{r['gap']:.3f} sn</b> "
+            f"({html_lib.escape(r['answer'])}). Senin tahminin: {html_lib.escape(r['pick'])}.</div></div>",
+            unsafe_allow_html=True)
+        if st.button("Sıradaki tur →", type="primary", key="hl_next"):
+            st.session_state.pop('hl66', None)
+            st.rerun()
 
 
 def games_profile_hud_html(profile):
@@ -8576,12 +8995,13 @@ def games_profile_hud_html(profile):
 
 def render_games_hub_v30():
     fp_ui.page_header(T("page.games.title"), T("page.games.sub"), eyebrow=T("section.games"))
-    _gp = st.session_state.setdefault('paddock_game_profile_v30', {'xp': 0, 'played': 0, 'best_streak': 0})
-    render_html_hud(games_profile_hud_html(_gp), height=98)
+    render_html_hud(games_profile_hud_html(_game_profile_v66()), height=98)
     games = [
-        ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu bul.", "#ff385c", "Stewardle aç", "stewarlde"),
-        ("2D YARIŞ", "Paddock Career", "Çok rakipli grid, DRS + ERS, lastik aşınması ve pit yolu ile 2D yarış motoru.", "#e10600", "Motoru çalıştır", "paddock_career"),
-        ("HAFTA SONU", "Hafta Sonu Tahmini", "Sıradaki GP'nin pole ve podyumunu tahmin et; yarıştan sonra otomatik puanlanır. Sezon boyu puan biriktir.", "#f7c948", "Tahmin yap", "predict"),
+        ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu altı tahminde bul. Günlük bulmaca + seri.", "#ff385c", "Stewardle aç", "stewarlde"),
+        ("KART DÜELLOSU", "Sıralama Kartları", "Gerçek kariyer istatistikleriyle Top Trumps — CPU'ya karşı bütün desteyi kap.", "#38e1d0", "Deste dağıt", "cards"),
+        ("HAFTA SONU", "Hafta Sonu Tahmini", "Sıradaki GP'nin pole + podyumunu tahmin et; yarıştan sonra otomatik puanlanır.", "#f7c948", "Tahmin yap", "predict"),
+        ("SIRALAMA", "Kızgın Tur", "Pole zamanını gördün — gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.", "#7c5cff", "Tur ver", "hotlap"),
+        ("2D YARIŞ", "Paddock Career", "Çok rakipli grid, Straight/Overtake Mode, lastik aşınması ve pit yolu ile 2D yarış.", "#e10600", "Motoru çalıştır", "paddock_career"),
     ]
     for start in range(0, len(games), 2):
         columns = st.columns(2)
@@ -8592,8 +9012,6 @@ def render_games_hub_v30():
                 if st.button(button_text, key=f"games_v30_{page}", width='stretch'):
                     st.session_state['page'] = page
                     st.rerun()
-    st.markdown("---")
-    render_pit_wall_v30()
 
 
 render_games_hub = render_games_hub_v30
@@ -8885,7 +9303,7 @@ def _paddock_profile_html():
     rw = int(fp_ui.get_pref('rw') or 0)
     cmp_tally = fp_ui.get_pref('cmp') or {}
     top_cmp = [c for c, _ in sorted(cmp_tally.items(), key=lambda kv: -kv[1])[:3]]
-    gp = st.session_state.get('paddock_game_profile_v30', {}) or {}
+    gp = _game_profile_v66()
 
     def _row(label, value):
         return (f"<div class='pp-row'><span class='pp-k'>{html_lib.escape(label)}</span>"
@@ -11004,6 +11422,10 @@ elif st.session_state['page'] == 'paddock_career':
     render_paddock_career_alpha_v01()
 elif st.session_state['page'] == 'predict':
     render_prediction_game_v55()
+elif st.session_state['page'] == 'cards':
+    render_top_trumps_v66()
+elif st.session_state['page'] == 'hotlap':
+    render_hotlap_game_v66()
 
 # SAYFA 9: F1 SÖZLÜĞÜ
 elif st.session_state['page'] == 'glossary':
