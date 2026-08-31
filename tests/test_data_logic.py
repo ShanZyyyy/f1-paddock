@@ -213,6 +213,66 @@ def test_score_prediction_v55():
     assert app._score_prediction_v55({'pl': 'VER'}, []) is None
 
 
+def test_score_prediction_sprint_v63():
+    race = [
+        {'code': 'VER', 'position': '1', 'grid': 2},
+        {'code': 'NOR', 'position': '2', 'grid': 1},
+        {'code': 'LEC', 'position': '3', 'grid': 3},
+    ]
+    sprint = [{'code': 'PIA', 'position': '1'}, {'code': 'NOR', 'position': '2'}]
+    # sprint galibi dogru -> +3
+    hit = app._score_prediction_v55({'pl': 'NOR', 'po': ['VER', 'NOR', 'LEC'], 'sw': 'PIA'},
+                                    race, sprint)
+    assert hit['actual_sprint'] == 'PIA'
+    assert ('Sprint galibi doğru', 3) in hit['detail']
+    # sprint galibi yanlis -> bonus yok
+    miss = app._score_prediction_v55({'pl': 'NOR', 'po': ['VER', 'NOR', 'LEC'], 'sw': 'VER'},
+                                     race, sprint)
+    assert hit['points'] == miss['points'] + 3
+    # sprint_entries verilmezse sw yok sayilir
+    none_sp = app._score_prediction_v55({'pl': 'NOR', 'po': ['VER', 'NOR', 'LEC'], 'sw': 'PIA'}, race)
+    assert none_sp['actual_sprint'] is None
+
+
+def test_prediction_badges_v63():
+    empty = app._prediction_badges_v63([], 0, 0)
+    assert all(b['got'] is False for b in empty)
+    log = [
+        {'g': 'A', 'p': 18, 'pl': 1, 'ex': 3},   # kusursuz hafta sonu
+        {'g': 'B', 'p': 6, 'pl': 1, 'ex': 0},
+        {'g': 'C', 'p': 9, 'pl': 1, 'ex': 1},
+    ]
+    got = {b['name'] for b in app._prediction_badges_v63(log, 55, 3) if b['got']}
+    assert 'İlk isabet' in got
+    assert 'Pole avcısı' in got                  # 3 pole
+    assert 'Keskin nişancı' in got               # ex >= 1
+    assert 'Kusursuz hafta sonu' in got
+    assert 'Seri x3' in got                      # 3 ard arda puanli
+    assert 'Yarım yüz' in got                    # 55 >= 50
+
+
+def test_pred_streak_v63():
+    assert app._pred_streak_v63([]) == 0
+    assert app._pred_streak_v63([{'p': 0}, {'p': 5}, {'p': 3}, {'p': 0}, {'p': 1}]) == 2
+    assert app._pred_streak_v63([{'p': 2}, {'p': 2}, {'p': 2}]) == 3
+
+
+def test_weekend_ics_v63():
+    import pandas as _pd
+    start = _pd.Timestamp('2026-09-06 13:00', tz='UTC')
+    sessions = [{
+        'title': 'Yarış', 'code': 'R', 'time': start,
+        'estimated_end': start + _pd.Timedelta(hours=2),
+    }]
+    text, slug = app._weekend_ics_v63('Italian Grand Prix', 'Monza', sessions)
+    assert slug == 'italian-grand-prix'
+    assert text.startswith('BEGIN:VCALENDAR')
+    assert 'BEGIN:VEVENT' in text and text.rstrip().endswith('END:VCALENDAR')
+    assert 'DTSTART:20260906T130000Z' in text
+    assert 'SUMMARY:Italian Grand Prix - Yarış' in text
+    assert app._ics_escape_v63('a, b; c\\d') == r'a\, b\; c\\d'
+
+
 def test_prefs_decode_bad_input():
     assert ui._prefs_decode("") == {}
     assert ui._prefs_decode(None) == {}

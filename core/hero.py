@@ -182,7 +182,14 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   .dash-row s{font-size:.46rem}
   .dash-ft{grid-column:2;margin:4px 0 0;padding:0;border:0;font-size:.5rem}
   .stage.play .dash,.stage.settled .dash{animation:none;opacity:1;transform:none}
-  .tag-block{bottom:11vh}
+  /* dar ekranda geri sayım kartı + başlık üst üste biniyordu: başlığı küçült,
+     alt boşluğu azalt, blok kartın altında net başlasın */
+  .tag-block{bottom:7vh;max-width:90vw}
+  .tag{font-size:2rem;line-height:.94}
+  .tag .p::after{width:2rem;bottom:-.1em}
+  .tag-sub{margin-top:.85rem;font-size:.9rem;line-height:1.42;padding-left:11px;max-width:34ch}
+  .tag-cta{margin-top:1rem;padding:.62rem 1.05rem}
+  .tag-cta2{font-size:.68rem}
 }
 @media(prefers-reduced-motion:reduce){
   .stage.play .wordmark,.stage.play .dash,.stage.play .bloom,.stage.play .tag-block,.stage.play .circuit,.bloom{animation:none!important}

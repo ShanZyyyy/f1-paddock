@@ -4933,6 +4933,271 @@ def completed_session_options(event):
     return [item for item in event_session_cards(event) if item.get('status') == 'Tamamlandı']
 
 
+# =========================================================
+# FAZ 5-C · #7 — HAFTA SONU MERKEZİ: TAM GP HUB
+# Geçen yıl aynı yarış · favori/takip pilotların bu pistteki geçmişi ·
+# geçen yılki hava · takvime ekle (.ics). Yeni ağ: yalnız geçen yıl 1
+# FastF1 yarış + 1 hava yüklemesi (6-24s önbellekli); pist geçmişi seed'den.
+# =========================================================
+
+@st.cache_data(show_spinner=False)
+def _race_to_circuit_index_v63():
+    """Kariyer seed'inden {raceName -> circuitName}; en yeni sezonun adı kazanır.
+    Ağ yok — GP adını 'bu pist' geçmişine bağlamak için."""
+    best = {}
+    for prof in _career_seed_all_v45().get('drivers', {}).values():
+        if not isinstance(prof, dict):
+            continue
+        for race in prof.get('races', []):
+            rname = str(race.get('race', '')).strip()
+            circ = str(race.get('circuit', '')).strip()
+            year = str(race.get('year', '') or '')
+            if not rname or not circ:
+                continue
+            if rname not in best or year > best[rname][0]:
+                best[rname] = (year, circ)
+    return {rname: circ for rname, (_year, circ) in best.items()}
+
+
+def _gp_circuit_name_v63(event_name):
+    return _race_to_circuit_index_v63().get(str(event_name or '').strip())
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def _last_year_race_v63(prev_year, event_name):
+    """Geçen yıl aynı GP: podyum + pole + (varsa) sprint galibi. FastF1, önbellekli."""
+    rnd = get_championship_round_v19(int(prev_year), event_name)
+    if not rnd.get('ok') or not rnd.get('race'):
+        return {'ok': False}
+
+    def _pn(pos):
+        return int(pos) if str(pos).isdigit() else 999
+
+    race = sorted(rnd['race'], key=lambda r: _pn(r['position']))
+    sprint = sorted(rnd.get('sprint', []), key=lambda r: _pn(r['position']))
+    return {
+        'ok': True, 'year': int(prev_year), 'event': str(event_name),
+        'podium': [{'code': r['code'], 'team': r['team']} for r in race[:3]],
+        'pole': next((r['code'] for r in rnd['race'] if r.get('grid') == 1), None),
+        'sprint_winner': sprint[0]['code'] if sprint else None,
+    }
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _last_year_weather_v63(prev_year, event_name):
+    """Geçen yılki yarışın havası — sadece weather yüklemesi (hafif)."""
+    try:
+        sess = fastf1.get_session(int(prev_year), event_name, 'R')
+        sess.load(laps=False, telemetry=False, weather=True, messages=False)
+    except Exception:
+        return {'ok': False}
+    weather = getattr(sess, 'weather_data', None)
+    if weather is None or getattr(weather, 'empty', True):
+        return {'ok': False}
+    air = pd.to_numeric(weather.get('AirTemp'), errors='coerce').dropna()
+    track = pd.to_numeric(weather.get('TrackTemp'), errors='coerce').dropna()
+    rain = weather.get('Rainfall')
+    rain_pct = (int(round(100 * pd.Series(rain).astype(bool).mean()))
+                if rain is not None and len(weather) else 0)
+    return {
+        'ok': True,
+        'air': round(float(air.mean()), 1) if len(air) else None,
+        'track': round(float(track.mean()), 1) if len(track) else None,
+        'rain_pct': rain_pct,
+    }
+
+
+def _gp_circuit_history_v63(codes, circuit):
+    """Verilen pilot kodları için tek pistteki kariyer özeti — disk/seed, ağ yok."""
+    if not circuit:
+        return []
+    out, seen = [], set()
+    for code in codes:
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        api = STEWARDLE_ACTIVE_API_IDS_V24.get(code, str(code).lower())
+        prof = _career_profile_from_disk(api) or _career_seed_get_v45(api, strict=False)
+        if not (isinstance(prof, dict) and prof.get('ok')):
+            continue
+        cc = _circuit_career_v41(prof, circuit)
+        row = {
+            'code': code, 'name': _DRIVER_NAME_BY_CODE.get(code, code),
+            'team': _DRIVER_TEAM_BY_CODE.get(code, ''), 'races': cc['races'],
+        }
+        if cc['races']:
+            years = sorted(cc['by_year'].items(), reverse=True)
+            _ly, _lrow = years[0]
+            _lp = str(_lrow.get('pos', ''))
+            row.update({
+                'wins': cc['wins'], 'podiums': cc['podiums'], 'poles': cc['poles'],
+                'best': cc['best'], 'avg': cc['avg'], 'dnf': cc['dnf'],
+                'last_year': _ly,
+                'last_pos': ('DNF' if _lrow.get('dnf')
+                             else f"P{_lp}" if _lp.isdigit() else '—'),
+            })
+        out.append(row)
+    return out
+
+
+def _gp_circuit_history_html(history, circuit, year_now):
+    if not history:
+        return ''
+    rows = ''
+    for h in history:
+        col = season_team_colour(h['team'], year_now) or '#8a9bb0'
+        if not h.get('races'):
+            rows += (f"<div class='gh-row' style='--c:{col}'>"
+                     f"<span class='gh-code'>{html_lib.escape(h['code'])}</span>"
+                     f"<span class='gh-none'>bu pistte kariyer yarışı yok</span></div>")
+            continue
+        tags = []
+        if h.get('wins'):
+            tags.append(f"{h['wins']}× galibiyet")
+        elif h.get('podiums'):
+            tags.append(f"{h['podiums']}× podyum")
+        if h.get('poles'):
+            tags.append(f"{h['poles']}× pole")
+        chip = (" · ".join(tags) if tags
+                else (f"en iyi P{h['best']}" if h.get('best') else "puan yok"))
+        avg = h['avg'] if h.get('avg') is not None else '—'
+        rows += (
+            f"<div class='gh-row' style='--c:{col}'>"
+            f"<span class='gh-code'>{html_lib.escape(h['code'])}</span>"
+            f"<span class='gh-stat'>{h['races']} yarış · ort. bitiş {html_lib.escape(str(avg))}</span>"
+            f"<span class='gh-tag'>{html_lib.escape(chip)}</span>"
+            f"<span class='gh-last'>{html_lib.escape(str(h['last_year']))}: "
+            f"{html_lib.escape(str(h['last_pos']))}</span></div>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .gh{{border:1px solid #26313f;border-left:3px solid #38e1d0;border-radius:12px;background:#11161f;overflow:hidden}}
+      .gh-hd{{padding:12px 15px 9px;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;
+        text-transform:uppercase;color:#8090a2}}
+      .gh-hd b{{color:#e8eef4}}
+      .gh-row{{display:grid;grid-template-columns:46px 1fr auto auto;gap:10px;align-items:center;
+        padding:9px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
+      .gh-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
+      .gh-stat{{font:600 12px 'Saira',sans-serif;color:#c4d2e0}}
+      .gh-tag{{font:700 11px 'JetBrains Mono',monospace;color:#9fb0c0;white-space:nowrap}}
+      .gh-last{{font:700 11.5px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap}}
+      .gh-none{{font:600 11.5px 'Saira',sans-serif;color:#63748a;grid-column:2/-1}}
+      @media(max-width:560px){{
+        .gh-row{{grid-template-columns:44px 1fr;row-gap:3px}}
+        .gh-tag,.gh-last{{grid-column:2;text-align:left}}
+      }}
+    </style>
+    <div class="gh">
+      <div class="gh-hd">Bu pistte — <b>{html_lib.escape(str(circuit))}</b> · favori + takip</div>
+      {rows}
+    </div>
+    """
+
+
+def _gp_circuit_history_height_v63(history):
+    return min(520, 66 + 44 * max(1, len(history or [])))
+
+
+def _ics_escape_v63(text):
+    return (str(text or '').replace('\\', '\\\\').replace(';', r'\;')
+            .replace(',', r'\,').replace('\n', r'\n'))
+
+
+def _weekend_ics_v63(event_name, location, sessions):
+    """Yaklaşan seanslar için .ics (VCALENDAR) metni — ağ yok, saf metin."""
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    slug = re.sub(r'[^a-z0-9]+', '-', str(event_name).lower()).strip('-') or 'gp'
+    lines = ['BEGIN:VCALENDAR', 'VERSION:2.0',
+             'PRODID:-//Formula Paddock//Hafta Sonu Merkezi//TR', 'CALSCALE:GREGORIAN']
+    for item in sessions:
+        start = item['time'].tz_convert('UTC')
+        end = item.get('estimated_end')
+        end = end.tz_convert('UTC') if end is not None else start + datetime.timedelta(hours=2)
+        lines += [
+            'BEGIN:VEVENT',
+            f"UID:{slug}-{item['code']}-{start.strftime('%Y%m%d')}@formulapaddock",
+            f'DTSTAMP:{stamp}',
+            f"DTSTART:{start.strftime('%Y%m%dT%H%M%SZ')}",
+            f"DTEND:{end.strftime('%Y%m%dT%H%M%SZ')}",
+            f"SUMMARY:{_ics_escape_v63(event_name + ' - ' + item['title'])}",
+            f"LOCATION:{_ics_escape_v63(location)}",
+            'END:VEVENT',
+        ]
+    lines.append('END:VCALENDAR')
+    return '\r\n'.join(lines) + '\r\n', slug
+
+
+def render_gp_hub_v63(event, event_name, sessions):
+    """#7 — seçili GP için: geçen yıl aynı yarış + hava, favori/takip pilotların
+    bu pistteki kariyer geçmişi, yaklaşan seansları takvime ekle."""
+    year_now = datetime.datetime.now(datetime.timezone.utc).year
+    prev_year = year_now - 1
+
+    upcoming = [s for s in (sessions or []) if s.get('status') in ('Yaklaşıyor', 'Canlı / sürüyor')]
+    if upcoming:
+        ics_text, slug = _weekend_ics_v63(event_name, str(event.get('Location', '')), upcoming)
+        st.download_button(
+            f"📅 Takvime ekle · {len(upcoming)} seans (.ics)", ics_text,
+            file_name=f"{slug}-{prev_year + 1}.ics", mime="text/calendar",
+            key=f"wc_ics_{slug}",
+        )
+
+    try:
+        last = _last_year_race_v63(prev_year, event_name)
+    except Exception as error:  # noqa: BLE001
+        log_data_error('gp hub last year', error)
+        last = {'ok': False}
+    if last.get('ok'):
+        weather = {}
+        try:
+            weather = _last_year_weather_v63(prev_year, event_name)
+        except Exception as error:  # noqa: BLE001
+            log_data_error('gp hub weather', error)
+        st.markdown(f"#### {prev_year} — bu yarışta ne olmuştu?")
+        pod = last['podium']
+        cols = st.columns(3)
+        for col, entry, place in zip(cols, pod, ('1.', '2.', '3.')):
+            tcol = season_team_colour(entry['team'], prev_year) or '#8a9bb0'
+            with col:
+                st.markdown(
+                    f"<div class='hud-card' style='border-left:4px solid {tcol};min-height:74px'>"
+                    f"<div class='hud-label'>PODYUM {place}</div>"
+                    f"<div style='font-size:1.2rem;font-weight:900;margin-top:6px;color:{tcol}'>"
+                    f"{html_lib.escape(entry['code'])}</div>"
+                    f"<div class='driver-meta'>{html_lib.escape(entry['team'])}</div></div>",
+                    unsafe_allow_html=True,
+                )
+        extra = []
+        if last.get('pole'):
+            extra.append(f"Pole: **{last['pole']}**")
+        if last.get('sprint_winner'):
+            extra.append(f"Sprint galibi: **{last['sprint_winner']}**")
+        if weather.get('ok'):
+            if weather.get('rain_pct', 0) >= 15:
+                extra.append(f"Yağışlı geçti (~%{weather['rain_pct']} ıslak)")
+            elif weather.get('air') is not None:
+                extra.append(f"Kuru · hava ~{weather['air']}°C, pist ~{weather['track']}°C")
+        if extra:
+            st.caption(" · ".join(extra))
+    elif prev_year >= 2018:
+        st.caption(f"{prev_year} yılında bu GP için doğrulanmış sonuç bulunamadı "
+                   "(yeni pist veya takvim değişikliği olabilir).")
+
+    circuit = _gp_circuit_name_v63(event_name)
+    fav_code = _code_for_name(st.session_state.get('favourite_driver'))
+    codes = list(dict.fromkeys(([fav_code] if fav_code else []) + _follow_list()))
+    if circuit and codes:
+        history = _gp_circuit_history_v63(codes, circuit)
+        if history:
+            st.markdown("#### Senin pilotların bu pistte")
+            render_html_hud(_gp_circuit_history_html(history, circuit, year_now),
+                            height=_gp_circuit_history_height_v63(history), scrolling=True)
+    elif not codes:
+        st.caption("Favori Paddock'tan favori/takip pilotu seç → burada onların bu pistteki "
+                   "kariyer geçmişini görürsün.")
+
+
 def render_weekend_centre():
     render_page_header(T('page.weekend.title'), T('page.weekend.sub'))
     events = get_calendar_details(2026)
@@ -4950,10 +5215,18 @@ def render_weekend_centre():
             local = item['time'].tz_convert('Europe/Istanbul').strftime('%d %b %H:%M')
             with col:
                 st.markdown(f"<div class='hud-card' style='min-height:100px'><div class='hud-label'>{html_lib.escape(item['title'])}</div><div style='font-size:1.08rem;font-weight:900;margin-top:8px'>{local}</div><div class='driver-meta' style='margin-top:7px'>{html_lib.escape(item['status'])}</div></div>", unsafe_allow_html=True)
+
+    try:
+        render_gp_hub_v63(event, selected_name, sessions)
+    except Exception as _hub_err:  # noqa: BLE001
+        log_data_error('gp hub', _hub_err)
+
     completed = completed_session_options(event)
     if not completed:
         st.info('Bu hafta sonunda henüz tamamlanan seans yok. Program yukarıda İstanbul saatine göre görünür.')
         return
+    st.markdown('---')
+    st.markdown('#### Tamamlanan seans sonuçları')
     code_map = {f"{item['title']} // {item['time'].tz_convert('Europe/Istanbul').strftime('%d %b %H:%M')}": item for item in completed}
     selected_label = st.radio('Tamamlanan seans', list(code_map), horizontal=True, key='weekend_centre_session')
     selected = code_map[selected_label]
@@ -6821,66 +7094,6 @@ def get_driver_career_stats_v28(driver_code):
         return empty
 
 
-@st.cache_data(ttl=60 * 60 * 6, show_spinner=False)
-def get_driver_deep_stats_v32(driver_code, scope="season", season="2026"):
-    """Sampiyona Merkezi pilot derin-istatistik karti icin.
-
-    scope='season' -> yalniz o sezon; 'career' -> tum kariyer + pist bazinda galibiyet.
-    Her sayi, pilotun kendi sonuc satirindan hesaplanir; kaynak yoksa verified=False.
-    """
-    code = str(driver_code or '').upper().strip()
-    api_code = STEWARDLE_ACTIVE_API_IDS_V24.get(code, '')
-    if not api_code:
-        return {'verified': False}
-    try:
-        rows = _career_verified_rows_v28(api_code)
-    except Exception as error:
-        log_data_error('driver deep stats', error)
-        return {'verified': False}
-    if not rows:
-        return {'verified': False}
-    if scope == "season":
-        rows = [(r, res) for r, res in rows if str(r.get('season', '')).strip() == str(season)]
-    if not rows:
-        return {'verified': True, 'empty': True}
-
-    wins = podiums = poles = fastest_laps = dnf = 0
-    points = 0.0
-    finishes, grids, circuit_wins = [], [], {}
-    for race, res in rows:
-        pos = _career_number_v27(res.get('position'))
-        grid = _career_number_v27(res.get('grid'))
-        status = str(res.get('status', '')).strip()
-        points += _career_float_v27(res.get('points')) or 0.0
-        if grid == 1:
-            poles += 1
-        if grid:
-            grids.append(grid)
-        is_dnf = is_dnf_status(status)
-        if is_dnf:
-            dnf += 1
-        elif pos:
-            finishes.append(pos)
-            if pos == 1:
-                wins += 1
-                circ = str((race.get('Circuit', {}) or {}).get('circuitName', '')).strip()
-                if circ:
-                    circuit_wins[circ] = circuit_wins.get(circ, 0) + 1
-            if pos in (1, 2, 3):
-                podiums += 1
-        if str((res.get('FastestLap', {}) or {}).get('rank', '')).strip() == '1':
-            fastest_laps += 1
-
-    return {
-        'verified': True, 'empty': False, 'races': len(rows), 'points': round(points, 1),
-        'wins': wins, 'podiums': podiums, 'poles': poles, 'fastest_laps': fastest_laps, 'dnf': dnf,
-        'best': min(finishes) if finishes else None,
-        'worst': max(finishes) if finishes else None,
-        'avg_grid': round(sum(grids) / len(grids), 1) if grids else None,
-        'circuit_wins': sorted(circuit_wins.items(), key=lambda pair: -pair[1])[:6],
-    }
-
-
 def _driver_titles_v33(api_code, code=''):
     """Dogrulanmis sampiyonluk sayisi: once paketli oyun veritabani, sonra sabit harita."""
     try:
@@ -7628,75 +7841,6 @@ def render_drivers_page_v33():
                     st.rerun()
 
 
-def driver_deep_stats_hud_html(name, code, team, stats, scope, colour):
-    if not stats.get('verified'):
-        return ("<div style='padding:16px;color:#9fb0c0;font-family:Saira,sans-serif'>"
-                "Bu pilot için doğrulanmış kariyer verisi şu an alınamadı.</div>")
-    if stats.get('empty'):
-        return (f"<div style='padding:16px;color:#9fb0c0;font-family:Saira,sans-serif'>"
-                f"{html_lib.escape(str(name))} icin bu sezona ait tamamlanmis yaris kaydi yok.</div>")
-
-    def cell(label, value, cls=''):
-        return (f"<div><s>{html_lib.escape(label)}</s>"
-                f"<b class='{cls}'>{html_lib.escape(str(value if value is not None else '—'))}</b></div>")
-
-    best = f"P{stats['best']}" if stats.get('best') else '—'
-    worst = f"P{stats['worst']}" if stats.get('worst') else '—'
-    scope_label = 'Bu Sezon' if scope == 'season' else 'Kariyer'
-    grid = [
-        cell(f"{scope_label} Puan", stats['points']),
-        cell("Galibiyet", stats['wins'], 'g'),
-        cell("Podyum", stats['podiums']),
-        cell("Pole (grid P1)", stats['poles']),
-        cell("Yarış Dışı (DNF)", stats['dnf'], 'r'),
-        cell("En İyi Bitiş", best),
-        cell("En Kotu Bitis", worst),
-        cell("Ort. Grid", stats['avg_grid']),
-    ]
-    circ_rows = ''
-    if scope == 'career' and stats.get('circuit_wins'):
-        top = stats['circuit_wins'][0][1] or 1
-        for circ, n in stats['circuit_wins']:
-            pct = round(n / top * 100)
-            circ_rows += (f"<div class='cr'><span class='cn'>{html_lib.escape(circ)}</span>"
-                          f"<span class='bar'><i style='width:{pct}%'></i></span>"
-                          f"<span class='cw'>×{n}</span></div>")
-        circ_rows = f"<div class='circ'><h4>Pist Bazinda Galibiyet (kariyer)</h4>{circ_rows}</div>"
-
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ds{{border:1px solid #26313f;border-radius:6px;background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
-      .dh{{display:flex;align-items:center;gap:14px;padding:15px 18px;border-bottom:1px solid #26313f;border-left:4px solid {colour}}}
-      .dh .c{{font-family:'Antonio','Saira Condensed',sans-serif;font-weight:700;font-size:32px;color:{colour};line-height:1}}
-      .dh .w{{flex:1}}
-      .dh .w b{{font:700 18px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-      .dh .w span{{display:block;font-size:11px;color:#9fb0c0;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}}
-      .g{{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1b2330}}
-      .g > div{{background:#11161f;padding:12px 15px}}
-      .g s{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
-      .g b{{display:block;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:19px;margin-top:6px}}
-      .g b.g{{color:#38e1d0}} .g b.r{{color:#e10600}}
-      .circ{{padding:13px 18px}}
-      .circ h4{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#63748a;margin-bottom:9px}}
-      .cr{{display:grid;grid-template-columns:130px 1fr 40px;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1b2330}}
-      .cr:last-child{{border-bottom:0}}
-      .cr .cn{{font:600 12px 'Saira',sans-serif;color:#9fb0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .cr .bar{{height:6px;background:#07090d;border-radius:99px;overflow:hidden}}
-      .cr .bar i{{display:block;height:100%;background:{colour}}}
-      .cr .cw{{font:700 12px 'JetBrains Mono',monospace;text-align:right}}
-      @media(max-width:440px){{.g{{grid-template-columns:repeat(2,1fr)}}.cr{{grid-template-columns:96px 1fr 34px}}}}
-    </style>
-    <div class="ds">
-      <div class="dh"><span class="c">{html_lib.escape(str(code))}</span>
-        <span class="w"><b>{html_lib.escape(str(name))}</b><span>{html_lib.escape(str(team))} · {stats['races']} yaris</span></span>
-      </div>
-      <div class="g">{''.join(grid)}</div>
-      {circ_rows}
-    </div>
-    """
-
-
 def _career_panel_v28(info, stats, colour):
     code = str(info.get('code', '')).upper()
     portrait = current_driver_portrait(info.get('team', ''), info.get('image', ''))
@@ -8089,9 +8233,21 @@ def _prediction_target_gp_v55(year):
     return None
 
 
-def _score_prediction_v55(pred, race_entries):
+def _gp_has_sprint_v63(year, event_name):
+    """Seçili GP sprint hafta sonu mu? (FastF1 takvim 'EventFormat')."""
+    try:
+        for event in get_calendar_details(int(year)) or []:
+            if str(event.get('EventName', '')).strip() == str(event_name).strip():
+                return 'sprint' in str(event.get('EventFormat', '')).lower()
+    except Exception:
+        pass
+    return False
+
+
+def _score_prediction_v55(pred, race_entries, sprint_entries=None):
     """Saf skorlayıcı. race_entries: get_championship_round_v19 'race' listesi
-    (her biri code/position/grid). Pole = grid==1. Dönüş: {points, detail, ...}."""
+    (her biri code/position/grid). Pole = grid==1. ``sprint_entries`` verilirse
+    ve tahminde ``sw`` (sprint galibi) varsa +3. Dönüş: {points, detail, ...}."""
     if not pred or not race_entries:
         return None
     by_pos, pole_code = {}, None
@@ -8115,8 +8271,16 @@ def _score_prediction_v55(pred, race_entries):
         else:
             points += 3
             detail.append((f'{code} podyumda', 3))
+    sprint_winner = None
+    if sprint_entries:
+        sprint_winner = next((e['code'] for e in sprint_entries
+                              if str(e.get('position')) == '1'), None)
+        if pred.get('sw') and pred['sw'] == sprint_winner:
+            points += 3
+            detail.append(('Sprint galibi doğru', 3))
     return {'points': points, 'detail': detail,
-            'actual_pole': pole_code, 'actual_podium': actual_podium}
+            'actual_pole': pole_code, 'actual_podium': actual_podium,
+            'actual_sprint': sprint_winner}
 
 
 def _prediction_maybe_score_v55(year):
@@ -8132,20 +8296,95 @@ def _prediction_maybe_score_v55(year):
     rnd = get_championship_round_v19(year, gp)
     if not rnd.get('ok') or not rnd.get('race'):
         return None
-    scored = _score_prediction_v55(pred, rnd['race'])
+    scored = _score_prediction_v55(pred, rnd['race'], rnd.get('sprint'))
     if scored is None:
         return None
     fp_ui.set_pref('ps', int(fp_ui.get_pref('ps') or 0) + scored['points'])
     fp_ui.set_pref('pn', int(fp_ui.get_pref('pn') or 0) + 1)
-    # plog URL'de (`?fp=`) taşındığı için kompakt tut: sadece GP + puan, son 12.
+    # plog URL'de (`?fp=`) taşındığı için kompakt tut: GP + puan + pole/tam
+    # sayaçları (rozetler için), son 12.
     log = [r for r in (fp_ui.get_pref('plog') or []) if isinstance(r, dict) and r.get('g')]
-    log.append({'g': gp, 'p': scored['points']})
+    log.append({
+        'g': gp, 'p': scored['points'],
+        'pl': 1 if any(t == 'Pole doğru' for t, _ in scored['detail']) else 0,
+        'ex': sum(1 for t, _ in scored['detail'] if t.endswith(' tam')),
+    })
     fp_ui.set_pref('plog', log[-12:])
     fp_ui.set_pref('pc', None)
     scored['gp'] = gp
     scored['pred'] = pred
     st.session_state['_pred_just_scored'] = scored
     return scored
+
+
+# --- FAZ 5-C · #8 — rozetler + sprint tahmini + çapraz bildirim ---
+_PRED_BADGES_V63 = [
+    ('🎯', 'İlk isabet', 'Bir yarıştan puan çıkardın',
+     lambda log, ps, pn: any(r.get('p', 0) > 0 for r in log)),
+    ('🏁', 'Pole avcısı', 'Üç kez pole pozisyonunu tam bildin',
+     lambda log, ps, pn: sum(r.get('pl', 0) for r in log) >= 3),
+    ('💎', 'Keskin nişancı', 'Bir yarışta bir podyum yerini tam bildin',
+     lambda log, ps, pn: any(r.get('ex', 0) >= 1 for r in log)),
+    ('👑', 'Kusursuz hafta sonu', 'Bir yarışta pole + üç podyum yeri tam',
+     lambda log, ps, pn: any(r.get('pl', 0) and r.get('ex', 0) >= 3 for r in log)),
+    ('🔥', 'Seri x3', 'Üst üste üç yarıştan puan',
+     lambda log, ps, pn: _pred_streak_v63(log) >= 3),
+    ('📈', 'Yarım yüz', 'Sezon puanın 50+',
+     lambda log, ps, pn: ps >= 50),
+]
+
+
+def _pred_streak_v63(log):
+    best = cur = 0
+    for r in log:
+        cur = cur + 1 if r.get('p', 0) > 0 else 0
+        best = max(best, cur)
+    return best
+
+
+def _prediction_badges_v63(plog, season_pts, season_n):
+    log = [r for r in (plog or []) if isinstance(r, dict) and r.get('g')]
+    return [{'icon': ic, 'name': nm, 'desc': ds, 'got': bool(fn(log, season_pts, season_n))}
+            for ic, nm, ds, fn in _PRED_BADGES_V63]
+
+
+def _prediction_badges_html(badges):
+    got = [b for b in badges if b['got']]
+    cells = ''.join(
+        f"<div class='pb {'on' if b['got'] else 'off'}' title='{html_lib.escape(b['desc'])}'>"
+        f"<span class='pb-i'>{b['icon']}</span>"
+        f"<span class='pb-n'>{html_lib.escape(b['name'])}</span></div>"
+        for b in badges
+    )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .pbwrap{{border:1px solid #26313f;border-left:3px solid #f7c948;border-radius:12px;background:#11161f;padding:13px 15px}}
+      .pb-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;
+        color:#8090a2;margin-bottom:10px}}
+      .pb-hd b{{color:#e8eef4}}
+      .pb-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}}
+      .pb{{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #232d3b;border-radius:8px;background:#0e131b}}
+      .pb.off{{opacity:.34;filter:grayscale(1)}}
+      .pb-i{{font-size:17px;line-height:1}}
+      .pb-n{{font:700 11px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.03em;color:#dbe4ee}}
+    </style>
+    <div class="pbwrap">
+      <div class="pb-hd">Rozetler <b>{len(got)}/{len(badges)}</b></div>
+      <div class="pb-grid">{cells}</div>
+    </div>
+    """
+
+
+def _prediction_scored_toast_v63(year):
+    """Herhangi bir sayfada: bekleyen tahmin puanlandıysa toast göster (bir kez)."""
+    if st.session_state.get('_pred_toast_shown'):
+        return
+    scored = st.session_state.get('_pred_just_scored') or _prediction_maybe_score_v55(year)
+    if scored:
+        st.session_state['_pred_toast_shown'] = True
+        st.toast(f"🎯 {scored['gp']} tahminin puanlandı: +{scored['points']} puan "
+                 "— Hafta Sonu Tahmini'nde detaylar.")
 
 
 def _prediction_history_html(plog):
@@ -8189,9 +8428,11 @@ def render_prediction_game_v55():
     render_season_status_v46(year, compact=True)
     scored = st.session_state.get('_pred_just_scored') or _prediction_maybe_score_v55(year)
 
+    st.session_state['_pred_toast_shown'] = True  # sayfa zaten sonucu gösteriyor
+
     _season_pts = int(fp_ui.get_pref('ps') or 0)
     _season_n = int(fp_ui.get_pref('pn') or 0)
-    _acc = round(_season_pts / (_season_n * _PRED_MAX) * 100) if _season_n else 0
+    _acc = min(100, round(_season_pts / (_season_n * _PRED_MAX) * 100)) if _season_n else 0
     _next_days = _latest_completed_race_v43(year).get('next_in_days')
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Sezon puanı", _season_pts)
@@ -8203,11 +8444,13 @@ def render_prediction_game_v55():
         _ap = " · ".join(f"{i + 1}. {c or '—'}" for i, c in enumerate(scored['actual_podium']))
         _lines = "".join(f"<li>{html_lib.escape(t)} <b>+{p}</b></li>" for t, p in scored['detail']) \
             or "<li>Bu yarıştan puan çıkmadı.</li>"
+        _sprint_line = (f" · Sprint galibi: <b>{html_lib.escape(scored['actual_sprint'])}</b>"
+                        if scored.get('actual_sprint') else "")
         st.markdown(
             f"<div class='hud-card' style='border-left:4px solid #f7c948'>"
             f"<div class='hud-label'>{html_lib.escape(scored['gp'])} SONUCU · +{scored['points']} PUAN</div>"
             f"<div class='history-copy' style='margin-top:6px'>Gerçek pole: <b>{html_lib.escape(scored['actual_pole'] or '—')}</b>"
-            f" · Podyum: {html_lib.escape(_ap)}</div>"
+            f" · Podyum: {html_lib.escape(_ap)}{_sprint_line}</div>"
             f"<ul style='margin:8px 0 0 1.1rem;font-size:.9rem;line-height:1.6'>{_lines}</ul></div>",
             unsafe_allow_html=True,
         )
@@ -8225,29 +8468,35 @@ def render_prediction_game_v55():
     _fmt = lambda c: f"{_DRIVER_NAME_BY_CODE.get(c, c)} · {_DRIVER_TEAM_BY_CODE.get(c, '')}"
     _cur = fp_ui.get_pref('pc') if isinstance(fp_ui.get_pref('pc'), dict) else {}
     _locked = _cur.get('g') == target
+    _is_sprint = _gp_has_sprint_v63(year, target)
 
-    fp_ui.section_title(f"{target} — tahminin")
+    fp_ui.section_title(f"{target} — tahminin"
+                        + (" · SPRINT HAFTA SONU" if _is_sprint else ""))
     if _locked:
         _pp = _cur.get('po') or []
+        _sw_line = (f" · Sprint galibi: <b>{html_lib.escape(_cur.get('sw') or '—')}</b>"
+                    if _is_sprint else "")
         st.markdown(
             f"<div class='hud-card' style='border-left:4px solid #7fe0a6'>"
             f"<div class='hud-label'>KAYITLI TAHMİN</div>"
             f"<div class='history-copy' style='margin-top:6px'>Pole: <b>{html_lib.escape(_cur.get('pl') or '—')}</b>"
-            f" · Podyum: {html_lib.escape(' · '.join(f'{i+1}. {c}' for i, c in enumerate(_pp)))}</div></div>",
+            f" · Podyum: {html_lib.escape(' · '.join(f'{i+1}. {c}' for i, c in enumerate(_pp)))}{_sw_line}</div></div>",
             unsafe_allow_html=True,
         )
         if st.button("Tahmini değiştir", key="pred_edit_v55"):
             fp_ui.set_pref('pc', None)
             st.rerun()
-        _phist = _prediction_history_html(fp_ui.get_pref('plog'))
-        if _phist:
-            st.write("")
-            render_html_hud(_phist, height=210, scrolling=True)
+        _pred_history_and_badges_v63()
         return
 
     _pole = st.selectbox("Pole pozisyonu", _codes, format_func=_fmt,
                          index=_codes.index(_cur['pl']) if _cur.get('pl') in _codes else 0,
                          key="pred_pole_v55")
+    _sw = None
+    if _is_sprint:
+        _sw = st.selectbox("Sprint galibi (+3 puan)", _codes, format_func=_fmt,
+                           index=_codes.index(_cur['sw']) if _cur.get('sw') in _codes else 0,
+                           key="pred_sw_v55")
     c1, c2, c3 = st.columns(3)
     _p1 = c1.selectbox("Podyum P1", _codes, format_func=_fmt, key="pred_p1_v55",
                        index=_codes.index((_cur.get('po') or [None])[0]) if (_cur.get('po') or [None])[0] in _codes else 0)
@@ -8258,14 +8507,28 @@ def render_prediction_game_v55():
     if len({_p1, _p2, _p3}) < 3:
         st.warning("Podyum için üç farklı pilot seç.")
     elif st.button("Tahmini kaydet", type="primary", key="pred_save_v55"):
-        fp_ui.set_pref('pc', {'g': target, 'pl': _pole, 'po': [_p1, _p2, _p3]})
+        _payload = {'g': target, 'pl': _pole, 'po': [_p1, _p2, _p3]}
+        if _sw:
+            _payload['sw'] = _sw
+        fp_ui.set_pref('pc', _payload)
         st.toast("Tahminin kaydedildi — yarıştan sonra puanlanır.")
         st.rerun()
 
-    _phist = _prediction_history_html(fp_ui.get_pref('plog'))
+    _pred_history_and_badges_v63()
+
+
+def _pred_history_and_badges_v63():
+    _plog = fp_ui.get_pref('plog')
+    _phist = _prediction_history_html(_plog)
     if _phist:
         st.write("")
         render_html_hud(_phist, height=210, scrolling=True)
+    _badges = _prediction_badges_v63(_plog, int(fp_ui.get_pref('ps') or 0),
+                                     int(fp_ui.get_pref('pn') or 0))
+    if any(b['got'] for b in _badges):
+        st.write("")
+        render_html_hud(_prediction_badges_html(_badges),
+                        height=90 + 46 * ((len(_badges) + 2) // 3), scrolling=True)
 
 
 def _game_shell(title, subtitle="", colour="#e10600"):
@@ -9353,6 +9616,11 @@ def _router_page_home():
         log_data_error('home race banner', _rr_err)
 
     try:
+        _prediction_scored_toast_v63(datetime.datetime.now(datetime.timezone.utc).year)
+    except Exception as _pt_err:  # noqa: BLE001
+        log_data_error('home prediction toast', _pt_err)
+
+    try:
         _return_strip_v52()
     except Exception as _return_err:  # noqa: BLE001
         log_data_error('home return strip', _return_err)
@@ -9519,43 +9787,6 @@ def _router_page_live():
         st.caption("2D yarış tekrarı hazırlanıyor — ilk açılışta 5 adımlık rehberli tur seni gezdirecek.")
     else:
         timing_tab, replay_tab = st.tabs(["Seans Sonuçları", "Yarış Tekrarı"])
-    if False:  # Alpha: doğrulanmış canlı konum altyapısı tamamlanana kadar gizli.
-        token, openf1_username, openf1_password = get_openf1_access_v19()
-        refresh_live = st.button("🔄 Açık canlı veri paketini yenile", key='refresh_live_v19')
-        if refresh_live:
-            get_openf1_live_snapshot_v19.clear()
-
-        auto_live = st.toggle(
-            "Canlı paket gelirse otomatik yenile",
-            value=False,
-            key='auto_live_v19',
-            disabled=not bool(token),
-            help="Bu seçenek yalnızca tokenli gerçek zaman paketi varsa 20 saniyede bir HUD'u yeniler. Token yokken tamamlanmış veriyi canlı diye göstermemek için kapalıdır.",
-        )
-
-        def render_live_v19():
-            snapshot = get_openf1_live_snapshot_v19(token, openf1_username, openf1_password)
-            render_html_hud(live_race_hud_html_v19(snapshot), height=690, scrolling=True)
-            if not snapshot.get('ok'):
-                st.info(
-                    "Şu an doğrulanmış canlı konum paketi yok. Bu normaldir: seans dışında veya açık veri erişimi yokken "
-                    "site sahte araç hareketi çizmez. Tamamlanan yarışlar hemen yanındaki Yarış Tekrarı sekmesinden tam 2D HUD ile izlenebilir."
-                )
-            elif not snapshot.get('authenticated'):
-                st.caption("Paket anonim açık veri erişiminden geldi. Sağlayıcı limiti değişirse bu alan yalnızca bekleme durumu gösterebilir.")
-
-        if auto_live and hasattr(st, 'fragment'):
-            @st.fragment(run_every="20s")
-            def live_race_fragment_v19():
-                render_live_v19()
-            live_race_fragment_v19()
-        else:
-            render_live_v19()
-
-        st.caption(
-            "Canlı HUD: konum, tur, fark, lastik, pit, hava ve Türkçe Race Control notları aynı açık veri paketinden gelir. "
-            "ERS yüzdesi, fren/lastik sıcaklığı veya gerçek Overtake Mode telemetrisi açık veri yoksa gösterilmez."
-        )
     with timing_tab:
         timing_now = datetime.datetime.now(datetime.timezone.utc)
         session_is_future = target_s_time > timing_now
