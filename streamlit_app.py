@@ -1792,15 +1792,16 @@ def weekend_overview_hud(event, sessions):
     """
 
 
-def championship_snapshot_hud(driver_standings, constructor_standings, rounds):
+def championship_snapshot_hud(driver_standings, constructor_standings, rounds, year=None):
     """Puan Merkezi açıldığında önce görünen hızlı sezon özeti."""
     if driver_standings.empty or constructor_standings.empty:
         return ''
+    _tc = (lambda name: season_team_colour(name, year)) if year else team_colour
     driver = driver_standings.iloc[0]
     team = constructor_standings.iloc[0]
     driver_team = str(driver.get('Takım', ''))
-    dc = team_colour(driver_team)
-    tc = team_colour(str(team.get('Takım', '')))
+    dc = _tc(driver_team)
+    tc = _tc(str(team.get('Takım', '')))
     d_name = html_lib.escape(str(driver.get('Pilot', '—')))
     d_pts = html_lib.escape(str(driver.get('Puan', '—')))
     t_name = html_lib.escape(str(team.get('Takım', '—')))
@@ -1813,6 +1814,12 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds):
     except (TypeError, ValueError):
         gap = ''
     remaining = max(0, 24 - len(rounds))
+    _is_past = bool(year) and int(year) < datetime.datetime.now(datetime.timezone.utc).year
+    third_card = (
+        f"<div class='ss-c' style='--a:#f5c33b'><s>Sezon</s><b>{html_lib.escape(str(year))}</b><i>{len(rounds)} yarış tamamlandı</i></div>"
+        if _is_past else
+        f"<div class='ss-c' style='--a:#f5c33b'><s>Kalan Yarış</s><b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>"
+    )
     return f"""
     <style>
       body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
@@ -1830,9 +1837,9 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds):
       @media(max-width:430px){{.ss{{grid-template-columns:1fr}}.ss-c{{min-height:0}}}}
     </style>
     <div class='ss'>
-      <div class='ss-c' style='--a:{dc}'><s>Pilot Lideri</s><b>{d_name}</b><i>{d_pts} P · {html_lib.escape(driver_team)}</i></div>
-      <div class='ss-c' style='--a:{tc}'><s>Takım Lideri</s><b>{t_name}</b><i>{t_pts} P{(' · ' + gap) if gap else ''}</i></div>
-      <div class='ss-c' style='--a:#f5c33b'><s>Kalan Yarış</s><b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>
+      <div class='ss-c' style='--a:{dc}'><s>{'Dünya Şampiyonu' if _is_past else 'Pilot Lideri'}</s><b>{d_name}</b><i>{d_pts} P · {html_lib.escape(driver_team)}</i></div>
+      <div class='ss-c' style='--a:{tc}'><s>{'Yapımcılar Şampiyonu' if _is_past else 'Takım Lideri'}</s><b>{t_name}</b><i>{t_pts} P{(' · ' + gap) if gap else ''}</i></div>
+      {third_card}
     </div>
     """
 
@@ -6465,14 +6472,18 @@ def _router_page_teams():
 
 def _router_page_standings():
     fp_ui.page_header(T("page.standings.title"), T("page.standings.sub"), eyebrow=T("section.champ"))
+
+    _cur_year = datetime.datetime.now(datetime.timezone.utc).year
+    champ_year = st.selectbox(
+        "Sezon", list(range(_cur_year, 2017, -1)), index=0, key="standings_year_pick",
+        help="Geçmiş sezonlar da tamamlanmış yarış sonuçlarından hesaplanır; ilk açılış bir sezonun tüm yarışlarını çektiği için sürebilir, sonrası önbellekten gelir.",
+    )
     fp_ui.data_state(
         "Sezon Verisi",
-        "2026 sonuçları doğrulanmış FastF1 paketinden otomatik hazırlanır. İlk açılış kısa sürebilir; sonrası yerel önbellekten gelir.",
+        f"{champ_year} şampiyona tablosu, tamamlanmış yarış ve sprint sonuçlarından (FastF1) otomatik hesaplanır. "
+        "İlk açılış kısa sürebilir; sonrası yerel önbellekten gelir.",
         "info",
     )
-    load_key = 'championship_data_ready_2026'
-    if not st.session_state.get(load_key, False):
-        st.session_state[load_key] = True
     st.caption("Puan tablosu saatlik önbellekten otomatik güncellenir; elle yenileme gerekmez.")
 
     driver_standings = pd.DataFrame()
@@ -6480,18 +6491,17 @@ def _router_page_standings():
     result_matrix = pd.DataFrame()
     points_matrix = pd.DataFrame()
     completed_rounds = []
-    if st.session_state.get(load_key, False):
-        try:
-            with st.spinner("Sonuç tabloları hazırlanıyor..."):
-                driver_standings, constructor_standings, result_matrix, points_matrix, completed_rounds = get_championship_data_stable(2026)
-        except Exception:
-            st.warning("Puan verisi şu an alınamadı. Ana sayfa ve diğer bölümler çalışmaya devam eder; daha sonra tekrar deneyebilirsin.")
+    try:
+        with st.spinner(f"{champ_year} sonuç tabloları hazırlanıyor..."):
+            driver_standings, constructor_standings, result_matrix, points_matrix, completed_rounds = get_championship_data_stable(champ_year)
+    except Exception:
+        st.warning("Puan verisi şu an alınamadı. Ana sayfa ve diğer bölümler çalışmaya devam eder; daha sonra tekrar deneyebilirsin.")
 
-    if st.session_state.get(load_key, False) and driver_standings.empty:
-        st.info("Tamamlanmış yarışların doğrulanmış sonuçları henüz alınamadı.")
-    elif not driver_standings.empty:
+    if driver_standings.empty:
+        st.info(f"{champ_year} için tamamlanmış yarışların doğrulanmış sonuçları henüz alınamadı.")
+    else:
         render_html_hud(
-            championship_snapshot_hud(driver_standings, constructor_standings, completed_rounds),
+            championship_snapshot_hud(driver_standings, constructor_standings, completed_rounds, champ_year),
             height=160,
             scrolling=False,
         )
@@ -6538,7 +6548,7 @@ def _router_page_standings():
             _scope_label = _sc2.radio("Kapsam", ["Bu Sezon", "Kariyer"], horizontal=True, key="champ_stat_scope")
             _scope = "career" if _scope_label == "Kariyer" else "season"
             _info = directory_driver_by_code(_pick)
-            _dstats = get_driver_deep_stats_v32(_pick, _scope, "2026")
+            _dstats = get_driver_deep_stats_v32(_pick, _scope, str(champ_year))
             _dcol = team_colour(_team_of.get(_pick) or _info.get('team') or '')
             _rows_n = len(_dstats.get('circuit_wins', [])) if _scope == 'career' else 0
             render_html_hud(
