@@ -560,6 +560,56 @@ def how_to_read(bullets, legend=None, *, label="Bu ekran nasıl okunur?", expand
         )
 
 
+def how_to_hud(sections, *, title="Bu ekran nasıl okunur?", legend=None, note=None):
+    """Her zaman görünür, HUD kartı biçiminde açıklayıcı panel.
+
+    ``how_to_read`` katlanır bir expander'dır; bu ise ekranın hemen üstünde
+    duran, kalıcı bir rehber kartıdır — yeni izleyici veriyi ilk bakışta
+    çözebilsin diye.
+
+    ``sections``: (etiket, açıklama) çiftleri.
+    ``legend``:   isteğe bağlı [(renk_hex, etiket), ...] renk şeridi.
+    ``note``:     isteğe bağlı alt not (tek cümle).
+    """
+    rows = "".join(
+        f"<div class='fp-hth-row'><span class='fp-hth-k'>{_esc(k)}</span>"
+        f"<span class='fp-hth-v'>{_esc(v)}</span></div>"
+        for k, v in sections
+    )
+    legend_html = ""
+    if legend:
+        chips = "".join(
+            f"<span class='fp-hth-chip'><i style='background:{c}'></i>{_esc(t)}</span>"
+            for c, t in legend
+        )
+        legend_html = f"<div class='fp-hth-legend'>{chips}</div>"
+    note_html = f"<div class='fp-hth-note'>{_esc(note)}</div>" if note else ""
+    st.markdown(
+        "<style>"
+        ".fp-hth{border:1px solid var(--fp-line);border-left:3px solid var(--fp-cyan);"
+        "border-radius:8px;background:var(--fp-bg-2);margin:2px 0 14px;overflow:hidden}"
+        ".fp-hth-hd{font:700 10px var(--fp-f-mono);letter-spacing:.16em;text-transform:uppercase;"
+        "color:var(--fp-cyan);padding:11px 15px 9px;display:flex;align-items:center;gap:8px}"
+        ".fp-hth-body{padding:0 15px 13px}"
+        ".fp-hth-row{display:grid;grid-template-columns:132px 1fr;gap:12px;padding:6px 0;"
+        "border-top:1px solid var(--fp-line-soft,rgba(255,255,255,.05));font-size:12.5px;line-height:1.5}"
+        ".fp-hth-row:first-child{border-top:0}"
+        ".fp-hth-k{font:700 10px var(--fp-f-mono);letter-spacing:.06em;text-transform:uppercase;"
+        "color:var(--fp-text-mute);padding-top:2px}"
+        ".fp-hth-v{color:var(--fp-text-dim)}"
+        ".fp-hth-legend{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:11px}"
+        ".fp-hth-chip{display:inline-flex;align-items:center;gap:.35rem;font:600 10px var(--fp-f-mono);"
+        "letter-spacing:.03em;color:var(--fp-text-dim);border:1px solid var(--fp-line);border-radius:99px;padding:.24rem .55rem}"
+        ".fp-hth-chip i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}"
+        ".fp-hth-note{margin-top:10px;font-size:11.5px;color:var(--fp-text-mute);font-style:italic}"
+        "@media(max-width:560px){.fp-hth-row{grid-template-columns:1fr;gap:1px}}"
+        "</style>"
+        f"<div class='fp-hth'><div class='fp-hth-hd'>❔ {_esc(title)}</div>"
+        f"<div class='fp-hth-body'>{rows}{legend_html}{note_html}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def result_hero(event, session_label, winner_name, team, gap_text, runners=None):
     """Yaris bitince: kim, hangi takim, kac saniye farkla kazandi.
 

@@ -8,6 +8,7 @@ venv/
 # Streamlit / FastF1 runtime
 cache/
 assets/
+data/career_cache/
 .streamlit/secrets.toml
 
 # OS / editor

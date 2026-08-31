@@ -5438,19 +5438,75 @@ def _driver_titles_v33(api_code, code=''):
     return CAREER_TITLES_V27.get(str(code or '').upper().strip(), 0)
 
 
-def get_driver_full_profile_v33(api_code):
-    """Pilotlar sayfasi icin tam profil. Aktarim hatasi ONBELLEGE ALINMAZ:
-    ham hesap istisna firlatir (Streamlit istisnayi cache'lemez), gecici ag
-    sorunu pilotu 12 saat 'veri yok' durumunda birakmaz."""
+_CAREER_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'career_cache')
+
+
+def _career_cache_file(api_code):
+    safe = re.sub(r'[^a-z0-9]+', '_', str(api_code or '').lower()).strip('_') or 'x'
+    return os.path.join(_CAREER_CACHE_DIR, safe + '.json')
+
+
+def _career_disk_ttl(api_code):
+    """Emekli pilotun kariyeri değişmez -> uzun; aktif pilot -> 12 saat."""
+    try:
+        latest = _career_number_v27(_stewarlde_row_by_api_v33(api_code).get('latest_season'))
+        current = datetime.datetime.now(datetime.timezone.utc).year
+        if latest and latest < current - 1:
+            return 60 * 60 * 24 * 45
+    except Exception:
+        pass
+    return 60 * 60 * 12
+
+
+def _career_profile_from_disk(api_code):
+    """Diskteki hazır profil (ağ yok). TTL aşılmışsa None döner."""
+    try:
+        with open(_career_cache_file(api_code), encoding='utf-8') as handle:
+            payload = json.load(handle)
+        if time.time() - float(payload.get('saved', 0)) > _career_disk_ttl(api_code):
+            return None
+        profile = payload.get('profile')
+        if isinstance(profile, dict) and profile.get('ok'):
+            return profile
+    except (OSError, ValueError, TypeError):
+        pass
+    return None
+
+
+def _career_profile_to_disk(api_code, profile):
+    if not (isinstance(profile, dict) and profile.get('ok')):
+        return
+    try:
+        os.makedirs(_CAREER_CACHE_DIR, exist_ok=True)
+        target = _career_cache_file(api_code)
+        tmp = f"{target}.{os.getpid()}.tmp"
+        with open(tmp, 'w', encoding='utf-8') as handle:
+            json.dump({'saved': time.time(), 'api': str(api_code), 'profile': profile},
+                      handle, ensure_ascii=False)
+        os.replace(tmp, target)
+    except OSError as error:
+        log_data_error('career cache write', error)
+
+
+def get_driver_full_profile_v33(api_code, allow_network=True):
+    """Pilotlar sayfasi icin tam profil. Once disk onbellegi (aninda), sonra
+    12 saatlik bellek onbellegi, en son ag. Aktarim hatasi ONBELLEGE ALINMAZ."""
     if not api_code:
         return {'ok': False}
+    disk = _career_profile_from_disk(api_code)
+    if disk is not None:
+        return disk
+    if not allow_network:
+        return None
     try:
-        return _driver_full_profile_raw_v33(api_code)
+        profile = _driver_full_profile_raw_v33(api_code)
     except LookupError:
         return {'ok': False, 'empty': True}
     except Exception as error:
         log_data_error('driver full profile', error)
         return {'ok': False}
+    _career_profile_to_disk(api_code, profile)
+    return profile
 
 
 @st.cache_data(ttl=60 * 60 * 12, show_spinner=False)
@@ -5736,60 +5792,213 @@ def driver_seasons_hud_html(seasons, colour):
     """
 
 
+def driver_races_hud_height(races):
+    """driver_races_hud_html için component yüksekliği (özet bandı + kartlar)."""
+    return min(1860, 132 + 66 * max(1, len(races or [])))
+
+
 def driver_races_hud_html(races, colour):
-    """Bir sezonun yaris-yaris sonuclari -> TV timing ekrani."""
+    """Bir sezonun yarış-yarış sonuçları — sezon özeti bandı + okunur yarış kartları."""
     if not races:
-        return ''
-    rows = ''
+        return ("<div style='font-family:Saira,system-ui,sans-serif;color:#8a9bb0;"
+                "padding:22px;text-align:center'>Bu sezon için doğrulanmış yarış kaydı yok.</div>")
+
+    def _p(r):
+        t = str(r.get('pos', '')).strip()
+        return int(t) if t.isdigit() else None
+
+    wins = sum(1 for r in races if _p(r) == 1)
+    podiums = sum(1 for r in races if _p(r) in (1, 2, 3))
+    points_races = sum(1 for r in races if (r.get('points') or 0) > 0)
+    dnfs = sum(1 for r in races if r.get('dnf'))
+    total_pts = sum(float(r.get('points') or 0) for r in races)
+    finishes = [p for p in (_p(r) for r in races) if p]
+    best = min(finishes) if finishes else None
+
+    summary_cells = "".join(
+        f"<div><s>{lbl}</s><b style='color:{col}'>{val}</b></div>"
+        for lbl, val, col in [
+            ("Yarış", len(races), "#e8eef4"),
+            ("Puan", _num_v33(total_pts), colour),
+            ("Galibiyet", wins, "#ffd100" if wins else "#e8eef4"),
+            ("Podyum", podiums, "#38e1d0" if podiums else "#e8eef4"),
+            ("Puan biten", points_races, "#e8eef4"),
+            ("Yarış dışı", dnfs, "#ff5f6d" if dnfs else "#e8eef4"),
+            ("En iyi", f"P{best}" if best else "—", "#e8eef4"),
+        ]
+    )
+
+    cards = ""
     for r in races:
         grid = r.get('grid') or 0
-        pos_text = str(r.get('pos', '—'))
+        pos_text = str(r.get('pos', '—')).strip()
         bg, fg, label = _pos_chip_v33(pos_text, r.get('dnf'))
-        delta = "<em class='eq'>·</em>"
+        move = "<span class='mv eq'>grid —</span>"
         if grid and pos_text.isdigit():
             d = grid - int(pos_text)
-            if d > 0:
-                delta = f"<em class='up'>▲{d}</em>"
-            elif d < 0:
-                delta = f"<em class='dn'>▼{-d}</em>"
-            else:
-                delta = "<em class='eq'>=</em>"
-        rows += (
-            "<div class='row'>"
-            f"<span class='rd'>{r.get('round') or '—'}</span>"
-            f"<span class='rc'>{html_lib.escape(str(r.get('race', '')))}</span>"
-            f"<span class='gr'>{grid or '—'}</span>"
+            arrow = (f"<em class='up'>▲{d}</em>" if d > 0
+                     else f"<em class='dn'>▼{-d}</em>" if d < 0
+                     else "<em class='eq'>±0</em>")
+            move = f"<span class='mv'>P{grid} <i>→</i> P{pos_text} {arrow}</span>"
+        elif grid:
+            move = f"<span class='mv'>grid P{grid}</span>"
+        status = str(r.get('status', '') or '').strip()
+        status_html = (f"<span class='st'>{html_lib.escape(status)}</span>"
+                       if status and status.lower() not in ('finished', 'bitti') else "")
+        pts = r.get('points') or 0
+        pts_html = (f"<span class='pt'>{_num_v33(pts)}<i>PUAN</i></span>" if pts
+                    else "" if r.get('dnf') else "<span class='pt zero'>0</span>")
+        cards += (
+            f"<div class='card' style='--tier:{fg}'>"
+            f"<span class='rnd'>{r.get('round') or '—'}</span>"
+            f"<span class='mid'><b>{html_lib.escape(str(r.get('race', '')))}</b>"
+            f"<span class='ci'>{html_lib.escape(str(r.get('circuit', '') or ''))}</span></span>"
+            f"<span class='right'>{move}"
             f"<span class='chip' style='background:{bg};color:{fg}'>{label}</span>"
-            f"<span class='dl'>{delta}</span>"
-            f"<span class='pt'>{_num_v33(r.get('points') or 0)}</span>"
-            f"<span class='stt'>{html_lib.escape(str(r.get('status', '')))}</span>"
+            f"{pts_html}{status_html}</span>"
             "</div>"
         )
+
     return f"""
     <style>
+      *{{box-sizing:border-box}}
       body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .tt{{border:1px solid #26313f;border-radius:6px;overflow:hidden;background:#11161f}}
-      .hd,.row{{display:grid;grid-template-columns:30px 1.7fr 34px 50px 42px 40px 1fr;gap:9px;align-items:center;padding:8px 15px}}
-      .hd{{background:#161d28;border-bottom:1px solid #26313f}}
-      .hd span{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8a9bb0}}
-      .row{{border-bottom:1px solid #1b2330}}
-      .row:last-child{{border-bottom:0}}
-      .row:nth-child(odd){{background:#131a24}}
-      .rd{{font:700 11px 'JetBrains Mono',monospace;color:#63748a;text-align:center}}
-      .rc{{font:600 12px 'Saira',sans-serif;color:#e8eef4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .gr{{font:700 12px 'JetBrains Mono',monospace;text-align:right;color:#9fb0c0}}
-      .chip{{font:800 11px 'JetBrains Mono',monospace;text-align:center;padding:3px 0;border-radius:4px;letter-spacing:.02em}}
-      .dl{{text-align:center;font:700 11px 'JetBrains Mono',monospace}}
-      .dl .up{{color:#38e1d0;font-style:normal}} .dl .dn{{color:#ff5f6d;font-style:normal}} .dl .eq{{color:#55657a;font-style:normal}}
-      .pt{{font:700 12px 'JetBrains Mono',monospace;text-align:right;color:{colour}}}
-      .stt{{font:500 11px 'Saira',sans-serif;color:#7f8ea0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      @media(max-width:440px){{.hd .h-stt,.stt{{display:none}}.hd,.row{{grid-template-columns:24px 1.4fr 26px 46px 34px 34px;gap:6px;padding:8px 10px}}}}
+      .wrap{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
+      .sum{{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#1b2330;border-bottom:1px solid #26313f}}
+      .sum>div{{background:#141b26;padding:11px 12px}}
+      .sum s{{display:block;font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
+      .sum b{{display:block;font:700 16px 'JetBrains Mono',monospace;margin-top:5px}}
+      .list{{display:flex;flex-direction:column;gap:6px;padding:10px}}
+      .card{{display:grid;grid-template-columns:40px 1fr auto;gap:13px;align-items:center;
+        padding:10px 13px;background:#131a24;border:1px solid #222c39;border-left:3px solid var(--tier);
+        border-radius:9px;transition:background .12s ease}}
+      .card:hover{{background:#182130}}
+      .rnd{{width:32px;height:32px;border-radius:50%;background:#0d1520;border:1px solid #263241;
+        display:flex;align-items:center;justify-content:center;font:700 12px 'JetBrains Mono',monospace;color:#7c8ea0}}
+      .mid{{min-width:0}}
+      .mid b{{display:block;font:700 14.5px 'Saira Condensed',sans-serif;text-transform:uppercase;
+        letter-spacing:.01em;color:#f2f5f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .mid .ci{{display:block;font:500 11px 'Saira',sans-serif;color:#7f8ea0;margin-top:2px;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .right{{display:flex;align-items:center;gap:12px;justify-content:flex-end;flex-wrap:wrap}}
+      .mv{{font:600 11px 'JetBrains Mono',monospace;color:#9fb0c0;white-space:nowrap}}
+      .mv i{{color:#55657a;font-style:normal;padding:0 2px}}
+      .mv em{{font-style:normal;font-weight:700;margin-left:3px}}
+      .mv .up{{color:#38e1d0}} .mv .dn{{color:#ff8b78}} .mv .eq{{color:#6b7a8c}}
+      .chip{{min-width:46px;text-align:center;font:800 12px 'JetBrains Mono',monospace;
+        padding:5px 9px;border-radius:6px;letter-spacing:.02em}}
+      .pt{{font:700 14px 'JetBrains Mono',monospace;color:{colour};display:flex;align-items:baseline;gap:4px}}
+      .pt i{{font:700 8px 'Saira Condensed',sans-serif;font-style:normal;letter-spacing:.08em;color:#8a9bb0}}
+      .pt.zero{{color:#55657a}}
+      .st{{font:500 10.5px 'Saira',sans-serif;color:#c98a3f;white-space:nowrap}}
+      @media(max-width:620px){{
+        .sum{{grid-template-columns:repeat(4,1fr)}}
+        .card{{grid-template-columns:32px 1fr;row-gap:8px}}
+        .right{{grid-column:1/-1;justify-content:flex-start}}
+      }}
     </style>
-    <div class="tt">
-      <div class="hd"><span>#</span><span>Yarış</span><span>Grd</span><span>Sonuç</span><span>Δ</span><span>Puan</span><span class="h-stt">Durum</span></div>
-      {rows}
+    <div class="wrap">
+      <div class="sum">{summary_cells}</div>
+      <div class="list">{cards}</div>
     </div>
     """
+
+
+def _driver_deep_skeleton_html(colour):
+    """Kariyer verisi ilk kez çekilirken gösterilen iskelet — sayfa anında açılır."""
+    row = ("<div class='sk-row'><span class='sk-c' style='width:64px'></span>"
+           "<span class='sk-c' style='flex:1'></span>"
+           "<span class='sk-c' style='width:46px'></span>"
+           "<span class='sk-c' style='width:38px'></span></div>")
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#8a9bb0}}
+      .sk{{border:1px solid #26313f;border-radius:12px;background:#11161f;padding:16px;overflow:hidden}}
+      .sk-hd{{display:flex;align-items:center;gap:10px;font:700 10px 'JetBrains Mono',monospace;
+        letter-spacing:.16em;text-transform:uppercase;color:{colour};margin-bottom:14px}}
+      .sk-dot{{width:9px;height:9px;border-radius:50%;background:{colour};animation:sk-pulse 1s ease-in-out infinite}}
+      .sk-c{{display:inline-block;height:13px;border-radius:4px;
+        background:linear-gradient(90deg,#161d28 25%,#212c3a 50%,#161d28 75%);background-size:200% 100%;
+        animation:sk-shine 1.3s linear infinite}}
+      .sk-row{{display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid #1b2330}}
+      .sk-row:first-of-type{{border-top:0}}
+      @keyframes sk-shine{{to{{background-position:-200% 0}}}}
+      @keyframes sk-pulse{{50%{{opacity:.3}}}}
+    </style>
+    <div class="sk">
+      <div class="sk-hd"><span class="sk-dot"></span>Kariyer kaydı okunuyor…</div>
+      {row * 6}
+    </div>
+    """
+
+
+@st.fragment
+def _render_driver_deep_v39(api, name, code, nation, number, team, colour, titles, info):
+    """Derin kariyer bölümü — sayfa kabuğu anında çizilir, bu parça ayrı yüklenir.
+    Disk önbelleği doluysa anında; boşsa iskelet gösterilip tek seferlik ağ çekimi
+    yapılır ve sadece bu parça yeniden çalışır."""
+    state_key = f"_drvprof_v39_{api}"
+    if state_key not in st.session_state:
+        cached = get_driver_full_profile_v33(api, allow_network=False)
+        if cached is not None:
+            st.session_state[state_key] = cached
+        else:
+            _sk = st.empty()
+            with _sk.container():
+                render_html_hud(_driver_deep_skeleton_html(colour), height=250)
+            with st.spinner(T("drivers.reading_career")):
+                st.session_state[state_key] = get_driver_full_profile_v33(api)
+            _sk.empty()
+    prof = st.session_state[state_key]
+
+    render_html_hud(
+        driver_profile_header_html(name, code, nation or info.get('team', ''), number, prof, colour, titles),
+        height=210 if prof.get('ok') else 150,
+    )
+    if not prof.get('ok'):
+        return
+
+    if prof.get('seasons'):
+        st.write("")
+        fp_ui.section_title(T("drivers.season_breakdown"))
+        render_html_hud(driver_seasons_hud_html(prof['seasons'], colour),
+                        height=min(760, 52 + 34 * len(prof['seasons'])))
+
+    _cols = st.columns([1, 1])
+    with _cols[0]:
+        fp_ui.section_title(T("drivers.circuit_wins"))
+        if prof.get('circuit_wins'):
+            _top = prof['circuit_wins'][0][1] or 1
+            _bars = ''.join(
+                f"<div style='display:grid;grid-template-columns:150px 1fr 34px;gap:9px;align-items:center;padding:5px 0'>"
+                f"<span style='font:600 12px Saira,sans-serif;color:#9fb0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{html_lib.escape(c)}</span>"
+                f"<span style='height:6px;background:#07090d;border-radius:99px;overflow:hidden'>"
+                f"<i style='display:block;height:100%;width:{round(n / _top * 100)}%;background:{colour}'></i></span>"
+                f"<span style='font:700 12px JetBrains Mono,monospace;text-align:right'>×{n}</span></div>"
+                for c, n in prof['circuit_wins'][:8]
+            )
+            st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_bars}</div>", unsafe_allow_html=True)
+        else:
+            fp_ui.data_state(T("drivers.no_wins_title"), T("drivers.no_wins_body"), "info")
+    with _cols[1]:
+        if prof.get('teams'):
+            fp_ui.section_title(T("drivers.teams"))
+            _tg = ''.join(
+                f"<div style='display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #1b2330'>"
+                f"<b style='font:700 13px Saira Condensed,sans-serif;text-transform:uppercase;color:{team_colour(tn)}'>{html_lib.escape(tn)}</b>"
+                f"<span style='font:12px JetBrains Mono,monospace;color:#9fb0c0'>{y0}{'–' + str(y1) if y1 != y0 else ''}</span></div>"
+                for tn, y0, y1 in prof['teams']
+            )
+            st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_tg}</div>", unsafe_allow_html=True)
+
+    st.write("")
+    _years = sorted({r['year'] for r in prof['races'] if r['year']}, reverse=True)
+    fp_ui.section_title(T("drivers.race_by_race"))
+    _yr = st.selectbox(T("drivers.season"), _years, index=0, key=f"drivers_race_year_v39_{api}") if _years else None
+    _year_races = sorted((r for r in prof['races'] if r['year'] == _yr), key=lambda r: r['round'])
+    st.caption(f"{_yr} · {len(_year_races)} yarış")
+    render_html_hud(driver_races_hud_html(_year_races, colour),
+                    height=driver_races_hud_height(_year_races))
 
 
 def _drivers_directory_v33():
@@ -5839,55 +6048,22 @@ def render_drivers_page_v33():
         st.markdown(_driver_quick_header_html(name, code, nation, number, team, colour, _titles, _bundle),
                     unsafe_allow_html=True)
 
-        with st.spinner(T("drivers.reading_career")):
-            prof = get_driver_full_profile_v33(api)
-        render_html_hud(driver_profile_header_html(name, code, nation or _info.get('team', ''), number, prof, colour, _titles),
-                        height=210 if prof.get('ok') else 150)
+        fp_ui.how_to_hud(
+            [
+                ("Üst şerit", "kimlik + paketli veritabanından anında gelen kariyer toplamları: şampiyonluk, galibiyet, yarış, ilk GP."),
+                ("Doğrulanmış kariyer", "tüm rakamlar Ergast/Jolpica yarış sonucu kayıtlarından hesaplanır; tahmin yok. İlk açılışta bir kez çekilir, sonra anında gelir."),
+                ("Sezon Dökümü", "her satır bir sezon; puan çubuğu o sezonun toplam puanını kariyerin en iyi sezonuna oranlar."),
+                ("Yarış-Yarış", "sezon seç; her kart bir yarış. Sol rakam = tur (round). Renkli rozet = bitiş sırası. 'P3 → P1 ▲2' = gridden bitişe kazanılan sıra."),
+            ],
+            legend=[
+                ("#ffd100", "P1 galibiyet"), ("#38e1d0", "podyum (P2–P3)"),
+                ("#5cc8ff", "puan bölgesi (P4–P10)"), ("#c9d6e2", "puan dışı"),
+                ("#ff5f6d", "yarış dışı (DNF)"),
+            ],
+            note="Sezon üstündeki özet bandı: o yıla ait galibiyet, podyum, puan ve yarış dışı sayısı.",
+        )
 
-        if prof.get('ok'):
-            if prof.get('seasons'):
-                st.write("")
-                fp_ui.section_title(T("drivers.season_breakdown"))
-                render_html_hud(driver_seasons_hud_html(prof['seasons'], colour),
-                                height=min(760, 52 + 34 * len(prof['seasons'])))
-
-            _cols = st.columns([1, 1])
-            with _cols[0]:
-                if prof.get('circuit_wins'):
-                    fp_ui.section_title(T("drivers.circuit_wins"))
-                    _top = prof['circuit_wins'][0][1] or 1
-                    _bars = ''.join(
-                        f"<div style='display:grid;grid-template-columns:150px 1fr 34px;gap:9px;align-items:center;padding:5px 0'>"
-                        f"<span style='font:600 12px Saira,sans-serif;color:#9fb0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{html_lib.escape(c)}</span>"
-                        f"<span style='height:6px;background:#07090d;border-radius:99px;overflow:hidden'>"
-                        f"<i style='display:block;height:100%;width:{round(n / _top * 100)}%;background:{colour}'></i></span>"
-                        f"<span style='font:700 12px JetBrains Mono,monospace;text-align:right'>×{n}</span></div>"
-                        for c, n in prof['circuit_wins'][:8]
-                    )
-                    st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_bars}</div>", unsafe_allow_html=True)
-                else:
-                    fp_ui.section_title(T("drivers.circuit_wins"))
-                    fp_ui.data_state(T("drivers.no_wins_title"), T("drivers.no_wins_body"), "info")
-            with _cols[1]:
-                if prof.get('teams'):
-                    fp_ui.section_title(T("drivers.teams"))
-                    _tg = ''.join(
-                        f"<div style='display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #1b2330'>"
-                        f"<b style='font:700 13px Saira Condensed,sans-serif;text-transform:uppercase;color:{team_colour(tn)}'>{html_lib.escape(tn)}</b>"
-                        f"<span style='font:12px JetBrains Mono,monospace;color:#9fb0c0'>{y0}{'–' + str(y1) if y1 != y0 else ''}</span></div>"
-                        for tn, y0, y1 in prof['teams']
-                    )
-                    st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_tg}</div>", unsafe_allow_html=True)
-
-            st.write("")
-            _years = sorted({r['year'] for r in prof['races'] if r['year']}, reverse=True)
-            fp_ui.section_title(T("drivers.race_by_race"))
-            _yr = st.selectbox(T("drivers.season"), _years, index=0, key="drivers_race_year_v33") if _years else None
-            _year_races = sorted((r for r in prof['races'] if r['year'] == _yr),
-                                 key=lambda r: r['round'])
-            st.caption(f"{_yr} · {len(_year_races)} yarış")
-            render_html_hud(driver_races_hud_html(_year_races, colour),
-                            height=min(940, 60 + 35 * max(1, len(_year_races))))
+        _render_driver_deep_v39(api, name, code, nation, number, team, colour, _titles, _info)
 
         if st.session_state.pop('_scroll_driver', False):
             fp_ui.scroll_to("fp-driver-detail")
