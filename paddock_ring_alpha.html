@@ -190,19 +190,27 @@ const CFG = {
 /* ==================================================================
    1 · PİST — İstanbul Park esintili, saat yönü TERSİ
    ================================================================== */
-// Kontrol noktaları (araç artan indeks yönünde ilerler).
+// Kontrol noktaları (araç artan indeks yönünde ilerler). İstanbul Park esintili
+// ama birebir değil: dik inişli T1, kısa esler ve İMZA olan çoklu-apeksli uzun T8.
 const CTRL = [
-  [ 980,  980],[ 980,  380],[ 965, -140],            // ana düzlük (kuzeye)
-  [ 900, -470],[ 720, -650],[ 470, -720],[ 210, -690],// T1-2-3: dik inişli sol kompleks (daralan)
-  [  30, -520],[ -60, -300],                          // T3 çıkış kısa düzlük
-  [-190, -110],[-300,  100],[-190,  270],[-360,  400],// T4-5-6-7 esler
-  [-600,  470],                                       // T8 giriş
-  [-820,  600],[-880,  850],[-800, 1080],[-590, 1210],// T8: çoklu-apeksli uzun sol
-  [-300, 1230],[ -30, 1130],                          // T8 çıkış
-  [ 210,  980],[ 430,  930],                          // T9-10
-  [ 640, 1010],[ 700, 1210],[ 540, 1330],[ 300, 1300],// T11-12 saç tokası
-  [ 160, 1120],                                       // T13
-  [ 300,  920],[ 600,  800],[ 880,  760],             // T14 hızlı sağ -> ana düzlük
+  [ 940,  760],[ 950,  300],[ 955, -180],             // ana düzlük (kuzeye, hafif iniş)
+  [ 900, -470],[ 760, -610],                          // T1: hızlı, inişli sol
+  [ 540, -690],[ 320, -690],                          // T2: sola kapanan
+  [ 120, -600],[  20, -430],                          // T3: sağ kink -> kısa çıkış
+  [ -80, -250],[ -30,  -70],                          // T4-5: kısa esler
+  [-200,   60],[ -90,  220],                          // T6-7: sağ-sol geçiş
+  [-320,  330],[-500,  400],                          // T8 girişi (yükseklik farkı)
+  // --- T8: çoklu apeksli uzun sol (4 kademe) ---
+  [-690,  470],[-820,  620],
+  [-880,  820],[-850, 1020],
+  [-720, 1180],[-520, 1270],
+  [-280, 1280],[ -40, 1210],                          // T8 çıkışı
+  [ 190, 1080],[ 380,  980],                          // T9-10: hızlı sağ-sol
+  [ 560,  960],[ 690, 1080],                          // T11: sağ
+  [ 660, 1270],[ 470, 1350],[ 260, 1290],             // T12: sola dönüp arka düzlük
+  [ 150, 1090],                                       // arka düzlük sonu
+  [ 240,  900],[ 460,  810],                          // T13: sert sağ
+  [ 690,  740],[ 900,  740],                          // T14: hızlı sağ -> ana düzlük
 ];
 
 function catmull(p0,p1,p2,p3,t){
@@ -260,31 +268,30 @@ const DRS = [[wrap(SF_I-Math.round(M*0.02)), wrap(SF_I+Math.round(M*0.06))],   /
              [Math.round(M*0.30), Math.round(M*0.36)]];                          // T3 sonrası chute
 function inDRS(i){ return DRS.some(z=> z[0]<z[1] ? (i>=z[0]&&i<=z[1]) : (i>=z[0]||i<=z[1]) ); }
 
-// 3) KERB'LER — pist kenar eğrisine oturur; her parça teğete hizalı,
-//    yarıçapa göre iç apeks + sert virajlarda çıkış kerbi
-const KERB_W = 15, KERB_SEG = 13;
-const KERBS=[];
+// 3) KERB'LER — pist kenar ÇİZGİSİNİ takip eden şeritler (dikdörtgen değil).
+//    Her viraj bir "run"; kerb, o run boyunca normal ofsetiyle üretilen
+//    kenar poligonu üzerine çizilir -> hiçbir noktada pistten taşmaz.
+const KERB_W = 14;
+const KERB_RUNS = [];
 {
-  let acc = KERB_SEG;
-  for(let i=0;i<M;i++){
-    const cm = curvMag(i);
-    if(cm < CFG.kerbCurv){ acc = KERB_SEG; continue; }
-    acc += STEP;
-    if(acc < KERB_SEG) continue;
-    acc = 0;
-    const sign = curveAt(i) > 0 ? 1 : -1;          // >0 sola dönüyor -> iç kenar = +normal
-    const nrm = normalAt(i), t = tangentAt(i);
-    // iç (apeks) kerbi: dış kenarı asfalt sınırıyla çakışır, azıcık içeri taşar
-    const inOff = CFG.roadHalf - KERB_W*0.42;
-    KERBS.push({ x: PATH[i][0] + nrm[0]*sign*inOff, y: PATH[i][1] + nrm[1]*sign*inOff,
-                 a: t, k: (i/KERB_SEG|0) });
-    // sert virajlarda çıkış (dış) kerbi
-    if(cm > 0.5){
-      const outOff = CFG.roadHalf - KERB_W*0.12;
-      KERBS.push({ x: PATH[i][0] - nrm[0]*sign*outOff, y: PATH[i][1] - nrm[1]*sign*outOff,
-                   a: t, k: (i/KERB_SEG|0), out:true });
+  let run = null;
+  for(let i=0; i<=M; i++){
+    const j = i % M;
+    const cm = (i < M) ? curvMag(j) : 0;
+    if(cm >= CFG.kerbCurv){
+      const sign = curveAt(j) > 0 ? 1 : -1;   // >0 sola dönüyor -> iç kenar = +normal
+      if(!run || run.sign !== sign){
+        if(run && (run.b - run.a) >= 1) KERB_RUNS.push(run);
+        run = { a:j, b:j, sign, hard:(cm > 0.5) };
+      } else {
+        run.b = j; run.hard = run.hard || (cm > 0.5);
+      }
+    } else if(run){
+      if((run.b - run.a) >= 1) KERB_RUNS.push(run);
+      run = null;
     }
   }
+  if(run && (run.b - run.a) >= 1) KERB_RUNS.push(run);
 }
 
 // pit yolu (ana düzlüğe paralel, sağ tarafta)
@@ -632,6 +639,31 @@ function drawGround(){
   for(let i=0;i<52;i++){ ctx.fillStyle=i%3?'#0d2b20':'#12402e'; ctx.beginPath(); ctx.arc((i*179.3)%W,(i*101.7)%H,10+(i%5)*4,0,7); ctx.fill(); }
   ctx.globalAlpha=1;
 }
+function drawKerbEdge(run, off, sign, sc, ox, oy){
+  const span = ((run.b - run.a) % M + M) % M;
+  if(span < 1) return;
+  const pts = [];
+  for(let k = -1; k <= span + 1; k++){
+    const idx = wrap(run.a + k);
+    const nrm = normalAt(idx);
+    pts.push(P(PATH[idx][0] + nrm[0]*sign*off, PATH[idx][1] + nrm[1]*sign*off, sc, ox, oy));
+  }
+  const stroke = () => { ctx.beginPath(); for(let i=0;i<pts.length;i++){ i?ctx.lineTo(pts[i][0],pts[i][1]):ctx.moveTo(pts[i][0],pts[i][1]); } ctx.stroke(); };
+  ctx.lineJoin='round'; ctx.lineCap='butt';
+  ctx.lineWidth = (KERB_W+3)*sc; ctx.setLineDash([]); ctx.strokeStyle = 'rgba(0,0,0,.28)'; stroke();   // kenar gölgesi
+  ctx.lineWidth = KERB_W*sc;
+  ctx.setLineDash([]);            ctx.strokeStyle = '#ececec'; stroke();          // beyaz taban
+  ctx.setLineDash([13*sc,13*sc]); ctx.strokeStyle = '#d81f1f'; stroke();          // kırmızı bloklar
+  ctx.setLineDash([]);
+}
+function drawKerbs(sc, ox, oy){
+  const inOff  = CFG.roadHalf - KERB_W*0.50;   // iç (apeks) kerbi — dış hattı asfalt sınırında
+  const outOff = CFG.roadHalf - KERB_W*0.10;   // çıkış (dış) kerbi
+  for(const run of KERB_RUNS){
+    drawKerbEdge(run, inOff, run.sign, sc, ox, oy);
+    if(run.hard) drawKerbEdge(run, outOff, -run.sign, sc, ox, oy);
+  }
+}
 function drawTrack(sc,ox,oy){
   ctx.lineJoin='round'; ctx.lineCap='round';
   tracePath(PATH,sc,ox,oy,true); ctx.strokeStyle='#06170f'; ctx.lineWidth=(CFG.roadHalf*2+70)*sc; ctx.stroke();
@@ -639,17 +671,8 @@ function drawTrack(sc,ox,oy){
   tracePath(PATH,sc,ox,oy,true); ctx.strokeStyle='#3b414a'; ctx.lineWidth=(CFG.roadHalf*2)*sc; ctx.stroke();
   // orta çizgi
   ctx.setLineDash([16*sc,30*sc]); tracePath(PATH,sc,ox,oy,true); ctx.strokeStyle='rgba(255,255,255,.055)'; ctx.lineWidth=2*sc; ctx.stroke(); ctx.setLineDash([]);
-  // KERB'LER — her parça teğete hizalı, pist kenar eğrisine oturur
-  const kl=KERB_SEG*sc, kw=KERB_W*sc;
-  for(const kb of KERBS){
-    const q=P(kb.x,kb.y,sc,ox,oy);
-    ctx.save(); ctx.translate(q[0],q[1]); ctx.rotate(kb.a);
-    ctx.fillStyle = (kb.k%2) ? '#eaeaea' : '#d81f1f';
-    ctx.fillRect(-kl/2-0.4, -kw/2, kl+0.8, kw);
-    ctx.fillStyle = 'rgba(0,0,0,.16)';
-    ctx.fillRect(-kl/2-0.4, kw/2-1.6*sc, kl+0.8, 1.6*sc);   // ince gölge şeridi (kabartma hissi)
-    ctx.restore();
-  }
+  // KERB'LER — pist kenar çizgisini takip eden kırmızı/beyaz şeritler
+  drawKerbs(sc, ox, oy);
   // pit yolu
   tracePath(PIT,sc,ox,oy,false); ctx.strokeStyle='#10161d'; ctx.lineWidth=58*sc; ctx.stroke();
   tracePath(PIT,sc,ox,oy,false); ctx.strokeStyle='#454d57'; ctx.lineWidth=40*sc; ctx.stroke();
