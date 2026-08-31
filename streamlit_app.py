@@ -16,8 +16,6 @@ import streamlit as st
 import fastf1
 import fastf1.plotting
 import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
-from matplotlib.colors import ListedColormap
 import numpy as np
 import pandas as pd
 import openf1_fallback
@@ -2389,6 +2387,331 @@ setInterval(function(){ if(performance.now()-last>60) tick(); }, 40);
 def two_driver_duel_html_repaired(*args, **kwargs):
     """Clean self-contained duel HUD; old .replace() patch layers removed."""
     return two_driver_duel_html_stable(*args, **kwargs)
+
+
+def _telemetry_trace_payload_v38(entries, grid_n=480):
+    """entries: [(code, colour, lap_label, telemetry_df)] -> etkileşimli iz paketi.
+
+    Tüm turlar ortak mesafe ızgarasına örneklenir; hız/gaz/fren/vites + X/Y
+    aynı indekste hizalanır, böylece tek bir imleç dört izi ve pist noktasını
+    eşzamanlı gösterir."""
+    frames, max_d = [], 0.0
+    for code, colour, lap_label, tel in entries:
+        cols = list(getattr(tel, 'columns', []))
+        if 'Distance' not in cols:
+            continue
+        frame = tel[[c for c in ('Distance', 'Speed', 'Throttle', 'Brake', 'nGear', 'X', 'Y') if c in cols]].copy()
+        frame['Distance'] = pd.to_numeric(frame['Distance'], errors='coerce')
+        frame = frame.dropna(subset=['Distance']).sort_values('Distance').drop_duplicates('Distance')
+        if len(frame) < 5:
+            continue
+        max_d = max(max_d, float(frame['Distance'].max()))
+        frames.append((str(code), str(colour), str(lap_label or ''), frame))
+    if not frames or max_d <= 0:
+        return {'ok': False}
+
+    grid = np.linspace(0.0, max_d, grid_n)
+
+    def _series(frame, name, fill=0.0):
+        if name not in frame.columns:
+            return np.full(grid_n, fill)
+        values = pd.to_numeric(frame[name], errors='coerce').astype(float).ffill().bfill().fillna(fill)
+        return np.interp(grid, frame['Distance'].values, values.values)
+
+    drivers, track = [], []
+    for index, (code, colour, lap_label, frame) in enumerate(frames):
+        speed = _series(frame, 'Speed')
+        throttle = _series(frame, 'Throttle')
+        brake = _series(frame, 'Brake')
+        if float(np.nanmax(brake) if brake.size else 0) <= 1.5:
+            brake = brake * 100.0
+        gear = _series(frame, 'nGear')
+        xs, ys = _series(frame, 'X'), _series(frame, 'Y')
+        drivers.append({
+            'code': code, 'colour': colour, 'lap': lap_label,
+            'speed': [round(float(v), 1) for v in speed],
+            'throttle': [round(float(max(0.0, min(100.0, v))), 1) for v in throttle],
+            'brake': [round(float(max(0.0, min(100.0, v))), 0) for v in brake],
+            'gear': [int(round(float(v))) for v in gear],
+            'x': [round(float(v), 1) for v in xs],
+            'y': [round(float(v), 1) for v in ys],
+        })
+        if index == 0:
+            track = [[round(float(xs[k]), 1), round(float(ys[k]), 1)] for k in range(grid_n)]
+    return {
+        'ok': True,
+        'drivers': drivers,
+        'distance': [round(float(v), 0) for v in grid],
+        'track': track,
+        'sectors': [],
+    }
+
+
+def telemetry_trace_html(payload):
+    """Etkileşimli telemetri HUD'u: hız / gaz / fren / vites izleri ortak mesafe
+    ekseninde; fare imleci dördünü ve pist üzerindeki konumu eşzamanlı gösterir."""
+    packed = fp_ui.json_for_script(payload)
+    return r'''<style>
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}
+.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.title{font-size:13px;font-weight:950;letter-spacing:.09em}
+.sub{font-size:10px;color:#9fb0c0;margin-top:5px;max-width:520px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{border:1px solid #35506d;border-radius:7px;padding:5px 8px;font:900 11px Inter,Arial,sans-serif;color:var(--team)}
+.wrap{display:grid;grid-template-columns:290px minmax(0,1fr);gap:12px;margin-top:10px}
+.mapbox{border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+.mapbox canvas{width:100%;height:250px;display:block;cursor:crosshair}
+.readout{margin-top:8px;border:1px solid #26313f;border-radius:9px;background:#0d131c;padding:9px 10px}
+.readout .rh{color:#8496a8;font:900 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;margin-bottom:5px}
+.readout .rd{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid #1b2531;font:800 12px ui-monospace,Consolas,monospace;color:#c7d6e6}
+.readout .rd:first-of-type{border-top:0}
+.readout .rd span{color:#8fa2b4}
+.charts{display:flex;flex-direction:column;gap:6px}
+.chart{position:relative;border:1px solid #212b38;border-radius:8px;background:#0c121b}
+.chart canvas{width:100%;display:block;cursor:crosshair}
+.chart .lab{position:absolute;top:5px;left:9px;font:900 9px Inter,Arial,sans-serif;letter-spacing:.09em;color:#7c90a4;pointer-events:none}
+@media(max-width:640px){.wrap{grid-template-columns:1fr}}
+</style>
+<div class="hud">
+  <div class="head">
+    <div><div class="title">ETKILESIMLI TELEMETRI</div><div class="sub">Fareyi grafigin veya pistin uzerinde gezdir - imlec dort izi ve pist noktasini eszamanli okur. Fren izindeki dikey sicrama = fren noktasi.</div></div>
+    <div class="tags" id="tags"></div>
+  </div>
+  <div class="wrap">
+    <div>
+      <div class="mapbox"><canvas id="map"></canvas></div>
+      <div class="readout" id="readout"></div>
+    </div>
+    <div class="charts" id="charts">
+      <div class="chart"><span class="lab">HIZ km/h</span><canvas data-k="speed"></canvas></div>
+      <div class="chart"><span class="lab">GAZ %</span><canvas data-k="throttle"></canvas></div>
+      <div class="chart"><span class="lab">FREN</span><canvas data-k="brake"></canvas></div>
+      <div class="chart"><span class="lab">VITES</span><canvas data-k="gear"></canvas></div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+(function(){
+const D=__PAYLOAD__, drv=D.drivers||[], DIST=D.distance||[], TRACK=D.track||[];
+const N=DIST.length;
+const $=function(s){return document.querySelector(s);};
+if(!N||!drv.length){ $('#readout').textContent='Telemetri izi yok.'; return; }
+let cursor=Math.floor(N*0.5);
+
+const specs={
+  speed:{h:132,min:0,max:340,fmt:function(v){return Math.round(v);}},
+  throttle:{h:74,min:0,max:100},
+  brake:{h:62,min:0,max:100},
+  gear:{h:70,min:0,max:8,step:true}
+};
+(function(){ let mx=0; drv.forEach(function(c){ (c.speed||[]).forEach(function(v){ if(v>mx)mx=v; }); });
+  specs.speed.max=Math.max(120,Math.ceil((mx+8)/20)*20); })();
+
+const charts=[].slice.call(document.querySelectorAll('.chart canvas')).map(function(cv){
+  return {cv:cv, ctx:cv.getContext('2d'), k:cv.dataset.k};
+});
+const mapCv=$('#map'), mapCtx=mapCv.getContext('2d');
+let MB=null;
+
+function tags(){ $('#tags').innerHTML=drv.map(function(c){
+  return '<span class="tag" style="--team:'+c.colour+'">'+c.code+(c.lap?' - '+c.lap:'')+'</span>'; }).join(''); }
+
+function fitMap(){
+  const r=mapCv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1);
+  mapCv.width=Math.max(2,r.width*dpr); mapCv.height=Math.max(2,r.height*dpr);
+  mapCtx.setTransform(dpr,0,0,dpr,0,0);
+  let a=1e18,b=-1e18,d=1e18,e=-1e18;
+  TRACK.forEach(function(p){ if(p[0]<a)a=p[0]; if(p[0]>b)b=p[0]; if(p[1]<d)d=p[1]; if(p[1]>e)e=p[1]; });
+  const pad=20, sx=(b-a)||1, sy=(e-d)||1, s=Math.min((r.width-pad*2)/sx,(r.height-pad*2)/sy);
+  MB={s:s,w:r.width,h:r.height,ox:(r.width-sx*s)/2-a*s,oy:(r.height-sy*s)/2+e*s};
+}
+function mapT(p){ return [p[0]*MB.s+MB.ox, -p[1]*MB.s+MB.oy]; }
+
+function fitCharts(){
+  charts.forEach(function(o){
+    const sp=specs[o.k]; o.cv.style.height=sp.h+'px';
+    const r=o.cv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1);
+    o.cv.width=Math.max(2,r.width*dpr); o.cv.height=Math.max(2,sp.h*dpr);
+    o.ctx.setTransform(dpr,0,0,dpr,0,0); o.w=r.width; o.h=sp.h;
+  });
+}
+
+function drawChart(o){
+  const sp=specs[o.k], w=o.w, h=o.h, ctx=o.ctx, pl=7, pr=7, pt=15, pb=6;
+  if(!w) return;
+  ctx.clearRect(0,0,w,h);
+  const X=function(i){ return pl+(i/(N-1))*(w-pl-pr); };
+  const Y=function(v){ return pt+(1-(v-sp.min)/((sp.max-sp.min)||1))*(h-pt-pb); };
+  ctx.strokeStyle='#1a2330'; ctx.lineWidth=1;
+  [0.5].concat(sp.step?[]:[0.25,0.75]).forEach(function(f){ const gy=pt+f*(h-pt-pb);
+    ctx.beginPath(); ctx.moveTo(pl,gy); ctx.lineTo(w-pr,gy); ctx.stroke(); });
+  (D.sectors||[]).forEach(function(sc){ const gx=X((sc.fraction||0)*(N-1));
+    ctx.strokeStyle='rgba(244,211,94,.28)'; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(gx,pt); ctx.lineTo(gx,h-pb); ctx.stroke(); ctx.setLineDash([]); });
+  drv.forEach(function(c){
+    const arr=c[o.k]||[]; ctx.beginPath();
+    for(let i=0;i<N;i++){ const px=X(i);
+      if(sp.step && i) ctx.lineTo(px,Y(arr[i-1]||0));
+      const py=Y(arr[i]||0); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    ctx.strokeStyle=c.colour; ctx.lineWidth=1.6; ctx.stroke();
+  });
+  const cx=X(cursor);
+  ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(cx,pt); ctx.lineTo(cx,h-pb); ctx.stroke();
+  drv.forEach(function(c){ const v=(c[o.k]||[])[cursor]||0;
+    ctx.fillStyle=c.colour; ctx.beginPath(); ctx.arc(cx,Y(v),2.7,0,7); ctx.fill(); });
+}
+
+function drawMap(){
+  if(!MB) return;
+  const w=MB.w,h=MB.h; mapCtx.clearRect(0,0,w,h);
+  mapCtx.lineJoin='round'; mapCtx.lineCap='round';
+  mapCtx.beginPath(); TRACK.forEach(function(p,i){ const s=mapT(p); i?mapCtx.lineTo(s[0],s[1]):mapCtx.moveTo(s[0],s[1]); });
+  mapCtx.strokeStyle='#1b222d'; mapCtx.lineWidth=13; mapCtx.stroke();
+  mapCtx.strokeStyle='#39424e'; mapCtx.lineWidth=8; mapCtx.stroke();
+  (D.sectors||[]).forEach(function(sc){ const idx=Math.round((sc.fraction||0)*(N-1)), p=TRACK[idx]; if(!p)return;
+    const s=mapT(p); mapCtx.fillStyle='#f4d35e'; mapCtx.beginPath(); mapCtx.arc(s[0],s[1],3,0,7); mapCtx.fill(); });
+  drv.forEach(function(c){ const px=(c.x||[])[cursor], py=(c.y||[])[cursor]; if(px==null)return;
+    const s=mapT([px,py]); mapCtx.fillStyle=c.colour; mapCtx.strokeStyle='#05080d'; mapCtx.lineWidth=2;
+    mapCtx.beginPath(); mapCtx.arc(s[0],s[1],5,0,7); mapCtx.fill(); mapCtx.stroke(); });
+}
+
+function readout(){
+  const d=DIST[cursor]||0;
+  let html='<div class="rh">MESAFE '+Math.round(d)+' m - imlec '+(Math.round((cursor/(N-1))*100))+'% tur</div>';
+  [['Hiz','speed',' km/h'],['Gaz','throttle',' %'],['Fren','brake',''],['Vites','gear','']].forEach(function(r){
+    html+='<div class="rd"><span>'+r[0]+'</span><b>'+drv.map(function(c){
+      const v=(c[r[1]]||[])[cursor];
+      return '<span style="color:'+c.colour+'">'+(v==null?'-':Math.round(v))+'</span>';
+    }).join('  ')+r[2]+'</b></div>';
+  });
+  if(drv.length>=2){
+    const ds=((drv[0].speed||[])[cursor]||0)-((drv[1].speed||[])[cursor]||0);
+    html+='<div class="rd"><span>&Delta; hiz</span><b>'+(ds>0?'+':'')+Math.round(ds)+' km/h - '+(Math.abs(ds)<1?'esit':(ds>0?drv[0].code:drv[1].code)+' hizli')+'</b></div>';
+  }
+  $('#readout').innerHTML=html;
+}
+
+function render(){ charts.forEach(drawChart); drawMap(); readout(); }
+
+function seekFromClientX(clientX, el){
+  const r=el.getBoundingClientRect();
+  const f=Math.max(0,Math.min(1,(clientX-r.left-7)/(r.width-14)));
+  cursor=Math.round(f*(N-1)); render();
+}
+function nearestOnTrack(clientX, clientY){
+  const r=mapCv.getBoundingClientRect();
+  const mx=clientX-r.left, my=clientY-r.top; let best=0, bd=1e18;
+  for(let i=0;i<TRACK.length;i++){ const s=mapT(TRACK[i]);
+    const dd=(s[0]-mx)*(s[0]-mx)+(s[1]-my)*(s[1]-my); if(dd<bd){ bd=dd; best=i; } }
+  cursor=best; render();
+}
+charts.forEach(function(o){
+  o.cv.addEventListener('pointermove',function(e){ if(e.pointerType==='mouse'||e.buttons) seekFromClientX(e.clientX,o.cv); });
+  o.cv.addEventListener('pointerdown',function(e){ seekFromClientX(e.clientX,o.cv); try{o.cv.setPointerCapture(e.pointerId);}catch(_){} });
+});
+mapCv.addEventListener('pointermove',function(e){ if(e.pointerType==='mouse'||e.buttons) nearestOnTrack(e.clientX,e.clientY); });
+mapCv.addEventListener('pointerdown',function(e){ nearestOnTrack(e.clientX,e.clientY); try{mapCv.setPointerCapture(e.pointerId);}catch(_){} });
+
+function fitAll(){ fitMap(); fitCharts(); render(); }
+let rz=0; window.addEventListener('resize',function(){ clearTimeout(rz); rz=setTimeout(fitAll,120); });
+tags(); fitAll();
+setTimeout(fitAll,60);
+})();
+</script>'''.replace('__PAYLOAD__', packed)
+
+
+def dominance_map_html(payload):
+    """Kuş bakışı pist dominasyonu — pist her noktada o an daha hızlı olan
+    pilotun rengiyle boyanır; imleç o noktadaki iki hızı ve farkı okur."""
+    packed = fp_ui.json_for_script(payload)
+    return r'''<style>
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}
+.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.title{font-size:13px;font-weight:950;letter-spacing:.09em}
+.sub{font-size:10px;color:#9fb0c0;margin-top:5px;max-width:540px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{border:1px solid #35506d;border-radius:7px;padding:5px 8px;font:900 11px Inter,Arial,sans-serif;color:var(--team)}
+.mapbox{margin-top:10px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+.mapbox canvas{width:100%;height:430px;display:block;cursor:crosshair}
+.share{display:flex;height:16px;border-radius:6px;overflow:hidden;margin-top:10px;border:1px solid #26313f;font:900 9px Inter,Arial,sans-serif}
+.share i{display:flex;align-items:center;justify-content:center;color:#05080d}
+.rowline{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font:800 12px ui-monospace,Consolas,monospace;color:#c7d6e6}
+.rowline span{color:#8fa2b4}
+@media(max-width:640px){.mapbox canvas{height:320px}}
+</style>
+<div class="hud">
+  <div class="head">
+    <div><div class="title">KUS BAKISI PIST DOMINASYONU</div><div class="sub">Pist her noktada o an daha hizli olan pilotun rengiyle boyanir. Fareyi pistin uzerinde gezdir: alttaki panel o noktadaki iki hizi ve farki verir.</div></div>
+    <div class="tags" id="tags"></div>
+  </div>
+  <div class="mapbox"><canvas id="dom"></canvas></div>
+  <div class="share" id="share"></div>
+  <div class="rowline" id="cur"><span>Imlec</span><b>pistin uzerine gel</b></div>
+</div>
+<script>
+"use strict";
+(function(){
+const D=__PAYLOAD__, drv=(D.drivers||[]).slice(0,2), DIST=D.distance||[], TRACK=D.track||[];
+const N=Math.min(DIST.length, TRACK.length);
+const $=function(s){return document.querySelector(s);};
+if(drv.length<2 || N<4){ $('#cur').innerHTML='<span>Hata</span><b>iki tur icin konum telemetrisi yok</b>'; return; }
+const cv=$('#dom'), ctx=cv.getContext('2d'); let MB=null, cursor=-1;
+const c0=drv[0].colour||'#e10600', c1=drv[1].colour||'#38e1d0';
+const faster=[]; let lead0=0;
+for(let i=0;i<N;i++){ const a=(drv[0].speed||[])[i]||0, b=(drv[1].speed||[])[i]||0; const f=a>=b?0:1; faster.push(f); if(f===0) lead0++; }
+
+function tags(){ $('#tags').innerHTML=drv.map(function(c){ return '<span class="tag" style="--team:'+c.colour+'">'+c.code+'</span>'; }).join(''); }
+function share(){
+  const p0=Math.round(lead0/N*100);
+  $('#share').innerHTML='<i style="width:'+p0+'%;background:'+c0+'">'+drv[0].code+' '+p0+'%</i>'
+    +'<i style="width:'+(100-p0)+'%;background:'+c1+'">'+drv[1].code+' '+(100-p0)+'%</i>';
+}
+function fit(){
+  const r=cv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1);
+  cv.width=Math.max(2,r.width*dpr); cv.height=Math.max(2,r.height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  let a=1e18,b=-1e18,d=1e18,e=-1e18;
+  TRACK.forEach(function(p){ if(p[0]<a)a=p[0]; if(p[0]>b)b=p[0]; if(p[1]<d)d=p[1]; if(p[1]>e)e=p[1]; });
+  const pad=26, sx=(b-a)||1, sy=(e-d)||1, s=Math.min((r.width-pad*2)/sx,(r.height-pad*2)/sy);
+  MB={s:s,w:r.width,h:r.height,ox:(r.width-sx*s)/2-a*s,oy:(r.height-sy*s)/2+e*s};
+  draw();
+}
+function T(p){ return [p[0]*MB.s+MB.ox, -p[1]*MB.s+MB.oy]; }
+function draw(){
+  if(!MB) return; const w=MB.w,h=MB.h; ctx.clearRect(0,0,w,h);
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath(); for(let i=0;i<N;i++){ const s=T(TRACK[i]); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); }
+  ctx.strokeStyle='#121822'; ctx.lineWidth=16; ctx.stroke();
+  for(let i=1;i<N;i++){ const s0=T(TRACK[i-1]), s1=T(TRACK[i]);
+    ctx.beginPath(); ctx.moveTo(s0[0],s0[1]); ctx.lineTo(s1[0],s1[1]);
+    ctx.strokeStyle=faster[i]===0?c0:c1; ctx.lineWidth=6; ctx.stroke(); }
+  const s0=T(TRACK[0]); ctx.fillStyle='#eef4fa'; ctx.beginPath(); ctx.arc(s0[0],s0[1],4,0,7); ctx.fill();
+  if(cursor>=0 && cursor<N){ const s=T(TRACK[cursor]);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(s[0],s[1],7,0,7); ctx.stroke(); }
+}
+function pick(clientX,clientY){
+  const r=cv.getBoundingClientRect(), mx=clientX-r.left, my=clientY-r.top; let best=0,bd=1e18;
+  for(let i=0;i<N;i++){ const s=T(TRACK[i]); const dd=(s[0]-mx)*(s[0]-mx)+(s[1]-my)*(s[1]-my); if(dd<bd){bd=dd;best=i;} }
+  cursor=best; draw(); readout();
+}
+function readout(){
+  if(cursor<0){ return; }
+  const a=(drv[0].speed||[])[cursor]||0, b=(drv[1].speed||[])[cursor]||0, dd=a-b;
+  $('#cur').innerHTML='<span>'+Math.round(DIST[cursor]||0)+' m</span><b>'
+    +'<span style="color:'+c0+'">'+drv[0].code+' '+Math.round(a)+'</span>  '
+    +'<span style="color:'+c1+'">'+drv[1].code+' '+Math.round(b)+'</span>  km/h  ·  '
+    +(Math.abs(dd)<1?'esit':(dd>0?drv[0].code:drv[1].code)+' +'+Math.abs(Math.round(dd)))+'</b>';
+}
+cv.addEventListener('pointermove',function(e){ if(e.pointerType==='mouse'||e.buttons) pick(e.clientX,e.clientY); });
+cv.addEventListener('pointerdown',function(e){ pick(e.clientX,e.clientY); try{cv.setPointerCapture(e.pointerId);}catch(_){} });
+let rz=0; window.addEventListener('resize',function(){ clearTimeout(rz); rz=setTimeout(fit,120); });
+tags(); share(); fit(); setTimeout(fit,60);
+})();
+</script>'''.replace('__PAYLOAD__', packed)
 
 
 def _openf1_credentials():
@@ -6297,10 +6620,11 @@ def _router_page_telemetry():
             ("Mini-sektör Δ", "tur 20 dilime bölünür; yukarı-yeşil çubuk 1. pilotun, aşağı-kırmızı 2. pilotun o dilimde kazandığı süre. Zamanın tam nerede kaybedildiğini gösterir."),
         ], [("#4ea981", "1. pilot dilimde hızlı"), ("#d3576a", "2. pilot dilimde hızlı"), ("#45c8ff", "SM (≈DRS)"), ("#71e6a1", "OM (≈ERS)")]),
         "Fren Analizi": ([
-            ("Dört grafik", "üstten alta: hız, fren, gaz, vites — hepsi pist mesafesine göre hizalı."),
-            ("Geç frenleme", "fren grafiğindeki dikey sıçrama daha sağdaysa, o pilot viraja daha geç fren yapmış demektir."),
-            ("Hız farkı", "üstteki grafikte çizgiler ayrışıyorsa orada bir pilot belirgin hızlı."),
-        ], None),
+            ("Dört iz", "üstten alta: hız, gaz, fren, vites — hepsi pist mesafesine göre hizalı."),
+            ("İmleç", "fareyi grafiğin veya pistin üzerinde gezdir; dört iz ve haritadaki nokta aynı anda o mesafeye kilitlenir. Soldaki panelde tam değerler."),
+            ("Geç frenleme", "fren izindeki dikey sıçrama fren noktasıdır; daha sağda olan pilot viraja daha geç fren yapmıştır."),
+            ("Hız farkı", "hız izinde çizgiler ayrışıyorsa orada bir pilot belirgin hızlı; soldaki Δ hız satırı farkı sayıyla verir."),
+        ], [("#e10600", "1. pilot"), ("#38e1d0", "2. pilot"), ("#f4d35e", "sektör sınırı")]),
         "Top Hız": ([
             ("Tablo", "her pilotun o seanstaki en yüksek telemetri hızı, hızlıdan yavaşa."),
             ("Ne anlatır", "yüksek top hız = düşük kanat / iyi güç ünitesi / iyi slipstream; düşük = yüksek kanat tercihi."),
@@ -6395,38 +6719,16 @@ def _router_page_telemetry():
 
                         st.write("")
 
-                        max_dist = max(tel1['Distance'].max(), tel2['Distance'].max())
-                        distance = np.linspace(0, max_dist, 1000)
+                        dom_payload = _telemetry_trace_payload_v38([
+                            (d1, fp_plot.A1, format_time(lap1['LapTime']), tel1),
+                            (d2, fp_plot.A2, format_time(lap2['LapTime']), tel2),
+                        ])
+                        if dom_payload.get('ok'):
+                            render_html_hud(dominance_map_html(dom_payload), height=600, scrolling=True)
+                        else:
+                            st.warning("Bu turlar için pist dominasyon haritası çıkarılamadı (konum verisi eksik).")
 
-                        speed1 = np.interp(distance, tel1['Distance'], tel1['Speed'])
-                        speed2 = np.interp(distance, tel2['Distance'], tel2['Speed'])
-                        x = np.interp(distance, tel1['Distance'], tel1['X'])
-                        y = np.interp(distance, tel1['Distance'], tel1['Y'])
-
-                        delta_speed = speed1 - speed2
-                        points = np.array([x, y]).T.reshape(-1, 1, 2)
-                        segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-                        cmap = ListedColormap([fp_plot.A2, fp_plot.A1])
-                        norm = plt.Normalize(-1, 1)
-                        dominance = np.where(delta_speed[:-1] >= 0, 1, -1)
-
-                        c_left, c_center, c_right = st.columns([1, 3, 1])
-                        with c_center:
-                            fig, ax = plt.subplots(figsize=(6, 4.5))
-                            lc = LineCollection(segments, cmap=cmap, norm=norm, linewidth=4)
-                            lc.set_array(dominance)
-
-                            ax.add_collection(lc)
-                            ax.autoscale()
-                            ax.set_aspect('equal', 'datalim')
-                            fig.patch.set_facecolor(fp_plot.BG)
-                            ax.set_facecolor(fp_plot.BG)
-                            plt.axis('off')
-
-                            st.pyplot(fig)
-
-                        fp_ui.data_state("BOLGE OKUMA", f"Kirmizi bolgeler: {driver_options.get(d1, d1)} daha hizli. Cyan bolgeler: {driver_options.get(d2, d2)} daha hizli.", "info")
+                        fp_ui.data_state("BOLGE OKUMA", f"{driver_options.get(d1, d1)} renginde boyalı bölümlerde 1. pilot, {driver_options.get(d2, d2)} renginde boyalı bölümlerde 2. pilot o an daha hızlı. Alttaki bar tur boyunca kimin ne kadar önde olduğunu özetler.", "info")
                         fp_ui.data_state("ICGORU", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
             # --- MOD 2: 2D TUR DÜELLOSU ---
@@ -6534,35 +6836,21 @@ def _router_page_telemetry():
                         tel1 = lap1.get_telemetry()
                         tel2 = lap2.get_telemetry()
 
-                        fig, (ax_speed, ax_brake, ax_throttle, ax_gear) = plt.subplots(4, 1, figsize=(10, 8), sharex=True)
-
-                        fp_plot.style(fig, ax_speed, ax_brake, ax_throttle, ax_gear)
-
-                        ax_speed.plot(tel1['Distance'], tel1['Speed'], label=f"{driver_options.get(d1, d1)}", color=fp_plot.A1, linewidth=1.8)
-                        ax_speed.plot(tel2['Distance'], tel2['Speed'], label=f"{driver_options.get(d2, d2)}", color=fp_plot.A2, linewidth=1.8)
-                        ax_speed.set_ylabel("Hız (km/h)", fontsize=9)
-                        ax_speed.legend(loc="upper right", facecolor=fp_plot.PANEL, edgecolor='none', labelcolor=fp_plot.TEXT)
-
-                        ax_brake.plot(tel1['Distance'], tel1['Brake'], color=fp_plot.A1, linewidth=1.5)
-                        ax_brake.plot(tel2['Distance'], tel2['Brake'], color=fp_plot.A2, linewidth=1.5)
-                        ax_brake.set_ylabel("Fren", fontsize=9)
-
-                        ax_throttle.plot(tel1['Distance'], tel1['Throttle'], color='#E10600', linewidth=1.5)
-                        ax_throttle.plot(tel2['Distance'], tel2['Throttle'], color='#38BDF8', linewidth=1.5)
-                        ax_throttle.set_ylabel("Gaz %", fontsize=9)
-
-                        ax_gear.plot(tel1['Distance'], tel1['nGear'], color='#E10600', linewidth=1.5)
-                        ax_gear.plot(tel2['Distance'], tel2['nGear'], color='#38BDF8', linewidth=1.5)
-                        ax_gear.set_ylabel("Vites", fontsize=9)
-                        ax_gear.set_xlabel("Pist Mesafesi (Metre)", fontsize=10)
-
-                        st.pyplot(fig)
-                        fp_ui.data_state("GEC FRENLEME IPUCU", "Fren grafigindeki dikey sicramalara bak. Dikey cizgi daha sagda olan pilot viraja daha gec fren yapmis demektir.", "info")
+                        trace_c1, trace_c2 = fp_plot.A1, fp_plot.A2
+                        trace_payload = _telemetry_trace_payload_v38([
+                            (d1, trace_c1, format_time(lap1['LapTime']), tel1),
+                            (d2, trace_c2, format_time(lap2['LapTime']), tel2),
+                        ])
+                        if trace_payload.get('ok'):
+                            render_html_hud(telemetry_trace_html(trace_payload), height=560, scrolling=True)
+                        else:
+                            st.warning("Bu turlar için telemetri izi çıkarılamadı (konum/mesafe verisi eksik).")
+                        fp_ui.data_state("GEC FRENLEME IPUCU", "Fren izindeki dikey sıçrama fren noktasıdır; hangi pilotunki daha sağdaysa o pilot viraja daha geç fren yapmıştır. Hız izinde çizgiler ayrışan yerde bir pilot belirgin hızlıdır.", "info")
                         fp_ui.data_state("ICGORU", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
-            # --- MOD 3: TOP SPEED & SÜRÜCÜ TABLOSU ---
-            elif analiz_turu == "📊 Top Speed & SÜRÜCÜ Tablosu":
-                fp_ui.section_title(f"{session.event['EventName']} · Top Speed Tablosu{header_suffix}")
+            # --- MOD 4: TOP HIZ & SÜRÜCÜ TABLOSU ---
+            elif analiz_turu == _MODES[3]:
+                fp_ui.section_title(f"{session.event['EventName']} · Top Hız Tablosu{header_suffix}")
                 
                 summary_data = []
                 for drv in drivers_list:
