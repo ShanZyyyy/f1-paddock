@@ -716,17 +716,14 @@ section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{displ
   display:none !important}
 .stApp [data-testid="stMain"] .block-container{padding-top:5.8rem;max-width:1200px}
 
-/* açılış hero'su tam genişlik + tepeye kadar (fp-hero-mark işaretinden sonraki konteyner) */
+/* açılış hero'su tam genişlik; hero'nun altındaki kokpit normal (max-width'li)
+   akışta kalır, sayfa kayar. */
 [data-testid="stElementContainer"]:has(.fp-hero-mark){display:none !important}
 [data-testid="stElementContainer"]:has(.fp-hero-mark) + [data-testid="stElementContainer"]{
-  width:100vw !important;max-width:none !important;margin-left:calc(50% - 50vw) !important;
-  height:100svh !important}
+  width:100vw !important;max-width:none !important;margin-left:calc(50% - 50vw) !important}
 [data-testid="stElementContainer"]:has(.fp-hero-mark) + [data-testid="stElementContainer"] iframe{
-  width:100vw !important;height:100svh !important;display:block}
-.stApp [data-testid="stMain"] .block-container:has(.fp-hero-mark){
-  padding:0 !important;max-width:none !important}
-/* hero sayfasında dikey scroll'u kes — ana ekran = tam hero */
-.stApp [data-testid="stMain"]:has(.fp-hero-mark){overflow:hidden !important}
+  width:100vw !important;display:block}
+.stApp [data-testid="stMain"] .block-container:has(.fp-hero-mark){padding-top:0 !important}
 
 /* görünmez navigasyon butonları — JS `.click()` eder (reload yok).
    visibility:hidden a11y ağacından + tab sırasından + innerText'ten çıkarır

@@ -359,6 +359,18 @@ function play(){
 if(reduce||seen){settle();}else{requestAnimationFrame(play);}
 setTimeout(function(){if(!stage.classList.contains('play'))settle();},3500);
 document.getElementById('skip').addEventListener('click',settle);
+
+/* hero tam-genişlik bir iframe: üzerindeki tekerlek olayı burada kalır ve
+   ana sayfa kaymaz. Delta'yı ebeveynin kaydırma konteynerine ilet. */
+try{
+  var _host=null;
+  try{ _host=window.parent.document.querySelector('[data-testid="stMain"]'); }catch(e){}
+  if(_host){
+    addEventListener('wheel',function(e){
+      try{ _host.scrollBy({top:e.deltaY,left:0,behavior:'auto'}); }catch(_){}
+    },{passive:true});
+  }
+}catch(e){}
 })();
 </script>
 </body></html>"""

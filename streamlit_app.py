@@ -7453,20 +7453,201 @@ fp_ui.control_dock()
 # ROUTER SAYFA GOVDELERI  (eskiden if/elif icinde inline'di)
 # =========================================================
 
+# =========================================================
+# FAZ 3-A · #1 — ANA SAYFA KOKPİTİ
+# Hero'nun altında: son yarış · şampiyona ilk 3 · hızlı erişim.
+# =========================================================
+
+def _home_quick_tiles_html():
+    tiles = [
+        ('telemetry', 'Telemetri', 'Hız · fren · delta · mini-sektör', '#45c8ff'),
+        ('live', 'Yarış Tekrarı', 'Tam 2D pist kontrolü', '#ff5c5c'),
+        ('standings', 'Şampiyona', 'Puanlar + senaryolar', '#f5c33b'),
+        ('learn', 'Başlangıç Garajı', 'F1, beş dakikada', '#7fe0a6'),
+    ]
+    cells = "".join(
+        f"<a class='hq' href='?p={p}' target='_top' style='--c:{c}'>"
+        f"<b>{html_lib.escape(t)}</b><span>{html_lib.escape(d)}</span></a>"
+        for p, t, d, c in tiles
+    )
+    return (
+        "<style>"
+        ".hqwrap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 24px}"
+        ".hq{display:block;text-decoration:none;border:1px solid var(--fp-line);border-left:3px solid var(--c);"
+        "border-radius:9px;background:var(--fp-bg-2);padding:13px 14px;transition:background .12s ease}"
+        ".hq:hover{background:var(--fp-bg-3)}"
+        ".hq b{display:block;font:800 14px 'Saira Condensed',var(--fp-f-display),sans-serif;text-transform:uppercase;"
+        "letter-spacing:.02em;color:var(--fp-text)}"
+        ".hq span{display:block;font:500 11px var(--fp-f-body),sans-serif;color:var(--fp-text-dim);margin-top:3px}"
+        "@media(max-width:760px){.hqwrap{grid-template-columns:1fr 1fr}}"
+        "</style>"
+        f"<div class='hqwrap'>{cells}</div>"
+    )
+
+
+def _home_last_race_html(year, event, next_race, next_days):
+    """Favori seçili değilken: son yarışın ilk 5'i + sıradaki yarış."""
+    rnd = get_championship_round_v19(int(year), event)
+    if not rnd.get('ok') or not rnd.get('race'):
+        return None
+
+    def _pn(pos):
+        return int(pos) if str(pos).isdigit() else 999
+
+    race = sorted(rnd['race'], key=lambda r: _pn(r['position']))[:5]
+    rows = ""
+    for r in race:
+        col = season_team_colour(r['team'], year)
+        rows += (
+            f"<div class='lr-row' style='--c:{col}'>"
+            f"<span class='lr-p'>{html_lib.escape(str(r['position']))}</span>"
+            f"<span class='lr-d'>{html_lib.escape(r['code'])}<small>{html_lib.escape(r['team'])}</small></span>"
+            f"<span class='lr-pt'>{_num_v33(r['points'])}</span></div>"
+        )
+    nxt = ""
+    if next_race:
+        days = f" · {next_days} gün sonra" if next_days is not None else ""
+        nxt = f"<div class='lr-next'>Sıradaki: <b>{html_lib.escape(next_race)}</b>{days}</div>"
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .lr{{border:1px solid #26313f;border-left:3px solid #e10600;border-radius:12px;
+        background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
+      .lr-hd{{padding:13px 15px 9px}}
+      .lr-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none;letter-spacing:.08em}}
+      .lr-hd b{{display:block;font:800 15px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
+        padding:7px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
+      .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#7c8ea0;text-align:center}}
+      .lr-d{{font:700 13px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .lr-d small{{display:block;font:500 10px 'Saira',sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
+      .lr-pt{{font:700 13px 'JetBrains Mono',monospace;color:#c4d2e0}}
+      .lr-next{{border-top:1px solid #26313f;padding:10px 15px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
+      .lr-next b{{color:#e8eef4}}
+    </style>
+    <div class="lr">
+      <div class="lr-hd"><s>SON YARIŞ · İLK 5</s><b>{html_lib.escape(event)}</b></div>
+      {rows}
+      {nxt}
+    </div>
+    """
+
+
+def _home_champ_top_html(driver_standings, constructor_standings, year):
+    """Şampiyona ilk 3 — pilot + yapımcı, sezon-doğru takım renkleriyle."""
+    def _rows(df, is_team):
+        out = ""
+        leader = None
+        for _, row in df.head(3).iterrows():
+            try:
+                pts = float(row.get('Puan', 0) or 0)
+            except (TypeError, ValueError):
+                pts = 0.0
+            if leader is None:
+                leader = pts
+            name = str(row.get('Takım' if is_team else 'Pilot', '—'))
+            team = name if is_team else str(row.get('Takım', ''))
+            col = season_team_colour(team, year)
+            gap = "—" if pts == leader else f"-{int(leader - pts)}"
+            out += (
+                f"<div class='ct-row' style='--c:{col}'>"
+                f"<span class='ct-n'>{int(row.get('Sıra', 0)) if str(row.get('Sıra', '')).strip().isdigit() else ''}</span>"
+                f"<span class='ct-name'>{html_lib.escape(name)}</span>"
+                f"<span class='ct-pt'>{int(pts)}</span>"
+                f"<span class='ct-gap'>{gap}</span></div>"
+            )
+        return out
+
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ct{{border:1px solid #26313f;border-radius:12px;background:#11161f;overflow:hidden}}
+      .ct-sec{{padding:11px 14px}}
+      .ct-sec + .ct-sec{{border-top:1px solid #26313f}}
+      .ct-sec s{{display:block;font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;
+        text-transform:uppercase;color:#63748a;text-decoration:none;margin-bottom:7px}}
+      .ct-row{{display:grid;grid-template-columns:16px 1fr auto 42px;gap:8px;align-items:center;
+        padding:5px 0 5px 8px;border-left:3px solid var(--c);margin-bottom:3px}}
+      .ct-n{{font:700 11px 'JetBrains Mono',monospace;color:#63748a}}
+      .ct-name{{font:700 12.5px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .ct-pt{{font:700 13px 'JetBrains Mono',monospace}}
+      .ct-gap{{font:600 10px 'JetBrains Mono',monospace;color:#8a9bb0;text-align:right}}
+    </style>
+    <div class="ct">
+      <div class="ct-sec"><s>Pilotlar</s>{_rows(driver_standings, False)}</div>
+      <div class="ct-sec"><s>Yapımcılar</s>{_rows(constructor_standings, True)}</div>
+    </div>
+    """
+
+
+@st.fragment
+def _home_cockpit_v44():
+    """Hero'nun altındaki veri kokpiti — ayrı yüklenir, hero anında görünür."""
+    year = datetime.datetime.now(datetime.timezone.utc).year
+    last = _latest_completed_race_v43(year)
+    if not last.get('last'):
+        st.markdown(_home_quick_tiles_html(), unsafe_allow_html=True)
+        return
+
+    fav_team = st.session_state.get('favourite_team')
+    fav_name = st.session_state.get('favourite_driver')
+    fav_code = ''
+    if fav_team:
+        _t = TEAM_DIRECTORY_2026.get(fav_team, {})
+        fav_code = next((c for n, c, *_ in _t.get('drivers', []) if n == fav_name), '')
+
+    left, right = st.columns([1.35, 1])
+    with left:
+        fp_ui.section_title("Son Yarış")
+        with st.spinner("Son yarış sonucu hazırlanıyor..."):
+            if fav_code:
+                _dg = personal_race_digest_v43(year, last['last'], fav_team, fav_code)
+                _html = personal_race_digest_html(
+                    _dg, season_team_colour(fav_team, year), last.get('next'), last.get('next_in_days')
+                ) if _dg.get('ok') else None
+                _h = personal_race_digest_height(_dg) if _dg.get('ok') else 0
+            else:
+                _html = _home_last_race_html(year, last['last'], last.get('next'), last.get('next_in_days'))
+                _h = 330
+        if _html:
+            render_html_hud(_html, height=_h, scrolling=True)
+            if not fav_code:
+                st.caption("Favori pilot seçersen burası kişisel özete döner — Favori Paddock.")
+        else:
+            st.caption("Son yarışın doğrulanmış sonucu henüz FastF1'e düşmedi.")
+    with right:
+        fp_ui.section_title("Şampiyona")
+        with st.spinner("Puan durumu hazırlanıyor..."):
+            try:
+                _ds, _cs, *_ = get_championship_data_stable(year)
+            except Exception:
+                _ds = _cs = pd.DataFrame()
+        if _ds is not None and not _ds.empty:
+            render_html_hud(_home_champ_top_html(_ds, _cs, year), height=278, scrolling=False)
+        else:
+            st.caption("Puan tablosu şu an alınamadı.")
+
+    st.markdown(_home_quick_tiles_html(), unsafe_allow_html=True)
+
+
 def _router_page_home():
-    """Ana ekran = açılış hero'su. Sol: 'Veriyle konuşur. Uydurmaz.' —
-    Sağ: canlı sıradaki-seans sayacı. Başka içerik yok; gezinme üst bardan.
-    (Yarış merkezi / haber akışı ilgili sayfalarda: Seans Takibi, Hafta
-    Sonu Merkezi, Haber Merkezi.)"""
+    """Ana ekran = açılış hero'su + altında veri kokpiti (son yarış · şampiyona
+    ilk 3 · hızlı erişim). Kokpit ayrı bir fragment'te yüklenir; hero anında görünür."""
     try:
         _hev, _hsn, _hst, _hlive = get_current_or_next_event()
         fp_hero.render(
             str(_hev.get('Location') or _hev.get('EventName') or '').strip(),
-            str(_hsn or ''), _hst, bool(_hlive), height=760,
+            str(_hsn or ''), _hst, bool(_hlive), height=560,
         )
     except Exception as _hero_err:  # noqa: BLE001 — hero asla sayfayı düşürmesin
         log_data_error('hero', _hero_err)
         fp_ui.page_header("Formula Paddock", T("page.home.sub"), eyebrow="Formula Paddock")
+
+    try:
+        _home_cockpit_v44()
+    except Exception as _cockpit_err:  # noqa: BLE001
+        log_data_error('home cockpit', _cockpit_err)
 
 
 # SAYFA 2: CANLI SEANS TAKİBİ
