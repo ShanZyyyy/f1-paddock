@@ -332,6 +332,63 @@ def test_top_trumps_deck_and_resolve_v66():
     assert not g["c"] and sorted(g["p"]) == sorted([hi, lo])   # kazanan hepsini aldı
 
 
+def test_podium_score_v67():
+    pod = ["VER", "HAM", "LEC"]
+    assert app._podium_score_v67(pod, pod)[0] == 5 * 3 + 3 + 5          # kusursuz
+    assert app._podium_score_v67(["HAM", "VER", "LEC"], pod)[0] == 5 + 2 + 2 + 3  # 1 tam + 2 podyumda + hepsi
+    assert app._podium_score_v67(["NOR", "RUS", "SAI"], pod)[0] == 0    # hiçbiri
+    assert app._podium_score_v67(["VER", "NOR", "SAI"], pod)[0] == 5    # 1 tam
+
+
+def _fake_strat_model_v67(sc=(20, 23)):
+    b, laps = 90.0, 40
+    return {
+        "year": 2020, "gp": "Test GP", "total_laps": laps, "driver": "XXX",
+        "driver_name": "Test", "grid": 5, "field": 20,
+        "base_lap_s": b, "fuel_effect": -0.03, "pit_loss_s": 22.0,
+        "compounds": {
+            "SOFT": {"off": -0.5, "deg": 0.10, "cliff": 12},
+            "MEDIUM": {"off": 0.0, "deg": 0.05, "cliff": 24},
+            "HARD": {"off": 0.4, "deg": 0.03, "cliff": 36},
+        },
+        "sc_windows": [sc] if sc else [], "vsc_windows": [],
+        "rivals": [
+            {"code": "AAA", "cum_s": [b * i for i in range(1, laps + 1)],
+             "stops": [{"lap": 15, "compound": "HARD"}], "start": "MEDIUM", "finish": 3},
+            {"code": "BBB", "cum_s": [(b + 0.6) * i for i in range(1, laps + 1)],
+             "stops": [{"lap": 18, "compound": "HARD"}], "start": "MEDIUM", "finish": 6},
+        ],
+        "actual": {"stops": [{"lap": 16, "compound": "HARD"}],
+                   "start_compound": "MEDIUM", "finish_pos": 4},
+    }
+
+
+def test_strat_simulate_sc_and_cliff_v67():
+    m = _fake_strat_model_v67(sc=(20, 23))
+    # lap-21 pit is inside the SC window → bedava stop
+    sim = app._strat_simulate_v67(m, {"start_compound": "MEDIUM",
+                                      "stops": [{"lap": 21, "compound": "HARD"}]})
+    pit_evs = [e for f in sim["frames"] for e in f["ev"] if e["t"] == "PIT"]
+    assert pit_evs and pit_evs[0]["sc"] is True
+    assert any(t == "Safety Car altında pit — bedava stop" for t, _ in sim["result"]["breakdown"])
+    assert len(sim["frames"]) == m["total_laps"]
+
+    # 1-stop MEDIUM taken far past its cliff (24) → TYRE_CLIFF + ceza
+    m2 = _fake_strat_model_v67(sc=None)
+    sim2 = app._strat_simulate_v67(m2, {"start_compound": "MEDIUM",
+                                        "stops": [{"lap": 38, "compound": "SOFT"}]})
+    assert any(e["t"] == "TYRE_CLIFF" for f in sim2["frames"] for e in f["ev"])
+    assert any(p < 0 for _, p in sim2["result"]["breakdown"])
+
+
+def test_strat_lin_slope_v67():
+    import pandas as _pd
+    x = _pd.Series([1, 2, 3, 4, 5])
+    y = _pd.Series([10.0, 10.2, 10.4, 10.6, 10.8])       # eğim 0.2
+    assert abs(app._strat_lin_slope_v67(x, y) - 0.2) < 1e-6
+    assert app._strat_lin_slope_v67(_pd.Series([1]), _pd.Series([1])) == 0.0
+
+
 def test_prefs_decode_bad_input():
     assert ui._prefs_decode("") == {}
     assert ui._prefs_decode(None) == {}

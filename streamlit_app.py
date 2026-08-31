@@ -241,7 +241,7 @@ VALID_PAGES = {
     'compare', 'drivers', 'learn', 'favourites', 'teams', 'standings',
     'f2f3', 'glossary', 'assistant', 'games',
     # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
-    'stewarlde', 'paddock_career', 'predict', 'cards', 'hotlap',
+    'stewarlde', 'paddock_career', 'predict', 'cards', 'hotlap', 'podium', 'stratwall',
     # yardımcı sayfalar (ayaktan / breadcrumb'dan)
     'faq', 'privacy',
 }
@@ -491,6 +491,8 @@ _PAGE_META['paddock_career'] = ("Paddock Career", T("section.games"), "games")
 _PAGE_META['predict'] = ("Hafta Sonu Tahmini", T("section.games"), "games")
 _PAGE_META['cards'] = ("Sıralama Kartları", T("section.games"), "games")
 _PAGE_META['hotlap'] = ("Kızgın Tur", T("section.games"), "games")
+_PAGE_META['podium'] = ("Podyum Tahmini", T("section.games"), "games")
+_PAGE_META['stratwall'] = ("Strateji Duvarı", T("section.games"), "games")
 _PAGE_META['faq'] = ("SSS", "Bilgi", "faq")
 _PAGE_META['privacy'] = ("Gizlilik", "Bilgi", "privacy")
 
@@ -8952,6 +8954,869 @@ def render_hotlap_game_v66():
             st.rerun()
 
 
+# =========================================================
+# FAZ 7-C · PODYUM TAHMİNİ (tarihe yolculuk trivia'sı · ağ: yarış başına 1 FastF1 R)
+# =========================================================
+_PODIUM_POOL_V67 = [
+    (2018, 'Australian Grand Prix'), (2018, 'German Grand Prix'),
+    (2018, 'Azerbaijan Grand Prix'), (2018, 'Italian Grand Prix'),
+    (2019, 'German Grand Prix'), (2019, 'Brazilian Grand Prix'),
+    (2019, 'Hungarian Grand Prix'), (2019, 'Austrian Grand Prix'),
+    (2020, 'Italian Grand Prix'), (2020, 'Turkish Grand Prix'),
+    (2020, 'Sakhir Grand Prix'), (2020, '70th Anniversary Grand Prix'),
+    (2021, 'French Grand Prix'), (2021, 'Hungarian Grand Prix'),
+    (2021, 'Russian Grand Prix'), (2021, 'Abu Dhabi Grand Prix'),
+    (2021, 'São Paulo Grand Prix'), (2021, 'United States Grand Prix'),
+    (2022, 'British Grand Prix'), (2022, 'Hungarian Grand Prix'),
+    (2022, 'Singapore Grand Prix'), (2022, 'São Paulo Grand Prix'),
+    (2022, 'Japanese Grand Prix'), (2022, 'Bahrain Grand Prix'),
+    (2023, 'Australian Grand Prix'), (2023, 'Dutch Grand Prix'),
+    (2023, 'Singapore Grand Prix'), (2023, 'Las Vegas Grand Prix'),
+    (2023, 'São Paulo Grand Prix'), (2023, 'Azerbaijan Grand Prix'),
+    (2024, 'Australian Grand Prix'), (2024, 'Miami Grand Prix'),
+    (2024, 'Spanish Grand Prix'), (2024, 'British Grand Prix'),
+    (2024, 'São Paulo Grand Prix'), (2024, 'Las Vegas Grand Prix'),
+    (2024, 'Singapore Grand Prix'), (2024, 'Canadian Grand Prix'),
+    (2025, 'Australian Grand Prix'), (2025, 'Japanese Grand Prix'),
+    (2025, 'Miami Grand Prix'), (2025, 'Monaco Grand Prix'),
+    (2025, 'Canadian Grand Prix'), (2025, 'British Grand Prix'),
+    (2025, 'Hungarian Grand Prix'), (2025, 'Dutch Grand Prix'),
+]
+
+
+@st.cache_data(ttl=7 * 86400, show_spinner=False)
+def _podium_of_race_v67(year, gp):
+    """Tarihî bir yarışın podyumu + seçilebilir pilot havuzu (ilk ~12 bitiren)."""
+    try:
+        sess = fastf1.get_session(int(year), gp, 'R')
+        sess.load(laps=False, telemetry=False, weather=False, messages=False)
+    except Exception:
+        return {'ok': False}
+    res = getattr(sess, 'results', None)
+    if res is None or getattr(res, 'empty', True):
+        return {'ok': False}
+    res = res.sort_values('Position', na_position='last')
+    codes, names = [], {}
+    for _, row in res.iterrows():
+        code = str(row.get('Abbreviation', '') or '').strip()
+        if not code or code.lower() == 'nan':
+            continue
+        codes.append(code)
+        full = str(row.get('FullName', '') or '').strip()
+        if not full:
+            full = f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip()
+        names[code] = full or code
+    if len(codes) < 6:
+        return {'ok': False}
+    return {'ok': True, 'year': int(year), 'gp': str(gp),
+            'podium': codes[:3], 'pool': codes[:12], 'names': names}
+
+
+def _podium_score_v67(picks, podium):
+    """Saf skorlayıcı. tam yer +5 · podyumda (yer yanlış) +2 · 3'ü doğru +3 · kusursuz +5."""
+    pts, detail = 0, []
+    for i, code in enumerate(picks[:3]):
+        if i < len(podium) and code == podium[i]:
+            pts += 5
+            detail.append((f"{code} — P{i + 1} tam", 5))
+        elif code in podium:
+            pts += 2
+            detail.append((f"{code} podyumda", 2))
+    if set(picks[:3]) == set(podium):
+        pts += 3
+        detail.append(("üçü de doğru", 3))
+    if list(picks[:3]) == list(podium):
+        pts += 5
+        detail.append(("kusursuz sıralama", 5))
+    return pts, detail
+
+
+def _podium_new_round_v67():
+    pool = list(_PODIUM_POOL_V67)
+    random.shuffle(pool)
+    for yr, gp in pool[:8]:
+        r = _podium_of_race_v67(yr, gp)
+        if r.get('ok'):
+            drivers = r['pool'][:]
+            random.shuffle(drivers)
+            st.session_state['pt67'] = {**r, 'pool': drivers, 'phase': 'guess',
+                                        'picks': [None, None, None]}
+            return True
+    st.session_state['pt67'] = {'phase': 'error'}
+    return False
+
+
+def render_podium_time_v67():
+    _game_shell("Podyum Tahmini",
+                "Rastgele bir tarihî yarış. 1., 2. ve 3.'yü bil — doğru sıralama daha çok puan.",
+                "#e10600")
+    pt = fp_ui.get_pref('pt') if isinstance(fp_ui.get_pref('pt'), dict) else {}
+    streak, best = int(pt.get('s') or 0), int(pt.get('b') or 0)
+    c1, c2 = st.columns(2)
+    c1.metric("Güncel seri", streak)
+    c2.metric("En iyi seri", best)
+
+    if 'pt67' not in st.session_state:
+        with st.spinner("Tarihî yarış seçiliyor…"):
+            _podium_new_round_v67()
+    r = st.session_state['pt67']
+    if r.get('phase') == 'error':
+        st.info("Yarış verisi şu an alınamadı. Biraz sonra tekrar dene.")
+        if st.button("Tekrar dene", key="pt_retry"):
+            st.session_state.pop('pt67', None)
+            st.rerun()
+        return
+
+    st.markdown(f"### {r['year']} · {html_lib.escape(r['gp'])}")
+    st.caption("Aşağıdaki isimler o yarışın ilk 12'si (karışık). Podyumu seç.")
+
+    if r['phase'] == 'guess':
+        cols = st.columns(3)
+        picks = []
+        for i in range(3):
+            picks.append(cols[i].selectbox(
+                f"P{i + 1}", r['pool'], index=i,
+                format_func=lambda c: r['names'].get(c, c), key=f"pt_p{i}"))
+        if len(set(picks)) < 3:
+            st.warning("Podyum için üç farklı pilot seç.")
+        elif st.button("Tahmini gönder", type="primary", key="pt_go"):
+            pts, detail = _podium_score_v67(picks, r['podium'])
+            new_streak = streak + 1 if pts >= 6 else 0
+            fp_ui.set_pref('pt', {'s': new_streak, 'b': max(best, new_streak)})
+            _game_award_v66(xp=max(2, pts), played=True,
+                            streak=new_streak if pts >= 6 else None)
+            r.update(phase='reveal', picks=picks, pts=pts, detail=detail)
+            st.rerun()
+    else:
+        real = " · ".join(f"{i + 1}. {r['names'].get(c, c)}" for i, c in enumerate(r['podium']))
+        mine = " · ".join(f"{i + 1}. {c}" for i, c in enumerate(r['picks']))
+        lines = "".join(f"<li>{html_lib.escape(t)} <b>+{p}</b></li>" for t, p in r['detail']) \
+            or "<li>Bu yarıştan puan çıkmadı.</li>"
+        good = r['pts'] >= 6
+        st.markdown(
+            f"<div class='hud-card' style='border-left:4px solid {'#7fe0a6' if good else '#ff8b78'}'>"
+            f"<div class='hud-label'>{r['year']} {html_lib.escape(r['gp'])} · +{r['pts']} PUAN</div>"
+            f"<div class='history-copy' style='margin-top:6px'>Gerçek podyum: <b>{html_lib.escape(real)}</b>"
+            f"<br>Senin tahminin: {html_lib.escape(mine)}</div>"
+            f"<ul style='margin:8px 0 0 1.1rem;font-size:.9rem;line-height:1.6'>{lines}</ul></div>",
+            unsafe_allow_html=True)
+        if st.button("Sıradaki yarış →", type="primary", key="pt_next"):
+            st.session_state.pop('pt67', None)
+            st.rerun()
+
+
+# =========================================================
+# FAZ 7-C · STRATEJİ DUVARI — etkileşimli yarış simülasyonu
+# Python deterministik "tape" üretir → iframe oynatır. Tüm hesap gerçek
+# FastF1 verisinden (temel tur, aşınma, GERÇEK SC pencereleri, rakiplerin
+# GERÇEK kümülatif zamanı). Bkz. tasarım: Paddock Oyun Motoru spesifikasyonu.
+# =========================================================
+_STRAT_RACES_V67 = [
+    (2018, 'Australian Grand Prix'), (2018, 'Chinese Grand Prix'),
+    (2018, 'Spanish Grand Prix'), (2018, 'Japanese Grand Prix'),
+    (2019, 'Hungarian Grand Prix'), (2019, 'Spanish Grand Prix'),
+    (2019, 'Chinese Grand Prix'),
+    (2021, 'Spanish Grand Prix'), (2021, 'French Grand Prix'),
+    (2021, 'Portuguese Grand Prix'), (2021, 'United States Grand Prix'),
+    (2022, 'Hungarian Grand Prix'), (2022, 'Spanish Grand Prix'),
+    (2022, 'French Grand Prix'), (2022, 'Miami Grand Prix'),
+    (2023, 'Bahrain Grand Prix'), (2023, 'Spanish Grand Prix'),
+    (2023, 'Hungarian Grand Prix'),
+    (2024, 'Bahrain Grand Prix'), (2024, 'Chinese Grand Prix'),
+    (2024, 'Spanish Grand Prix'), (2025, 'Bahrain Grand Prix'),
+]
+_STRAT_COMPOUND_DEFAULT = {
+    'SOFT': (-0.55, 0.085, 15), 'MEDIUM': (0.0, 0.050, 26), 'HARD': (0.45, 0.032, 38),
+    'INTERMEDIATE': (2.5, 0.06, 24), 'WET': (6.0, 0.05, 30),
+}
+
+
+def _strat_lin_slope_v67(x, y):
+    x = pd.to_numeric(x, errors='coerce')
+    y = pd.to_numeric(y, errors='coerce')
+    m = pd.notna(x) & pd.notna(y)
+    x, y = x[m], y[m]
+    if len(x) < 3 or x.nunique() < 2:
+        return 0.0
+    xm, ym = x.mean(), y.mean()
+    denom = ((x - xm) ** 2).sum()
+    return float(((x - xm) * (y - ym)).sum() / denom) if denom else 0.0
+
+
+def _strat_driver_stops_v67(laps, code):
+    dl = laps[laps['Driver'] == code].sort_values('LapNumber')
+    stops = []
+    for _, row in dl.iterrows():
+        if pd.notna(row.get('PitInTime')):
+            ln = int(row['LapNumber'])
+            nxt = dl[dl['LapNumber'] == ln + 1]
+            comp = str(nxt.iloc[0]['Compound']).upper() if not nxt.empty else 'MEDIUM'
+            stops.append({'lap': ln, 'compound': comp if comp != 'NAN' else 'MEDIUM'})
+    return stops
+
+
+def _strat_start_compound_v67(laps, code):
+    dl = laps[laps['Driver'] == code].sort_values('LapNumber')
+    if dl.empty:
+        return 'MEDIUM'
+    c = str(dl.iloc[0]['Compound']).upper()
+    return c if c in _STRAT_COMPOUND_DEFAULT else 'MEDIUM'
+
+
+def _strat_cum_by_lap_v67(laps, code, total_laps, base_lap):
+    dl = laps[laps['Driver'] == code].sort_values('LapNumber')
+    if dl.empty:
+        return None
+    by_lap = {}
+    for _, row in dl.iterrows():
+        lt = row.get('LapTime')
+        by_lap[int(row['LapNumber'])] = (pd.to_timedelta(lt).total_seconds()
+                                         if pd.notna(lt) else base_lap)
+    cum, out = 0.0, []
+    for lap in range(1, total_laps + 1):
+        cum += by_lap.get(lap, base_lap)
+        out.append(round(cum, 2))
+    return out
+
+
+def _strat_pit_loss_v67(laps, base_lap):
+    losses = []
+    for code in laps['Driver'].dropna().unique():
+        dl = laps[laps['Driver'] == code].sort_values('LapNumber')
+        for _, row in dl.iterrows():
+            if pd.notna(row.get('PitInTime')):
+                ln = int(row['LapNumber'])
+                inlap = pd.to_timedelta(row.get('LapTime')).total_seconds() if pd.notna(row.get('LapTime')) else None
+                out = dl[dl['LapNumber'] == ln + 1]
+                outlap = (pd.to_timedelta(out.iloc[0].get('LapTime')).total_seconds()
+                          if not out.empty and pd.notna(out.iloc[0].get('LapTime')) else None)
+                if inlap and outlap:
+                    losses.append((inlap + outlap) - 2 * base_lap)
+    if not losses:
+        return 21.0
+    return round(min(30.0, max(16.0, float(pd.Series(losses).median()))), 1)
+
+
+def _strat_time_to_lap_v67(session, t):
+    try:
+        if pd.isna(t):
+            return None
+        t = pd.to_timedelta(t)
+        starts = session.laps.groupby('LapNumber')['LapStartTime'].min().dropna()
+        prior = starts[starts <= t]
+        return int(prior.index.max()) if len(prior) else 1
+    except Exception:
+        return None
+
+
+def _sc_windows_v67(session, total_laps):
+    msgs = getattr(session, 'race_control_messages', None)
+    if msgs is None or getattr(msgs, 'empty', True):
+        return [], []
+    sc, vsc, open_sc, open_vsc = [], [], None, None
+    for _, m in msgs.iterrows():
+        cat = str(m.get('Category', '') or '')
+        txt = str(m.get('Message', '') or '').upper()
+        status = str(m.get('Status', '') or '').upper()
+        lap = m.get('Lap')
+        try:
+            lap = int(lap) if pd.notna(lap) else None
+        except Exception:
+            lap = None
+        if lap is None:
+            lap = _strat_time_to_lap_v67(session, m.get('Time'))
+        if lap is None:
+            continue
+        lap = max(1, min(total_laps, lap))
+        is_vsc = 'VIRTUAL SAFETY CAR' in txt or 'VSC' in txt
+        is_sc = (cat == 'SafetyCar' or 'SAFETY CAR' in txt) and not is_vsc
+        deploy = 'DEPLOYED' in status or 'DEPLOYED' in txt or 'THIS LAP' in txt
+        ending = 'ENDING' in status or 'ENDING' in txt or 'IN THIS LAP' in txt
+        if is_vsc:
+            if deploy and open_vsc is None:
+                open_vsc = lap
+            elif ending and open_vsc is not None:
+                vsc.append((open_vsc, max(lap, open_vsc))); open_vsc = None
+        elif is_sc:
+            if deploy and open_sc is None:
+                open_sc = lap
+            elif ending and open_sc is not None:
+                sc.append((open_sc, max(lap, open_sc))); open_sc = None
+    if open_sc is not None:
+        sc.append((open_sc, total_laps))
+    if open_vsc is not None:
+        vsc.append((open_vsc, total_laps))
+    return sc, vsc
+
+
+def _strat_pick_driver_v67(res, laps):
+    order = res.sort_values('Position', na_position='last')
+    if order.empty:
+        return None
+    win_code = str(order.iloc[0]['Abbreviation']).strip()
+    win_stops = len(_strat_driver_stops_v67(laps, win_code))
+    cands = []
+    for _, r in res.iterrows():
+        code = str(r.get('Abbreviation', '') or '').strip()
+        pos, grid = r.get('Position'), r.get('GridPosition')
+        if not code or pd.isna(pos) or pd.isna(grid) or int(grid) < 1 or int(pos) > 12:
+            continue   # int(grid) < 1 → pit yolu başlangıcı, temiz strateji hikâyesi değil
+        stops = _strat_driver_stops_v67(laps, code)
+        if not stops or is_dnf_status(str(r.get('Status', '') or '')):
+            continue
+        move = int(grid) - int(pos)
+        # "kazanandan farklı strateji" baskın sinyal; kaza kaynaklı büyük hareketi sınırla
+        score = (6 if len(stops) != win_stops else 0) + min(5, abs(move)) + (2 if 3 <= int(pos) <= 9 else 0)
+        cands.append((score, int(pos), code))
+    if not cands:
+        return None
+    cands.sort(key=lambda x: (-x[0], x[1]))
+    return cands[0][2]
+
+
+@st.cache_data(ttl=7 * 86400, show_spinner=False)
+def _strat_race_model_v67(year, gp):
+    try:
+        s = fastf1.get_session(int(year), gp, 'R')
+        s.load(laps=True, telemetry=False, weather=False, messages=True)
+    except Exception as error:
+        return {'ok': False, 'reason': str(error)}
+    laps, res = getattr(s, 'laps', None), getattr(s, 'results', None)
+    if laps is None or laps.empty or res is None or res.empty:
+        return {'ok': False}
+    total_laps = int(pd.to_numeric(laps['LapNumber'], errors='coerce').max())
+    if not total_laps or total_laps < 20:
+        return {'ok': False}
+
+    clean = laps[laps['PitInTime'].isna() & laps['PitOutTime'].isna()
+                 & laps['LapTime'].notna()].copy()
+    if clean.empty:
+        return {'ok': False}
+    clean['_s'] = clean['LapTime'].dt.total_seconds()
+    med = clean['_s'].median()
+    clean = clean[clean['_s'] <= med * 1.07]
+    base_lap_s = round(float(clean['_s'].quantile(0.5)), 2)
+    fuel_effect = -0.033
+
+    compounds = {}
+    for comp in ('SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET'):
+        rows = clean[clean['Compound'].astype(str).str.upper() == comp]
+        if len(rows) >= 8:
+            slope = _strat_lin_slope_v67(rows['TyreLife'], rows['_s'])
+            deg = max(0.012, slope - fuel_effect)
+            off = round(float(rows['_s'].median()) - base_lap_s, 2)
+            cliff = _STRAT_COMPOUND_DEFAULT[comp][2]
+            compounds[comp] = {'off': off, 'deg': round(deg, 3), 'cliff': cliff}
+        else:
+            d = _STRAT_COMPOUND_DEFAULT[comp]
+            compounds[comp] = {'off': d[0], 'deg': d[1], 'cliff': d[2]}
+
+    pit_loss_s = _strat_pit_loss_v67(laps, base_lap_s)
+    sc_windows, vsc_windows = _sc_windows_v67(s, total_laps)
+
+    driver = _strat_pick_driver_v67(res, laps)
+    if not driver:
+        return {'ok': False}
+    d_res = res[res['Abbreviation'] == driver].iloc[0]
+    _g = int(d_res['GridPosition']) if pd.notna(d_res['GridPosition']) else 10
+    field_n = int(len(res))
+    grid = _g if _g >= 1 else field_n           # pit yolu başlangıcı → grid sonu
+    grid = max(1, min(field_n, grid))
+    finish = int(d_res['Position']) if pd.notna(d_res['Position']) else grid
+    d_name = str(d_res.get('FullName', '') or driver).strip()
+
+    rivals = []
+    for _, rr in res.sort_values('Position', na_position='last').iterrows():
+        rc = str(rr.get('Abbreviation', '') or '').strip()
+        rp = rr.get('Position')
+        if not rc or rc == driver or pd.isna(rp) or abs(int(rp) - finish) > 4:
+            continue
+        cum = _strat_cum_by_lap_v67(laps, rc, total_laps, base_lap_s)
+        if cum is None:
+            continue
+        rivals.append({'code': rc, 'cum_s': cum, 'stops': _strat_driver_stops_v67(laps, rc),
+                       'start': _strat_start_compound_v67(laps, rc), 'finish': int(rp)})
+    if len(rivals) < 2:
+        return {'ok': False}
+
+    actual_stops = _strat_driver_stops_v67(laps, driver)
+    if len(actual_stops) > 3 or pit_loss_s >= 29:
+        return {'ok': False}   # kırmızı bayrak / lastik değişim gürültüsü — temiz strateji yok
+    return {
+        'ok': True, 'year': int(year), 'gp': str(gp), 'total_laps': total_laps,
+        'driver': driver, 'driver_name': d_name, 'grid': grid, 'field': field_n,
+        'base_lap_s': base_lap_s, 'fuel_effect': fuel_effect, 'pit_loss_s': pit_loss_s,
+        'compounds': compounds, 'sc_windows': sc_windows, 'vsc_windows': vsc_windows,
+        'rivals': rivals,
+        'actual': {'stops': actual_stops,
+                   'start_compound': _strat_start_compound_v67(laps, driver),
+                   'finish_pos': finish},
+    }
+
+
+def _strat_in_window(lap, windows):
+    return any(a <= lap <= b for a, b in (windows or []))
+
+
+def _strat_rival_stint_at(rival, lap):
+    """Rakibin ``lap`` turundaki (hamur, lastik_yaşı) tahmini."""
+    comp = rival.get('start', 'MEDIUM')
+    since = 0
+    for st in rival.get('stops', []):
+        if st['lap'] <= lap:
+            comp = st['compound']
+            since = st['lap']
+    return comp, max(1, lap - since)
+
+
+def _strat_simulate_v67(model, strat):
+    laps = model['total_laps']
+    comps = model['compounds']
+    stop_by_lap = {int(s['lap']): str(s['compound']).upper() for s in strat['stops']}
+
+    cum = 0.0
+    compound = str(strat['start_compound']).upper()
+    tyre_age = 0
+    sc_active = False
+    cur_pos = model['grid']
+    pending = []
+    frames = []
+    base_ahead = None
+
+    def _rivals_ahead(c):
+        return sum(1 for r in model['rivals'] if r['cum_s'][lap - 1] < c)
+
+    for lap in range(1, laps + 1):
+        ev = []
+        if lap in stop_by_lap:
+            compound = stop_by_lap[lap]
+            tyre_age = 0
+        tyre_age += 1
+        cc = comps.get(compound, comps.get('MEDIUM'))
+
+        lt = model['base_lap_s'] + cc['off'] + cc['deg'] * tyre_age + model['fuel_effect'] * lap
+        if tyre_age > cc['cliff']:
+            over = tyre_age - cc['cliff']
+            lt += 0.12 * over + 0.04 * over ** 1.5
+            if tyre_age == cc['cliff'] + 1:
+                ev.append({'t': 'TYRE_CLIFF', 'compound': compound})
+
+        in_sc = _strat_in_window(lap, model['sc_windows'])
+        in_vsc = _strat_in_window(lap, model['vsc_windows'])
+        if in_sc:
+            lt = model['base_lap_s'] * 1.45
+            if not sc_active:
+                ev.append({'t': 'SC_START'}); sc_active = True
+        elif in_vsc:
+            lt = model['base_lap_s'] * 1.28
+            ev.append({'t': 'VSC'})
+        elif sc_active:
+            ev.append({'t': 'SC_END'}); sc_active = False
+
+        if lap in stop_by_lap:
+            loss = model['pit_loss_s']
+            if in_sc:
+                loss *= 0.45
+            elif in_vsc:
+                loss *= 0.65
+            lt += loss
+            ev.append({'t': 'PIT', 'compound': stop_by_lap[lap],
+                       'loss': round(loss, 1), 'sc': bool(in_sc or in_vsc)})
+            # undercut denemesi aç: bir öndeki rakip henüz pit yapmadıysa
+            ahead_sorted = sorted(model['rivals'], key=lambda r: r['cum_s'][lap - 1])
+            rival = next((r for r in reversed(ahead_sorted)
+                          if r['cum_s'][lap - 1] < cum), None)
+            if rival and not any(s['lap'] <= lap for s in rival['stops']):
+                nxt = min((s['lap'] for s in rival['stops'] if s['lap'] > lap), default=laps)
+                pending.append({'rival': rival['code'], 'start': lap, 'rival_pit': nxt,
+                                'traffic': False})
+
+        cum += lt
+
+        if base_ahead is None:
+            base_ahead = _rivals_ahead(cum)
+        new_pos = model['grid'] + (_rivals_ahead(cum) - base_ahead)
+        new_pos = max(1, min(model['field'], new_pos))
+
+        # undercut/overcut çöz
+        for b in list(pending):
+            rc = next((r for r in model['rivals'] if r['code'] == b['rival']), None)
+            if rc is None:
+                pending.remove(b); continue
+            if lap == b['start'] + 1:
+                # trafik: hemen önde 1.5 sn içinde bir araç var mı?
+                if any(0 < cum - r['cum_s'][lap - 1] <= 1.5 for r in model['rivals']):
+                    b['traffic'] = True
+            if lap >= b['rival_pit']:
+                delta = cum - rc['cum_s'][lap - 1]
+                if b['traffic'] and delta > -0.3:
+                    ev.append({'t': 'UNDERCUT_FAIL', 'on': b['rival'], 'reason': 'traffic'})
+                elif delta < -0.3:
+                    ev.append({'t': 'UNDERCUT_OK', 'on': b['rival']})
+                elif abs(delta) <= 1.0:
+                    ev.append({'t': 'UNDERCUT_CLOSE', 'on': b['rival']})
+                else:
+                    ev.append({'t': 'UNDERCUT_FAIL', 'on': b['rival'], 'reason': 'pace'})
+                pending.remove(b)
+
+        if new_pos != cur_pos:
+            ev.append({'t': 'POS_UP' if new_pos < cur_pos else 'POS_DOWN',
+                       'from': cur_pos, 'to': new_pos})
+            cur_pos = new_pos
+
+        leader_cum = min((r['cum_s'][lap - 1] for r in model['rivals']), default=cum)
+        frames.append({
+            'lap': lap, 'pos': cur_pos,
+            'gapLeader': round(max(0.0, cum - leader_cum), 1),
+            'compound': compound, 'age': tyre_age,
+            'wearPct': min(100, round(tyre_age / max(1, cc['cliff']) * 100)),
+            'ev': ev,
+        })
+
+    return {
+        'meta': {'year': model['year'], 'gp': model['gp'], 'driver': model['driver'],
+                 'driverName': model['driver_name'], 'grid': model['grid'],
+                 'laps': laps, 'field': model['field']},
+        'frames': frames,
+        'result': _score_strategy_v67(model, strat, cur_pos, frames),
+    }
+
+
+def _score_strategy_v67(model, strat, final_pos, frames):
+    real = model['actual']
+    stops = strat['stops']
+    score, detail = 0, []
+
+    if final_pos <= real['finish_pos']:
+        score += 40; detail.append(('Gerçek sonucu yakaladın ya da geçtin', 40))
+    elif final_pos <= real['finish_pos'] + 2:
+        score += 20; detail.append(('Gerçek sonuca 2 pozisyon içinde', 20))
+
+    if len(stops) == len(real['stops']):
+        score += 15; detail.append(('Doğru pit sayısı', 15))
+
+    used = [str(strat['start_compound']).upper()] + [str(s['compound']).upper() for s in stops]
+    if len(set(used)) >= 2 and all(c in ('SOFT', 'MEDIUM', 'HARD') for c in used):
+        score += 10; detail.append(('Geçerli kuru strateji (≥2 hamur)', 10))
+
+    sc_pit = any(e['t'] == 'PIT' and e.get('sc') for f in frames for e in f['ev'])
+    if sc_pit:
+        score += 25; detail.append(('Safety Car altında pit — bedava stop', 25))
+
+    # pit turundan hemen sonra SC geldi mi (kaçırıldı)
+    pit_laps = [f['lap'] for f in frames for e in f['ev'] if e['t'] == 'PIT' and not e.get('sc')]
+    missed = any(any(a <= pl + 2 <= b and pl < a for a, b in model['sc_windows'])
+                 for pl in pit_laps)
+    if missed:
+        score -= 20; detail.append(('Pit turundan hemen sonra SC — kaçırdın', -20))
+
+    if any(e['t'] == 'TYRE_CLIFF' for f in frames for e in f['ev']):
+        score -= 15; detail.append(('Bir stint lastik uçurumunu geçti', -15))
+
+    if final_pos == 1 and str(real['start_compound']).upper() != str(strat['start_compound']).upper():
+        score += 30; detail.append(('Farklı stratejiyle kazandın — yarışı zekâyla aldın', 30))
+
+    return {
+        'finalPos': final_pos, 'score': max(0, score), 'breakdown': detail,
+        'actual': {'stops': real['stops'], 'startCompound': real['start_compound'],
+                   'finishPos': real['finish_pos']},
+    }
+
+
+_STRAT_TYRE_COL_V67 = {'SOFT': '#ff4655', 'MEDIUM': '#ffd23e', 'HARD': '#f1f4f8',
+                       'INTERMEDIATE': '#44d97a', 'WET': '#45a9ff'}
+
+
+def strategy_wall_sim_html(sim):
+    packed = fp_ui.json_for_script(sim)
+    tcol = fp_ui.json_for_script(_STRAT_TYRE_COL_V67)
+    _html = r'''<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
+.stage{border:1px solid #2c425c;border-radius:13px;background:linear-gradient(135deg,#11161f,#09101a);padding:14px;position:relative;overflow:hidden}
+.hd{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:800 12px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#9fb0c0}
+.hd b{color:#f2f5f8}
+.board{position:relative;height:404px;margin-top:12px;border:1px solid #26313f;border-radius:9px;background:#0c1119;overflow:hidden}
+.row{position:absolute;left:8px;right:8px;height:32px;display:grid;grid-template-columns:34px 1fr auto auto;gap:8px;align-items:center;
+  padding:0 9px;border-radius:6px;background:#131c2b;border-left:3px solid #33455c;transition:top .5s cubic-bezier(.2,.7,.2,1),background .25s}
+.row.me{background:#20344c;border-left-color:var(--tc,#f5c33b);font-weight:800;z-index:3}
+.row .p{font:800 13px 'JetBrains Mono',monospace;color:#8ea4bc;text-align:center}
+.row .c{font:700 12px Inter,Arial,sans-serif;letter-spacing:.02em}
+.row .g{font:700 11px 'JetBrains Mono',monospace;color:#9fb0c0}
+.row .t{width:16px;height:16px;border-radius:50%;border:2px solid var(--t,#888)}
+.row.dim{opacity:.4}
+.row.pitting{transform:translateX(52px);opacity:.55}
+.row.udok{animation:flashG .8s} .row.udfail{animation:shake .5s}
+@keyframes flashG{0%,100%{background:#20344c}40%{background:#1f7a3d}}
+@keyframes shake{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}}
+.scban{position:absolute;top:0;left:0;right:0;padding:7px;text-align:center;font:900 12px 'JetBrains Mono',monospace;
+  letter-spacing:.14em;background:#f5c33b;color:#07090d;transform:translateY(-100%);transition:transform .3s;z-index:6}
+body.sc .scban{transform:translateY(0)}
+body.sc .board{box-shadow:inset 0 0 0 3px #f5c33b;animation:scP 1s infinite}
+body.vsc .board{box-shadow:inset 0 0 0 3px #45a9ff}
+@keyframes scP{50%{box-shadow:inset 0 0 0 3px transparent}}
+.wear{height:6px;border-radius:4px;background:#0a121c;overflow:hidden;margin-top:10px}
+.wear i{display:block;height:100%;width:var(--w,0%);background:linear-gradient(90deg,#4ade80,#f5c33b 60%,#ff5c5c);transition:width .3s}
+.wear.cliff i{background:#ff5c5c}
+.ctl{display:flex;gap:6px;align-items:center;margin-top:10px}
+.ctl button{border:1px solid #2b3a4d;border-radius:6px;background:#161d28;color:#f2f5f8;font-weight:800;padding:6px 9px;cursor:pointer}
+.ctl button.on{border-color:#f5c33b;background:#2a220a}
+.ctl input{flex:1;accent-color:#f5c33b}
+.toast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%) translateY(12px);opacity:0;
+  background:#131c2b;border:1px solid #33455c;border-radius:8px;padding:8px 14px;font:800 12px Inter,Arial,sans-serif;
+  transition:opacity .2s,transform .2s;z-index:7;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.chk{position:absolute;inset:0;background:repeating-conic-gradient(#0c0f14 0 25%,#1a1f26 0 50%) 0 0/34px 34px;
+  opacity:0;transition:opacity .4s;z-index:8;display:grid;place-items:center;font:900 22px 'Saira Condensed',sans-serif;letter-spacing:.1em}
+.chk.on{opacity:.97}
+</style></head><body>
+<div class="stage" id="stage">
+  <div class="scban">● SAFETY CAR</div>
+  <div class="hd"><span id="lap">TUR 1</span><span id="tyre">—</span><span>Δ GRUP <b id="gap">0.0</b></span></div>
+  <div class="board" id="board"></div>
+  <div class="wear" id="wear"><i></i></div>
+  <div class="ctl"><button id="pp">❚❚</button>
+    <button data-x="1" class="on">1×</button><button data-x="2">2×</button><button data-x="4">4×</button>
+    <input id="rng" type="range" min="0" value="0"></div>
+  <div class="toast" id="toast"></div>
+  <div class="chk" id="chk">YARIŞ BİTTİ</div>
+</div>
+<script>
+const SIM=__PAYLOAD__, F=SIM.frames, N=F.length, M=SIM.meta;
+const TCOL=__TCOL__;
+let i=0,playing=true,speed=1,last=0,raf=0;const LAP_MS=150;
+const board=document.getElementById('board');
+document.getElementById('rng').max=N-1;
+
+// sabit ~7 satırlık pano: lider + oyuncunun çevresi
+const SLOTS=7, ROWH=34;
+let rows=[];
+for(let k=0;k<SLOTS;k++){
+  const d=document.createElement('div'); d.className='row';
+  d.innerHTML='<span class="p"></span><span class="c"></span><span class="t"></span><span class="g"></span>';
+  d.style.top=(6+k*ROWH*1.02)+'px'; board.appendChild(d); rows.push(d);
+}
+function meRow(){ return rows.find(r=>r.classList.contains('me')) || rows[3]; }
+function toast(txt){ const t=document.getElementById('toast'); t.textContent=txt; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1500); }
+
+function layout(f){
+  // oyuncuyu ortada tut, çevresine hayali pozisyonlar
+  const top = Math.max(1, f.pos-3);
+  for(let k=0;k<SLOTS;k++){
+    const pos = top+k, r=rows[k], me = pos===f.pos;
+    r.classList.toggle('me', me);
+    r.querySelector('.p').textContent = 'P'+pos;
+    r.querySelector('.c').textContent = me ? (M.driver||'SEN') : '·';
+    r.querySelector('.g').textContent = me ? (f.gapLeader>0? '+'+f.gapLeader : 'LİDER') : '';
+    const tc = me ? (TCOL[f.compound]||'#888') : '#33455c';
+    r.querySelector('.t').style.setProperty('--t', tc);
+    r.style.setProperty('--tc', TCOL[f.compound]||'#f5c33b');
+    r.classList.remove('dim');
+  }
+}
+function apply(f){
+  for(const e of f.ev){
+    if(e.t==='SC_START'){ document.body.classList.add('sc'); toast('SAFETY CAR'); }
+    else if(e.t==='SC_END'){ document.body.classList.remove('sc'); toast('YEŞİL BAYRAK'); }
+    else if(e.t==='VSC'){ document.body.classList.add('vsc'); }
+    else if(e.t==='PIT'){ meRow().classList.add('pitting');
+      setTimeout(()=>meRow().classList.remove('pitting'),650);
+      toast('PIT · '+e.compound+' · '+e.loss.toFixed(1)+' sn'+(e.sc?' (SC!)':'')); }
+    else if(e.t==='POS_UP'){ toast('▲ P'+e.to); }
+    else if(e.t==='POS_DOWN'){ toast('▼ P'+e.to); }
+    else if(e.t==='UNDERCUT_OK'){ meRow().classList.add('udok');
+      setTimeout(()=>meRow().classList.remove('udok'),800); toast('UNDERCUT! '+e.on+' geçildi'); }
+    else if(e.t==='UNDERCUT_CLOSE'){ toast(e.on+' ile yan yana'); }
+    else if(e.t==='UNDERCUT_FAIL'){ meRow().classList.add('udfail');
+      setTimeout(()=>meRow().classList.remove('udfail'),500);
+      toast('Undercut çöktü'+(e.reason==='traffic'?' — trafik':'')); }
+    else if(e.t==='TYRE_CLIFF'){ document.getElementById('wear').classList.add('cliff'); toast('Lastik bitti'); }
+  }
+}
+function render(f){
+  document.getElementById('lap').textContent='TUR '+f.lap+' / '+M.laps;
+  document.getElementById('tyre').textContent=f.compound+' · '+f.age+'. tur';
+  document.getElementById('gap').textContent=f.gapLeader>0? '+'+f.gapLeader : '—';
+  document.getElementById('wear').style.setProperty('--w', f.wearPct+'%');
+  layout(f); apply(f);
+}
+function step(t){
+  if(playing && t-last>=LAP_MS/speed){
+    last=t; render(F[i]); document.getElementById('rng').value=i; i++;
+    if(i>=N){ playing=false;
+      document.getElementById('chk').textContent='P'+F[N-1].pos+' · '+SIM.result.score+' PUAN';
+      document.getElementById('chk').classList.add('on');
+      setTimeout(()=>{ try{ const b=window.parent.document
+        .querySelector('[class*="st-key-sw_done"] button'); if(b) b.click(); }catch(_){} },900);
+      return;
+    }
+  }
+  raf=requestAnimationFrame(step);
+}
+document.getElementById('pp').onclick=function(){ playing=!playing; this.textContent=playing?'❚❚':'▶'; if(playing){last=performance.now();} };
+document.getElementById('rng').oninput=function(e){ i=+e.target.value; playing=false; document.getElementById('pp').textContent='▶'; render(F[i]); };
+document.querySelectorAll('[data-x]').forEach(b=>b.onclick=function(){ speed=+b.dataset.x;
+  document.querySelectorAll('[data-x]').forEach(x=>x.classList.toggle('on',x===b)); });
+render(F[0]);
+raf=requestAnimationFrame(step);
+// pano gizlendiğinde rAF durur — güvenlik ağı (replay HUD ile aynı desen)
+setInterval(function(){ if(playing && performance.now()-last > 220){ step(performance.now()); } }, 90);
+</script></body></html>'''
+    return _html.replace('__TCOL__', tcol).replace('__PAYLOAD__', packed)
+
+
+def _sw_intro_line_v67(m):
+    a = m['actual']
+    n_real = len(a['stops'])
+    return (f"P{m['grid']}'ten başlıyorsun ({m['driver_name']}). {m['total_laps']} tur. "
+            f"Temel tur ~{m['base_lap_s']:.1f} sn, pit kaybı ~{m['pit_loss_s']:.0f} sn. "
+            f"O gün {n_real} stop yapıldı, P{a['finish_pos']} bitildi — sen daha iyisini yapabilir misin?")
+
+
+def _sw_dialogue_v67(m):
+    c = m['compounds']
+    soft, med = c.get('SOFT', {}), c.get('MEDIUM', {})
+    sc_txt = ("Bu yarışta güvenlik aracı ihtimali yüksek — pencereni ona göre esnek tut."
+              if m['sc_windows'] else "Temiz bir yarış bekleniyor, ama sürprize hazır ol.")
+    return [
+        ("Pilot · telsiz",
+         f"Lastikler {med.get('cliff', 26)}. turdan sonra düşüyor, soft daha erken. "
+         f"Pist tutuşu {'iyi' if m['base_lap_s'] < 90 else 'zorlu'}. {sc_txt}"),
+        ("Yarış mühendisi",
+         f"Pit kaybımız {m['pit_loss_s']:.0f} saniye. Undercut penceresi dar — "
+         f"öndekini geçmek istiyorsak lastiği erken bırakmalıyız ama trafiğe dikkat."),
+        ("Takım patronu",
+         f"Gerçek dünyada bu araç P{m['actual']['finish_pos']} bitirdi. "
+         f"Hedef: en az onu yakala. Riski sen seç — kazanamazsak da öğreniriz."),
+    ]
+
+
+def _sw_strategy_form_v67(m):
+    dry = ['SOFT', 'MEDIUM', 'HARD']
+    start = st.selectbox("Başlangıç hamuru", dry, index=1, key="sw_start")
+    n = st.radio("Pit stop sayısı", [1, 2, 3], horizontal=True, key="sw_n")
+    stops = []
+    prev_lap = 0
+    for k in range(int(n)):
+        c1, c2 = st.columns([2, 1])
+        lo = prev_lap + 4
+        hi = m['total_laps'] - 3
+        default = int(lo + (hi - lo) * (k + 1) / (n + 1))
+        lap = c1.slider(f"{k + 1}. pit turu", min_value=max(2, lo), max_value=max(lo + 1, hi),
+                        value=min(max(default, lo), hi), key=f"sw_lap{k}")
+        comp = c2.selectbox(f"{k + 1}. pit hamuru", dry,
+                            index=2 if k == 0 else 1, key=f"sw_c{k}")
+        stops.append({'lap': int(lap), 'compound': comp})
+        prev_lap = int(lap)
+    laps_sorted = sorted(s['lap'] for s in stops)
+    if len(set(laps_sorted)) != len(laps_sorted):
+        st.warning("Pit turları farklı olmalı.")
+        return None
+    used = [start] + [s['compound'] for s in stops]
+    if len(set(used)) < 2:
+        st.warning("En az iki farklı hamur kullanmalısın (kuru yarış kuralı).")
+        return None
+    st.caption("Stint uzunlukları: " + " · ".join(
+        f"{b - a} tur" for a, b in zip([0] + laps_sorted, laps_sorted + [m['total_laps']])))
+    return {'start_compound': start, 'stops': sorted(stops, key=lambda s: s['lap'])}
+
+
+def _sw_result_v67(r, m):
+    pos, real = r['finalPos'], r['actual']
+    good = pos <= real['finishPos']
+    st.markdown(
+        f"<div class='hud-card' style='border-left:4px solid {'#7fe0a6' if good else '#ffb37a'}'>"
+        f"<div class='hud-label'>SİMÜLASYON SONUCU · P{pos} · +{r['score']} PUAN</div>"
+        f"<div class='history-copy' style='margin-top:6px'>{html_lib.escape(m['driver_name'])} "
+        f"gerçekte P{real['finishPos']} bitirdi ({len(real['stops'])} stop, "
+        f"{html_lib.escape(str(real['startCompound']))} başladı).</div></div>",
+        unsafe_allow_html=True)
+    rows = "".join(
+        f"<li>{html_lib.escape(t)} <b>{'+' if p > 0 else ''}{p}</b></li>" for t, p in r['breakdown']
+    ) or "<li>Bu stratejiden puan çıkmadı.</li>"
+    st.markdown(f"<ul style='font-size:.9rem;line-height:1.7'>{rows}</ul>", unsafe_allow_html=True)
+
+
+def render_strategy_wall_v67():
+    _game_shell("Strateji Duvarı",
+                "Gerçek bir yarışın pit duvarına geç. Kararını ver, yarışı tur tur izle.",
+                "#f5c33b")
+    g = st.session_state.setdefault('sw67', {'phase': 'intro', 'race_key': None})
+
+    if g['phase'] == 'intro':
+        with st.spinner("Yarış verisi hazırlanıyor…"):
+            m = {}
+            pool = list(_STRAT_RACES_V67)
+            random.shuffle(pool)
+            for key in ([g['race_key']] if g.get('race_key') else []) + pool[:5]:
+                m = _strat_race_model_v67(*key)
+                if m.get('ok'):
+                    g['race_key'] = key
+                    break
+            g['model'] = m
+        if not m.get('ok'):
+            st.info("Yarış verisi şu an alınamadı. Biraz sonra tekrar dene.")
+            if st.button("Tekrar dene", key="sw_reroll"):
+                g['race_key'] = None
+                st.rerun()
+            return
+        st.markdown(f"### {m['year']} · {html_lib.escape(m['gp'])}")
+        st.markdown(f"<div class='hud-card' style='border-left:4px solid #f5c33b'>"
+                    f"<div class='hud-label'>DUVAR BRİFİNGİ</div>"
+                    f"<div class='history-copy' style='margin-top:6px'>{html_lib.escape(_sw_intro_line_v67(m))}</div></div>",
+                    unsafe_allow_html=True)
+        if st.button("Duvara geç →", type="primary", key="sw_go"):
+            g['phase'] = 'dialogue'
+            g['dlg_step'] = 0
+            st.rerun()
+
+    elif g['phase'] == 'dialogue':
+        steps = _sw_dialogue_v67(g['model'])
+        who, text = steps[min(g['dlg_step'], len(steps) - 1)]
+        st.markdown(f"<div class='hud-card' style='border-left:4px solid #38e1d0'>"
+                    f"<div class='hud-label'>{html_lib.escape(who.upper())}</div>"
+                    f"<div class='history-copy' style='margin-top:6px;font-size:1.02rem'>"
+                    f"“{html_lib.escape(text)}”</div></div>", unsafe_allow_html=True)
+        st.caption(f"{g['dlg_step'] + 1} / {len(steps)}")
+        if st.button("Devam →", type="primary", key=f"sw_dlg{g['dlg_step']}"):
+            g['dlg_step'] += 1
+            if g['dlg_step'] >= len(steps):
+                g['phase'] = 'strategy'
+            st.rerun()
+
+    elif g['phase'] == 'strategy':
+        st.markdown(f"### Strateji · {g['model']['year']} {html_lib.escape(g['model']['gp'])}")
+        strat = _sw_strategy_form_v67(g['model'])
+        if strat and st.button("Stratejiyi kilitle ve yarışı başlat", type="primary", key="sw_lock"):
+            g['strat'] = strat
+            g['sim'] = _strat_simulate_v67(g['model'], strat)
+            g['phase'] = 'sim'
+            st.rerun()
+
+    elif g['phase'] == 'sim':
+        st.markdown("<style>[class*='st-key-sw_done']{position:fixed !important;width:1px !important;"
+                    "height:1px !important;overflow:hidden !important;opacity:0 !important}</style>",
+                    unsafe_allow_html=True)
+        st.button("done", key="sw_done",
+                  on_click=lambda: st.session_state['sw67'].update(phase='result'))
+        render_html_hud(strategy_wall_sim_html(g['sim']), height=640, scrolling=False)
+        st.caption("Yarış oynanıyor… bittiğinde sonuç ekranı gelir. (Çubuğu sürükleyerek de gezebilirsin.)")
+
+    else:  # result
+        r = g['sim']['result']
+        if not g.get('awarded'):
+            g['awarded'] = True
+            _game_award_v66(xp=max(5, r['score'] // 4), played=True)
+        _sw_result_v67(r, g['model'])
+        cols = st.columns(2)
+        if cols[0].button("Aynı yarış, yeni strateji", key="sw_retry"):
+            g.update(phase='strategy', sim=None, strat=None, awarded=False)
+            st.rerun()
+        if cols[1].button("Başka yarış →", type="primary", key="sw_new"):
+            st.session_state['sw67'] = {'phase': 'intro', 'race_key': None}
+            st.rerun()
+
+
 def games_profile_hud_html(profile):
     xp = int(profile.get('xp', 0))
     played = int(profile.get('played', 0))
@@ -8997,6 +9862,8 @@ def render_games_hub_v30():
     fp_ui.page_header(T("page.games.title"), T("page.games.sub"), eyebrow=T("section.games"))
     render_html_hud(games_profile_hud_html(_game_profile_v66()), height=98)
     games = [
+        ("PİT DUVARI", "Strateji Duvarı", "Gerçek bir yarışın pit duvarına geç: diyalog, strateji, tur tur oynayan simülasyon. Safety Car'ı yakala.", "#f5c33b", "Duvara geç", "stratwall"),
+        ("TARİHE YOLCULUK", "Podyum Tahmini", "Rastgele bir tarihî yarış — ilk 3'ü bil, seriyi uzat.", "#e10600", "Yarış getir", "podium"),
         ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu altı tahminde bul. Günlük bulmaca + seri.", "#ff385c", "Stewardle aç", "stewarlde"),
         ("KART DÜELLOSU", "Sıralama Kartları", "Gerçek kariyer istatistikleriyle Top Trumps — CPU'ya karşı bütün desteyi kap.", "#38e1d0", "Deste dağıt", "cards"),
         ("HAFTA SONU", "Hafta Sonu Tahmini", "Sıradaki GP'nin pole + podyumunu tahmin et; yarıştan sonra otomatik puanlanır.", "#f7c948", "Tahmin yap", "predict"),
@@ -11426,6 +12293,10 @@ elif st.session_state['page'] == 'cards':
     render_top_trumps_v66()
 elif st.session_state['page'] == 'hotlap':
     render_hotlap_game_v66()
+elif st.session_state['page'] == 'podium':
+    render_podium_time_v67()
+elif st.session_state['page'] == 'stratwall':
+    render_strategy_wall_v67()
 
 # SAYFA 9: F1 SÖZLÜĞÜ
 elif st.session_state['page'] == 'glossary':
