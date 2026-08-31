@@ -8506,6 +8506,56 @@ def _race_ready_banner_v53(key_suffix=""):
             st.rerun()
 
 
+def _this_week_line_v54(year, last, fav_team, fav_code, driver_standings):
+    """#6 — kokpitin en üstünde tek satır: son yarış (kişisel) · lider + fark ·
+    sıradaki yarış. Üç tıklanabilir gerçek, tek bakış."""
+    segs = []
+    race = last.get('last')
+    if race:
+        tail = ""
+        if fav_team and fav_code:
+            try:
+                _dg = personal_race_digest_v43(year, race, fav_team, fav_code)
+                _drv = _dg.get('driver') if _dg.get('ok') else None
+                if _drv:
+                    tail = " · " + fav_code + " " + ("DNF" if _drv.get('dnf') else f"P{_drv['pos']}")
+            except Exception:
+                pass
+        segs.append(("SON YARIŞ", f"{race}{tail}", 'favourites' if fav_code else 'standings'))
+    if driver_standings is not None and not driver_standings.empty and len(driver_standings) >= 2:
+        _l0, _l1 = driver_standings.iloc[0], driver_standings.iloc[1]
+        try:
+            _gap = int(round(float(_l0.get('Puan', 0)) - float(_l1.get('Puan', 0))))
+        except (TypeError, ValueError):
+            _gap = 0
+        segs.append(("LİDER", f"{str(_l0.get('Pilot', '')).upper()} +{_gap}", 'standings'))
+    nr, nd = last.get('next'), last.get('next_in_days')
+    if nr:
+        segs.append(("SIRADAKİ", nr + (f" · {nd}g" if nd is not None else ""), 'calendar'))
+    if not segs:
+        return
+    cells = "".join(
+        f"<a class='tw-seg' href='?p={p}'><s>{html_lib.escape(k)}</s>"
+        f"<b>{html_lib.escape(v)}</b></a>"
+        for k, v, p in segs
+    )
+    st.markdown(
+        "<style>"
+        ".tw{display:flex;gap:1px;border:1px solid var(--fp-line);border-radius:9px;overflow:hidden;"
+        "margin:2px 0 12px;background:var(--fp-line)}"
+        ".tw-seg{flex:1;background:var(--fp-bg-2);padding:9px 14px;text-decoration:none;min-width:0}"
+        ".tw-seg:hover{background:var(--fp-bg-3)}"
+        ".tw-seg s{display:block;font:700 9.5px var(--fp-f-mono);letter-spacing:.12em;"
+        "color:var(--fp-text-mute);text-decoration:none}"
+        ".tw-seg b{display:block;font:700 13px var(--fp-f-body);color:var(--fp-text);margin-top:3px;"
+        "white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+        "@media(max-width:640px){.tw{flex-direction:column}}"
+        "</style>"
+        f"<div class='tw'>{cells}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _home_setup_card_v50():
     """Favori seçilmemişse: tek adımda pilot seç, site kişiselleşsin (Faz 4 #2)."""
     if fp_ui.get_pref('fav_driver') or fp_ui.get_pref('fav_skip'):
@@ -8558,6 +8608,14 @@ def _home_cockpit_v44():
         _t = TEAM_DIRECTORY_2026.get(fav_team, {})
         fav_code = next((c for n, c, *_ in _t.get('drivers', []) if n == fav_name), '')
 
+    with st.spinner("Puan durumu hazırlanıyor..."):
+        try:
+            _ds, _cs, *_ = get_championship_data_stable(year)
+        except Exception:
+            _ds = _cs = pd.DataFrame()
+
+    _this_week_line_v54(year, last, fav_team, fav_code, _ds)
+
     left, right = st.columns([1.35, 1])
     with left:
         fp_ui.section_title("Son Yarış")
@@ -8579,11 +8637,6 @@ def _home_cockpit_v44():
             st.caption("Son yarışın doğrulanmış sonucu henüz FastF1'e düşmedi.")
     with right:
         fp_ui.section_title("Şampiyona")
-        with st.spinner("Puan durumu hazırlanıyor..."):
-            try:
-                _ds, _cs, *_ = get_championship_data_stable(year)
-            except Exception:
-                _ds = _cs = pd.DataFrame()
         if _ds is not None and not _ds.empty:
             render_html_hud(_home_champ_top_html(_ds, _cs, year), height=278, scrolling=False)
         else:
