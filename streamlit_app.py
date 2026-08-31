@@ -5094,11 +5094,12 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
 
 def personal_race_digest_height(d):
     if not d or not d.get('ok'):
-        return 110
+        return 96
     lines = 3
     if d.get('driver'):
         lines += 3 + (1 if d['driver'].get('mate') else 0) + (1 if d['driver'].get('sprint_pos') else 0)
-    return min(520, 250 + lines * 18)
+    # geniş kokpitte .dg-body 2 sütun -> içerik kısa; dar ekranda scrolling=True taşmayı yakalar
+    return min(430, 150 + lines * 18)
 
 
 def render_favourites_centre():
@@ -8820,7 +8821,7 @@ def _follow_board_v51(codes, year, last_race_name):
 
 
 def follow_board_component_height(board):
-    return min(430, 78 + 46 * max(1, len((board or {}).get('rows', []))))
+    return min(400, 44 + 36 * max(1, len((board or {}).get('rows', []))))
 
 
 def follow_board_html(board, year):
@@ -9563,7 +9564,7 @@ def _home_cockpit_v44():
     with right:
         fp_ui.section_title("Şampiyona")
         if _ds is not None and not _ds.empty:
-            render_html_hud(_home_champ_top_html(_ds, _cs, year), height=278, scrolling=False)
+            render_html_hud(_home_champ_top_html(_ds, _cs, year), height=254, scrolling=True)
         else:
             st.caption("Puan tablosu şu an alınamadı.")
 
