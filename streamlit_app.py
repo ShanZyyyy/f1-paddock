@@ -2027,25 +2027,33 @@ def _season_progress_v46(year):
     }
 
 
-def render_season_status_v46(year):
-    """Replay / telemetri başlıklarında: seçilen sezon bitti mi, sürüyor mu."""
+def render_season_status_v46(year, compact=False):
+    """Sonuç gösteren her yüzeyde: seçilen sezon bitti mi, sürüyor mu, hiç
+    yarışıldı mı. `compact` -> tek satır uyarı; aksi -> tam genişlik bant."""
     progress = _season_progress_v46(year)
     if not progress:
         return
-    if progress['not_started'] and int(year) >= datetime.datetime.now(datetime.timezone.utc).year:
-        fp_ui.data_state(
-            f"{year} SEZONU HENÜZ BAŞLAMADI",
-            f"{progress['total']} yarışlık takvim hazır; sonuçlar yarışlar tamamlandıkça gelir.",
-            "info",
-        )
+    now_year = datetime.datetime.now(datetime.timezone.utc).year
+
+    if progress['not_started'] and int(year) >= now_year:
+        title = f"{year} SEZONU HENÜZ YARIŞILMADI"
+        msg = (f"{progress['total']} yarışlık takvim hazır ama daha hiçbir yarış tamamlanmadı. "
+               "Aşağıdaki sıralama / sonuçlar yalnızca yer tutucudur — ilk gerçek yarış sonucu "
+               "geldiğinde kendiliğinden güncellenir.")
+        if compact:
+            st.caption(f"⚠️ {year} sezonu henüz yarışılmadı — aşağıdakiler yer tutucudur.")
+        else:
+            fp_ui.data_state(title, msg, "error")
     elif progress['ongoing']:
-        fp_ui.data_state(
-            f"{year} SEZONU DEVAM EDİYOR · {progress['done']}/{progress['total']} YARIŞ",
-            "Gösterilen veriler şu ana kadar tamamlanmış yarışların doğrulanmış sonuçlarıdır; "
-            "sezon ilerledikçe güncellenir.",
-            "warning",
-        )
-    else:
+        title = f"{year} SEZONU SÜRÜYOR · {progress['done']}/{progress['total']} YARIŞ TAMAMLANDI"
+        msg = ("Bu bir ara tablodur — yalnızca şimdiye kadar biten yarışların doğrulanmış "
+               "sonuçlarını yansıtır, sezon sonu klasmanı değildir.")
+        if compact:
+            st.caption(f"⚠️ {year} sezonu sürüyor ({progress['done']}/{progress['total']}) — "
+                       "bu bir ara tablo, kesin sonuç değil.")
+        else:
+            fp_ui.data_state(title, msg, "warning")
+    elif not compact:
         st.caption(f"{year} sezonu tamamlandı — {progress['total']} yarış. Sonuçlar kesindir.")
 
 
@@ -5213,6 +5221,7 @@ def render_favourites_centre():
     if _fav_code:
         st.write("")
         fp_ui.section_title("Senin Sezonun")
+        render_season_status_v46(_cur_year, compact=True)
         with st.spinner("Sezon hikâyen hazırlanıyor..."):
             _story = _season_story_v57(_cur_year, _fav_code)
         if _story.get('ok'):
@@ -8172,6 +8181,7 @@ def _prediction_history_html(plog):
 def render_prediction_game_v55():
     _game_shell("Hafta Sonu Tahmini", "Pole + podyum tahmin et, yarıştan sonra puanla.", colour="#f7c948")
     year = datetime.datetime.now(datetime.timezone.utc).year
+    render_season_status_v46(year, compact=True)
     scored = st.session_state.get('_pred_just_scored') or _prediction_maybe_score_v55(year)
 
     _season_pts = int(fp_ui.get_pref('ps') or 0)
@@ -9222,6 +9232,7 @@ def _home_cockpit_v44():
         except Exception:
             _ds = _cs = pd.DataFrame()
 
+    render_season_status_v46(year, compact=True)
     _this_week_line_v54(year, last, fav_team, fav_code, _ds)
 
     left, right = st.columns([1.35, 1])
@@ -10243,13 +10254,11 @@ def _router_page_standings():
         "Sezon", list(range(_cur_year, 2017, -1)), index=0, key="standings_year_pick",
         help="Geçmiş sezonlar da tamamlanmış yarış sonuçlarından hesaplanır; ilk açılış bir sezonun tüm yarışlarını çektiği için sürebilir, sonrası önbellekten gelir.",
     )
-    fp_ui.data_state(
-        "Sezon Verisi",
-        f"{champ_year} şampiyona tablosu, tamamlanmış yarış ve sprint sonuçlarından (FastF1) otomatik hesaplanır. "
-        "İlk açılış kısa sürebilir; sonrası yerel önbellekten gelir.",
-        "info",
+    render_season_status_v46(champ_year)
+    st.caption(
+        f"{champ_year} tablosu tamamlanmış yarış + sprint sonuçlarından (FastF1) hesaplanır; "
+        "saatlik önbellekten otomatik güncellenir."
     )
-    st.caption("Puan tablosu saatlik önbellekten otomatik güncellenir; elle yenileme gerekmez.")
 
     driver_standings = pd.DataFrame()
     constructor_standings = pd.DataFrame()
