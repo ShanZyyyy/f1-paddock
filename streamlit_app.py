@@ -1416,11 +1416,14 @@ def _championship_round_raw_v33(year, event_name):
         if not code or code == 'nan':
             continue
         position = pd.to_numeric(row.get('Position'), errors='coerce')
+        grid = pd.to_numeric(row.get('GridPosition'), errors='coerce')
         output['race'].append({
             'code': code,
             'team': str(row.get('TeamName', '—')).strip(),
             'position': str(int(position)) if pd.notna(position) else 'DNF',
             'points': points_value(row.get('Points', 0)),
+            'grid': int(grid) if pd.notna(grid) else None,
+            'status': str(row.get('Status', '') or '').strip(),
         })
     output['ok'] = bool(output['race'])
     if not output['ok']:
@@ -4491,6 +4494,177 @@ def render_weekend_centre():
     render_html_hud(session_leaderboard_html(table, f'{selected_name} // {selected["title"].upper()}'), height=leaderboard_component_height(table), scrolling=False)
 
 
+# =========================================================
+# FAZ 2 · #13 — KİŞİSELLEŞTİRİLMİŞ YARIŞ-SONRASI ÖZETİ
+# =========================================================
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _latest_completed_race_v43(year):
+    """Son tamamlanan yarış + sıradaki yarış (resmî takvimden)."""
+    try:
+        calendar = get_calendar_details(int(year))
+    except Exception:
+        return {}
+    now = datetime.datetime.now(datetime.timezone.utc)
+    done, upcoming = [], []
+    for event in calendar:
+        race_date = event.get('Session5DateUtc')
+        if pd.isnull(race_date):
+            continue
+        race_time = pd.to_datetime(race_date)
+        race_time = race_time.tz_localize('UTC') if race_time.tzinfo is None else race_time.tz_convert('UTC')
+        name = str(event.get('EventName', '')).strip()
+        (done if race_time + datetime.timedelta(hours=3) <= now else upcoming).append((race_time, name))
+    done.sort()
+    upcoming.sort()
+    return {
+        'last': done[-1][1] if done else None,
+        'next': upcoming[0][1] if upcoming else None,
+        'next_in_days': max(0, (upcoming[0][0] - now).days) if upcoming else None,
+    }
+
+
+def personal_race_digest_v43(year, event_name, fav_team, fav_driver_code):
+    """Favori takım/pilota göre son yarışın kişisel özeti — doğrulanmış sonuçtan."""
+    rnd = get_championship_round_v19(int(year), event_name)
+    if not rnd.get('ok') or not rnd.get('race'):
+        return {'ok': False}
+
+    def _pnum(pos):
+        return int(pos) if str(pos).isdigit() else None
+
+    race = sorted(rnd['race'], key=lambda r: (_pnum(r['position']) or 999))
+    sprint = {r['code']: r for r in rnd.get('sprint', [])}
+    podium = [{'code': r['code'], 'team': r['team'], 'pos': r['position']} for r in race[:3]]
+
+    drv = next((r for r in race if r['code'] == fav_driver_code), None)
+    drv_block = None
+    if drv:
+        p, g = _pnum(drv['position']), drv.get('grid')
+        is_out = drv['position'] == 'DNF' or is_dnf_status(drv.get('status', ''))
+        mate = next((r for r in race if r['team'] == drv['team'] and r['code'] != fav_driver_code), None)
+        mate_p = _pnum(mate['position']) if mate else None
+        sp = sprint.get(fav_driver_code)
+        drv_block = {
+            'code': fav_driver_code, 'team': drv['team'], 'pos': drv['position'], 'grid': g,
+            'moved': None if is_out else ((g - p) if (g and p) else None),
+            'points': round(drv['points'] + (sp['points'] if sp else 0), 1),
+            'status': drv.get('status', ''), 'dnf': is_out,
+            'mate': mate['code'] if mate else None, 'mate_pos': mate['position'] if mate else None,
+            'beat_mate': (not is_out and mate_p is not None and p is not None and p < mate_p),
+            'sprint_pos': sp['position'] if sp else None,
+        }
+
+    team_cars = [r for r in race if r['team'] == fav_team]
+    team_block = None
+    if team_cars:
+        team_block = {
+            'name': fav_team,
+            'cars': [{'code': r['code'], 'pos': r['position'], 'points': r['points']} for r in team_cars],
+            'points': round(sum(r['points'] for r in team_cars)
+                            + sum(sprint[r['code']]['points'] for r in team_cars if r['code'] in sprint), 1),
+        }
+
+    return {'ok': True, 'event': event_name, 'podium': podium,
+            'driver': drv_block, 'team': team_block, 'has_sprint': bool(rnd.get('sprint'))}
+
+
+def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
+    if not d.get('ok'):
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+                "Son yarışın doğrulanmış sonucu henüz alınamadı.</div>")
+    drv, team = d.get('driver'), d.get('team')
+    pod = " · ".join(f"{i + 1}. {html_lib.escape(p['code'])}" for i, p in enumerate(d['podium']))
+
+    drv_html = "<div class='dg-empty'>Seçili pilotun bu yarışta klasman kaydı yok.</div>"
+    if drv:
+        if drv['dnf']:
+            verdict = f"yarış dışı kaldı ({html_lib.escape(drv['status'] or 'DNF')})"
+            vcol = '#ff8b78'
+        else:
+            mv = drv['moved']
+            move = ("" if mv is None
+                    else f" · gridden {mv} sıra ilerledi" if mv > 0
+                    else f" · gridden {abs(mv)} sıra geriledi" if mv < 0
+                    else " · grid sırasını korudu")
+            verdict = f"P{html_lib.escape(str(drv['pos']))}{move}"
+            vcol = '#7fe0a6' if (mv or 0) > 0 else '#ffb37a' if (mv or 0) < 0 else '#e8eef4'
+        mate_line = ""
+        if drv['mate']:
+            mate_line = (f"<div class='dg-line'>Takım arkadaşı {html_lib.escape(drv['mate'])} "
+                         f"P{html_lib.escape(str(drv['mate_pos']))} — "
+                         f"<b style='color:{'#7fe0a6' if drv['beat_mate'] else '#ff8b78'}'>"
+                         f"{'önde bitirdi' if drv['beat_mate'] else 'geride bitirdi'}</b></div>")
+        sprint_line = (f"<div class='dg-line'>Sprint: P{html_lib.escape(str(drv['sprint_pos']))}</div>"
+                       if drv.get('sprint_pos') else "")
+        drv_html = (
+            f"<div class='dg-name' style='color:{colour_team}'>{html_lib.escape(drv['code'])}</div>"
+            f"<div class='dg-verdict' style='color:{vcol}'>{verdict}</div>"
+            f"<div class='dg-line'>{_num_v33(drv['points'])} puan"
+            + (f" · gridde P{drv['grid']}" if drv['grid'] else "") + "</div>"
+            + mate_line + sprint_line
+        )
+
+    team_html = ""
+    if team:
+        cars = "".join(
+            f"<span class='dg-car'>{html_lib.escape(c['code'])} <b>P{html_lib.escape(str(c['pos']))}</b></span>"
+            for c in team['cars']
+        )
+        team_html = (
+            f"<div class='dg-sec'><s>TAKIMIN · {html_lib.escape(team['name'])}</s>"
+            f"<div class='dg-cars'>{cars}</div>"
+            f"<div class='dg-line'>Hafta sonu toplamı <b>{_num_v33(team['points'])} puan</b></div></div>"
+        )
+
+    next_html = ""
+    if next_race:
+        days = (f" · {next_days} gün sonra" if next_days is not None else "")
+        next_html = f"<div class='dg-next'>Sıradaki: <b>{html_lib.escape(next_race)}</b>{days}</div>"
+
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .dg{{border:1px solid #26313f;border-left:3px solid {colour_team};border-radius:12px;
+        background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
+      .dg-hd{{padding:14px 16px 10px}}
+      .dg-hd b{{font:800 15px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
+      .dg-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none;letter-spacing:.08em}}
+      .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9fb0c0}}
+      .dg-body{{border-top:1px solid #26313f;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
+      .dg-name{{font:800 20px 'Saira Condensed',sans-serif;text-transform:uppercase}}
+      .dg-verdict{{font:700 13px 'JetBrains Mono',monospace;margin:3px 0 8px}}
+      .dg-line{{font:500 12px 'Saira',sans-serif;color:#c4d2e0;padding:2px 0}}
+      .dg-line b{{color:#f2f5f8}}
+      .dg-sec s{{display:block;font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#63748a;text-decoration:none;margin-bottom:6px}}
+      .dg-cars{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}}
+      .dg-car{{border:1px solid #2b3a4d;border-radius:6px;background:#131a24;padding:4px 8px;font:700 11px 'JetBrains Mono',monospace}}
+      .dg-empty{{color:#8a9bb0;font:500 12px 'Saira',sans-serif}}
+      .dg-next{{border-top:1px solid #26313f;padding:10px 16px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
+      .dg-next b{{color:#e8eef4}}
+      @media(max-width:560px){{.dg-body{{grid-template-columns:1fr}}}}
+    </style>
+    <div class="dg">
+      <div class="dg-hd"><s>SON YARIŞ · KİŞİSEL ÖZET</s><b>{html_lib.escape(d['event'])}</b></div>
+      <div class="dg-pod">Podyum — {pod}</div>
+      <div class="dg-body">
+        <div><div class="dg-sec"><s>PİLOTUN</s></div>{drv_html}</div>
+        <div>{team_html}</div>
+      </div>
+      {next_html}
+    </div>
+    """
+
+
+def personal_race_digest_height(d):
+    if not d or not d.get('ok'):
+        return 110
+    lines = 3
+    if d.get('driver'):
+        lines += 3 + (1 if d['driver'].get('mate') else 0) + (1 if d['driver'].get('sprint_pos') else 0)
+    return min(520, 250 + lines * 18)
+
+
 def render_favourites_centre():
     render_page_header(T('page.favourites.title'), T('page.favourites.sub'))
     _fcols = st.columns(2)
@@ -4503,6 +4677,25 @@ def render_favourites_centre():
     driver_name = st.session_state.get('favourite_driver', 'George Russell')
     team = TEAM_DIRECTORY_2026.get(team_name, TEAM_DIRECTORY_2026['Mercedes'])
     st.markdown(f"<div class='hud-card' style='border-top:4px solid {team['color']}'><div class='hud-label'>FAVORI TAKIM</div><div class='hud-value' style='color:{team['color']}'>{html_lib.escape(team_name)}</div><div class='driver-meta'>{html_lib.escape(driver_name)} secili pilotun.</div></div>", unsafe_allow_html=True)
+
+    _fav_code = next((c for n, c, *_ in team['drivers'] if n == driver_name), '')
+    _cur_year = datetime.datetime.now(datetime.timezone.utc).year
+    _last_race = _latest_completed_race_v43(_cur_year)
+    if _last_race.get('last') and _fav_code:
+        st.write("")
+        fp_ui.section_title("Senin Yarış Özetin")
+        with st.spinner("Son yarışın kişisel özeti hazırlanıyor..."):
+            _digest = personal_race_digest_v43(_cur_year, _last_race['last'], team_name, _fav_code)
+        if _digest.get('ok'):
+            render_html_hud(
+                personal_race_digest_html(_digest, team['color'],
+                                          _last_race.get('next'), _last_race.get('next_in_days')),
+                height=personal_race_digest_height(_digest),
+                scrolling=True,
+            )
+        else:
+            st.caption("Son yarışın doğrulanmış sonucu henüz FastF1'e düşmedi.")
+
     cols = st.columns(2)
     with cols[0]:
         if st.button('Hafta Sonu Merkezine git', key='favourite_weekend', width='stretch'):
