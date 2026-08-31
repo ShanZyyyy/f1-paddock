@@ -273,6 +273,23 @@ def test_weekend_ics_v63():
     assert app._ics_escape_v63('a, b; c\\d') == r'a\, b\; c\\d'
 
 
+def test_rss_root_lenient_v64():
+    # temiz XML — olduğu gibi ayrışır
+    ok = b"<rss><channel><item><title>Norris kazandi</title></item></channel></rss>"
+    assert app._rss_root_lenient_v64(ok).findtext('.//title') == "Norris kazandi"
+    # kaçırılmamış '&' ve kontrol karakteri — temizlenip ayrışır
+    broken = b"<rss><channel><item><title>Red Bull \x07& Ferrari</title></item></channel></rss>"
+    root = app._rss_root_lenient_v64(broken)
+    assert root.findtext('.//title') == "Red Bull & Ferrari"
+
+
+def test_free_translate_strict_v64_empty():
+    # ağ yok: boş girdi anında '' döner
+    assert app._free_translate_strict_v64("") == ""
+    assert app._free_translate_strict_v64("   ") == ""
+    assert app._mymemory_translate_v64("") == ""
+
+
 def test_prefs_decode_bad_input():
     assert ui._prefs_decode("") == {}
     assert ui._prefs_decode(None) == {}

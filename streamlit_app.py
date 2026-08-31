@@ -5724,6 +5724,92 @@ def news_item_is_f1_v20(item, link, title, description):
     return '/f1/' in haystack or 'formula 1' in haystack or 'formula1' in haystack or haystack.startswith('f1 ')
 
 
+# =========================================================
+# FAZ 6-A — HABER ÇEVİRİSİ: KOTADAN BAĞIMSIZ
+# DeepL kotası dolduğunda (HTTP 456) İngilizce metin Türkçeymiş gibi
+# gösterilmesin: (1) başarılı çeviriler diske önbelleklenir, (2) MyMemory
+# ücretsiz yedeği eklenir, (3) hiçbiri olmazsa öğe dürüstçe "EN" işaretlenir.
+# =========================================================
+_NEWS_TR_CACHE_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'data', 'news_tr_cache.json')
+
+
+def _rss_root_lenient_v64(raw):
+    """RSS/XML'i ayrıştır; bozuk token varsa temizleyip yeniden dener.
+    Bazı beslemeler kaçırılmamış '&' veya kontrol karakteri içeriyor."""
+    try:
+        return ET.fromstring(raw)
+    except ET.ParseError:
+        text = raw.decode('utf-8', 'replace') if isinstance(raw, (bytes, bytearray)) else str(raw)
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+        text = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)', '&amp;', text)
+        return ET.fromstring(text)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _news_tr_cache_load_v64():
+    try:
+        with open(_NEWS_TR_CACHE_FILE, encoding='utf-8') as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def _news_tr_cache_save_v64(mapping):
+    """En yeni ~800 çeviriyi tut; atomik yaz."""
+    try:
+        rows = sorted(mapping.items(), key=lambda kv: (kv[1] or {}).get('at', 0), reverse=True)[:800]
+        os.makedirs(os.path.dirname(_NEWS_TR_CACHE_FILE), exist_ok=True)
+        tmp = f"{_NEWS_TR_CACHE_FILE}.{os.getpid()}.tmp"
+        with open(tmp, 'w', encoding='utf-8') as handle:
+            json.dump(dict(rows), handle, ensure_ascii=False)
+        os.replace(tmp, _NEWS_TR_CACHE_FILE)
+        _news_tr_cache_load_v64.clear()
+    except OSError as error:
+        log_data_error('news tr cache write', error)
+
+
+def _mymemory_translate_v64(text):
+    """Ücretsiz, anahtarsız EN→TR yedeği. Başarısızsa '' döner (asla ham metin)."""
+    clean = str(text or '').strip()
+    if not clean:
+        return ''
+    try:
+        url = ('https://api.mymemory.translated.net/get?langpair=en|tr&q='
+               + urllib.parse.quote(clean[:480]))
+        req = urllib.request.Request(url, headers={'User-Agent': 'FormulaPaddock/2.0'})
+        with urllib.request.urlopen(req, timeout=7) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        out = str(((data.get('responseData') or {}).get('translatedText') or '')).strip()
+        bad = ('MYMEMORY WARNING', 'INVALID', 'QUERY LENGTH LIMIT', 'PLEASE SELECT')
+        if out and str(data.get('responseStatus')) in ('200', '200.0') \
+           and not any(flag in out.upper() for flag in bad) \
+           and out.strip().lower() != clean.lower():
+            return out
+    except Exception:
+        pass
+    return ''
+
+
+def _free_translate_strict_v64(text):
+    """MyMemory → Google (gtx); ikisi de metni değiştiremezse ''.
+    'strict' = kaynak metinle aynı çıktı başarısızlık sayılır."""
+    clean = str(text or '').strip()
+    if not clean:
+        return ''
+    out = _mymemory_translate_v64(clean)
+    if out:
+        return out
+    try:
+        gtx = _gtx_translate_plain(clean)
+        if gtx and gtx.strip().lower() != clean.lower():
+            return gtx.strip()
+    except Exception:
+        pass
+    return ''
+
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def translate_news_text_v20(text):
     # 30 dk önbellek: başarılı çeviri _translate_to_tr_raw'da zaten 24s yaşıyor;
@@ -5741,7 +5827,9 @@ def fetch_f1_news_catalog_v20(limit=30):
 
     Tüm kaynaklar düşerse boş liste önbelleğe alınmaz; sonraki açılış yeniden dener."""
     sources = [
-        ('Motorsport Türkiye', 'https://tr.motorsport.com/rss/', 'tr'),
+        # tr.motorsport.com/rss/ artık RSS değil HTML sayfası döndürüyordu (Faz 6-A);
+        # F1'e özel Türkçe besleme sağlam ve ~50 öğe veriyor.
+        ('Motorsport Türkiye', 'https://tr.motorsport.com/rss/f1/news/', 'tr'),
         ('Autosport', 'https://www.autosport.com/rss/f1/news/', 'en'),
         ('Sky Sports', 'https://www.skysports.com/rss/12433', 'en'),
         ('Motorsport', 'https://www.motorsport.com/rss/f1/news/', 'en'),
@@ -5752,7 +5840,7 @@ def fetch_f1_news_catalog_v20(limit=30):
         try:
             request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 FormulaPaddock/2.0'})
             with urllib.request.urlopen(request, timeout=7) as response:
-                root = ET.fromstring(response.read())
+                root = _rss_root_lenient_v64(response.read())
         except Exception as error:
             log_data_error('news catalog v2', error)
             return []
@@ -5808,44 +5896,67 @@ def localise_news_item_v20(item):
 
 @cache_data_safe(ttl=900, on_error=list, label='localised news v34')
 def fetch_localised_news_catalog_v34(limit=30):
-    """Haber kataloğunu çekip TÜMÜNÜ bir kez çevirir, çevrilmiş listeyi 15 dk
-    önbelleğe alır. Böylece takım filtresi değişince ya da her rerun'da
-    tekrar çeviri yapılmaz; ilk yüklemede de ~40 seri istek yerine 1 toplu
-    DeepL isteği gider. Katalog boşsa hata yükselir (önbelleğe girmez)."""
+    """Haber kataloğunu çekip TÜMÜNÜ Türkçeye çevirir, çevrilmiş listeyi 15 dk
+    önbelleğe alır. Çeviri sırası: disk önbelleği → DeepL toplu → MyMemory/Google
+    yedeği. Bir öğe hiç çevrilemezse ``tr_ok=False`` işaretlenir; render bunu
+    dürüstçe "EN" rozetiyle gösterir (İngilizceyi Türkçeymiş gibi sunmaz)."""
     catalog = fetch_f1_news_catalog_v20(limit)
     if not catalog:
         raise RuntimeError('hiçbir haber kaynağı yanıt vermedi')
 
     result = [dict(item) for item in catalog]
-    jobs = []               # (result_index, field, kaynak_metin)
+    disk = dict(_news_tr_cache_load_v64())
+    dirty = False
+    jobs = []               # (result_index, field, kaynak_metin) — çevrilecekler
+
     for index, item in enumerate(catalog):
         if item.get('language') == 'tr':
+            result[index]['tr_ok'] = True
             continue
+        result[index]['tr_ok'] = True     # iyimser; bir alan düşerse False'a çevrilir
         for field in ('title', 'desc'):
             value = repair_text_v20(item.get(field, '')).strip()
-            if value:
+            if not value:
+                continue
+            cached = disk.get(value)
+            if cached and cached.get('tr'):
+                result[index][field] = repair_text_v20(cached['tr'])
+            else:
                 jobs.append((index, field, value))
-    if not jobs:
-        return result
 
-    source_texts = [job[2] for job in jobs]
-    translated = None
-    if deepl_configured():
-        try:
-            translated = list(_deepl_translate_batch_v34(tuple(source_texts)))
-        except Exception as error:
-            log_data_error('localised news batch (deepl)', error)
-            translated = None
-    if translated is None:
-        # Yedek: paralel tekil Google çevirisi (thread-güvenli, st'ye dokunmaz)
-        from concurrent.futures import ThreadPoolExecutor as _TPE
-        with _TPE(max_workers=min(12, len(source_texts))) as executor:
-            translated = list(executor.map(_gtx_translate_plain, source_texts))
+    if jobs:
+        source_texts = [job[2] for job in jobs]
+        translated = [None] * len(jobs)
 
-    for (index, field, original), rendered in zip(jobs, translated):
-        rendered = repair_text_v20(rendered or '').strip()
-        if rendered:
-            result[index][field] = rendered
+        if deepl_configured():
+            try:
+                for slot, rendered in enumerate(_deepl_translate_batch_v34(tuple(source_texts))):
+                    if rendered and rendered.strip():
+                        translated[slot] = rendered.strip()
+            except Exception as error:
+                log_data_error('localised news batch (deepl)', error)
+
+        missing = [slot for slot, done in enumerate(translated) if not done]
+        if missing:
+            from concurrent.futures import ThreadPoolExecutor as _TPE
+            with _TPE(max_workers=min(8, len(missing))) as executor:
+                for slot, rendered in zip(
+                        missing, executor.map(_free_translate_strict_v64,
+                                              [source_texts[m] for m in missing])):
+                    if rendered and rendered.strip():
+                        translated[slot] = rendered.strip()
+
+        for (index, field, original), rendered in zip(jobs, translated):
+            if rendered:
+                clean = repair_text_v20(rendered).strip()
+                result[index][field] = clean
+                disk[original] = {'tr': clean, 'at': time.time()}
+                dirty = True
+            else:
+                result[index]['tr_ok'] = False
+
+    if dirty:
+        _news_tr_cache_save_v64(disk)
     return result
 
 
@@ -5861,15 +5972,30 @@ def render_news_centre_v20():
         localized_catalog = fetch_localised_news_catalog_v34(30)
     localized = [item for item in localized_catalog if news_matches_team_v19(item, selected)]
     radar_title = 'Genel Formula 1 akışı' if selected == 'Genel F1' else selected + ' haberleri'
+    _tr_count = sum(1 for i in localized if i.get('language') == 'tr')
+    _untr = [i for i in localized if not i.get('tr_ok', True)]
+    _src_line = (f"{len(localized)} haber · {_tr_count} Türkçe kaynaktan"
+                 + (f" · {len(_untr)} çeviri bekliyor" if _untr else ""))
     st.markdown(
         f"<div class='hud-card news-command-card'><div class='hud-label'>HABER RADARI // TÜRKÇE</div>"
         f"<div class='hud-value'>{html_lib.escape(radar_title)}</div>"
-        f"<div class='driver-meta'>{len(localized)} haber gösteriliyor · Öncelikli kaynak: Motorsport Türkiye</div></div>",
+        f"<div class='driver-meta'>{html_lib.escape(_src_line)}</div></div>",
         unsafe_allow_html=True,
     )
+    if _untr:
+        st.caption(f"⚠️ {len(_untr)} haber otomatik çevrilemedi (çeviri servisi kotası) — "
+                   "bu başlıklar kaynak dilinde (İngilizce) gösteriliyor, "
+                   "‹EN› rozetiyle işaretli.")
     if not localized:
         st.info('Seçilen takım için yeni haber bulunamadı. Genel F1 akışına geçerek tüm Türkçe haberleri görebilirsin.')
         return
+
+    def _en_badge(it):
+        return ("<span style='display:inline-block;margin-left:7px;padding:1px 6px;border-radius:3px;"
+                "border:1px solid #b56200;color:#f5a623;font-size:.62rem;font-weight:700;"
+                "letter-spacing:.05em;vertical-align:middle'>EN · çeviri yok</span>"
+                if not it.get('tr_ok', True) else "")
+
     featured = localized[0]
     feature_image = safe_external_url(featured.get('image'))
     feature_media = (
@@ -5877,7 +6003,7 @@ def render_news_centre_v20():
         if feature_image else "<div class='news-feature-image-v20 news-thumb-empty-v19'>F1</div>"
     )
     st.markdown(
-        f"<div class='news-feature-v20'>{feature_media}<div class='news-feature-copy-v20'><div class='hud-label'>GÜNÜN KAPAK HABERİ</div>"
+        f"<div class='news-feature-v20'>{feature_media}<div class='news-feature-copy-v20'><div class='hud-label'>GÜNÜN KAPAK HABERİ{_en_badge(featured)}</div>"
         f"<div class='news-feature-title-v20'>{html_lib.escape(featured.get('title', ''))}</div>"
         f"<div class='history-copy'>{html_lib.escape(featured.get('desc', ''))}</div>"
         f"<a href='{html_lib.escape(featured.get('link', '#'), quote=True)}' target='_blank' rel='noopener noreferrer' class='news-link'>Kaynağa git ↗</a>"
@@ -5892,7 +6018,7 @@ def render_news_centre_v20():
             if image else "<div class='news-thumb-v19 news-thumb-empty-v19'>F1</div>"
         )
         cards.append(
-            f"<div class='news-card news-card-v20'>{media}<div class='news-date'>{html_lib.escape(item.get('source', 'Kaynak'))} · {html_lib.escape(item.get('date', ''))}</div>"
+            f"<div class='news-card news-card-v20'>{media}<div class='news-date'>{html_lib.escape(item.get('source', 'Kaynak'))} · {html_lib.escape(item.get('date', ''))}{_en_badge(item)}</div>"
             f"<div class='news-title'>{html_lib.escape(item.get('title', ''))}</div><div class='news-desc'>{html_lib.escape(item.get('desc', ''))}</div>"
             f"<a href='{html_lib.escape(item.get('link', '#'), quote=True)}' target='_blank' rel='noopener noreferrer' class='news-link'>Haberi aç ↗</a></div>"
         )

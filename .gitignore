@@ -9,6 +9,7 @@ venv/
 cache/
 assets/
 data/career_cache/
+data/news_tr_cache.json
 .streamlit/secrets.toml
 
 # OS / editor
