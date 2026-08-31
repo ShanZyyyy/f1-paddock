@@ -525,13 +525,39 @@ def data_state(title, message, tone="info"):
     )
 
 
+_HOWTO_LAST_KEY = "_howto_last_key"
+_HOWTO_HISTORY_KEY = "_howto_history"
+
+
+def _howto_first_visit(key):
+    """Bu ``key`` bu oturumda ilk kez mi gösteriliyor?
+
+    Streamlit bir ziyaret sırasında script'i birden çok kez çalıştırır (spinner,
+    veri yüklemesi, widget varsayılanları). 'Görüldü' işaretini hemen koymak,
+    ilk ziyareti daha kullanıcı görmeden 'görüldü'ye çevirir. Bu yüzden bir
+    anahtarı geçmişe ancak kullanıcı BAŞKA bir ekrana geçtiğinde (aktif anahtar
+    değiştiğinde) yazarız."""
+    history = st.session_state.setdefault(_HOWTO_HISTORY_KEY, set())
+    last = st.session_state.get(_HOWTO_LAST_KEY)
+    if last is not None and last != key:
+        history.add(last)
+    st.session_state[_HOWTO_LAST_KEY] = key
+    return key not in history
+
+
 def how_to_read(bullets, legend=None, *, label="Bu ekran nasıl okunur?", expanded=False, key=None):
     """Katlanır 'bu ekran nasıl okunur?' paneli — yeni izleyici için bağlam içi rehber.
+    Bir anahtar verilirse, o ekranı bu oturumda ilk kez açan kullanıcıda panel
+    kendiliğinden açık gelir; kullanıcı o ekrandan ayrılıp döndüğünde panel
+    varsayılan olarak katlanır. Kullanıcı ilk ziyarette paneli elle kapatırsa
+    seçimi korunur (Streamlit expander durumu sabit ``expanded`` değerinde
+    değişmediği sürece frontend'de tutulur).
 
     ``bullets``: (başlık, açıklama) çiftleri veya düz metin listesi.
     ``legend``:  isteğe bağlı [(renk_hex, etiket), ...] renk kodu şeridi.
     """
-    with st.expander(f"❔ {label}", expanded=expanded):
+    open_state = bool(expanded) or (bool(key) and _howto_first_visit(key))
+    with st.expander(f"❔ {label}", expanded=open_state):
         rows = []
         for item in bullets:
             if isinstance(item, (list, tuple)) and len(item) == 2:
