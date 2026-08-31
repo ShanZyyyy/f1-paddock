@@ -203,6 +203,11 @@ a{color:var(--fp-cyan)}
 
 # .fp-* bilesen siniflari — hem shell_style hem page_style bunu iceriir.
 _FP_COMPONENTS_CSS = r"""
+/* ---- terim ipucu: noktalı altı çizili, üzerine gelince açıklama ---- */
+abbr.fp-term,.fp-term{text-decoration:none;border-bottom:1px dotted var(--fp-cyan);cursor:help;
+  color:inherit;font-weight:inherit}
+abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix(in srgb,var(--fp-cyan) 12%,transparent)}
+
 /* ---- kırıntı yolu (breadcrumb) ---- */
 .fp-crumb{display:flex;flex-wrap:wrap;align-items:center;gap:.15rem;margin:2px 0 10px;
   font:600 10.5px/1 var(--fp-f-mono);letter-spacing:.08em;text-transform:uppercase}

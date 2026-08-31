@@ -150,10 +150,10 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .tag-cta:hover{filter:brightness(1.1);transform:translateX(2px)}
 .tag-cta i{width:.5rem;height:.5rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
 .tag-cta2{display:inline-block;margin:1.6rem 0 0 .9rem;font-family:var(--f-mono);font-size:.72rem;
-  letter-spacing:.12em;text-transform:uppercase;color:var(--text-mute);text-decoration:none;
-  border-bottom:1px solid var(--line);padding-bottom:2px;transition:color .15s ease,border-color .15s ease}
-.tag-cta2:hover{color:var(--text);border-color:var(--steel-dim)}
-@media(max-width:580px){.tag-cta2{display:none}}
+  letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);text-decoration:none;
+  border-bottom:1px solid var(--info);padding-bottom:2px;transition:color .15s ease,border-color .15s ease}
+.tag-cta2:hover{color:var(--text);border-color:var(--text)}
+@media(max-width:580px){.tag-cta2{display:block;margin:1rem 0 0}}
 .stage.play .tag-block{animation:tagIn .9s cubic-bezier(.2,.7,.2,1) 4.1s both}
 @keyframes tagIn{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
 .stage.settled .tag-block{opacity:1;transform:none;animation:none}
@@ -167,7 +167,23 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
   border:1px solid var(--line);padding:.5rem .8rem;cursor:pointer;opacity:0;transition:opacity .3s,color .2s,border-color .2s}
 .stage.play .skip{opacity:1}.stage.settled .skip{display:none}
 .skip:hover{color:var(--text);border-color:var(--steel-dim)}
-@media(max-width:580px){.dash{display:none}}
+@media(max-width:580px){
+  /* geri sayım gizlenmez — üstte kompakt tam-genişlik şerit; küçük dial + rakamlar yan yana */
+  .dash{position:absolute;left:1rem;right:1rem;top:.85rem;width:auto;transform:none;
+    padding:12px 14px 11px;z-index:14;opacity:1;
+    display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;
+    column-gap:14px;align-items:center}
+  .dash-hd{grid-column:1/-1}
+  .dial{width:96px;height:96px;margin:4px 0;grid-row:2/4}
+  .dial .ctr b{font-size:1.9rem}
+  .dial .ctr s{font-size:.5rem}
+  .dash-row{grid-column:2;justify-content:flex-start;gap:16px;margin:0}
+  .dash-row b{font-size:1.35rem}
+  .dash-row s{font-size:.46rem}
+  .dash-ft{grid-column:2;margin:4px 0 0;padding:0;border:0;font-size:.5rem}
+  .stage.play .dash,.stage.settled .dash{animation:none;opacity:1;transform:none}
+  .tag-block{bottom:11vh}
+}
 @media(prefers-reduced-motion:reduce){
   .stage.play .wordmark,.stage.play .dash,.stage.play .bloom,.stage.play .tag-block,.stage.play .circuit,.bloom{animation:none!important}
   .wordmark{display:none}
@@ -221,7 +237,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
     <h1 class="tag"><span>Veriyle</span><span>konuşur.</span><span class="p">Uydurmaz.</span></h1>
     <p class="tag-sub">__SUB__</p>
     <a class="tag-cta" href="?p=live" target="_top">Sıradaki seansı izle<i></i></a>
-    <a class="tag-cta2" href="?p=news" target="_top">Haber Merkezi</a>
+    <a class="tag-cta2" href="?p=learn" target="_top">F1'e yeni misin? 2 dakikada başla →</a>
   </div>
   <aside class="dash __LIVECLS__" aria-label="Sıradaki seans">
     <div class="dash-hd"><span>SIRADAKI SEANS</span><b>__EVENT__</b></div>

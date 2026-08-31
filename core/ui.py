@@ -286,9 +286,10 @@ body:has(.fp-tb) .fp-tb-skel{display:none}
 .fp-tb-skel .lang{margin-left:auto;flex:0 0 auto;display:flex;border:1px solid var(--fp-line);border-radius:3px;overflow:hidden}
 .fp-tb-skel .lang span{padding:4px 8px;font:600 10px var(--fp-f-mono);letter-spacing:.1em;color:var(--fp-text-mute)}
 .fp-tb-skel .lang .on{background:var(--fp-red);color:#fff}
-@media(max-width:1080px){.fp-tb-skel .lang{display:none}}
-@media(max-width:940px){.fp-tb-skel nav{-webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);mask-image:linear-gradient(90deg,#000 92%,transparent)}}
-@media(max-width:620px){.fp-tb-skel .b{font-size:0;letter-spacing:0}.fp-tb-skel .b svg{width:22px;height:22px}}
+@media(max-width:920px){.fp-tb-skel nav,.fp-tb-skel .lang{display:none}
+  .fp-tb-skel::after{content:"";margin-left:auto;width:21px;height:2px;background:var(--fp-text);
+    box-shadow:0 6px 0 var(--fp-text),0 -6px 0 var(--fp-text)}}
+@media(max-width:560px){.fp-tb-skel .b{font-size:0;letter-spacing:0}.fp-tb-skel .b svg{width:22px;height:22px}}
 """
 
 # İskelet barın linkleri gerçek NAV birincil sayfalarıyla eşleşir; TR etiketleri
@@ -524,6 +525,41 @@ def data_state(title, message, tone="info"):
     )
 
 
+def how_to_read(bullets, legend=None, *, label="Bu ekran nasıl okunur?", expanded=False, key=None):
+    """Katlanır 'bu ekran nasıl okunur?' paneli — yeni izleyici için bağlam içi rehber.
+
+    ``bullets``: (başlık, açıklama) çiftleri veya düz metin listesi.
+    ``legend``:  isteğe bağlı [(renk_hex, etiket), ...] renk kodu şeridi.
+    """
+    with st.expander(f"❔ {label}", expanded=expanded):
+        rows = []
+        for item in bullets:
+            if isinstance(item, (list, tuple)) and len(item) == 2:
+                rows.append(f"<li><b>{_esc(item[0])}</b> — {_esc(item[1])}</li>")
+            else:
+                rows.append(f"<li>{_esc(item)}</li>")
+        legend_html = ""
+        if legend:
+            chips = "".join(
+                f"<span class='fp-legend-chip'><i style='background:{c}'></i>{_esc(t)}</span>"
+                for c, t in legend
+            )
+            legend_html = f"<div class='fp-legend'>{chips}</div>"
+        st.markdown(
+            "<style>"
+            ".fp-howto ul{margin:.2rem 0 0 1.1rem;padding:0;font-size:.9rem;line-height:1.55}"
+            ".fp-howto li{margin:.35rem 0}"
+            ".fp-howto li b{color:var(--fp-text)}"
+            ".fp-legend{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.8rem}"
+            ".fp-legend-chip{display:inline-flex;align-items:center;gap:.35rem;font:600 10.5px var(--fp-f-mono);"
+            "letter-spacing:.04em;color:var(--fp-text-dim);border:1px solid var(--fp-line);border-radius:99px;padding:.25rem .55rem}"
+            ".fp-legend-chip i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}"
+            "</style>"
+            f"<div class='fp-howto'><ul>{''.join(rows)}</ul>{legend_html}</div>",
+            unsafe_allow_html=True,
+        )
+
+
 def result_hero(event, session_label, winner_name, team, gap_text, runners=None):
     """Yaris bitince: kim, hangi takim, kac saniye farkla kazandi.
 
@@ -708,18 +744,49 @@ body.fp-tb-busy .fp-tb-bar::after{opacity:1;width:100%;
 .fp-tb-lang a.on{background:var(--fp-red);color:#fff}
 
 @media(max-width:1080px){.fp-tb-sesh{display:none !important}}
-@media(max-width:940px){
-  .fp-tb-nav{overflow-x:auto;overflow-y:visible;-ms-overflow-style:none;scrollbar-width:none;
-    -webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);
-    mask-image:linear-gradient(90deg,#000 92%,transparent)}
-  .fp-tb-nav::-webkit-scrollbar{display:none}
-  .fp-drop,.fp-tb-g:last-child .fp-drop{position:fixed;left:0;right:0;top:60px;min-width:0;
-    border-radius:0;border-left:0;border-right:0}
+
+/* ---- mobil: hamburger + tam-ekran çekmece (saf CSS, checkbox-hack) ---- */
+.fp-nav-t{position:fixed;top:-40px;left:-40px;opacity:0;width:1px;height:1px;pointer-events:none}
+.fp-burger{display:none}
+.fp-tb-drawer{display:none}
+.fp-nav-scrim{display:none}
+
+@media(max-width:920px){
+  .fp-tb-bar{gap:.6rem;padding:0 .9rem}
+  .fp-tb-nav{display:none}                       /* bar içi yatay menü mobilde gizli */
+  .fp-burger{display:flex;flex-direction:column;justify-content:center;gap:5px;flex:0 0 auto;
+    width:40px;height:40px;margin-left:auto;cursor:pointer}
+  .fp-burger span{display:block;height:2px;width:21px;margin-left:auto;background:var(--fp-text);
+    border-radius:2px;transition:transform .2s ease,opacity .2s ease}
+  .fp-nav-t:checked ~ .fp-tb .fp-burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+  .fp-nav-t:checked ~ .fp-tb .fp-burger span:nth-child(2){opacity:0}
+  .fp-nav-t:checked ~ .fp-tb .fp-burger span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+  .fp-tb-right{margin-left:auto;gap:.6rem}
+
+  .fp-tb-drawer{display:flex;position:fixed;top:60px;left:0;right:0;bottom:0;z-index:2147483646;
+    flex-direction:column;align-items:stretch;gap:0;padding:.4rem 0 4rem;overflow-y:auto;
+    background:#0b0e13;border-top:1px solid var(--fp-line);
+    transform:translateX(-102%);transition:transform .22s ease;
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .fp-nav-t:checked ~ .fp-tb-drawer{transform:translateX(0)}
+  .fp-nav-scrim{position:fixed;left:0;right:0;top:60px;bottom:0;z-index:2147483645;
+    background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s ease}
+  .fp-nav-t:checked ~ .fp-nav-scrim{display:block;opacity:1;pointer-events:auto}
+
+  .fp-tb-drawer .fp-tb-g{position:static;width:100%;white-space:normal;border-bottom:1px solid var(--fp-line)}
+  .fp-tb-drawer .fp-tb-g>a,.fp-tb-drawer .fp-tb-g>span{display:flex;width:100%;padding:.95rem 1.25rem;
+    border-bottom:0;font-size:.78rem;letter-spacing:.14em}
+  .fp-tb-drawer .caret{display:none}
+  .fp-tb-drawer .fp-tb-g:hover>a,.fp-tb-drawer .fp-tb-g.on>a{border-color:transparent;color:var(--fp-red)}
+  .fp-tb-drawer .fp-drop{position:static;opacity:1;visibility:visible;transform:none;display:flex;
+    border:0;background:transparent;box-shadow:none;padding:0 0 .5rem;min-width:0;gap:0}
+  .fp-tb-drawer .fp-drop::before{display:none}
+  .fp-tb-drawer .fp-drop a{padding:.62rem 1.25rem .62rem 2.1rem;font-size:.92rem;border-radius:0;border-left:0}
+  .fp-tb-drawer .fp-drop a.on{background:linear-gradient(90deg,rgba(225,6,0,.14),transparent 70%)}
 }
-@media(max-width:620px){
-  .fp-tb-brand{gap:0;font-size:0;letter-spacing:0;margin-right:.15rem}
+@media(max-width:560px){
+  .fp-tb-brand{font-size:0;letter-spacing:0;gap:0;margin-right:0}
   .fp-tb-brand .ch{width:22px;height:22px}
-  .fp-tb-bar{gap:.7rem;padding:0 .8rem}
 }
 </style>
 """
@@ -746,6 +813,9 @@ _TOPBAR_ACTIVE_JS = """
     D.querySelectorAll('.fp-drop a').forEach(function(a){
       a.classList.toggle('on',(a.getAttribute('href')||'')==='?p='+k);
     });
+  }
+  function closeDrawer(){
+    try{ var cb=D.getElementById('fp-nav-t'); if(cb) cb.checked=false; }catch(e){}
   }
   function busy(on){
     try{ D.body.classList.toggle('fp-tb-busy', !!on); }catch(e){}
@@ -775,12 +845,12 @@ _TOPBAR_ACTIVE_JS = """
     D.addEventListener('click',function(e){
       var t=e.target;
       var a=t && t.closest && t.closest('a[href^="?p="], a[href^="?lang="]');
-      if(!a || !(a.closest('.fp-tb') || a.closest('.fp-tb-skel') || a.closest('.fp-foot') || a.closest('.fp-crumb'))) return;
+      if(!a || !(a.closest('.fp-tb') || a.closest('.fp-tb-drawer') || a.closest('.fp-tb-skel') || a.closest('.fp-foot') || a.closest('.fp-crumb'))) return;
       var href=a.getAttribute('href')||'';
       if(href.indexOf('?p=')===0){
-        if(go(href.slice(3))) e.preventDefault();
+        if(go(href.slice(3))){ e.preventDefault(); closeDrawer(); }
       }else if(href.indexOf('?lang=')===0){
-        if(jump('njl_',href.slice(6))){ e.preventDefault(); busy(true); }
+        if(jump('njl_',href.slice(6))){ e.preventDefault(); busy(true); closeDrawer(); }
       }
     }, true);
     // Bar yeniden çizilince (dil değişimi, saatlik seans satırı) aktif sekme
@@ -835,13 +905,22 @@ def topbar(current, lang, standalone=(), groups=(), session_line="", session_liv
         sesh = (f"<span class='fp-tb-sesh{' live' if session_live else ''}'>"
                 f"<span class='lv'></span>{_esc(session_line)}</span>")
 
+    nav_html = "".join(tabs)
+    # Tek blok <div> ile sar ki markdown öğeleri ayrı <p>'lere bölmesin —
+    # checkbox / .fp-tb / çekmece / scrim böylece KARDEŞ kalır (:checked ~ … çalışır).
     st.markdown(
         _TOPBAR_CSS
+        + "<div class='fp-nav-root'>"
+        + "<input type='checkbox' id='fp-nav-t' class='fp-nav-t' aria-hidden='true'>"
         + "<div class='fp-tb'><div class='fp-tb-bar'>"
         + f"<a class='fp-tb-brand' href='?p=home' target='_self'>{_CHEVRON}Formula&nbsp;<b>Paddock</b></a>"
-        + f"<nav class='fp-tb-nav'>{''.join(tabs)}</nav>"
+        + f"<nav class='fp-tb-nav'>{nav_html}</nav>"
         + f"<div class='fp-tb-right'>{sesh}{lang_html}</div>"
-        + "</div></div>",
+        + "<label for='fp-nav-t' class='fp-burger' aria-label='Menü'><span></span><span></span><span></span></label>"
+        + "</div></div>"
+        + f"<nav class='fp-tb-drawer'>{nav_html}</nav>"
+        + "<label for='fp-nav-t' class='fp-nav-scrim' aria-hidden='true'></label>"
+        + "</div>",
         unsafe_allow_html=True,
     )
     _embed_html(_TOPBAR_ACTIVE_JS, height=0)

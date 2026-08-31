@@ -2074,6 +2074,7 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
 .tag{border:1px solid #35506d;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:900;color:var(--team)}
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .legend span{border:1px solid #35506d;border-radius:99px;padding:4px 8px;font:800 9.5px Inter,Arial,sans-serif;color:#c2d4e6;background:#101f34}
+.legend span[title]{cursor:help}
 .map{margin-top:9px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
 canvas{width:100%;height:392px;display:block}
 .sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
@@ -2092,7 +2093,7 @@ canvas{width:100%;height:392px;display:block}
     <div><div class="title">2D TUR DUELLOSU</div><div class="sub">IKI TUR ORTAK ZAMAN EKSENINDE - AYNI PIST NOKTASINDAKI DELTA</div></div>
     <div id="tags"></div>
   </div>
-  <div class="legend"><span>START / BITIS</span><span style="border-color:#45c8ff;color:#8fd8ff">SM duzluk</span><span style="border-color:#71e6a1;color:#9af0c4">OM gecis sansi</span><span style="border-color:#f4d35e;color:#f4d35e">sektor</span></div>
+  <div class="legend"><span>START / BITIS</span><span style="border-color:#45c8ff;color:#8fd8ff" title="Straight Mode - duzlukte dusuk surtunme bolgesi. Eski adiyla DRS.">SM · duzluk (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode - ekstra elektrik gucu kullanilabilen, gecis sansi yuksek bolge. Yayin diliyle ERS hucum / push-to-pass.">OM · gecis (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektor</span></div>
   <div class="map"><canvas id="duel"></canvas></div>
   <div class="sectors" id="sectors"></div>
   <div class="bottom">
@@ -3919,9 +3920,9 @@ def render_learning_centre_v20():
     tracks = [
         ('1', 'Hafta sonu', 'FP1–FP3 hazırlıktır. Sıralama başlangıç sırasını, yarış ise puanları belirler.', '#7dd3fc'),
         ('2', 'Start ve ilk tur', 'İlk virajda konum kazanmak önemlidir; ama lastiği gereksiz yıpratmak sonraki turları zorlaştırır.', '#ff385c'),
-        ('3', 'Lastik kararı', 'Soft hız verir, Hard uzun sürer. Doğru seçim pist sıcaklığına ve pit penceresine bağlıdır.', '#f7c948'),
-        ('4', 'Pit duvarı', 'Takım, trafiği ve lastik ömrünü izleyerek pit zamanını seçer. Bir tur erken veya geç karar sonucu değiştirir.', '#2ee6c9'),
-        ('5', 'Geçiş ve enerji', 'Düzlükte Straight Mode, mücadelede Overtake Mode hız avantajı için kullanılır.', '#a78bfa'),
+        ('3', 'Lastik kararı', 'Soft (kırmızı) hız verir, Hard (beyaz) uzun sürer, Medium (sarı) ortadadır. Doğru seçim pist sıcaklığına ve pit penceresine bağlıdır.', '#f7c948'),
+        ('4', 'Pit duvarı', 'Takım, trafiği ve lastik ömrünü izleyerek pit zamanını seçer. Rakipten önce pit = "undercut", sonra pit = "overcut". Bir tur erken/geç karar sonucu değiştirir.', '#2ee6c9'),
+        ('5', 'Geçiş ve enerji', 'Düzlükte Straight Mode (yayında eski adıyla "DRS") sürtünmeyi azaltır; mücadelede Overtake Mode (ERS hücum / push-to-pass) ek elektrik gücü verir.', '#a78bfa'),
         ('6', 'Yarış sonrası', 'Sonuçtan sonra en hızlı tur, pitler, sıra değişimi ve takım arkadaşları arasındaki fark okunur.', '#fb923c'),
     ]
     for start in range(0, len(tracks), 3):
@@ -3932,7 +3933,7 @@ def render_learning_centre_v20():
     st.markdown('#### İlk yarışını izlerken buna bak')
     watch = st.radio('En çok neyi anlamak istiyorsun?', ['Kim önde?', 'Lastikler ne durumda?', 'Neden pit yaptılar?', 'İki pilot arasındaki fark nerede?'], horizontal=True, key='learning_watch_v20')
     watch_copy = {
-        'Kim önde?': 'Seans Takibi ve Hafta Sonu Merkezi ile sıralama, tur ve farkları takip et.',
+        'Kim önde?': 'Seans Merkezi ve Hafta Sonu Merkezi ile sıralama, tur ve farkları takip et.',
         'Lastikler ne durumda?': 'Yarış Hikâyesi ve Lastik Stratejisi ekranında hamur, stint ve pit geçişlerini izle.',
         'Neden pit yaptılar?': 'Pit zamanı; lastik aşınması, trafik, hava ve rakibin hamlesiyle birlikte değerlendirilir.',
         'İki pilot arasındaki fark nerede?': 'Pilot Karşılaştırma bölümünde tur, sektör, fren ve gaz verilerini aç.',
@@ -4395,8 +4396,8 @@ def stable_race_replay_html(payload):
     """
     packed = fp_ui.json_for_script(_replay_overlay_v26(dict(payload)))
     return r"""<!doctype html><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.r{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.key{border:1px solid #334d69;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:850;color:#bcd0e4;background:#101d2f}.key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:510px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px}.hero{border-bottom:1px solid #2b4058;padding:0 0 10px;margin-bottom:8px;min-height:74px}.hero b{font-size:21px;color:var(--team)}.hero small{display:block;color:#a9bbcd;margin-top:5px}.hero img{float:right;width:65px;height:82px;object-fit:contain;object-position:right bottom;margin:-8px -4px -2px 8px}.stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #26394f;font-size:12px;gap:8px}.stat span{color:#92a7bc}.pit{color:#ffd46b}.on{color:#81e6ac}
-.tyrehud{margin:11px 0 3px}
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.r{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.key{border:1px solid #334d69;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:850;color:#bcd0e4;background:#101d2f}.key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.key[title]{cursor:help}.key em{font-style:normal;color:#8ea4bc;font-weight:700}.grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:510px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px}.hero{border-bottom:1px solid #2b4058;padding:0 0 10px;margin-bottom:8px;min-height:74px}.hero b{font-size:21px;color:var(--team)}.hero small{display:block;color:#a9bbcd;margin-top:5px}.hero img{float:right;width:65px;height:82px;object-fit:contain;object-position:right bottom;margin:-8px -4px -2px 8px}.stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #26394f;font-size:12px;gap:8px}.stat span{color:#92a7bc}.pit{color:#ffd46b}.on{color:#81e6ac}
+.tyrehud{margin:11px 0 3px}.tyrehud [title],.stat [title]{cursor:help}
 .tyrehead{display:flex;align-items:center;gap:9px}
 .tcompound{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font:900 14px ui-monospace,Consolas,monospace;color:#0a121c;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
 .tmeta{flex:1;min-width:0}.tmeta b{font:900 13px Inter,Arial,sans-serif;letter-spacing:.04em}
@@ -4412,7 +4413,7 @@ def stable_race_replay_html(payload):
 .tstriplab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-top:5px}
 .tstriplab span:last-child{color:#c2d4e6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .controls,.strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}.btn,.pilot{border:1px solid #39516f;border-radius:7px;background:#142239;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}.pilot{border-left:4px solid var(--team);font-size:11px}.pilot.active{background:#1c3049;box-shadow:0 0 0 1px var(--team) inset}.slider{accent-color:#ff4051;flex:1;min-width:135px}.clock{font:900 12px ui-monospace,Consolas,monospace}.note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.grid{grid-template-columns:1fr}.map canvas{height:390px}}
-</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div><div class="legend"><span class="key"><i style="background:#45c8ff"></i>Straight Mode</span><span class="key"><i style="background:#71e6a1"></i>Overtake olasılığı</span><span class="key"><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key"><i style="background:#ffd46b"></i>Pit şeridi şematik</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
+</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div><div class="legend"><span class="key" title="Düzlükte düşük sürtünme bölgesi. 2024 ve öncesinde yayında buna DRS bölgesi deniyordu."><i style="background:#45c8ff"></i>Straight Mode <em>(≈ DRS)</em></span><span class="key" title="Öndeki araca yakınken ekstra elektrik gücü kullanılabilen bölge — geçiş şansı yüksek. Yayın diliyle push-to-pass / ERS hücum."><i style="background:#71e6a1"></i>Overtake Mode <em>(≈ ERS hücum)</em></span><span class="key" title="Pilotun pite girip çıktığı yaklaşık konum."><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key" title="Pit yolu koordinatı resmî olarak yayımlanmaz; bu çizgi yalnızca şematiktir."><i style="background:#ffd46b"></i>Pit şeridi (şematik)</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
 const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],overlay=data.overlay||{},canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.code||'',playing=true,speed=6,time=0,last=performance.now(),lastHud=0,lastKey='',view=null;const tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const fmt=n=>{n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
 function lap(c,t){const a=c.laps||[];for(let i=0;i<a.length;i++)if(t<=a[i].end)return a[i];return a[a.length-1]||null}function pitEvent(c,t){return(c.pit_events||[]).find(e=>t>=e.start&&t<=e.end)||null}function state(c,t){const l=lap(c,t),a=c.laps||[],last=a[a.length-1],out=!!c.retired&&t>=(last?.end||0);if(!l)return{lap:0,frac:0,pos:c.grid||20,pit:false,out};const i=a.indexOf(l),previous=a[Math.max(0,i-1)]?.position||l.start_position||c.grid||20,frac=Math.max(0,Math.min(1,(t-l.start)/(l.end-l.start||1)));return{lap:l.lap,frac,pos:frac>.997?(l.position||previous):previous,pit:!out&&!!pitEvent(c,t),out}}
@@ -4451,14 +4452,15 @@ function tyreHud(c,curLap){
   let strip='';
   stintSegments(c).forEach((sg,i)=>{const w=(sg.to-sg.from+1)/total*100;
     strip+='<div class="tstripseg'+(i===s.setNo-1?' cur':'')+'" style="width:'+w.toFixed(2)+'%;background:'+(tyres[sg.compound]||'#8aa0b6')+'" title="'+sg.compound+' · Tur '+sg.from+'-'+sg.to+'"></div>';});
+  const cName={SOFT:'Soft — en hızlı, en çabuk biter',MEDIUM:'Medium — hız/ömür dengesi',HARD:'Hard — en dayanıklı, ısınması zor',INTERMEDIATE:'Intermediate — hafif ıslak pist',WET:'Wet — yoğun yağmur'}[s.compound]||s.compound;
   return '<div class="tyrehud">'
-    +'<div class="tyrehead"><span class="tcompound" style="background:'+col+'">'+(s.compound[0]||'?')+'</span>'
-    +'<div class="tmeta"><b>'+s.compound+'</b><small>SET '+s.setNo+'/'+s.count+' · '+s.age+'. tur bu sette</small></div>'
-    +'<span class="tpct" style="color:'+wc+'">%'+Math.round(s.wear)+'</span></div>'
-    +'<div class="tprog"><i style="width:'+s.wear.toFixed(1)+'%;background:linear-gradient(90deg,'+col+' 30%,'+wc+')"></i>'
+    +'<div class="tyrehead"><span class="tcompound" style="background:'+col+'" title="'+cName+'">'+(s.compound[0]||'?')+'</span>'
+    +'<div class="tmeta"><b>'+s.compound+'</b><small title="Kaçıncı lastik seti ve bu sette kaç turdur olduğu. Her pit yeni bir set demektir.">SET '+s.setNo+'/'+s.count+' · '+s.age+'. tur bu sette</small></div>'
+    +'<span class="tpct" style="color:'+wc+'" title="Bu setin tahmini aşınması — geçen tur / o hamurun tipik ömrü. %100\'e yaklaştıkça pit yaklaşır.">%'+Math.round(s.wear)+'</span></div>'
+    +'<div class="tprog" title="Lastik kullanıldıkça (turlar ilerledikçe) soldan sağa dolar."><i style="width:'+s.wear.toFixed(1)+'%;background:linear-gradient(90deg,'+col+' 30%,'+wc+')"></i>'
     +'<span class="tprog-lap">TUR '+s.from+'–'+Math.min(s.to,curLap)+'</span></div>'
     +'<div class="tstrip">'+strip+'</div>'
-    +'<div class="tstriplab"><span>STRATEJİ</span><span>'+stintSummary(c)+'</span></div>'
+    +'<div class="tstriplab"><span title="Tüm yarışın lastik planı. Her blok bir stint, arasındaki çizgi pit stop.">STRATEJİ</span><span>'+stintSummary(c)+'</span></div>'
     +'</div>';
 }
 function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML=list.map(c=>{const s=state(c,time);return`<button class="pilot ${c.code===selected?'active':''}" style="--team:${c.colour}" data-c="${c.code}">P${s.pos} · ${c.code} · T${s.lap}</button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div>${tyreHud(c,s.lap)}<div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds)}
@@ -5612,14 +5614,10 @@ def _router_page_live():
     curr_event, target_s_name, target_s_time, is_live_now = get_current_or_next_event()
     gp_name = curr_event['EventName'] if 'EventName' in curr_event else "Hungarian Grand Prix"
     
-    fp_ui.page_header(T("page.live.title"), f"{gp_name}", eyebrow=T("section.live"))
-    fp_ui.data_state(
-        "Alpha Odağı",
-        "Canlı 2D pist, doğrulanmış bir konum sağlayıcısı hazır olana kadar kapalı tutulur; site sahte canlı konum üretmez.",
-        "warning",
-    )
+    fp_ui.page_header(T("page.live.title"), T("page.live.sub"), eyebrow=T("section.live"))
+    st.caption(f"Aktif hafta sonu: {gp_name}")
 
-    timing_tab, replay_tab = st.tabs(["Dereceler", "Yarış Tekrarı"])
+    timing_tab, replay_tab = st.tabs(["Seans Sonuçları", "Yarış Tekrarı"])
     if False:  # Alpha: doğrulanmış canlı konum altyapısı tamamlanana kadar gizli.
         token, openf1_username, openf1_password = get_openf1_access_v19()
         refresh_live = st.button("🔄 Açık canlı veri paketini yenile", key='refresh_live_v19')
@@ -5658,7 +5656,7 @@ def _router_page_live():
             "ERS yüzdesi, fren/lastik sıcaklığı veya gerçek Overtake Mode telemetrisi açık veri yoksa gösterilmez."
         )
     with timing_tab:
-        st.caption("Sonuç listesi isteyince yüklenir. Böylece gelecekteki bir seansın verisi diğer sekmeleri kilitlemez.")
+        st.caption("Aktif hafta sonunun tamamlanan seanslarının doğrulanmış sonuç tablosu. Devam eden seans varken kısmi sonuç göstermeyiz.")
         timing_now = datetime.datetime.now(datetime.timezone.utc)
         session_is_future = target_s_time > timing_now
         timing_load_key = f"load_timing_2026_{gp_name}_{target_s_name}"
@@ -5666,7 +5664,7 @@ def _router_page_live():
         if session_is_future:
             st.info(
                 f"{target_s_name} henüz başlamadı. Sonuç çekmeye çalışmıyoruz; "
-                "Yarış Takrarı sekmesi ve diğer sayfalar normal şekilde açık kalır."
+                "Yarış Tekrarı sekmesi ve diğer sayfalar normal şekilde açık kalır."
             )
         else:
             st.session_state[timing_load_key] = True
@@ -5770,10 +5768,19 @@ def _router_page_live():
                             replay_payload = build_stable_race_replay_payload(replay_year, replay_event_name)
                         if replay_payload.get('ok'):
                             render_data_state(
-                                "RACE PACKAGE READY",
-                                "Track, lap, position, pit and tyre records passed the replay safety checks.",
+                                "YARIŞ PAKETİ HAZIR",
+                                "Pist, tur, sıralama, pit ve lastik kayıtları doğrulama kontrollerini geçti.",
                                 "success",
                             )
+                            fp_ui.how_to_read([
+                                ("Pist", "tek temiz telemetri turundan çizilir; araçlar doğrulanmış tur/sıra/pit verisiyle bu yörüngede ilerler."),
+                                ("Sağ panel", "seçili pilotun turu, başlangıç→bitiş sırası, pozisyon değişimi ve lastik seti. Alttaki şeritten pilot değiştir."),
+                                ("Lastik barı", "bu setin aşınması soldan sağa dolar; alttaki ince şerit tüm yarışın plan özeti (her blok bir stint, çizgi bir pit)."),
+                                ("Hız", "varsayılan 6×. 1× = gerçek yarış süresi (çok yavaş), 60× = tüm yarış birkaç dakikada."),
+                            ], [
+                                ("#45c8ff", "Straight Mode (≈DRS)"), ("#71e6a1", "Overtake Mode (≈ERS)"),
+                                ("#b79cff", "pit giriş/çıkış"), ("#ff3b3b", "Soft"), ("#ffd234", "Medium"), ("#f0f4f8", "Hard"),
+                            ], key=f"howto_replay_{replay_year}")
                             render_html_hud(stable_race_replay_html(replay_payload), height=850, scrolling=True)
                             st.markdown("#### 🛞 Tyre Strategy Wall")
                             render_html_hud(
@@ -5890,6 +5897,36 @@ def _router_page_telemetry():
     else:
         _picked = st.radio("Görünüm", _MODE_LABELS, horizontal=True, key="tel_mode")
     analiz_turu = _MODES[_MODE_LABELS.index(_picked)] if _picked in _MODE_LABELS else _MODES[0]
+
+    _HOWTO = {
+        "Pist Dominasyonu": ([
+            ("Pist çizgisi", "iki pilotun turu üst üste bindirilir; her nokta o an kimin daha hızlı olduğunu gösterir."),
+            ("Renk", "kırmızı = 1. pilot daha hızlı, cyan = 2. pilot daha hızlı."),
+            ("Ne aramalı", "uzun kırmızı/cyan bloklar = bir pilotun net üstün olduğu bölüm; renk sık değişiyorsa turlar denk."),
+        ], [("#e10600", "1. pilot önde"), ("#38bdf8", "2. pilot önde")]),
+        "2D Tur Düellosu": ([
+            ("Δ (delta)", "aynı pist noktasında iki pilot arasındaki saniye farkı. Δ 0.30 = öndeki 0,30 sn hızlı."),
+            ("Oynat / hız", "turu 1×–8× hızda izle; alttaki çubukla istediğin ana atla."),
+            ("Sektörler", "hangi pilotun hangi sektörde daha hızlı olduğu alttaki üç kutuda."),
+        ], [("#f4d35e", "sektör sınırı"), ("#45c8ff", "SM · düzlük (≈DRS)"), ("#71e6a1", "OM · geçiş (≈ERS)")]),
+        "Fren Analizi": ([
+            ("Dört grafik", "üstten alta: hız, fren, gaz, vites — hepsi pist mesafesine göre hizalı."),
+            ("Geç frenleme", "fren grafiğindeki dikey sıçrama daha sağdaysa, o pilot viraja daha geç fren yapmış demektir."),
+            ("Hız farkı", "üstteki grafikte çizgiler ayrışıyorsa orada bir pilot belirgin hızlı."),
+        ], None),
+        "Top Hız": ([
+            ("Tablo", "her pilotun o seanstaki en yüksek telemetri hızı, hızlıdan yavaşa."),
+            ("Ne anlatır", "yüksek top hız = düşük kanat / iyi güç ünitesi / iyi slipstream; düşük = yüksek kanat tercihi."),
+        ], None),
+        "Lastik Stratejisi": ([
+            ("Yatay barlar", "her pilotun stint'leri; blok uzunluğu o lastikte geçen tur sayısı."),
+            ("Renk", "kırmızı Soft, sarı Medium, beyaz Hard, yeşil Intermediate, mavi Wet."),
+            ("Ne aramalı", "en anlamlı görünüm yarış seansında; farklı stratejiler (ör. 1 durak vs 2 durak) burada ayrışır."),
+        ], [("#ff3b3b", "Soft"), ("#ffd234", "Medium"), ("#f0f4f8", "Hard"), ("#3fd66a", "Inter"), ("#3aa9ff", "Wet")]),
+    }
+    _ht = _HOWTO.get(_picked if _picked in _MODE_LABELS else "Pist Dominasyonu")
+    if _ht:
+        fp_ui.how_to_read(_ht[0], _ht[1], key=f"howto_tel_{_picked}")
 
     st.write("")
     try:
@@ -6640,7 +6677,7 @@ def render_not_found_page(bad):
     cols = st.columns(4)
     for col, (lbl, key) in zip(cols, [
         ("Ana Ekran", "home"), ("Haber Merkezi", "news"),
-        ("Seans Takibi", "live"), ("Şampiyonalar", "teams"),
+        ("Seans Merkezi", "live"), ("Şampiyonalar", "teams"),
     ]):
         with col:
             if st.button(lbl, key=f"nf_{key}", width='stretch'):

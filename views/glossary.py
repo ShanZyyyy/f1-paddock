@@ -14,9 +14,9 @@ def render():
     fp_ui.page_header(T("page.glossary.title"), T("page.glossary.sub"), eyebrow=T("section.paddock"))
     terms = [
         ('2026 Teknolojisi', 'Active Aero', 'Ön ve arka kanadın sürüş koşuluna göre aktif açı değiştirmesidir.', True),
-        ('2026 Teknolojisi', 'Corner Mode', 'Virajlarda daha fazla yere basma için kullanılan aktif aero ayarıdır.', True),
-        ('2026 Teknolojisi', 'Straight Mode', 'Düzlükte sürtünmeyi azaltan aktif aero ayarıdır.', True),
-        ('2026 Teknolojisi', 'Overtake Mode', 'Öndeki araca yakın pilotun geçiş için kullanabildiği ek elektrik enerjisi desteğidir.', True),
+        ('2026 Teknolojisi', 'Corner Mode', 'Virajlarda daha fazla yere basma için kullanılan aktif aero ayarıdır. 2026 ile geldi.', True),
+        ('2026 Teknolojisi', 'Straight Mode', 'Düzlükte sürtünmeyi azaltan aktif aero ayarıdır. 📺 2024 ve öncesinde yayında buna **DRS** deniyordu; düzlükteki geçiş bölgelerinin karşılığıdır.', True),
+        ('2026 Teknolojisi', 'Overtake Mode', 'Öndeki araca yakın pilotun geçiş için kullanabildiği ek elektrik enerjisi desteğidir. 📺 Yayın diliyle **push-to-pass / ERS hücum** — eski "overtake button" mantığı.', True),
         ('2026 Teknolojisi', 'Boost Mode', 'Pilotun savunma veya hücum için enerji dağıtımını kullandığı güç modudur.', True),
         ('2026 Teknolojisi', 'Recharge', 'Frenleme ve gaz kesme anlarında bataryanın yeniden enerji toplamasıdır.', True),
         ('2026 Teknolojisi', 'MGU-K', 'Fren enerjisini elektrik enerjisine çeviren ve güce katkı sağlayan motor-jeneratördür.', True),
@@ -41,13 +41,13 @@ def render():
         ('Lastik & Strateji', 'Intermediate', 'Hafif veya değişken yağmur koşulları için lastiktir.', False),
         ('Lastik & Strateji', 'Wet', 'Yoğun yağmur ve çok ıslak pist için lastiktir.', False),
         ('Lastik & Strateji', 'Stint', 'Aynı lastik setiyle pit stop olmadan atılan tur bölümüdür.', False),
-        ('Lastik & Strateji', 'Undercut', 'Rakibinden önce pite girip yeni lastikle avantaj aramaktır.', False),
-        ('Lastik & Strateji', 'Overcut', 'Rakip pite girdikten sonra pistte kalıp avantaj aramaktır.', False),
+        ('Lastik & Strateji', 'Undercut', 'Rakibinden önce pite girip taze lastikle, o daha eski lastikteyken öne geçmeye çalışmaktır. Yarış tekrarında pit ayracının hemen ardından sıra değişimi görürsen genelde undercut işe yaramıştır.', False),
+        ('Lastik & Strateji', 'Overcut', 'Rakip pite girdikten sonra pistte biraz daha kalıp, hızlı turlarla çıkışta öne geçmeye çalışmaktır. Undercut\'ın tersi.', False),
         ('Lastik & Strateji', 'Degradation', 'Lastiğin tur geçtikçe performans kaybetmesidir.', False),
         ('Lastik & Strateji', 'Graining', 'Lastik yüzeyinde oluşan taneciklenmenin yol tutuşunu düşürmesidir.', False),
         ('Lastik & Strateji', 'Blistering', 'Aşırı sıcaklık nedeniyle lastik yüzeyinde kabarcık oluşmasıdır.', False),
         ('Lastik & Strateji', 'Pit Stop', 'Lastik değişimi veya onarım için pit alanına girilmesidir.', False),
-        ('Veri & Telemetri', 'Delta', 'İki tur veya iki pilot arasındaki zaman farkıdır.', False),
+        ('Veri & Telemetri', 'Delta', 'İki tur veya iki pilot arasındaki zaman farkıdır — genelde "Δ" simgesiyle gösterilir. Δ +0,3 sn = öndeki 0,3 saniye daha hızlı.', False),
         ('Veri & Telemetri', 'Sektör', 'Pistin zaman ölçülen üç ana parçasından biridir.', False),
         ('Veri & Telemetri', 'Mor Sektör', 'Seansta atılmış en hızlı sektör zamanıdır.', False),
         ('Veri & Telemetri', 'Speed Trap', 'Pistin belirli bir ölçüm noktasındaki resmî hızdır.', False),
@@ -83,6 +83,7 @@ def render():
     visible_terms = [term for term in terms if (selected_category == 'Tümü' or term[0] == selected_category) and (not search_text or search_text in (term[1] + ' ' + term[2]).lower())]
     st.caption(f"{len(visible_terms)} terim gösteriliyor")
     for category, term, explanation, is_new in visible_terms:
-        badge = " <span class='new-badge'>2026 YENİ</span>" if is_new else f" <span class='term-badge'>{category.upper()}</span>"
+        badge = "<span class='new-badge'>2026 YENİ</span>" if is_new else f"<span class='term-badge'>{category.upper()}</span>"
         with st.expander(term):
-            st.markdown(f"{badge}<p style='margin-top:10px'>{explanation}</p>", unsafe_allow_html=True)
+            st.markdown(badge, unsafe_allow_html=True)
+            st.markdown(explanation)
