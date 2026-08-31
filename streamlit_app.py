@@ -9088,7 +9088,7 @@ def season_story_html(story, colour_fav, colour_rival):
       .ss-sum{{font:600 13px 'Saira',sans-serif;color:#c4d2e0;margin:6px 0 12px}}
       .ss-sum b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
       .ss-chart{{width:100%;height:130px;display:block}}
-      .ss-leg{{display:flex;gap:14px;margin:6px 0 12px;font:700 10px 'JetBrains Mono',monospace}}
+      .ss-leg{{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0 12px;font:700 10px 'JetBrains Mono',monospace}}
       .ss-leg i{{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:5px}}
       .ss-strip{{display:flex;flex-wrap:wrap;gap:4px}}
       .ss-chip{{flex:0 0 auto;text-align:center;border:1px solid #2a3a4d;border-top:3px solid var(--pc);
