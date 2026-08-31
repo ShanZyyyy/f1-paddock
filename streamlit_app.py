@@ -1865,6 +1865,56 @@ def _f1_points_v40(finish_pos, sprint=False):
 
 
 @st.cache_data(ttl=60 * 60 * 3, show_spinner=False)
+def _season_progress_v46(year):
+    """Resmî takvimden sezon ilerlemesi: kaç yarıştan kaçı tamamlandı, sürüyor mu."""
+    try:
+        calendar = get_calendar_details(int(year))
+    except Exception:
+        return {}
+    now = datetime.datetime.now(datetime.timezone.utc)
+    total = done = 0
+    for event in calendar:
+        race_date = event.get('Session5DateUtc')
+        if pd.isnull(race_date):
+            continue
+        total += 1
+        race_time = pd.to_datetime(race_date)
+        race_time = race_time.tz_localize('UTC') if race_time.tzinfo is None else race_time.tz_convert('UTC')
+        if race_time + datetime.timedelta(hours=3) <= now:
+            done += 1
+    if total == 0:
+        return {}
+    return {
+        'total': total, 'done': done,
+        'finished': done >= total or int(year) < now.year,
+        'ongoing': int(year) >= now.year and 0 < done < total,
+        'not_started': done == 0,
+    }
+
+
+def render_season_status_v46(year):
+    """Replay / telemetri başlıklarında: seçilen sezon bitti mi, sürüyor mu."""
+    progress = _season_progress_v46(year)
+    if not progress:
+        return
+    if progress['not_started'] and int(year) >= datetime.datetime.now(datetime.timezone.utc).year:
+        fp_ui.data_state(
+            f"{year} SEZONU HENÜZ BAŞLAMADI",
+            f"{progress['total']} yarışlık takvim hazır; sonuçlar yarışlar tamamlandıkça gelir.",
+            "info",
+        )
+    elif progress['ongoing']:
+        fp_ui.data_state(
+            f"{year} SEZONU DEVAM EDİYOR · {progress['done']}/{progress['total']} YARIŞ",
+            "Gösterilen veriler şu ana kadar tamamlanmış yarışların doğrulanmış sonuçlarıdır; "
+            "sezon ilerledikçe güncellenir.",
+            "warning",
+        )
+    else:
+        st.caption(f"{year} sezonu tamamlandı — {progress['total']} yarış. Sonuçlar kesindir.")
+
+
+@st.cache_data(ttl=60 * 60 * 3, show_spinner=False)
 def _championship_remaining_v40(year, completed_count):
     """Resmî takvimden kalan yarış + sprint sayısı ve sıradaki yarış adı."""
     try:
@@ -7824,6 +7874,7 @@ def _router_page_live():
         )
         st.markdown(f"### 🎬 {replay_year} Yarış Tekrar Merkezi")
         st.caption(f"Seçtiğin sezonun tüm hafta sonları. Tamamlanan seansların doğrulanmış sonuçları ve yarış lastik stintleri otomatik gelir; gelecekteki yarışlarda program görünür.")
+        render_season_status_v46(replay_year)
         replay_events = get_calendar_details(replay_year)
         if not replay_events:
             st.info(f"{replay_year} takvimi şu an alınamadı.")
@@ -7991,6 +8042,7 @@ def _router_page_telemetry():
     _default_gp_idx = next((i for i, g in enumerate(_gp_list) if "Hungar" in g), 0)
     gp = _tc[1].selectbox("Grand Prix", _gp_list, index=_default_gp_idx, key="tel_gp")
     session_type = _tc[2].selectbox("Seans", ["Q", "R", "FP1", "FP2", "FP3"], key="tel_session")
+    render_season_status_v46(year)
 
     target_q = None
     q_sub_session = None
