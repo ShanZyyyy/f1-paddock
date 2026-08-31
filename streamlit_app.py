@@ -9310,6 +9310,140 @@ def _router_page_home():
 # SAYFA 2: CANLI SEANS TAKİBİ
 
 
+# =========================================================
+# FAZ 5-A · #2 — CANLI SEANS ZAMANLAMA TABLOSU (harita/konum YOK)
+# =========================================================
+_LIVE_SESSION_CODE_V61 = {
+    'FP1': 'FP1', 'FP2': 'FP2', 'FP3': 'FP3',
+    'Sıralama Turları': 'Q', 'Sıralama': 'Q', 'Q': 'Q', 'Sprint Sıralaması': 'SQ',
+    'Sprint': 'S', 'Yarış': 'R', 'R': 'R',
+}
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _live_timing_v61(year, gp_name, session_code):
+    """Canlı veya tamamlanmış seansın resmî klasman tablosu. FastF1
+    `session.results` — anonim erişim, sahte veri üretmez, konum/harita YOK."""
+    try:
+        sess = fastf1.get_session(int(year), gp_name, session_code)
+        sess.load(laps=False, telemetry=False, weather=False, messages=False)
+    except Exception as error:
+        return {'ok': False, 'reason': str(error)}
+    res = getattr(sess, 'results', None)
+    if res is None or res.empty:
+        return {'ok': False, 'reason': 'klasman henüz oluşmadı'}
+    rows = []
+    for _, row in res.iterrows():
+        code = str(row.get('Abbreviation', '')).strip()
+        if not code or code.lower() == 'nan':
+            continue
+        pos = pd.to_numeric(row.get('Position'), errors='coerce')
+        grid = pd.to_numeric(row.get('GridPosition'), errors='coerce')
+        status = str(row.get('Status', '') or '').strip()
+        gap = ''
+        raw_t = row.get('Time')
+        if pd.notna(raw_t):
+            try:
+                secs = pd.to_timedelta(raw_t).total_seconds()
+                if secs <= 0:
+                    gap = ''
+                elif secs < 120:
+                    gap = f"+{secs:.3f}"
+                else:
+                    gap = format_time(pd.to_timedelta(raw_t))
+            except Exception:
+                gap = str(raw_t)
+        rows.append({
+            'pos': int(pos) if pd.notna(pos) else None,
+            'code': code,
+            'team': str(row.get('TeamName', '') or '').strip(),
+            'colour': _session_driver_colour_v46(sess, code, year),
+            'status': status,
+            'out': is_dnf_status(status),
+            'gap': gap,
+            'grid': int(grid) if pd.notna(grid) else None,
+            'flap': format_time(row.get('Time')) if session_code in ('Q', 'SQ', 'FP1', 'FP2', 'FP3') and pd.notna(row.get('Time')) else '',
+        })
+    rows.sort(key=lambda r: (r['pos'] is None, r['pos'] or 999))
+    return {
+        'ok': bool(rows), 'rows': rows, 'event': str(gp_name), 'session': str(session_code),
+        'checked_at': datetime.datetime.now(datetime.timezone.utc).astimezone(
+            datetime.timezone(datetime.timedelta(hours=3))).strftime('%H:%M'),
+    }
+
+
+def live_timing_tower_component_height(data):
+    return min(1180, 130 + 34 * max(1, len((data or {}).get('rows', []))))
+
+
+def live_timing_tower_html(data, live):
+    if not data.get('ok'):
+        return ''
+    is_quali = data['session'] in ('Q', 'SQ', 'FP1', 'FP2', 'FP3')
+    body = ''
+    for r in data['rows']:
+        pos = str(r['pos']) if r['pos'] else '—'
+        move = ''
+        if r['grid'] and r['pos'] and not r['out'] and data['session'] in ('R', 'S'):
+            d = r['grid'] - r['pos']
+            move = (f"<i class='up'>▲{d}</i>" if d > 0
+                    else f"<i class='dn'>▼{abs(d)}</i>" if d < 0 else "")
+        if is_quali:
+            mid = html_lib.escape(r['flap'] or r['gap'] or '—')
+        elif r['out']:
+            mid = f"<span class='lt-out'>{html_lib.escape(r['status'] or 'DNF')}</span>"
+        elif r['pos'] == 1:
+            mid = "<span class='lt-lead'>LİDER</span>"
+        else:
+            mid = html_lib.escape(r['gap'] or r['status'] or '')
+        body += (
+            f"<div class='lt-row{' out' if r['out'] else ''}' style='--c:{r['colour']}'>"
+            f"<span class='lt-p'>{pos}</span>"
+            f"<span class='lt-d'>{html_lib.escape(r['code'])}"
+            f"<small>{html_lib.escape(r['team'])}</small></span>"
+            f"<span class='lt-g'>{mid} {move}</span></div>"
+        )
+    head_label = "CANLI ZAMANLAMA" if live else "RESMİ SONUÇ"
+    head_note = (f"son kontrol {data['checked_at']} TSİ · resmî zamanlama beslemesinden"
+                 if live else "kesin klasman")
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .lt{{border:1px solid #26313f;border-left:3px solid {'#ff4757' if live else '#38e1d0'};
+        border-radius:12px;background:#11161f;overflow:hidden}}
+      .lt-hd{{padding:12px 15px 9px;border-bottom:1px solid #26313f}}
+      .lt-hd b{{font:800 13px 'Saira Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase}}
+      .lt-hd .ev{{color:#c4d2e0;font:600 12px 'Saira',sans-serif}}
+      .lt-hd s{{display:block;margin-top:4px;font:600 11px 'JetBrains Mono',monospace;color:#8090a2;text-decoration:none}}
+      .lt-hd .dot{{display:inline-block;width:8px;height:8px;border-radius:50%;
+        background:{'#ff4757' if live else '#38e1d0'};margin-right:7px;
+        {'animation:lt-pulse 1.6s ease-in-out infinite' if live else ''}}}
+      @keyframes lt-pulse{{50%{{opacity:.3}}}}
+      @media(prefers-reduced-motion:reduce){{.lt-hd .dot{{animation:none}}}}
+      .lt-row{{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;
+        padding:7px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
+      .lt-row.out{{opacity:.55}}
+      .lt-p{{font:700 13px 'JetBrains Mono',monospace;color:#8ea4bc;text-align:center}}
+      .lt-d{{font:700 13px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .lt-d small{{display:block;font:500 10px 'Saira',sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
+      .lt-g{{font:700 12px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap;text-align:right}}
+      .lt-g i{{font-style:normal;font-size:10px;margin-left:5px}}
+      .lt-g .up{{color:#7fe0a6}} .lt-g .dn{{color:#ff8b78}}
+      .lt-lead{{color:#f7c948}} .lt-out{{color:#ff8b78;font-size:11px}}
+      .lt-ft{{padding:9px 15px;border-top:1px solid #26313f;font:500 10.5px 'Saira',sans-serif;
+        color:#63748a;line-height:1.5}}
+    </style>
+    <div class="lt">
+      <div class="lt-hd"><b><span class="dot"></span>{head_label}</b>
+        <span class="ev"> · {html_lib.escape(data['event'])} · {html_lib.escape(data['session'])}</span>
+        <s>{head_note}</s></div>
+      <div class="lt-body">{body}</div>
+      <div class="lt-ft">Konum haritası ve araç animasyonu yok — bu tablo yalnızca resmî sıralama/aralık
+      verisidir. Site canlı seansta sahte araç hareketi çizmez.</div>
+    </div>
+    """
+
+
 def _router_page_live():
     curr_event, target_s_name, target_s_time, is_live_now = get_current_or_next_event()
     gp_name = curr_event['EventName'] if 'EventName' in curr_event else "Hungarian Grand Prix"
@@ -9362,47 +9496,53 @@ def _router_page_live():
             "ERS yüzdesi, fren/lastik sıcaklığı veya gerçek Overtake Mode telemetrisi açık veri yoksa gösterilmez."
         )
     with timing_tab:
-        st.caption("Aktif hafta sonunun tamamlanan seanslarının doğrulanmış sonuç tablosu. Devam eden seans varken kısmi sonuç göstermeyiz.")
         timing_now = datetime.datetime.now(datetime.timezone.utc)
         session_is_future = target_s_time > timing_now
-        timing_load_key = f"load_timing_2026_{gp_name}_{target_s_name}"
+        _sc = _LIVE_SESSION_CODE_V61.get(target_s_name, 'Q')
 
         if session_is_future:
+            st.caption("Seans sıralama / aralık tablosu; harita ve araç animasyonu yoktur.")
             st.info(
-                f"{target_s_name} henüz başlamadı. Sonuç çekmeye çalışmıyoruz; "
-                "Yarış Tekrarı sekmesi ve diğer sayfalar normal şekilde açık kalır."
+                f"{target_s_name} henüz başlamadı — bir sonraki hafta sonunun ilk seansı. "
+                "Bu arada son tamamlanan yarışın resmî sonucu aşağıda."
             )
-        else:
-            st.session_state[timing_load_key] = True
+            _last_r = _latest_completed_race_v43(2026).get('last')
+            if _last_r:
+                _lt = _live_timing_v61(2026, _last_r, 'R')
+                if _lt.get('ok'):
+                    render_html_hud(live_timing_tower_html(_lt, live=False),
+                                    height=live_timing_tower_component_height(_lt), scrolling=True)
+        elif is_live_now:
+            _lc1, _lc2 = st.columns([3, 1])
+            _lc1.caption(f"{gp_name} · {target_s_name} şu an sürüyor. Aşağıdaki tablo resmî "
+                         "zamanlama beslemesinden gelir — konum haritası veya araç hareketi yok.")
+            if _lc2.button("🔄 Yenile", key="live_timing_refresh_v61", width='stretch'):
+                _live_timing_v61.clear()
+            _auto = st.toggle("30 saniyede bir otomatik yenile", value=False, key="live_timing_auto_v61")
 
-            if st.session_state.get(timing_load_key, False):
-                try:
-                    with st.spinner('Doğrulanmış seans sonuçları çekiliyor...'):
-                        live_session_code = {
-                            'FP1': 'FP1', 'FP2': 'FP2', 'FP3': 'FP3',
-                            'Sıralama Turları': 'Q', 'Sıralama': 'Q', 'Q': 'Q',
-                            'Yarış': 'R', 'R': 'R',
-                        }.get(target_s_name, 'Q')
-                        live_sess = fastf1.get_session(2026, gp_name, live_session_code)
-                        live_sess.load(telemetry=False, weather=False, messages=False)
+            def _render_live_timing():
+                _lt = _live_timing_v61(2026, gp_name, _sc)
+                if _lt.get('ok'):
+                    render_html_hud(live_timing_tower_html(_lt, live=True),
+                                    height=live_timing_tower_component_height(_lt), scrolling=True)
+                else:
+                    st.info(f"{target_s_name} için resmî klasman henüz oluşmadı — seans başlar başlamaz burada görünür.")
 
-                    available_columns = [
-                        column for column in ['Position', 'Abbreviation', 'TeamName', 'Time', 'Status']
-                        if column in live_sess.results.columns
-                    ]
-                    res = live_sess.results[available_columns].copy()
-                    res = res.rename(columns={
-                        'Position': 'Sıra', 'Abbreviation': 'Pilot', 'TeamName': 'Takım',
-                        'Time': 'En Hızlı Tur', 'Status': 'Durum',
-                    })
-                    if res.empty:
-                        st.info(f"{target_s_name} için doğrulanmış sonuç henüz oluşmadı.")
-                    else:
-                        st.dataframe(res, width='stretch', height=620, hide_index=True)
-                except Exception:
-                    st.warning(f"Seans verisi henüz FastF1'e düşmedi ({target_s_name}).")
+            if _auto and hasattr(st, 'fragment'):
+                @st.fragment(run_every="30s")
+                def _live_timing_fragment_v61():
+                    _render_live_timing()
+                _live_timing_fragment_v61()
             else:
-                st.info("Bu seansın derecelerini görmek için yukarıdaki düğmeye basabilirsin.")
+                _render_live_timing()
+        else:
+            st.caption("Aktif hafta sonunun son tamamlanan seansının resmî klasmanı.")
+            _lt = _live_timing_v61(2026, gp_name, _sc)
+            if _lt.get('ok'):
+                render_html_hud(live_timing_tower_html(_lt, live=False),
+                                height=live_timing_tower_component_height(_lt), scrolling=True)
+            else:
+                st.warning(f"Seans verisi henüz FastF1'e düşmedi ({target_s_name}).")
 
     with replay_tab:
         _cur_year = datetime.datetime.now(datetime.timezone.utc).year
