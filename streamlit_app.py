@@ -267,6 +267,27 @@ if not _bad_page and st.session_state['page'] in VALID_PAGES and st.session_stat
 # param + localStorage köprüsü. init burada, flush script sonunda.
 fp_ui.init_prefs()
 
+# Faz 4 #2 — favori pilot/takım kalıcı: kayıtlı tercihi oturuma bir kez taşı.
+# Widget'lar `key="favourite_team/driver"` kullanıyor; oturumda değer yoksa
+# selectbox bu başlangıç değerini alır. Kullanıcı değiştirince
+# _sync_favourite_to_prefs() (script sonu) geri yazar.
+_fav_pref_team = fp_ui.get_pref('fav_team')
+_fav_pref_driver = fp_ui.get_pref('fav_driver')
+if _fav_pref_team and 'favourite_team' not in st.session_state:
+    st.session_state['favourite_team'] = _fav_pref_team
+if _fav_pref_driver and 'favourite_driver' not in st.session_state:
+    st.session_state['favourite_driver'] = _fav_pref_driver
+
+
+def _sync_favourite_to_prefs():
+    """Favori widget'ları değiştiyse kalıcı tercihe yaz (script sonunda flush eder)."""
+    team = st.session_state.get('favourite_team')
+    driver = st.session_state.get('favourite_driver')
+    if team and team != fp_ui.get_pref('fav_team'):
+        fp_ui.set_pref('fav_team', team)
+    if driver and driver != fp_ui.get_pref('fav_driver'):
+        fp_ui.set_pref('fav_driver', driver)
+
 # BOOT FIX 1.4.2
 # Eski Streamlit tarayıcı oturumları, daha önce tıklanmış "veri yükle"
 # düğmelerinin durumunu bellekte tutar. Bu sürüm açıldığında o eski durumları
@@ -5410,7 +5431,11 @@ def fetch_localised_news_catalog_v34(limit=30):
 def render_news_centre_v20():
     render_page_header(T('page.news.title'), T('page.news.sub'))
     teams = ['Genel F1'] + list(TEAM_DIRECTORY_2026.keys())
-    selected = st.selectbox('\u0130zlemek istedi\u011fin ak\u0131\u015f', teams, key='news_team_filter_v20')
+    # Faz 4 #2 \u2014 favori tak\u0131m varsa ak\u0131\u015f\u0131 ilk ziyarette ona ayarla (sonra
+    # kullan\u0131c\u0131n\u0131n se\u00e7imi widget key'inde tutulur).
+    _fav_news_team = st.session_state.get('favourite_team')
+    _news_default = teams.index(_fav_news_team) if _fav_news_team in teams else 0
+    selected = st.selectbox('\u0130zlemek istedi\u011fin ak\u0131\u015f', teams, index=_news_default, key='news_team_filter_v20')
     with st.spinner('Haber akışı hazırlanıyor...'):
         localized_catalog = fetch_localised_news_catalog_v34(30)
     localized = [item for item in localized_catalog if news_matches_team_v19(item, selected)]
@@ -8152,6 +8177,42 @@ def _home_champ_top_html(driver_standings, constructor_standings, year):
     """
 
 
+def _home_setup_card_v50():
+    """Favori seçilmemişse: tek adımda pilot seç, site kişiselleşsin (Faz 4 #2)."""
+    if fp_ui.get_pref('fav_driver') or fp_ui.get_pref('fav_skip'):
+        return
+    st.markdown(
+        "<div class='hud-card' style='border-left:4px solid var(--fp-cyan);margin-bottom:6px'>"
+        "<div class='hud-label'>PADDOCK'UNU KUR</div>"
+        "<div class='history-copy' style='margin-top:6px'>Bir favori pilot seç — ana sayfa, yarış "
+        "özetin ve haber akışın ona göre kişiselleşir. İstediğin an Favori Paddock'tan değiştirirsin.</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    opts = [
+        (f"{dname} · {tname}", dname, tname)
+        for tname, tinfo in TEAM_DIRECTORY_2026.items()
+        for dname, *_rest in tinfo['drivers']
+    ]
+    labels = ["— pilot seç —"] + [o[0] for o in opts]
+    c1, c2, c3 = st.columns([4, 1.1, 1])
+    pick = c1.selectbox("Favori pilotun", labels, key="_home_setup_pick", label_visibility="collapsed")
+    if c2.button("Kaydet", key="_home_setup_save", type="primary", width='stretch'):
+        chosen = next((o for o in opts if o[0] == pick), None)
+        if chosen:
+            st.session_state['favourite_driver'] = chosen[1]
+            st.session_state['favourite_team'] = chosen[2]
+            fp_ui.set_pref('fav_driver', chosen[1])
+            fp_ui.set_pref('fav_team', chosen[2])
+            fp_ui.set_pref('fav_skip', None)
+            st.rerun()
+        else:
+            st.toast("Önce listeden bir pilot seç.")
+    if c3.button("Geç", key="_home_setup_skip", width='stretch'):
+        fp_ui.set_pref('fav_skip', 1)
+        st.rerun()
+
+
 @st.fragment
 def _home_cockpit_v44():
     """Hero'nun altındaki veri kokpiti — ayrı yüklenir, hero anında görünür."""
@@ -8214,6 +8275,11 @@ def _router_page_home():
     except Exception as _hero_err:  # noqa: BLE001 — hero asla sayfayı düşürmesin
         log_data_error('hero', _hero_err)
         fp_ui.page_header("Formula Paddock", T("page.home.sub"), eyebrow="Formula Paddock")
+
+    try:
+        _home_setup_card_v50()
+    except Exception as _setup_err:  # noqa: BLE001
+        log_data_error('home setup card', _setup_err)
 
     try:
         _home_cockpit_v44()
@@ -9505,4 +9571,5 @@ if _bad_page or st.session_state['page'] != 'home':
     fp_ui.site_footer(FOOTER_LINKS)
 
 # --- tercih değiştiyse URL + localStorage aynasını güncelle (Faz 4) ---
+_sync_favourite_to_prefs()
 fp_ui.flush_prefs()

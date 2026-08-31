@@ -89,10 +89,13 @@ def init_prefs():
     blob = st.query_params.get(_FP_PREFS_PARAM)
     if blob:
         current = st.session_state.get(_FP_PREFS) or {}
-        # URL kaynağı kazanır (paylaşılan link / geri-ileri); oturuma özel geçici
-        # anahtarlar (o ziyaretin taslak tahmini vb.) korunur.
-        st.session_state[_FP_PREFS] = {**current, **_prefs_decode(blob)}
-        st.session_state[_FP_PREFS_LASTBLOB] = blob
+        # URL yalnızca tohum + kalıcılık taşıyıcısı: oturumdaki çalışma kopyası
+        # doludur ve kazanır (yeni bir set_pref + st.rerun'dan sonra URL henüz
+        # eski olabilir — flush script sonunda çalışır). İlk yüklemede `current`
+        # boş olduğu için decode zaten kazanır (paylaşılan link çalışır).
+        st.session_state[_FP_PREFS] = {**_prefs_decode(blob), **current}
+        # LASTBLOB'u burada AYARLAMA: paylaşılan bir link ilk kez açıldığında
+        # flush_prefs() localStorage aynasını da kursun.
         st.session_state[_FP_PREFS_BOOT] = True
         return
     if _FP_PREFS not in st.session_state:
