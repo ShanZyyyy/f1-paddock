@@ -2305,6 +2305,151 @@ def season_h2h_component_height(h):
     return min(760, 430 + strip_rows * 34)
 
 
+def career_h2h_v49(prof_a, prof_b):
+    """İki pilotun kariyer kafa-kafaya: kariyer toplamları + (aynı takımda
+    geçen sezonlar için) sıralama & yarış teammate H2H. Ağ yok — seed/prof'tan."""
+    if not (isinstance(prof_a, dict) and prof_a.get('ok') and isinstance(prof_b, dict) and prof_b.get('ok')):
+        return {'ok': False}
+
+    def _team_by_year(prof):
+        return {str(s.get('year', '')): str(s.get('team', '') or '') for s in prof.get('seasons', [])}
+
+    ta, tb = _team_by_year(prof_a), _team_by_year(prof_b)
+    shared_years = sorted((y for y in ta if y in tb and ta[y] and ta[y] == tb[y]), reverse=True)
+
+    ra = {(str(r.get('year')), int(r.get('round') or 0)): r for r in prof_a.get('races', [])}
+    rb = {(str(r.get('year')), int(r.get('round') or 0)): r for r in prof_b.get('races', [])}
+
+    def _pnum(row):
+        text = str(row.get('pos', '')).strip()
+        return int(text) if text.isdigit() else None
+
+    seasons = []
+    tq_a = tq_b = tr_a = tr_b = 0
+    for year in shared_years:
+        q_a = q_b = rc_a = rc_b = 0
+        for (yy, rnd), row_a in ra.items():
+            if yy != year:
+                continue
+            row_b = rb.get((yy, rnd))
+            if not row_b:
+                continue
+            ga, gb = row_a.get('grid'), row_b.get('grid')
+            if ga and gb:
+                q_a += ga < gb
+                q_b += gb < ga
+            pa, pb = _pnum(row_a), _pnum(row_b)
+            if pa is not None and pb is not None:
+                rc_a += pa < pb
+                rc_b += pb < pa
+            elif pa is not None:
+                rc_a += 1
+            elif pb is not None:
+                rc_b += 1
+        seasons.append({'year': year, 'team': ta[year],
+                        'q_a': q_a, 'q_b': q_b, 'r_a': rc_a, 'r_b': rc_b})
+        tq_a += q_a
+        tq_b += q_b
+        tr_a += rc_a
+        tr_b += rc_b
+
+    def _tot(prof):
+        return {'races': prof.get('starts', 0), 'wins': prof.get('wins', 0),
+                'podiums': prof.get('podiums', 0), 'poles': prof.get('poles', 0),
+                'points': prof.get('points', 0),
+                'span': f"{prof.get('first_season', '')}–{prof.get('last_season', '')}"}
+
+    return {
+        'ok': True, 'teammate_years': len(shared_years), 'seasons': seasons,
+        'q_a': tq_a, 'q_b': tq_b, 'r_a': tr_a, 'r_b': tr_b,
+        'career_a': _tot(prof_a), 'career_b': _tot(prof_b),
+    }
+
+
+def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=0):
+    if not h.get('ok'):
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+                "Bu iki pilotun kariyer kaydı şu an alınamadı.</div>")
+    ca, cb = colour_a or '#e10600', colour_b or '#38e1d0'
+    a, b = h['career_a'], h['career_b']
+
+    def grid(code, s, titles, col, right=False):
+        cells = "".join(
+            f"<div><s>{lbl}</s><b>{val}</b></div>" for lbl, val in [
+                ("Sezon", s['span']), ("Yarış", s['races']), ("Galibiyet", s['wins']),
+                ("Podyum", s['podiums']), ("Pole", s['poles']),
+                ("Puan", _num_v33(s['points'])), ("Şampiyonluk", titles),
+            ]
+        )
+        return (f"<div class='ch-col{' r' if right else ''}' style='--c:{col}'>"
+                f"<div class='ch-name'>{html_lib.escape(code)}</div><div class='ch-grid'>{cells}</div></div>")
+
+    tm = ""
+    if h['teammate_years']:
+        def bar(label, va, vb):
+            tw = max(1, va + vb)
+            return (f"<div class='ch-tl'><span style='color:{ca}'>{va}</span>"
+                    f"<span class='ch-bar'><i style='width:{round(va / tw * 100)}%;background:{ca}'></i>"
+                    f"<i style='width:{round(vb / tw * 100)}%;background:{cb}'></i></span>"
+                    f"<span style='color:{cb}'>{vb}</span>"
+                    f"<em>{html_lib.escape(label)}</em></div>")
+        rows = "".join(
+            f"<div class='ch-srow'><span class='yr'>{html_lib.escape(s['year'])}</span>"
+            f"<span class='tm'>{html_lib.escape(s['team'])}</span>"
+            f"<span class='sc'>S {s['q_a']}–{s['q_b']}</span>"
+            f"<span class='sc'>Y {s['r_a']}–{s['r_b']}</span></div>"
+            for s in h['seasons']
+        )
+        tm = (f"<div class='ch-tm'><div class='ch-tmhd'>TAKIM ARKADAŞIYKEN · {h['teammate_years']} SEZON</div>"
+              f"{bar('sıralama', h['q_a'], h['q_b'])}{bar('yarış', h['r_a'], h['r_b'])}"
+              f"<div class='ch-srows'>{rows}</div></div>")
+    else:
+        tm = ("<div class='ch-tm'><div class='ch-note'>Bu iki pilot hiç aynı takımda yarışmadı — "
+              "yandaki kariyer toplamları yine de karşılaştırılabilir.</div></div>")
+
+    return f"""
+    <style>
+      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      .ch{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
+      .ch-hd{{padding:12px 15px;border-bottom:1px solid #26313f;font:800 13px 'Saira Condensed',sans-serif;
+        text-transform:uppercase;letter-spacing:.03em}}
+      .ch-cols{{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1b2330}}
+      .ch-col{{background:#131a24;padding:12px 14px;border-top:3px solid var(--c)}}
+      .ch-col.r{{text-align:right}} .ch-col.r .ch-grid{{direction:rtl}}
+      .ch-name{{font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
+      .ch-grid{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
+      .ch-grid s{{display:block;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.09em;color:#63748a;text-decoration:none}}
+      .ch-grid b{{font:700 14px 'JetBrains Mono',monospace;margin-top:2px;display:block}}
+      .ch-tm{{padding:13px 15px}}
+      .ch-tmhd{{font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#63748a;margin-bottom:9px}}
+      .ch-tl{{display:grid;grid-template-columns:34px 1fr 34px;gap:8px;align-items:center;
+        font:800 13px 'JetBrains Mono',monospace;margin-bottom:6px;position:relative}}
+      .ch-tl em{{position:absolute;left:50%;transform:translateX(-50%);top:-1px;font:700 8.5px 'Saira Condensed',sans-serif;
+        font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:#8a9bb0}}
+      .ch-bar{{display:flex;height:13px;border-radius:3px;overflow:hidden;background:#0a111b}}
+      .ch-bar i{{display:block;height:100%}}
+      .ch-srows{{margin-top:10px;border-top:1px solid #1b2330}}
+      .ch-srow{{display:grid;grid-template-columns:46px 1fr 64px 64px;gap:8px;align-items:center;
+        padding:5px 0;border-bottom:1px solid #1b2330;font:700 11px 'JetBrains Mono',monospace}}
+      .ch-srow .yr{{color:#63748a}}
+      .ch-srow .tm{{font:600 11px 'Saira',sans-serif;color:#c4d2e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .ch-srow .sc{{text-align:right;color:#c2d4e6}}
+      .ch-note{{color:#8a9bb0;font:500 12px 'Saira',sans-serif;line-height:1.5}}
+      @media(max-width:560px){{.ch-grid{{grid-template-columns:1fr 1fr}}.ch-name{{font-size:14px}}}}
+    </style>
+    <div class="ch">
+      <div class="ch-hd">Kariyer kafa kafaya</div>
+      <div class="ch-cols">{grid(name_a, a, titles_a, ca)}{grid(name_b, b, titles_b, cb, right=True)}</div>
+      {tm}
+    </div>
+    """
+
+
+def career_h2h_component_height(h):
+    n = len((h or {}).get('seasons', []) or []) if h else 0
+    return min(720, 330 + max(0, n) * 26 + (60 if n else 0))
+
+
 def session_leaderboard_html(table, title):
     """FP, sıralama ve yarış sonuçlarını takım renkli HUD leaderboard'a çevirir."""
     if table.empty:
@@ -9034,19 +9179,38 @@ def _router_page_standings():
             if len(_codes) < 2:
                 st.info("Karşılaştırma için en az iki pilot gerekiyor.")
             else:
-                _hc1, _hc2 = st.columns(2)
+                _hc1, _hc2, _hc3 = st.columns([2, 2, 1.4])
                 _fmt = lambda c: f"{directory_driver_by_code(c)['name']} ({c})"
                 _a = _hc1.selectbox("1. pilot", _codes, index=0, format_func=_fmt, key="champ_h2h_a")
                 _b_opts = [c for c in _codes if c != _a] or _codes
                 _b = _hc2.selectbox("2. pilot", _b_opts, index=0, format_func=_fmt, key="champ_h2h_b")
-                _h2h = season_h2h_v41(result_matrix, points_matrix, completed_rounds, driver_standings, _a, _b)
+                _scope = _hc3.radio("Kapsam", ["Bu Sezon", "Kariyer"], key="champ_h2h_scope")
                 _ca = season_team_colour(_team_of.get(_a, ''), champ_year)
                 _cb = season_team_colour(_team_of.get(_b, ''), champ_year)
-                render_html_hud(
-                    season_h2h_html(_h2h, _ca, _cb),
-                    height=season_h2h_component_height(_h2h),
-                    scrolling=False,
-                )
+                if _scope == "Kariyer":
+                    _api_a = STEWARDLE_ACTIVE_API_IDS_V24.get(_a, str(_a).lower())
+                    _api_b = STEWARDLE_ACTIVE_API_IDS_V24.get(_b, str(_b).lower())
+                    with st.spinner("Kariyer kayıtları hazırlanıyor..."):
+                        _pa = get_driver_full_profile_v33(_api_a)
+                        _pb = get_driver_full_profile_v33(_api_b)
+                    if not (_pa.get('ok') and _pb.get('ok')):
+                        st.info("Bu iki pilottan birinin kariyer kaydı şu an alınamadı — birazdan tekrar dene.")
+                    else:
+                        _ch = career_h2h_v49(_pa, _pb)
+                        render_html_hud(
+                            career_h2h_html(_ch, _a, _b, _ca, _cb,
+                                            _driver_titles_v33(_api_a, _a), _driver_titles_v33(_api_b, _b)),
+                            height=career_h2h_component_height(_ch),
+                            scrolling=False,
+                        )
+                        st.caption("Sıralama & yarış H2H yalnızca iki pilotun aynı takımda geçirdiği sezonları sayar.")
+                else:
+                    _h2h = season_h2h_v41(result_matrix, points_matrix, completed_rounds, driver_standings, _a, _b)
+                    render_html_hud(
+                        season_h2h_html(_h2h, _ca, _cb),
+                        height=season_h2h_component_height(_h2h),
+                        scrolling=False,
+                    )
     st.write("")
     fp_ui.section_title("Favorilerin")
     _ft, _fd = st.columns(2)
