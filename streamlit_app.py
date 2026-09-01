@@ -8627,6 +8627,37 @@ def render_paddock_career_alpha_v01():
 
 
 # =========================================================
+# OYUN VERİ TOHUMU — açılış hızı için repoda paketli, ağ yok
+# `data/games_seed_v68.json`: strateji modelleri + tarihî podyumlar + sıralama
+# turları önceden hesaplanmış. Oyunlar önce buradan okur (anında); tohum yoksa
+# eski canlı FastF1 yoluna düşer. `scripts/build_games_seed.py` üretir.
+# =========================================================
+_GAMES_SEED_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'data', 'games_seed_v68.json')
+
+
+@st.cache_data(show_spinner=False)
+def _games_seed_v68():
+    try:
+        with open(_GAMES_SEED_FILE, encoding='utf-8') as handle:
+            payload = json.load(handle)
+        if not isinstance(payload, dict):
+            raise ValueError('bad shape')
+        return {k: (payload.get(k) or {}) for k in ('strat', 'podium', 'hotlap')}
+    except (OSError, ValueError, TypeError):
+        return {'strat': {}, 'podium': {}, 'hotlap': {}}
+
+
+def _games_seed_key(year, gp):
+    return f"{int(year)}|{gp}"
+
+
+def _games_seed_get(kind, year, gp):
+    entry = _games_seed_v68().get(kind, {}).get(_games_seed_key(year, gp))
+    return entry if isinstance(entry, dict) and entry.get('ok') else None
+
+
+# =========================================================
 # FAZ 7-B · #5 — SIRALAMA KARTLARI (Top Trumps · kariyer seed'inden, ağ yok)
 # =========================================================
 _TT_STATS_V66 = [
@@ -8807,6 +8838,24 @@ _HL_BUCKETS_V66 = [
 ]
 
 
+_HOTLAP_POOL_V68 = [
+    (2021, 'Bahrain Grand Prix'), (2021, 'Spanish Grand Prix'),
+    (2021, 'British Grand Prix'), (2021, 'Hungarian Grand Prix'),
+    (2021, 'Italian Grand Prix'), (2021, 'United States Grand Prix'),
+    (2022, 'Bahrain Grand Prix'), (2022, 'Spanish Grand Prix'),
+    (2022, 'Canadian Grand Prix'), (2022, 'British Grand Prix'),
+    (2022, 'Hungarian Grand Prix'), (2022, 'Italian Grand Prix'),
+    (2023, 'Bahrain Grand Prix'), (2023, 'Spanish Grand Prix'),
+    (2023, 'Austrian Grand Prix'), (2023, 'British Grand Prix'),
+    (2023, 'Italian Grand Prix'), (2023, 'Japanese Grand Prix'),
+    (2024, 'Bahrain Grand Prix'), (2024, 'Spanish Grand Prix'),
+    (2024, 'Austrian Grand Prix'), (2024, 'British Grand Prix'),
+    (2024, 'Italian Grand Prix'), (2024, 'Canadian Grand Prix'),
+    (2025, 'Bahrain Grand Prix'), (2025, 'Japanese Grand Prix'),
+    (2025, 'Miami Grand Prix'), (2025, 'British Grand Prix'),
+]
+
+
 def _hl_bucket_v66(gap):
     for lo, hi, lbl in _HL_BUCKETS_V66:
         if lo <= gap < hi:
@@ -8816,6 +8865,9 @@ def _hl_bucket_v66(gap):
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _hotlap_quali_v66(year, gp):
+    seeded = _games_seed_get('hotlap', year, gp)
+    if seeded:
+        return seeded
     try:
         sess = fastf1.get_session(int(year), gp, 'Q')
         sess.load(laps=False, telemetry=False, weather=False, messages=False)
@@ -8872,23 +8924,31 @@ def _hotlap_gp_list_v66(year):
 
 
 def _hotlap_new_round_v66():
-    now_year = datetime.datetime.now(datetime.timezone.utc).year
-    years = [now_year - 1, now_year - 2, now_year]
-    tries = 0
-    while tries < 8:
-        tries += 1
-        yr = random.choice(years)
-        gps = _hotlap_gp_list_v66(yr)
-        if not gps:
-            continue
-        q = _hotlap_quali_v66(yr, random.choice(gps))
-        if q.get('ok'):
+    seeded = [(int(y), gp) for y, gp in
+              (k.split('|', 1) for k in _games_seed_v68().get('hotlap', {}))]
+    random.shuffle(seeded)
+    pool = [c for c in _HOTLAP_POOL_V68 if c not in seeded]
+    random.shuffle(pool)
+    cands = seeded + pool
+    if not cands:                                   # tohum yoksa canlı takvim
+        now_year = datetime.datetime.now(datetime.timezone.utc).year
+        for yr in (now_year - 1, now_year - 2, now_year):
+            for gp in _hotlap_gp_list_v66(yr):
+                cands.append((yr, gp))
+        random.shuffle(cands)
+    last = (st.session_state.get('hl66') or {}).get('_key')
+    cands = [c for c in cands if _games_seed_key(*c) != last] + \
+            [c for c in cands if _games_seed_key(*c) == last]
+    for yr, gp in cands[:9]:
+        q = _hotlap_quali_v66(yr, gp)
+        if q.get('ok') and q.get('others'):
             pick = random.choice(q['others'])
             st.session_state['hl66'] = {
                 'gp': q['gp'], 'year': q['year'], 'pole_code': q['pole_code'],
                 'pole_secs': q['pole_secs'], 'hidden_code': pick['code'],
                 'hidden_pos': pick['pos'], 'gap': pick['gap'],
                 'answer': _hl_bucket_v66(pick['gap']), 'phase': 'guess', 'pick': None,
+                '_key': _games_seed_key(q['year'], q['gp']),
             }
             return True
     st.session_state['hl66'] = {'phase': 'error'}
@@ -8987,6 +9047,9 @@ _PODIUM_POOL_V67 = [
 @st.cache_data(ttl=7 * 86400, show_spinner=False)
 def _podium_of_race_v67(year, gp):
     """Tarihî bir yarışın podyumu + seçilebilir pilot havuzu (ilk ~12 bitiren)."""
+    seeded = _games_seed_get('podium', year, gp)
+    if seeded:
+        return seeded
     try:
         sess = fastf1.get_session(int(year), gp, 'R')
         sess.load(laps=False, telemetry=False, weather=False, messages=False)
@@ -9032,29 +9095,76 @@ def _podium_score_v67(picks, podium):
 
 
 def _podium_new_round_v67():
+    seeded = [(int(y), gp) for y, gp in
+              (k.split('|', 1) for k in _games_seed_v68().get('podium', {}))]
+    random.shuffle(seeded)
     pool = list(_PODIUM_POOL_V67)
     random.shuffle(pool)
-    for yr, gp in pool[:8]:
+    last = (st.session_state.get('pt67') or {}).get('_key')
+    order = seeded + [p for p in pool if p not in seeded]
+    order = [c for c in order if _games_seed_key(*c) != last] + \
+            [c for c in order if _games_seed_key(*c) == last]
+    for yr, gp in order[:9]:
         r = _podium_of_race_v67(yr, gp)
         if r.get('ok'):
             drivers = r['pool'][:]
             random.shuffle(drivers)
             st.session_state['pt67'] = {**r, 'pool': drivers, 'phase': 'guess',
-                                        'picks': [None, None, None]}
+                                        'picks': [None, None, None],
+                                        '_key': _games_seed_key(yr, gp)}
             return True
     st.session_state['pt67'] = {'phase': 'error'}
     return False
+
+
+# =========================================================
+# Oyunlar için ortak F1 Manager tarzı ekran HUD'u (Streamlit DOM, koyu panel).
+# Strateji Duvarı sim-dışı ekranları + Podyum Tahmini kullanır. `.sws-*` sınıfları.
+# =========================================================
+_GAME_HUD_CSS_V68 = """<style>
+.sws{border:1px solid #20293e;border-radius:13px;color:#eef2f8;font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,sans-serif;
+  background:linear-gradient(180deg,#0c111c,#080b12);padding:15px 17px;margin-bottom:10px}
+.sws-eb{font:700 10px/1 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#7f8da3}
+.sws-h{font:800 21px/1.12 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;margin-top:5px;color:#eef2f8}
+.sws-lead{color:#c7d0de;font-size:.94rem;line-height:1.55;margin-top:8px}
+.sws-stats{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.sws-st{background:#131c2c;border:1px solid #20293e;border-radius:8px;padding:6px 11px;min-width:76px}
+.sws-st b{display:block;font:800 15px 'JetBrains Mono','Consolas',ui-monospace,monospace;font-variant-numeric:tabular-nums;color:#eef2f8}
+.sws-st span{font:700 8px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#7f8da3}
+.sws-radio{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.sws-msg{display:grid;grid-template-columns:3px 1fr;gap:12px;background:#0f1521;border:1px solid #20293e;border-radius:9px;padding:10px 13px}
+.sws-msg i{background:#2ee6d6;border-radius:2px}
+.sws-msg .who{font:800 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#2ee6d6}
+.sws-msg .tx{color:#d5dde9;font-size:.92rem;line-height:1.5;margin-top:3px}
+.sws-row{display:flex;align-items:baseline;gap:15px;flex-wrap:wrap;margin-top:7px}
+.sws-verdict{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
+  font:800 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.13em;text-transform:uppercase}
+.sws-verdict::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.sws-verdict.ok{background:rgba(55,214,122,.15);color:#37d67a}
+.sws-verdict.no{background:rgba(255,89,100,.15);color:#ff5964}
+.sws-big{font:800 38px/1 'Saira Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;color:#eef2f8}
+.sws-score{font:800 32px/1 'Saira Condensed','Arial Narrow',sans-serif;color:#2ee6d6;font-variant-numeric:tabular-nums}
+.sws-score s{font-size:.8rem;color:#7f8da3;text-decoration:none;letter-spacing:.1em;margin-left:4px}
+.sws-break{list-style:none;margin:13px 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+.sws-break li{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;color:#c7d0de;
+  padding:8px 11px;border-radius:7px;background:#131c2c;border:1px solid #20293e;border-left:3px solid var(--bl,#7f8da3)}
+.sws-break li b{font-variant-numeric:tabular-nums;font-family:'JetBrains Mono','Consolas',ui-monospace,monospace}
+.sws-tl{position:relative;height:16px;border-radius:4px;background:#0a0f18;border:1px solid #20293e;overflow:hidden;margin-top:11px}
+.sws-tl>i{position:absolute;top:0;bottom:0;opacity:.62}
+.sws-tl>b{position:absolute;top:-2px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #eef2f8}
+.sws-tlk{display:flex;gap:13px;flex-wrap:wrap;margin-top:9px;font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7f8da3}
+.sws-tlk span{display:inline-flex;align-items:center;gap:5px}
+.sws-tlk i{width:9px;height:9px;border-radius:2px}
+</style>"""
 
 
 def render_podium_time_v67():
     _game_shell("Podyum Tahmini",
                 "Rastgele bir tarihî yarış. 1., 2. ve 3.'yü bil — doğru sıralama daha çok puan.",
                 "#e10600")
+    st.markdown(_GAME_HUD_CSS_V68, unsafe_allow_html=True)
     pt = fp_ui.get_pref('pt') if isinstance(fp_ui.get_pref('pt'), dict) else {}
     streak, best = int(pt.get('s') or 0), int(pt.get('b') or 0)
-    c1, c2 = st.columns(2)
-    c1.metric("Güncel seri", streak)
-    c2.metric("En iyi seri", best)
 
     if 'pt67' not in st.session_state:
         with st.spinner("Tarihî yarış seçiliyor…"):
@@ -9067,8 +9177,15 @@ def render_podium_time_v67():
             st.rerun()
         return
 
-    st.markdown(f"### {r['year']} · {html_lib.escape(r['gp'])}")
-    st.caption("Aşağıdaki isimler o yarışın ilk 12'si (karışık). Podyumu seç.")
+    st.markdown(
+        f"<div class='sws'><div class='sws-eb'>Tarihe Yolculuk · Podyum Tahmini</div>"
+        f"<div class='sws-h'>{r['year']} · {html_lib.escape(r['gp'])}</div>"
+        f"<div class='sws-lead'>Aşağıdaki isimler o yarışın ilk 12’si — karışık sırada. "
+        f"Podyumu (1., 2., 3.) seç. 6+ puan seriyi uzatır.</div>"
+        f"<div class='sws-stats'>"
+        f"<div class='sws-st'><b>{streak}</b><span>Güncel seri</span></div>"
+        f"<div class='sws-st'><b>{best}</b><span>En iyi seri</span></div></div></div>",
+        unsafe_allow_html=True)
 
     if r['phase'] == 'guess':
         cols = st.columns(3)
@@ -9079,7 +9196,7 @@ def render_podium_time_v67():
                 format_func=lambda c: r['names'].get(c, c), key=f"pt_p{i}"))
         if len(set(picks)) < 3:
             st.warning("Podyum için üç farklı pilot seç.")
-        elif st.button("Tahmini gönder", type="primary", key="pt_go"):
+        elif st.button("Tahmini gönder", type="primary", key="pt_go", width='stretch'):
             pts, detail = _podium_score_v67(picks, r['podium'])
             new_streak = streak + 1 if pts >= 6 else 0
             fp_ui.set_pref('pt', {'s': new_streak, 'b': max(best, new_streak)})
@@ -9088,19 +9205,26 @@ def render_podium_time_v67():
             r.update(phase='reveal', picks=picks, pts=pts, detail=detail)
             st.rerun()
     else:
-        real = " · ".join(f"{i + 1}. {r['names'].get(c, c)}" for i, c in enumerate(r['podium']))
-        mine = " · ".join(f"{i + 1}. {c}" for i, c in enumerate(r['picks']))
-        lines = "".join(f"<li>{html_lib.escape(t)} <b>+{p}</b></li>" for t, p in r['detail']) \
-            or "<li>Bu yarıştan puan çıkmadı.</li>"
         good = r['pts'] >= 6
+        real = "".join(
+            f"<li style='--bl:#37d67a'><span>{i + 1}. {html_lib.escape(r['names'].get(c, c))}</span>"
+            f"<b>{html_lib.escape(c)}</b></li>" for i, c in enumerate(r['podium']))
+        mine = " · ".join(f"{i + 1}. {html_lib.escape(str(c))}" for i, c in enumerate(r['picks']))
+        lines = "".join(
+            f"<li style='--bl:#37d67a'><span>{html_lib.escape(t)}</span><b>+{p}</b></li>"
+            for t, p in r['detail']) or "<li><span>Bu yarıştan puan çıkmadı.</span><b>0</b></li>"
         st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid {'#7fe0a6' if good else '#ff8b78'}'>"
-            f"<div class='hud-label'>{r['year']} {html_lib.escape(r['gp'])} · +{r['pts']} PUAN</div>"
-            f"<div class='history-copy' style='margin-top:6px'>Gerçek podyum: <b>{html_lib.escape(real)}</b>"
-            f"<br>Senin tahminin: {html_lib.escape(mine)}</div>"
-            f"<ul style='margin:8px 0 0 1.1rem;font-size:.9rem;line-height:1.6'>{lines}</ul></div>",
+            f"<div class='sws'><div class='sws-eb'>Sonuç · {r['year']} {html_lib.escape(r['gp'])}</div>"
+            f"<div class='sws-row'><span class='sws-verdict {'ok' if good else 'no'}'>"
+            f"{'Seri sürüyor' if good else 'Seri bitti'}</span>"
+            f"<span class='sws-score'>{r['pts']}<s>puan</s></span></div>"
+            f"<div class='sws-lead' style='margin-top:10px'>Senin tahminin: {mine}</div>"
+            f"<div class='sws-eb' style='margin-top:13px'>Gerçek podyum</div>"
+            f"<ul class='sws-break'>{real}</ul>"
+            f"<div class='sws-eb' style='margin-top:13px'>Puan dökümü</div>"
+            f"<ul class='sws-break'>{lines}</ul></div>",
             unsafe_allow_html=True)
-        if st.button("Sıradaki yarış →", type="primary", key="pt_next"):
+        if st.button("Sıradaki yarış →", type="primary", key="pt_next", width='stretch'):
             st.session_state.pop('pt67', None)
             st.rerun()
 
@@ -9276,6 +9400,9 @@ def _strat_pick_driver_v67(res, laps):
 
 @st.cache_data(ttl=7 * 86400, show_spinner=False)
 def _strat_race_model_v67(year, gp):
+    seeded = _games_seed_get('strat', year, gp)
+    if seeded:
+        return seeded
     try:
         s = fastf1.get_session(int(year), gp, 'R')
         s.load(laps=True, telemetry=False, weather=False, messages=True)
@@ -9314,6 +9441,12 @@ def _strat_race_model_v67(year, gp):
     pit_loss_s = _strat_pit_loss_v67(laps, base_lap_s)
     sc_windows, vsc_windows = _sc_windows_v67(s, total_laps)
 
+    def _team_hex(row):
+        raw = row.get('TeamColor')
+        if raw is not None and str(raw).strip() and str(raw).strip().lower() != 'nan':
+            return '#' + str(raw).strip().lstrip('#')
+        return season_team_colour(str(row.get('TeamName', '') or ''), int(year))
+
     driver = _strat_pick_driver_v67(res, laps)
     if not driver:
         return {'ok': False}
@@ -9324,27 +9457,37 @@ def _strat_race_model_v67(year, gp):
     grid = max(1, min(field_n, grid))
     finish = int(d_res['Position']) if pd.notna(d_res['Position']) else grid
     d_name = str(d_res.get('FullName', '') or driver).strip()
+    d_team = str(d_res.get('TeamName', '') or '').strip()
 
+    # TÜM saha (emekli araçlar hariç) — zamanlama kulesi tüm gridi gösterebilsin
+    # ve pozisyon türetimi mutlak sıra olsun (grid + Δ formülü tam sahada gerçek
+    # sıraya yakınsar). Undercut/trafik mantığı da daha isabetli çalışır.
     rivals = []
     for _, rr in res.sort_values('Position', na_position='last').iterrows():
         rc = str(rr.get('Abbreviation', '') or '').strip()
         rp = rr.get('Position')
-        if not rc or rc == driver or pd.isna(rp) or abs(int(rp) - finish) > 4:
+        if not rc or rc == driver or pd.isna(rp):
+            continue
+        if is_dnf_status(str(rr.get('Status', '') or '')):
             continue
         cum = _strat_cum_by_lap_v67(laps, rc, total_laps, base_lap_s)
         if cum is None:
             continue
         rivals.append({'code': rc, 'cum_s': cum, 'stops': _strat_driver_stops_v67(laps, rc),
-                       'start': _strat_start_compound_v67(laps, rc), 'finish': int(rp)})
+                       'start': _strat_start_compound_v67(laps, rc), 'finish': int(rp),
+                       'col': _team_hex(rr)})
     if len(rivals) < 2:
         return {'ok': False}
+    field_n = len(rivals) + 1
+    grid = max(1, min(field_n, grid))
 
     actual_stops = _strat_driver_stops_v67(laps, driver)
     if len(actual_stops) > 3 or pit_loss_s >= 29:
         return {'ok': False}   # kırmızı bayrak / lastik değişim gürültüsü — temiz strateji yok
     return {
         'ok': True, 'year': int(year), 'gp': str(gp), 'total_laps': total_laps,
-        'driver': driver, 'driver_name': d_name, 'grid': grid, 'field': field_n,
+        'driver': driver, 'driver_name': d_name, 'driver_team': d_team,
+        'driver_col': _team_hex(d_res), 'grid': grid, 'field': field_n,
         'base_lap_s': base_lap_s, 'fuel_effect': fuel_effect, 'pit_loss_s': pit_loss_s,
         'compounds': compounds, 'sc_windows': sc_windows, 'vsc_windows': vsc_windows,
         'rivals': rivals,
@@ -9358,15 +9501,26 @@ def _strat_in_window(lap, windows):
     return any(a <= lap <= b for a, b in (windows or []))
 
 
+_STRAT_COMP_FAMILY_V68 = {
+    'HYPERSOFT': 'SOFT', 'ULTRASOFT': 'SOFT', 'SUPERSOFT': 'SOFT', 'SOFT': 'SOFT',
+    'MEDIUM': 'MEDIUM', 'HARD': 'HARD', 'SUPERHARD': 'HARD',
+    'INTERMEDIATE': 'INTERMEDIATE', 'WET': 'WET',
+}
+
+
+def _strat_comp_family_v68(c):
+    return _STRAT_COMP_FAMILY_V68.get(str(c).upper(), 'MEDIUM')
+
+
 def _strat_rival_stint_at(rival, lap):
-    """Rakibin ``lap`` turundaki (hamur, lastik_yaşı) tahmini."""
+    """Rakibin ``lap`` turundaki (hamur ailesi, lastik_yaşı) tahmini."""
     comp = rival.get('start', 'MEDIUM')
     since = 0
     for st in rival.get('stops', []):
         if st['lap'] <= lap:
             comp = st['compound']
             since = st['lap']
-    return comp, max(1, lap - since)
+    return _strat_comp_family_v68(comp), max(1, lap - since)
 
 
 def _strat_simulate_v67(model, strat):
@@ -9381,10 +9535,7 @@ def _strat_simulate_v67(model, strat):
     cur_pos = model['grid']
     pending = []
     frames = []
-    base_ahead = None
-
-    def _rivals_ahead(c):
-        return sum(1 for r in model['rivals'] if r['cum_s'][lap - 1] < c)
+    rival_stop_laps = {r['code']: {int(s['lap']) for s in r['stops']} for r in model['rivals']}
 
     for lap in range(1, laps + 1):
         ev = []
@@ -9433,10 +9584,19 @@ def _strat_simulate_v67(model, strat):
 
         cum += lt
 
-        if base_ahead is None:
-            base_ahead = _rivals_ahead(cum)
-        new_pos = model['grid'] + (_rivals_ahead(cum) - base_ahead)
-        new_pos = max(1, min(model['field'], new_pos))
+        # --- pozisyon + zamanlama kulesi: TÜM saha, gerçek kümülatif zamana göre
+        # (canlı pist sırası). Pit döngüsü sırasında son pit yapan geçici olarak
+        # öne çıkar — gerçek yarışta da böyledir; lastik yaşı ve pit bildirimi
+        # bunu açıklar. Bitişte kümülatif sıra = gerçek klasman.
+        board = [(cum, 'SEN', model.get('driver_col'), compound, tyre_age,
+                  lap in stop_by_lap, True)]
+        for r in model['rivals']:
+            rc_comp, rc_age = _strat_rival_stint_at(r, lap)
+            board.append((r['cum_s'][lap - 1], r['code'], r.get('col'), rc_comp, rc_age,
+                          lap in rival_stop_laps[r['code']], False))
+        board.sort(key=lambda e: e[0])
+        me_ix = next(k for k, e in enumerate(board) if e[6])
+        new_pos = max(1, min(model['field'], me_ix + 1))
 
         # undercut/overcut çöz
         for b in list(pending):
@@ -9464,19 +9624,34 @@ def _strat_simulate_v67(model, strat):
                        'from': cur_pos, 'to': new_pos})
             cur_pos = new_pos
 
-        leader_cum = min((r['cum_s'][lap - 1] for r in model['rivals']), default=cum)
+        tower = [{
+            'pos': wi + 1, 'code': e[1], 'me': e[6], 'col': e[2],
+            'comp': e[3], 'age': e[4], 'pit': e[5],
+            'int': None if wi == 0 else round(e[0] - board[wi - 1][0], 1),
+        } for wi, e in enumerate(board)]
+        gap_ahead = round(cum - board[me_ix - 1][0], 1) if me_ix > 0 else None
+        gap_behind = round(board[me_ix + 1][0] - cum, 1) if me_ix + 1 < len(board) else None
+
         frames.append({
             'lap': lap, 'pos': cur_pos,
-            'gapLeader': round(max(0.0, cum - leader_cum), 1),
             'compound': compound, 'age': tyre_age,
             'wearPct': min(100, round(tyre_age / max(1, cc['cliff']) * 100)),
-            'ev': ev,
+            'cliff': tyre_age > cc['cliff'],
+            'lapTime': round(lt, 3) if not (in_sc or in_vsc or lap in stop_by_lap) else None,
+            'gapAhead': gap_ahead, 'gapBehind': gap_behind,
+            'tower': tower, 'ev': ev,
         })
 
+    tcol = _STRAT_TYRE_COL_V67
     return {
         'meta': {'year': model['year'], 'gp': model['gp'], 'driver': model['driver'],
-                 'driverName': model['driver_name'], 'grid': model['grid'],
-                 'laps': laps, 'field': model['field']},
+                 'driverName': model['driver_name'], 'driverTeam': model.get('driver_team', ''),
+                 'driverCol': model.get('driver_col') or '#c8d0dc',
+                 'grid': model['grid'], 'laps': laps, 'field': model['field'],
+                 'pitLoss': round(model['pit_loss_s']),
+                 'life': {k: model['compounds'][k]['cliff']
+                          for k in ('SOFT', 'MEDIUM', 'HARD') if k in model['compounds']},
+                 'tyreCol': tcol},
         'frames': frames,
         'result': _score_strategy_v67(model, strat, cur_pos, frames),
     }
@@ -9529,140 +9704,518 @@ _STRAT_TYRE_COL_V67 = {'SOFT': '#ff4655', 'MEDIUM': '#ffd23e', 'HARD': '#f1f4f8'
 
 def strategy_wall_sim_html(sim):
     packed = fp_ui.json_for_script(sim)
-    tcol = fp_ui.json_for_script(_STRAT_TYRE_COL_V67)
-    _html = r'''<!doctype html><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-.stage{border:1px solid #2c425c;border-radius:13px;background:linear-gradient(135deg,#11161f,#09101a);padding:14px;position:relative;overflow:hidden}
-.hd{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:800 12px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#9fb0c0}
-.hd b{color:#f2f5f8}
-.board{position:relative;height:404px;margin-top:12px;border:1px solid #26313f;border-radius:9px;background:#0c1119;overflow:hidden}
-.row{position:absolute;left:8px;right:8px;height:32px;display:grid;grid-template-columns:34px 1fr auto auto;gap:8px;align-items:center;
-  padding:0 9px;border-radius:6px;background:#131c2b;border-left:3px solid #33455c;transition:top .5s cubic-bezier(.2,.7,.2,1),background .25s}
-.row.me{background:#20344c;border-left-color:var(--tc,#f5c33b);font-weight:800;z-index:3}
-.row .p{font:800 13px 'JetBrains Mono',monospace;color:#8ea4bc;text-align:center}
-.row .c{font:700 12px Inter,Arial,sans-serif;letter-spacing:.02em}
-.row .g{font:700 11px 'JetBrains Mono',monospace;color:#9fb0c0}
-.row .t{width:16px;height:16px;border-radius:50%;border:2px solid var(--t,#888)}
-.row.dim{opacity:.4}
-.row.pitting{transform:translateX(52px);opacity:.55}
-.row.udok{animation:flashG .8s} .row.udfail{animation:shake .5s}
-@keyframes flashG{0%,100%{background:#20344c}40%{background:#1f7a3d}}
-@keyframes shake{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}}
-.scban{position:absolute;top:0;left:0;right:0;padding:7px;text-align:center;font:900 12px 'JetBrains Mono',monospace;
-  letter-spacing:.14em;background:#f5c33b;color:#07090d;transform:translateY(-100%);transition:transform .3s;z-index:6}
-body.sc .scban{transform:translateY(0)}
-body.sc .board{box-shadow:inset 0 0 0 3px #f5c33b;animation:scP 1s infinite}
-body.vsc .board{box-shadow:inset 0 0 0 3px #45a9ff}
-@keyframes scP{50%{box-shadow:inset 0 0 0 3px transparent}}
-.wear{height:6px;border-radius:4px;background:#0a121c;overflow:hidden;margin-top:10px}
-.wear i{display:block;height:100%;width:var(--w,0%);background:linear-gradient(90deg,#4ade80,#f5c33b 60%,#ff5c5c);transition:width .3s}
-.wear.cliff i{background:#ff5c5c}
-.ctl{display:flex;gap:6px;align-items:center;margin-top:10px}
-.ctl button{border:1px solid #2b3a4d;border-radius:6px;background:#161d28;color:#f2f5f8;font-weight:800;padding:6px 9px;cursor:pointer}
-.ctl button.on{border-color:#f5c33b;background:#2a220a}
-.ctl input{flex:1;accent-color:#f5c33b}
-.toast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%) translateY(12px);opacity:0;
-  background:#131c2b;border:1px solid #33455c;border-radius:8px;padding:8px 14px;font:800 12px Inter,Arial,sans-serif;
-  transition:opacity .2s,transform .2s;z-index:7;white-space:nowrap}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.chk{position:absolute;inset:0;background:repeating-conic-gradient(#0c0f14 0 25%,#1a1f26 0 50%) 0 0/34px 34px;
-  opacity:0;transition:opacity .4s;z-index:8;display:grid;place-items:center;font:900 22px 'Saira Condensed',sans-serif;letter-spacing:.1em}
-.chk.on{opacity:.97}
+    _html = r'''<!doctype html><html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--bg:#080b12;--p1:#0f1521;--p2:#131c2c;--ln:#20293e;--tx:#eef2f8;--dim:#7f8da3;--teal:#2ee6d6;--yel:#ffcd3c;--red:#ff5964;--grn:#37d67a}
+html,body{background:transparent}
+body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,sans-serif;color:var(--tx)}
+.mono{font-family:'JetBrains Mono','Consolas',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.fm{position:relative;overflow:hidden;border:1px solid var(--ln);border-radius:14px;color:var(--tx);
+  background:linear-gradient(180deg,#0c111c,#080b12);padding:11px}
+/* üst durum çubuğu */
+.bar{display:flex;align-items:center;gap:14px;padding:0 4px 10px;border-bottom:1px solid var(--ln)}
+.live{display:flex;align-items:center;gap:6px;font:700 10px/1 'Saira Condensed';letter-spacing:.18em;color:var(--teal)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px var(--teal);animation:pl 1.4s infinite}
+@keyframes pl{50%{opacity:.25}}
+.lap{display:flex;align-items:baseline;gap:5px}
+.lap b{font:800 21px/1 'Saira Condensed';font-variant-numeric:tabular-nums}
+.lap span{font:700 10px 'Saira Condensed';letter-spacing:.12em;color:var(--dim)}
+.gp{flex:1;text-align:center;font:700 12px 'Saira Condensed';letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
+.spd{display:flex;gap:4px}
+.spd button{border:1px solid var(--ln);background:var(--p1);color:var(--tx);border-radius:6px;
+  font:800 10px 'Saira Condensed';letter-spacing:.04em;padding:5px 8px;cursor:pointer;min-width:26px}
+.spd button.on{border-color:var(--teal);color:var(--teal);background:rgba(46,230,214,.09)}
+.flag{overflow:hidden;max-height:0;transition:max-height .25s}
+.flag.show{max-height:34px}
+.flag div{margin-top:9px;padding:6px;text-align:center;border-radius:6px;
+  font:800 11px 'Saira Condensed';letter-spacing:.2em;text-transform:uppercase}
+.flag.sc div{background:var(--yel);color:#1a1400}
+.flag.vsc div{background:#2f7fd8;color:#001325}
+.flag.grn div{background:var(--grn);color:#00220f}
+/* orta ızgara: kule + yarış kontrol */
+.grid{display:grid;grid-template-columns:1fr 208px;gap:9px;margin-top:10px;align-items:start}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+.tower{position:relative;display:flex;flex-direction:column;gap:2px;max-height:262px;overflow-y:auto;
+  padding-right:4px;scrollbar-width:thin;scrollbar-color:#2b3750 transparent}
+.tower::-webkit-scrollbar{width:6px}
+.tower::-webkit-scrollbar-thumb{background:#2b3750;border-radius:3px}
+.tw-row{display:grid;grid-template-columns:24px 3px 1fr auto 38px;align-items:center;gap:8px;flex:none;
+  height:29px;padding:0 10px 0 0;border-radius:6px;background:var(--p1);border:1px solid transparent;
+  transition:background .25s,border-color .25s}
+.tw-row.me{background:linear-gradient(90deg,rgba(46,230,214,.16),var(--p2));border-color:rgba(46,230,214,.4)}
+.tw-row.pit{background:rgba(255,205,60,.12);border-color:rgba(255,205,60,.35)}
+.tw-row.enter{animation:tw .4s}
+@keyframes tw{from{opacity:0;transform:translateX(-8px)}}
+.tw-p{font:800 12px 'Saira Condensed';font-variant-numeric:tabular-nums;text-align:center;color:var(--dim);
+  background:#0b1018;border-radius:4px;padding:3px 0;align-self:center;height:22px;line-height:16px}
+.tw-row.me .tw-p{color:#03120f;background:var(--teal)}
+.tw-bar{width:3px;height:20px;border-radius:2px;background:var(--c,#55617a)}
+.tw-c{font:800 13px 'Saira Condensed';letter-spacing:.03em}
+.tw-i{font:700 11.5px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:var(--dim);text-align:right}
+.tw-i.pit{color:var(--yel);font-weight:700}
+.tw-t{display:flex;align-items:center;justify-content:flex-end;gap:3px}
+.tw-t .d{width:19px;height:19px;border-radius:50%;border:2px solid var(--tc,#888);
+  display:grid;place-items:center;font:800 9px 'Saira Condensed';color:var(--tc,#888)}
+.tw-t .a{font:700 9px 'JetBrains Mono',monospace;color:var(--dim)}
+.rc{background:var(--p1);border:1px solid var(--ln);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;height:262px}
+.rc-h{padding:7px 10px;font:800 9px 'Saira Condensed';letter-spacing:.18em;text-transform:uppercase;
+  color:var(--dim);border-bottom:1px solid var(--ln);background:#0b101a}
+.rc-list{flex:1;padding:5px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.rc-i{display:flex;gap:7px;font-size:11px;line-height:1.35;padding:4px 6px;border-radius:5px;
+  background:var(--p2);border-left:2px solid var(--rc,var(--dim));animation:rcIn .3s}
+@keyframes rcIn{from{opacity:0;transform:translateY(-4px)}}
+.rc-i .l{font:700 10px 'JetBrains Mono',monospace;color:var(--dim);flex:none}
+.rc-i .x{color:#cdd6e4;letter-spacing:.01em}
+/* senin araç telemetrisi */
+.car{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;margin-top:10px;
+  padding:11px 13px;border:1px solid var(--ln);border-radius:10px;
+  background:linear-gradient(120deg,var(--p2),var(--p1))}
+.car-pos{display:flex;flex-direction:column;align-items:center;border-left:3px solid var(--pc,var(--teal));
+  border-right:1px solid var(--ln);padding:0 14px}
+.car-pos .pl{font:700 8.5px 'Saira Condensed';letter-spacing:.18em;color:var(--dim)}
+.car-pos b{font:800 30px/1 'Saira Condensed';font-variant-numeric:tabular-nums}
+.car-tyre{display:flex;align-items:center;gap:11px}
+.car-tyre .tw{width:38px;height:38px;border-radius:50%;border:3px solid var(--tc,#888);
+  display:grid;place-items:center;font:800 15px 'Saira Condensed';color:var(--tc,#888);flex:none}
+.tinfo{min-width:0}
+.tname{font:800 12px 'Saira Condensed';letter-spacing:.06em}
+.tbar{height:8px;border-radius:4px;background:#0a0f18;overflow:hidden;margin:6px 0 5px;border:1px solid var(--ln)}
+.tbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--grn),var(--yel) 55%,var(--red));transition:width .3s}
+.tbar.cliff i{background:var(--red);animation:pl 1s infinite}
+.tsub{font:700 9.5px 'Saira Condensed';letter-spacing:.05em;color:var(--dim)}
+.car-gaps{display:flex;gap:15px;text-align:right}
+.car-gaps>div{display:flex;flex-direction:column}
+.car-gaps span{font:700 8px 'Saira Condensed';letter-spacing:.14em;color:var(--dim)}
+.car-gaps b{font:700 13px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;margin-top:2px}
+/* strateji zaman çizgisi + gezinme */
+.strat{margin-top:10px;padding:9px 4px 2px}
+.strat-h{display:flex;justify-content:space-between;font:800 9px 'Saira Condensed';letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.strat-h span{color:#aeb9cc;letter-spacing:.04em}
+.tl{position:relative;height:15px;border-radius:4px;background:#0a0f18;border:1px solid var(--ln);overflow:hidden}
+.tl-seg{position:absolute;top:0;bottom:0;opacity:.55}
+.tl-sc{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(255,205,60,.4),rgba(255,205,60,.4) 4px,transparent 4px,transparent 8px)}
+.tl-pit{position:absolute;top:-2px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--tx)}
+.tl-head{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}
+#rng{width:100%;margin-top:5px;accent-color:var(--teal);cursor:pointer;height:14px}
+/* bitiş */
+.fin{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  background:linear-gradient(180deg,rgba(8,11,18,.96),rgba(8,11,18,.99));opacity:0;pointer-events:none;transition:opacity .45s}
+.fin.on{opacity:1}
+.fin .fl{font:700 10px 'Saira Condensed';letter-spacing:.26em;text-transform:uppercase;color:var(--dim)}
+.fin .fp{font:800 62px/1 'Saira Condensed';font-variant-numeric:tabular-nums}
+.fin .fs{font:800 13px 'Saira Condensed';letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
 </style></head><body>
-<div class="stage" id="stage">
-  <div class="scban">● SAFETY CAR</div>
-  <div class="hd"><span id="lap">TUR 1</span><span id="tyre">—</span><span>Δ GRUP <b id="gap">0.0</b></span></div>
-  <div class="board" id="board"></div>
-  <div class="wear" id="wear"><i></i></div>
-  <div class="ctl"><button id="pp">❚❚</button>
-    <button data-x="1" class="on">1×</button><button data-x="2">2×</button><button data-x="4">4×</button>
-    <input id="rng" type="range" min="0" value="0"></div>
-  <div class="toast" id="toast"></div>
-  <div class="chk" id="chk">YARIŞ BİTTİ</div>
+<div class="fm" id="fm">
+  <div class="bar">
+    <div class="live"><i></i>CANLI</div>
+    <div class="lap"><b id="lap">1</b><span>/ <span id="laps">--</span> TUR</span></div>
+    <div class="gp" id="gp">—</div>
+    <div class="spd"><button id="pp">❙❙</button>
+      <button data-x="1" class="on">1×</button><button data-x="2">2×</button><button data-x="4">4×</button></div>
+  </div>
+  <div class="flag" id="flag"><div id="flagt"></div></div>
+  <div class="grid">
+    <div class="tower" id="tower"></div>
+    <div class="rc"><div class="rc-h">Yarış Kontrol</div><div class="rc-list" id="rc"></div></div>
+  </div>
+  <div class="car">
+    <div class="car-pos"><span class="pl">SENİN ARAÇ</span><b class="mono" id="cpos">P1</b></div>
+    <div class="car-tyre">
+      <div class="tw" id="ctd">M</div>
+      <div class="tinfo">
+        <div class="tname" id="ctn">ORTA LASTİK</div>
+        <div class="tbar" id="ctbar"><i id="ctb"></i></div>
+        <div class="tsub"><span id="ctwear">%0</span> AŞINMA · <span id="ctage">1</span>. TUR</div>
+      </div>
+    </div>
+    <div class="car-gaps">
+      <div><span>ÖNDEKİ</span><b id="cga">—</b></div>
+      <div><span>ARKADAKİ</span><b id="cgb">—</b></div>
+      <div><span>SON TUR</span><b id="clt">—</b></div>
+    </div>
+  </div>
+  <div class="strat">
+    <div class="strat-h"><span>Strateji</span><span id="stxt">—</span></div>
+    <div class="tl" id="tl"><div class="tl-head" id="tlhead"></div></div>
+    <input id="rng" type="range" min="0" value="0">
+  </div>
+  <div class="fin" id="fin"><div class="fl">Yarış Bitti</div><div class="fp mono" id="finp">P1</div>
+    <div class="fs" id="fins">— PUAN</div></div>
 </div>
 <script>
 const SIM=__PAYLOAD__, F=SIM.frames, N=F.length, M=SIM.meta;
-const TCOL=__TCOL__;
-let i=0,playing=true,speed=1,last=0,raf=0;const LAP_MS=150;
-const board=document.getElementById('board');
-document.getElementById('rng').max=N-1;
+const TCOL=M.tyreCol||{}, LIFE=M.life||{};
+const TR={SOFT:'YUMUŞAK',MEDIUM:'ORTA',HARD:'SERT',INTERMEDIATE:'ARA',WET:'YAĞMUR'};
+const L1={SOFT:'S',MEDIUM:'M',HARD:'H',INTERMEDIATE:'I',WET:'W'};
+let i=0,playing=true,speed=1,last=0,raf=0,prevPos=M.grid;const LAP_MS=170;
+const $=id=>document.getElementById(id);
+$('rng').max=N-1; $('laps').textContent=M.laps; $('gp').textContent=M.year+' '+M.gp;
+document.querySelector('.car').style.setProperty('--pc', M.driverCol||'#2ee6d6');
 
-// sabit ~7 satırlık pano: lider + oyuncunun çevresi
-const SLOTS=7, ROWH=34;
-let rows=[];
-for(let k=0;k<SLOTS;k++){
-  const d=document.createElement('div'); d.className='row';
-  d.innerHTML='<span class="p"></span><span class="c"></span><span class="t"></span><span class="g"></span>';
-  d.style.top=(6+k*ROWH*1.02)+'px'; board.appendChild(d); rows.push(d);
+// --- strateji zaman çizgisi: stint segmentleri + SC bölgeleri + pit oklari ---
+(function(){
+  const tl=$('tl'); let seg0=1, segC=F[0].compound;
+  const put=(a,b,comp)=>{ const s=document.createElement('div'); s.className='tl-seg';
+    s.style.left=((a-1)/M.laps*100)+'%'; s.style.width=((b-a+1)/M.laps*100)+'%';
+    s.style.background=TCOL[comp]||'#55617a'; tl.appendChild(s); };
+  for(let k=1;k<F.length;k++){ if(F[k].compound!==segC){ put(seg0,F[k-1].lap,segC);
+    const p=document.createElement('div'); p.className='tl-pit'; p.style.left=((F[k].lap-1)/M.laps*100)+'%'; tl.appendChild(p);
+    seg0=F[k].lap; segC=F[k].compound; } }
+  put(seg0,M.laps,segC);
+  let s=null;
+  for(const f of F){ for(const e of f.ev){
+    if(e.t==='SC_START')s=f.lap;
+    else if(e.t==='SC_END'&&s!=null){ const z=document.createElement('div'); z.className='tl-sc';
+      z.style.left=((s-1)/M.laps*100)+'%'; z.style.width=((f.lap-s+1)/M.laps*100)+'%'; tl.appendChild(z); s=null; } } }
+  if(s!=null){ const z=document.createElement('div'); z.className='tl-sc';
+    z.style.left=((s-1)/M.laps*100)+'%'; z.style.width=((M.laps-s+1)/M.laps*100)+'%'; tl.appendChild(z); }
+  // özet: stint dizisi
+  const seq=[F[0].compound]; for(let k=1;k<F.length;k++) if(F[k].compound!==F[k-1].compound) seq.push(F[k].compound);
+  $('stxt').textContent=seq.map(c=>TR[c]||c).join(' → ');
+  $('tl').appendChild($('tlhead'));
+})();
+
+function fmtLap(s){ if(s==null) return '—'; const m=Math.floor(s/60), r=(s-m*60);
+  return m+':'+(r<10?'0':'')+r.toFixed(3); }
+function flag(cls,txt){ const fl=$('flag'); fl.className='flag show '+cls; $('flagt').textContent=txt;
+  clearTimeout(fl._h); if(cls==='grn') fl._h=setTimeout(()=>fl.className='flag',1800); }
+
+// tüm yarış kontrol satırları önceden derlenir → doğal oynatma da geri sarma da aynı
+const RCLOG=[{lap:1,txt:'Yarış başladı — '+M.grid+'. sıradasın',tone:'var(--teal)'}];
+for(const f of F){ for(const e of f.ev){
+  if(e.t==='SC_START') RCLOG.push({lap:f.lap,txt:'Güvenlik aracı sahada — herkes yavaşladı',tone:'var(--yel)'});
+  else if(e.t==='SC_END') RCLOG.push({lap:f.lap,txt:'Yeşil bayrak — yarış yeniden başladı',tone:'var(--grn)'});
+  else if(e.t==='VSC'){ const L=RCLOG[RCLOG.length-1]; if(!L||L.txt.indexOf('Sanal')<0)
+      RCLOG.push({lap:f.lap,txt:'Sanal güvenlik aracı devrede',tone:'var(--yel)'}); }
+  else if(e.t==='PIT') RCLOG.push({lap:f.lap,txt:'PİT: '+(TR[e.compound]||e.compound)+' lastik ('+e.loss.toFixed(0)+'sn)'+(e.sc?' · SC avantajı':''),tone:e.sc?'var(--grn)':'var(--teal)'});
+  else if(e.t==='POS_UP') RCLOG.push({lap:f.lap,txt:'P'+e.to+'’ye yükseldin',tone:'var(--grn)'});
+  else if(e.t==='POS_DOWN') RCLOG.push({lap:f.lap,txt:'P'+e.to+'’ye düştün',tone:'var(--red)'});
+  else if(e.t==='UNDERCUT_OK') RCLOG.push({lap:f.lap,txt:'Undercut tuttu — '+e.on+' geçildi',tone:'var(--grn)'});
+  else if(e.t==='UNDERCUT_CLOSE') RCLOG.push({lap:f.lap,txt:e.on+' ile kıl payı',tone:'var(--teal)'});
+  else if(e.t==='UNDERCUT_FAIL') RCLOG.push({lap:f.lap,txt:'Undercut tutmadı'+(e.reason==='traffic'?' — trafiğe takıldın':''),tone:'var(--red)'});
+  else if(e.t==='TYRE_CLIFF') RCLOG.push({lap:f.lap,txt:'Lastik bitti — pace düşüyor',tone:'var(--red)'});
+}}
+function renderRC(uptoLap){
+  const box=$('rc'); box.innerHTML='';
+  RCLOG.filter(r=>r.lap<=uptoLap).slice(-5).reverse().forEach(r=>{
+    const d=document.createElement('div'); d.className='rc-i'; d.style.setProperty('--rc',r.tone);
+    d.innerHTML='<span class="l">L'+r.lap+'</span><span class="x">'+r.txt+'</span>';
+    box.appendChild(d);
+  });
 }
-function meRow(){ return rows.find(r=>r.classList.contains('me')) || rows[3]; }
-function toast(txt){ const t=document.getElementById('toast'); t.textContent=txt; t.classList.add('show');
-  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1500); }
-
-function layout(f){
-  // oyuncuyu ortada tut, çevresine hayali pozisyonlar
-  const top = Math.max(1, f.pos-3);
-  for(let k=0;k<SLOTS;k++){
-    const pos = top+k, r=rows[k], me = pos===f.pos;
-    r.classList.toggle('me', me);
-    r.querySelector('.p').textContent = 'P'+pos;
-    r.querySelector('.c').textContent = me ? (M.driver||'SEN') : '·';
-    r.querySelector('.g').textContent = me ? (f.gapLeader>0? '+'+f.gapLeader : 'LİDER') : '';
-    const tc = me ? (TCOL[f.compound]||'#888') : '#33455c';
-    r.querySelector('.t').style.setProperty('--t', tc);
-    r.style.setProperty('--tc', TCOL[f.compound]||'#f5c33b');
-    r.classList.remove('dim');
+let towerBuilt=false;
+function tower(f){
+  const T=$('tower'); const rows=f.tower||[];
+  if(T.children.length!==rows.length){ T.innerHTML=''; towerBuilt=false; }
+  if(!towerBuilt){
+    rows.forEach(()=>{ const d=document.createElement('div'); d.className='tw-row';
+      d.innerHTML='<span class="tw-p"></span><span class="tw-bar"></span><span class="tw-c"></span>'+
+        '<span class="tw-i"></span><span class="tw-t"><span class="d"></span><span class="a"></span></span>';
+      T.appendChild(d); });
+    towerBuilt=true;
   }
+  let meEl=null;
+  rows.forEach((r,k)=>{
+    const d=T.children[k];
+    d.className='tw-row'+(r.me?' me':'')+(r.pit?' pit':'');
+    d.style.setProperty('--c', r.col||'#55617a');
+    d.style.setProperty('--tc', TCOL[r.comp]||'#888');
+    d.children[0].textContent=Math.max(1,r.pos)+'.';
+    d.children[2].textContent=r.me?'SEN':r.code;
+    d.children[3].className='tw-i'+(r.pit?' pit':'');
+    d.children[3].textContent=r.pit?'PIT':(r.int==null?'—':(r.int>0?'+':'')+r.int.toFixed(1));
+    d.children[4].children[0].textContent=L1[r.comp]||'?';
+    d.children[4].children[1].textContent=r.age;
+    if(r.me) meEl=d;
+  });
+  if(meEl){ const T2=$('tower');
+    const y=meEl.offsetTop - T2.clientHeight/2 + meEl.clientHeight/2;
+    T2.scrollTo({top:Math.max(0,y)}); }
 }
 function apply(f){
   for(const e of f.ev){
-    if(e.t==='SC_START'){ document.body.classList.add('sc'); toast('SAFETY CAR'); }
-    else if(e.t==='SC_END'){ document.body.classList.remove('sc'); toast('YEŞİL BAYRAK'); }
-    else if(e.t==='VSC'){ document.body.classList.add('vsc'); }
-    else if(e.t==='PIT'){ meRow().classList.add('pitting');
-      setTimeout(()=>meRow().classList.remove('pitting'),650);
-      toast('PIT · '+e.compound+' · '+e.loss.toFixed(1)+' sn'+(e.sc?' (SC!)':'')); }
-    else if(e.t==='POS_UP'){ toast('▲ P'+e.to); }
-    else if(e.t==='POS_DOWN'){ toast('▼ P'+e.to); }
-    else if(e.t==='UNDERCUT_OK'){ meRow().classList.add('udok');
-      setTimeout(()=>meRow().classList.remove('udok'),800); toast('UNDERCUT! '+e.on+' geçildi'); }
-    else if(e.t==='UNDERCUT_CLOSE'){ toast(e.on+' ile yan yana'); }
-    else if(e.t==='UNDERCUT_FAIL'){ meRow().classList.add('udfail');
-      setTimeout(()=>meRow().classList.remove('udfail'),500);
-      toast('Undercut çöktü'+(e.reason==='traffic'?' — trafik':'')); }
-    else if(e.t==='TYRE_CLIFF'){ document.getElementById('wear').classList.add('cliff'); toast('Lastik bitti'); }
+    if(e.t==='SC_START') flag('sc','Güvenlik Aracı Sahada');
+    else if(e.t==='SC_END') flag('grn','Pist Temiz');
+    else if(e.t==='VSC'){ if($('flag').className.indexOf('vsc')<0) flag('vsc','Sanal Güvenlik Aracı'); }
   }
+  const fl=$('flag');
+  if(fl.className.indexOf('vsc')>=0 && !f.ev.some(e=>e.t==='VSC')) fl.className='flag';
 }
 function render(f){
-  document.getElementById('lap').textContent='TUR '+f.lap+' / '+M.laps;
-  document.getElementById('tyre').textContent=f.compound+' · '+f.age+'. tur';
-  document.getElementById('gap').textContent=f.gapLeader>0? '+'+f.gapLeader : '—';
-  document.getElementById('wear').style.setProperty('--w', f.wearPct+'%');
-  layout(f); apply(f);
+  $('lap').textContent=f.lap;
+  $('cpos').textContent='P'+f.pos;
+  const tc=TCOL[f.compound]||'#888';
+  $('ctd').textContent=L1[f.compound]||'?'; $('ctd').style.borderColor=tc; $('ctd').style.color=tc;
+  $('ctn').textContent=(TR[f.compound]||f.compound)+' LASTİK';
+  $('ctb').style.width=f.wearPct+'%'; $('ctbar').classList.toggle('cliff',!!f.cliff);
+  $('ctwear').textContent='%'+f.wearPct; $('ctage').textContent=f.age;
+  $('cga').textContent=f.gapAhead==null?'—':'+'+f.gapAhead.toFixed(1);
+  $('cgb').textContent=f.gapBehind==null?'—':'+'+f.gapBehind.toFixed(1);
+  $('clt').textContent=fmtLap(f.lapTime);
+  $('tlhead').style.left=(f.lap/M.laps*100)+'%';
+  tower(f); apply(f); renderRC(f.lap);
+  prevPos=f.pos;
+}
+function finish(){
+  playing=false;
+  $('finp').textContent='P'+F[N-1].pos;
+  $('fins').textContent='Kontrol Kulesi · '+SIM.result.score+' PUAN';
+  $('fin').classList.add('on');
+  setTimeout(function(){ try{ const b=window.parent.document
+    .querySelector('[class*="st-key-sw_done"] button'); if(b) b.click(); }catch(_){} },1300);
 }
 function step(t){
   if(playing && t-last>=LAP_MS/speed){
-    last=t; render(F[i]); document.getElementById('rng').value=i; i++;
-    if(i>=N){ playing=false;
-      document.getElementById('chk').textContent='P'+F[N-1].pos+' · '+SIM.result.score+' PUAN';
-      document.getElementById('chk').classList.add('on');
-      setTimeout(()=>{ try{ const b=window.parent.document
-        .querySelector('[class*="st-key-sw_done"] button'); if(b) b.click(); }catch(_){} },900);
-      return;
-    }
+    last=t; render(F[i]); $('rng').value=i; i++;
+    if(i>=N){ finish(); return; }
   }
   raf=requestAnimationFrame(step);
 }
-document.getElementById('pp').onclick=function(){ playing=!playing; this.textContent=playing?'❚❚':'▶'; if(playing){last=performance.now();} };
-document.getElementById('rng').oninput=function(e){ i=+e.target.value; playing=false; document.getElementById('pp').textContent='▶'; render(F[i]); };
+$('pp').onclick=function(){ playing=!playing; this.textContent=playing?'❙❙':'▶'; if(playing) last=performance.now(); };
+$('rng').oninput=function(e){ i=+e.target.value; playing=false; $('pp').textContent='▶';
+  $('fin').classList.remove('on'); $('flag').className='flag';
+  render(F[Math.min(i,N-1)]); };
 document.querySelectorAll('[data-x]').forEach(b=>b.onclick=function(){ speed=+b.dataset.x;
   document.querySelectorAll('[data-x]').forEach(x=>x.classList.toggle('on',x===b)); });
 render(F[0]);
 raf=requestAnimationFrame(step);
 // pano gizlendiğinde rAF durur — güvenlik ağı (replay HUD ile aynı desen)
-setInterval(function(){ if(playing && performance.now()-last > 220){ step(performance.now()); } }, 90);
+setInterval(function(){ if(playing && performance.now()-last > 240){ step(performance.now()); } }, 90);
 </script></body></html>'''
-    return _html.replace('__TCOL__', tcol).replace('__PAYLOAD__', packed)
+    return _html.replace('__PAYLOAD__', packed)
+
+
+def strategy_planner_html(m):
+    """F1 Manager tarzı strateji planlayıcı — tamamen özel iframe. Lastik diskleri,
+    pit sayısı segmenti, tur kaydırıcıları, canlı stint çizgisi. 'Kilitle'de
+    stratejiyi gizli bir st.text_input'a JSON yazıp gizli düğmeye basar."""
+    packed = fp_ui.json_for_script({
+        'year': m['year'], 'gp': m['gp'], 'driver': m['driver_name'],
+        'grid': m['grid'], 'laps': m['total_laps'], 'pitLoss': round(m['pit_loss_s']),
+        'life': {k: m['compounds'][k]['cliff'] for k in ('SOFT', 'MEDIUM', 'HARD')},
+    })
+    _html = r'''<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0}
+:root{--bg:#080b12;--p1:#0f1521;--p2:#131c2c;--ln:#20293e;--tx:#eef2f8;--dim:#7f8da3;--teal:#2ee6d6}
+html,body{background:transparent}
+body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,sans-serif;color:var(--tx)}
+.sp{border:1px solid var(--ln);border-radius:14px;color:var(--tx);padding:15px 16px;
+  background:linear-gradient(180deg,#0c111c,#080b12)}
+.sp-hd{border-bottom:1px solid var(--ln);padding-bottom:10px}
+.sp-eb{font:700 10px/1 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.sp-h{font:800 19px/1.1 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;margin-top:4px}
+.sp-sub{font:700 11px 'JetBrains Mono','Consolas',monospace;color:var(--dim);margin-top:3px}
+.sec{margin-top:14px}
+.sec-t{font:700 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.discs{display:flex;gap:12px}
+.tdisc{flex:1;max-width:118px;cursor:pointer;text-align:center;padding:9px 4px 7px;border:1px solid var(--ln);
+  border-radius:11px;background:var(--p1);transition:border-color .15s,background .15s}
+.tdisc:hover{border-color:#39485f}
+.tdisc.on{border-color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,var(--p1))}
+.tdisc .ring{width:38px;height:38px;border-radius:50%;border:3px solid var(--tc);margin:0 auto;
+  display:grid;place-items:center;font:800 15px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--tc)}
+.tdisc .nm{font:800 11px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.06em;margin-top:6px;text-transform:uppercase}
+.tdisc .lf{font:700 9px 'JetBrains Mono','Consolas',monospace;color:var(--dim);margin-top:1px}
+.segs{display:flex;gap:8px}
+.seg{cursor:pointer;padding:8px 20px;border:1px solid var(--ln);border-radius:9px;background:var(--p1);
+  font:800 13px 'Saira Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;transition:border-color .15s,color .15s}
+.seg:hover{border-color:#39485f} .seg.on{border-color:var(--teal);color:var(--teal);background:rgba(46,230,214,.1)}
+.seg small{font:700 8px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;color:var(--dim);display:block;text-transform:uppercase}
+.seg.on small{color:var(--teal)}
+.srow{display:grid;grid-template-columns:52px 1fr 62px auto;gap:11px;align-items:center;margin-top:9px}
+.slab{font:800 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;color:var(--dim)}
+.srow input[type=range]{width:100%;accent-color:var(--teal);cursor:pointer;height:16px}
+.slap{font:700 12px 'JetBrains Mono','Consolas',monospace;font-variant-numeric:tabular-nums;text-align:right}
+.sdiscs{display:flex;gap:5px}
+.mdisc{width:24px;height:24px;border-radius:50%;border:2px solid var(--tc);display:grid;place-items:center;
+  font:800 9px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--tc);cursor:pointer;opacity:.4;transition:opacity .15s}
+.mdisc.on{opacity:1;box-shadow:0 0 0 2px color-mix(in srgb,var(--tc) 40%,transparent)}
+.plan{margin-top:14px;border:1px solid var(--ln);border-radius:10px;background:var(--p1);padding:11px 13px}
+.tl{position:relative;height:16px;border-radius:4px;background:#0a0f18;border:1px solid var(--ln);overflow:hidden;margin-top:3px}
+.tl>i{position:absolute;top:0;bottom:0}
+.tl>b{position:absolute;top:-2px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #eef2f8}
+.tl-k{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.tl-k span{display:inline-flex;align-items:center;gap:5px} .tl-k i{width:9px;height:9px;border-radius:2px}
+.stints{font:700 10px 'JetBrains Mono','Consolas',monospace;color:var(--dim);margin-top:7px}
+.hint{min-height:16px;font:700 10.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.03em;color:#ffb454;margin-top:11px}
+.lock{width:100%;margin-top:5px;padding:13px;border:1px solid var(--teal);border-radius:10px;cursor:pointer;
+  background:var(--teal);color:#03120f;font:800 13px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.09em;text-transform:uppercase}
+.lock:disabled{background:var(--p1);border-color:var(--ln);color:var(--dim);cursor:not-allowed}
+</style></head><body>
+<div class="sp">
+  <div class="sp-hd">
+    <div class="sp-eb" id="eb">STRATEJİ</div>
+    <div class="sp-h">Lastik planını kur</div>
+    <div class="sp-sub" id="sub">—</div>
+  </div>
+  <div class="sec">
+    <div class="sec-t">Başlangıç lastiği</div>
+    <div class="discs" id="starts"></div>
+  </div>
+  <div class="sec">
+    <div class="sec-t">Kaç pit yapacaksın?</div>
+    <div class="segs" id="ns">
+      <div class="seg" data-n="1">1<small>durak</small></div>
+      <div class="seg" data-n="2">2<small>durak</small></div>
+      <div class="seg" data-n="3">3<small>durak</small></div>
+    </div>
+  </div>
+  <div class="sec"><div class="sec-t">Pit turları ve lastikleri</div><div id="stops"></div></div>
+  <div class="plan">
+    <div class="sec-t" style="margin:0">Plan önizleme</div>
+    <div class="tl" id="tl"></div>
+    <div class="tl-k" id="tlk"></div>
+    <div class="stints" id="stints">—</div>
+  </div>
+  <div class="hint" id="hint"></div>
+  <button class="lock" id="lock">Stratejiyi kilitle ve yarışı başlat →</button>
+</div>
+<script>
+const M=__PAYLOAD__;
+const DRY=['SOFT','MEDIUM','HARD'];
+const TR={SOFT:'YUMUŞAK',MEDIUM:'ORTA',HARD:'SERT'}, L1={SOFT:'S',MEDIUM:'M',HARD:'H'};
+const TCOL={SOFT:'#ff4655',MEDIUM:'#ffd23e',HARD:'#f1f4f8'};
+const NONCE=Math.random().toString(36).slice(2);
+const $=id=>document.getElementById(id);
+let start='MEDIUM', n=1, stops=[];
+
+$('eb').textContent='STRATEJİ · '+M.year+' '+M.gp;
+$('sub').textContent=(M.driver||'')+' · P'+M.grid+'’den · '+M.laps+' tur · pit ~'+M.pitLoss+' sn';
+$('starts').innerHTML=DRY.map(c=>
+  '<div class="tdisc" data-t="'+c+'" style="--tc:'+TCOL[c]+'"><div class="ring">'+L1[c]+
+  '</div><div class="nm">'+TR[c]+'</div><div class="lf">~'+M.life[c]+' tur</div></div>').join('');
+
+function otherComp(){ return start==='HARD'?'MEDIUM':'HARD'; }
+function seedStops(){
+  const lo=4, hi=M.laps-3, out=[];
+  for(let k=0;k<n;k++) out.push({lap:Math.round(lo+(hi-lo)*(k+1)/(n+1)),
+    compound:(stops[k]&&stops[k].compound)||otherComp()});
+  stops=out;
+}
+function clampLaps(){
+  for(let k=0;k<stops.length;k++){
+    const lo=k===0?4:stops[k-1].lap+3, hi=M.laps-3;
+    stops[k].lap=Math.max(lo,Math.min(hi,stops[k].lap));
+  }
+}
+function drawPlan(){
+  clampLaps();
+  const laps=stops.map(s=>s.lap), comps=[start].concat(stops.map(s=>s.compound));
+  const bounds=[0].concat(laps,[M.laps]);
+  let h='';
+  for(let k=0;k<comps.length;k++) h+='<i style="left:'+(bounds[k]/M.laps*100)+'%;width:'+
+    ((bounds[k+1]-bounds[k])/M.laps*100)+'%;background:'+TCOL[comps[k]]+';opacity:.62"></i>';
+  laps.forEach(l=>h+='<b style="left:'+(l/M.laps*100)+'%"></b>');
+  $('tl').innerHTML=h;
+  const seen=[...new Set(comps)];
+  $('tlk').innerHTML=seen.map(c=>'<span><i style="background:'+TCOL[c]+'"></i>'+TR[c]+'</span>').join('');
+  $('stints').textContent='Stint: '+bounds.slice(1).map((b,k)=>(b-bounds[k])+' tur').join(' · ');
+}
+function validate(){
+  const laps=stops.map(s=>s.lap);
+  const distinct=new Set(laps).size===laps.length;
+  const comps=new Set([start].concat(stops.map(s=>s.compound)));
+  let msg='';
+  if(!distinct) msg='Pit turları birbirinden farklı olmalı.';
+  else if(comps.size<2) msg='Kuru yarış kuralı: en az iki farklı lastik kullanmalısın.';
+  $('hint').textContent=msg;
+  $('lock').disabled=!!msg;
+  return !msg;
+}
+function renderStarts(){ document.querySelectorAll('.tdisc').forEach(d=>d.classList.toggle('on',d.dataset.t===start)); }
+function renderNs(){ document.querySelectorAll('.seg').forEach(s=>s.classList.toggle('on',+s.dataset.n===n)); }
+function renderStops(){
+  clampLaps();
+  const box=$('stops'); box.innerHTML='';
+  stops.forEach((s,k)=>{
+    const lo=k===0?4:stops[k-1].lap+3, hi=M.laps-3;
+    const row=document.createElement('div'); row.className='srow';
+    row.innerHTML='<div class="slab">'+(k+1)+'. PİT</div>'+
+      '<input type="range" min="'+lo+'" max="'+hi+'" value="'+s.lap+'" data-k="'+k+'">'+
+      '<div class="slap">TUR '+s.lap+'</div>'+
+      '<div class="sdiscs">'+DRY.map(c=>'<span class="mdisc '+(s.compound===c?'on':'')+
+        '" data-k="'+k+'" data-t="'+c+'" style="--tc:'+TCOL[c]+'">'+L1[c]+'</span>').join('')+'</div>';
+    box.appendChild(row);
+  });
+}
+function renderAll(){ renderStarts(); renderNs(); renderStops(); drawPlan(); validate(); }
+
+document.addEventListener('click',e=>{
+  const td=e.target.closest('.tdisc'); if(td){ start=td.dataset.t; renderAll(); return; }
+  const sg=e.target.closest('.seg'); if(sg){ n=+sg.dataset.n; seedStops(); renderAll(); return; }
+  const md=e.target.closest('.mdisc'); if(md){ stops[+md.dataset.k].compound=md.dataset.t; renderAll(); return; }
+});
+document.addEventListener('input',e=>{
+  const r=e.target.closest('input[type=range][data-k]'); if(!r) return;
+  const k=+r.dataset.k; stops[k].lap=+r.value;
+  r.parentElement.querySelector('.slap').textContent='TUR '+stops[k].lap;
+  drawPlan(); validate();
+});
+document.addEventListener('change',e=>{ if(e.target.closest('input[type=range][data-k]')) renderStops(); });
+
+$('lock').onclick=function(){
+  if(!validate()) return;
+  const data=JSON.stringify({start_compound:start,
+    stops:stops.map(s=>({lap:s.lap,compound:s.compound})), nonce:NONCE});
+  try{
+    const doc=window.parent.document;
+    const inp=doc.querySelector('[class*="st-key-sw_stratjson"] input, [class*="st-key-sw_stratjson"] textarea');
+    const proto=inp.tagName==='TEXTAREA'?window.parent.HTMLTextAreaElement.prototype:window.parent.HTMLInputElement.prototype;
+    const set=Object.getOwnPropertyDescriptor(proto,'value').set;
+    inp.focus();
+    set.call(inp,data);
+    inp.dispatchEvent(new Event('input',{bubbles:true}));
+    // blur + Enter → Streamlit text_input değeri backend'e gönderir (on_change tetiklenir)
+    inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+    inp.blur();
+    this.textContent='YÜKLENİYOR…'; this.disabled=true;
+  }catch(err){ $('hint').textContent='Bağlantı hatası — sayfayı yenile.'; }
+};
+
+seedStops(); renderAll();
+</script></body></html>'''
+    return _html.replace('__PAYLOAD__', packed)
+
+
+def _sw_strat_lock_cb_v68():
+    """Planlayıcı iframe'inden gelen JSON stratejiyi doğrular ve sim'e geçer."""
+    raw = st.session_state.get('sw_stratjson', '') or ''
+    st.session_state['sw_stratjson'] = ''
+    g = st.session_state.get('sw67') or {}
+    m = g.get('model') or {}
+    if not (raw and m.get('ok')):
+        return
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return
+    if data.get('nonce') and data.get('nonce') == g.get('_strat_nonce'):
+        return                                     # bayat gönderim
+    g['_strat_nonce'] = data.get('nonce')
+    sc = str(data.get('start_compound', '')).upper()
+    stops = []
+    for s in data.get('stops') or []:
+        try:
+            stops.append({'lap': int(s['lap']), 'compound': str(s['compound']).upper()})
+        except (KeyError, TypeError, ValueError):
+            return
+    stops.sort(key=lambda s: s['lap'])
+    laps = [s['lap'] for s in stops]
+    used = {sc} | {s['compound'] for s in stops}
+    if not stops or sc not in ('SOFT', 'MEDIUM', 'HARD') \
+            or len(set(laps)) != len(laps) or len(used) < 2:
+        return
+    g['strat'] = {'start_compound': sc, 'stops': stops}
+    g['sim'] = _strat_simulate_v67(m, g['strat'])
+    g['phase'] = 'sim'
+    g['awarded'] = False
 
 
 def _sw_intro_line_v67(m):
@@ -9691,107 +10244,107 @@ def _sw_dialogue_v67(m):
     ]
 
 
-def _sw_strategy_form_v67(m):
-    dry = ['SOFT', 'MEDIUM', 'HARD']
-    start = st.selectbox("Başlangıç hamuru", dry, index=1, key="sw_start")
-    n = st.radio("Pit stop sayısı", [1, 2, 3], horizontal=True, key="sw_n")
-    stops = []
-    prev_lap = 0
-    for k in range(int(n)):
-        c1, c2 = st.columns([2, 1])
-        lo = prev_lap + 4
-        hi = m['total_laps'] - 3
-        default = int(lo + (hi - lo) * (k + 1) / (n + 1))
-        lap = c1.slider(f"{k + 1}. pit turu", min_value=max(2, lo), max_value=max(lo + 1, hi),
-                        value=min(max(default, lo), hi), key=f"sw_lap{k}")
-        comp = c2.selectbox(f"{k + 1}. pit hamuru", dry,
-                            index=2 if k == 0 else 1, key=f"sw_c{k}")
-        stops.append({'lap': int(lap), 'compound': comp})
-        prev_lap = int(lap)
-    laps_sorted = sorted(s['lap'] for s in stops)
-    if len(set(laps_sorted)) != len(laps_sorted):
-        st.warning("Pit turları farklı olmalı.")
-        return None
-    used = [start] + [s['compound'] for s in stops]
-    if len(set(used)) < 2:
-        st.warning("En az iki farklı hamur kullanmalısın (kuru yarış kuralı).")
-        return None
-    st.caption("Stint uzunlukları: " + " · ".join(
-        f"{b - a} tur" for a, b in zip([0] + laps_sorted, laps_sorted + [m['total_laps']])))
-    return {'start_compound': start, 'stops': sorted(stops, key=lambda s: s['lap'])}
+# =========================================================
+# Strateji Duvarı — sim dışı ekranlar için F1 Manager tarzı HUD yardımcıları
+# (ortak stil `_GAME_HUD_CSS_V68` yukarıda tanımlı, Podyum Tahmini de kullanır)
+# =========================================================
+_SW_TR_V68 = {'SOFT': 'YUMUŞAK', 'MEDIUM': 'ORTA', 'HARD': 'SERT',
+              'INTERMEDIATE': 'ARA', 'WET': 'YAĞMUR'}
+_SW_SCREEN_CSS_V68 = _GAME_HUD_CSS_V68  # geriye dönük ad
+
+
+def _sw_brief_screen_v68(m):
+    """intro + diyalog tek ekranda: yarış künyesi + pit duvarı telsizleri."""
+    n_real = len(m['actual']['stops'])
+    stats = "".join(
+        f"<div class='sws-st'><b>{v}</b><span>{k}</span></div>" for k, v in [
+            ('Izgara', f"P{m['grid']}"), ('Tur', m['total_laps']),
+            ('Temel tur', f"{m['base_lap_s']:.1f}s"), ('Pit kaybı', f"{m['pit_loss_s']:.0f}s"),
+            ('O gün', f"{n_real} stop · P{m['actual']['finish_pos']}"),
+        ])
+    msgs = "".join(
+        f"<div class='sws-msg'><i></i><div><div class='who'>{html_lib.escape(who)}</div>"
+        f"<div class='tx'>{html_lib.escape(text)}</div></div></div>"
+        for who, text in _sw_dialogue_v67(m))
+    st.markdown(
+        f"<div class='sws'><div class='sws-eb'>Duvar Brifingi · {m['year']} "
+        f"{html_lib.escape(m['gp'])}</div>"
+        f"<div class='sws-h'>{html_lib.escape(m['driver_name'])} · P{m['grid']}’den</div>"
+        f"<div class='sws-lead'>{html_lib.escape(_sw_intro_line_v67(m))}</div>"
+        f"<div class='sws-stats'>{stats}</div></div>"
+        f"<div class='sws'><div class='sws-eb'>Pit Duvarı · Telsiz</div>"
+        f"<div class='sws-radio'>{msgs}</div></div>",
+        unsafe_allow_html=True)
 
 
 def _sw_result_v67(r, m):
     pos, real = r['finalPos'], r['actual']
     good = pos <= real['finishPos']
-    st.markdown(
-        f"<div class='hud-card' style='border-left:4px solid {'#7fe0a6' if good else '#ffb37a'}'>"
-        f"<div class='hud-label'>SİMÜLASYON SONUCU · P{pos} · +{r['score']} PUAN</div>"
-        f"<div class='history-copy' style='margin-top:6px'>{html_lib.escape(m['driver_name'])} "
-        f"gerçekte P{real['finishPos']} bitirdi ({len(real['stops'])} stop, "
-        f"{html_lib.escape(str(real['startCompound']))} başladı).</div></div>",
-        unsafe_allow_html=True)
+    sc = str(real['startCompound']).upper()
     rows = "".join(
-        f"<li>{html_lib.escape(t)} <b>{'+' if p > 0 else ''}{p}</b></li>" for t, p in r['breakdown']
-    ) or "<li>Bu stratejiden puan çıkmadı.</li>"
-    st.markdown(f"<ul style='font-size:.9rem;line-height:1.7'>{rows}</ul>", unsafe_allow_html=True)
+        f"<li style='--bl:{'#37d67a' if p > 0 else '#ff5964'}'>"
+        f"<span>{html_lib.escape(t)}</span><b>{'+' if p > 0 else ''}{p}</b></li>"
+        for t, p in r['breakdown']) or "<li><span>Bu stratejiden puan çıkmadı.</span><b>0</b></li>"
+    st.markdown(
+        f"<div class='sws'><div class='sws-eb'>Kontrol Kulesi · {m['year']} "
+        f"{html_lib.escape(m['gp'])}</div>"
+        f"<div class='sws-row'><span class='sws-big'>P{pos}</span>"
+        f"<span class='sws-verdict {'ok' if good else 'no'}'>"
+        f"{'Gerçeği yakaladın' if good else 'Gerçeğin gerisinde'}</span>"
+        f"<span class='sws-score'>{r['score']}<s>puan</s></span></div>"
+        f"<div class='sws-lead'>{html_lib.escape(m['driver_name'])} gerçekte P{real['finishPos']} "
+        f"bitirdi — {len(real['stops'])} stop, {_SW_TR_V68.get(sc, sc).title()} başladı.</div>"
+        f"<ul class='sws-break'>{rows}</ul></div>",
+        unsafe_allow_html=True)
 
 
 def render_strategy_wall_v67():
     _game_shell("Strateji Duvarı",
                 "Gerçek bir yarışın pit duvarına geç. Kararını ver, yarışı tur tur izle.",
                 "#f5c33b")
-    g = st.session_state.setdefault('sw67', {'phase': 'intro', 'race_key': None})
+    st.markdown(_SW_SCREEN_CSS_V68, unsafe_allow_html=True)
+    g = st.session_state.setdefault('sw67', {'phase': 'brief', 'race_key': None})
 
-    if g['phase'] == 'intro':
-        with st.spinner("Yarış verisi hazırlanıyor…"):
-            m = {}
-            pool = list(_STRAT_RACES_V67)
-            random.shuffle(pool)
-            for key in ([g['race_key']] if g.get('race_key') else []) + pool[:5]:
-                m = _strat_race_model_v67(*key)
-                if m.get('ok'):
-                    g['race_key'] = key
-                    break
-            g['model'] = m
+    if g['phase'] in ('brief', 'intro', 'dialogue'):
+        m = g.get('model') or {}
+        if not m.get('ok'):
+            with st.spinner("Yarış hazırlanıyor…"):
+                seeded = [(int(y), gp) for y, gp in
+                          (k.split('|', 1) for k in _games_seed_v68().get('strat', {}))]
+                random.shuffle(seeded)
+                pool = list(_STRAT_RACES_V67)
+                random.shuffle(pool)
+                order = ([tuple(g['race_key'])] if g.get('race_key') else []) + seeded + pool
+                for key in order[:8]:
+                    m = _strat_race_model_v67(*key)
+                    if m.get('ok'):
+                        g['race_key'] = tuple(key)
+                        break
+                g['model'] = m
         if not m.get('ok'):
             st.info("Yarış verisi şu an alınamadı. Biraz sonra tekrar dene.")
             if st.button("Tekrar dene", key="sw_reroll"):
                 g['race_key'] = None
+                g['model'] = None
                 st.rerun()
             return
-        st.markdown(f"### {m['year']} · {html_lib.escape(m['gp'])}")
-        st.markdown(f"<div class='hud-card' style='border-left:4px solid #f5c33b'>"
-                    f"<div class='hud-label'>DUVAR BRİFİNGİ</div>"
-                    f"<div class='history-copy' style='margin-top:6px'>{html_lib.escape(_sw_intro_line_v67(m))}</div></div>",
-                    unsafe_allow_html=True)
-        if st.button("Duvara geç →", type="primary", key="sw_go"):
-            g['phase'] = 'dialogue'
-            g['dlg_step'] = 0
-            st.rerun()
-
-    elif g['phase'] == 'dialogue':
-        steps = _sw_dialogue_v67(g['model'])
-        who, text = steps[min(g['dlg_step'], len(steps) - 1)]
-        st.markdown(f"<div class='hud-card' style='border-left:4px solid #38e1d0'>"
-                    f"<div class='hud-label'>{html_lib.escape(who.upper())}</div>"
-                    f"<div class='history-copy' style='margin-top:6px;font-size:1.02rem'>"
-                    f"“{html_lib.escape(text)}”</div></div>", unsafe_allow_html=True)
-        st.caption(f"{g['dlg_step'] + 1} / {len(steps)}")
-        if st.button("Devam →", type="primary", key=f"sw_dlg{g['dlg_step']}"):
-            g['dlg_step'] += 1
-            if g['dlg_step'] >= len(steps):
-                g['phase'] = 'strategy'
+        _sw_brief_screen_v68(m)
+        if st.button("Duvara geç →", type="primary", key="sw_go", width='stretch'):
+            g['phase'] = 'strategy'
             st.rerun()
 
     elif g['phase'] == 'strategy':
-        st.markdown(f"### Strateji · {g['model']['year']} {html_lib.escape(g['model']['gp'])}")
-        strat = _sw_strategy_form_v67(g['model'])
-        if strat and st.button("Stratejiyi kilitle ve yarışı başlat", type="primary", key="sw_lock"):
-            g['strat'] = strat
-            g['sim'] = _strat_simulate_v67(g['model'], strat)
-            g['phase'] = 'sim'
-            st.rerun()
+        m = g['model']
+        st.markdown(
+            "<style>[class*='st-key-sw_stratjson']{"
+            "position:fixed !important;left:-9999px !important;width:1px !important;"
+            "height:1px !important;overflow:hidden !important;opacity:0 !important}</style>",
+            unsafe_allow_html=True)
+        st.text_input("strat", key="sw_stratjson", label_visibility="collapsed",
+                      on_change=_sw_strat_lock_cb_v68)
+        render_html_hud(strategy_planner_html(m), height=560, scrolling=True)
+        st.caption("Lastik disklerine ve pit sayısına dokun, tur kaydırıcısını ayarla, "
+                   "sonra kilitle.")
 
     elif g['phase'] == 'sim':
         st.markdown("<style>[class*='st-key-sw_done']{position:fixed !important;width:1px !important;"
@@ -9799,8 +10352,8 @@ def render_strategy_wall_v67():
                     unsafe_allow_html=True)
         st.button("done", key="sw_done",
                   on_click=lambda: st.session_state['sw67'].update(phase='result'))
-        render_html_hud(strategy_wall_sim_html(g['sim']), height=640, scrolling=False)
-        st.caption("Yarış oynanıyor… bittiğinde sonuç ekranı gelir. (Çubuğu sürükleyerek de gezebilirsin.)")
+        render_html_hud(strategy_wall_sim_html(g['sim']), height=520, scrolling=False)
+        st.caption("Yarış oynanıyor… bittiğinde sonuç ekranı gelir. Çubuğu sürükleyerek de gezebilirsin.")
 
     else:  # result
         r = g['sim']['result']
@@ -9809,11 +10362,11 @@ def render_strategy_wall_v67():
             _game_award_v66(xp=max(5, r['score'] // 4), played=True)
         _sw_result_v67(r, g['model'])
         cols = st.columns(2)
-        if cols[0].button("Aynı yarış, yeni strateji", key="sw_retry"):
+        if cols[0].button("Aynı yarış, yeni strateji", key="sw_retry", width='stretch'):
             g.update(phase='strategy', sim=None, strat=None, awarded=False)
             st.rerun()
-        if cols[1].button("Başka yarış →", type="primary", key="sw_new"):
-            st.session_state['sw67'] = {'phase': 'intro', 'race_key': None}
+        if cols[1].button("Başka yarış →", type="primary", key="sw_new", width='stretch'):
+            st.session_state['sw67'] = {'phase': 'brief', 'race_key': None, 'model': None}
             st.rerun()
 
 
