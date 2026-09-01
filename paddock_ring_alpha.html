@@ -98,6 +98,29 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   .card h1{font-size:28px}
   .radio{max-width:220px}
 }
+
+/* --- dokunmatik kontroller (telefon / tablet) --- */
+#touch{position:absolute;inset:0;z-index:7;display:none;pointer-events:none}
+body.touch #touch{display:block}
+#touch .tc{pointer-events:auto}
+body.touch .keys{display:none}
+body.touch #tower{display:none}
+#touch .tc{position:absolute;display:flex;align-items:center;justify-content:center;
+  font:800 12px var(--f-disp);letter-spacing:.09em;color:var(--text);text-transform:uppercase;
+  background:rgba(12,16,22,.66);box-shadow:inset 0 0 0 1px var(--line);
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+#touch .tc.on{background:rgba(56,225,208,.30);box-shadow:inset 0 0 0 1px var(--info);color:#fff}
+#touch .steer{width:82px;height:82px;bottom:20px;border-radius:50%;font-size:24px}
+#tc-left{left:18px}
+#tc-right{left:112px}
+#touch .pedal{width:88px;height:104px;bottom:20px}
+#tc-brake{right:120px;box-shadow:inset 0 0 0 1px var(--line),inset 0 -3px 0 var(--crit)}
+#tc-thr{right:18px;box-shadow:inset 0 0 0 1px var(--line),inset 0 -3px 0 var(--go)}
+#touch .mini{width:60px;height:38px;font-size:10px;right:18px}
+#tc-ers{bottom:132px}
+#tc-drs{bottom:174px}
+#tc-pit{bottom:216px}
 </style>
 </head>
 <body>
@@ -130,6 +153,17 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
   <b>SPACE</b> ERS <b>E</b> DRS <b>P</b> Pit <b>R</b> Yeniden
 </div>
 <div id="radio" class="radio panel"><span>MÜHENDİS</span><br>Sistem kontrolü tamam. Gridde bekle.</div>
+
+<div id="touch">
+  <div id="tc-left"  class="tc steer">◄</div>
+  <div id="tc-right" class="tc steer">►</div>
+  <div id="tc-brake" class="tc pedal">Fren</div>
+  <div id="tc-thr"   class="tc pedal">Gaz</div>
+  <div id="tc-ers"   class="tc mini">ERS</div>
+  <div id="tc-drs"   class="tc mini">DRS</div>
+  <div id="tc-pit"   class="tc mini">Pit</div>
+</div>
+
 <div id="toast"></div>
 
 <div id="start" class="center">
@@ -538,6 +572,33 @@ addEventListener('keydown', e=>{
   if(e.code==='KeyR') resetToMenu();
 });
 addEventListener('keyup', e=>keys[e.code]=false);
+
+/* dokunmatik kontroller — düğmeler `keys` sözlüğünü klavye gibi besler */
+(function(){
+  const coarse = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 ||
+                 (matchMedia && matchMedia('(pointer:coarse)').matches);
+  if(!coarse) return;
+  document.body.classList.add('touch');
+  function hold(id, code){
+    const el = $(id); if(!el) return;
+    const set = v => e => { e.preventDefault(); keys[code] = v; el.classList.toggle('on', v); };
+    el.addEventListener('pointerdown', set(true));
+    el.addEventListener('pointerup', set(false));
+    el.addEventListener('pointercancel', set(false));
+    el.addEventListener('pointerleave', set(false));
+  }
+  hold('tc-left','KeyA'); hold('tc-right','KeyD');
+  hold('tc-thr','KeyW'); hold('tc-brake','KeyS');
+  hold('tc-ers','Space'); hold('tc-drs','KeyE');
+  const pit = $('tc-pit');
+  if(pit) pit.addEventListener('pointerdown', e=>{
+    e.preventDefault();
+    if(state==='race'){
+      player.pitReq = !player.pitReq;
+      radio(player.pitReq ? 'Pit isteği alındı — bu tur box.' : 'Pit iptal, pistte kal.');
+    } else { resetToMenu(); }
+  });
+})();
 
 $('startBtn').onclick = ()=>{
   DIFF = Number($('difficulty').value);
