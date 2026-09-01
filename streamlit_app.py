@@ -2152,11 +2152,11 @@ def championship_scenarios_html(scn, colour_of):
     for c in scn['contenders']:
         col = colour_of(c['team']) or '#8a9bb0'
         if _over:
-            state = ("<span class='pill live'>★ ŞAMPİYON</span>" if c['rank'] == 1
+            state = ("<span class='pill live'>ŞAMPİYON</span>" if c['rank'] == 1
                      else "<span class='pill done'>—</span>")
         else:
-            state = ("<span class='pill live'>✓ YARIŞTA</span>" if c['alive']
-                     else "<span class='pill out'>✗ ELENDİ</span>")
+            state = ("<span class='pill live'>YARIŞTA</span>" if c['alive']
+                     else "<span class='pill out'>ELENDİ</span>")
         gaptext = "—" if c['rank'] == 1 else f"-{int(c['gap'])}"
         rows += (
             f"<div class='scn-row' style='--c:{col}'>"
@@ -5999,8 +5999,13 @@ st.markdown(r"""
 
 st.markdown(r"""
 <style>
-/* Game engine 2.4: static, shared cards only. No JavaScript or page overlay. */
-.game-stat-v24{min-height:112px!important;border-top:5px solid #52d6ff!important}.game-brief-v24{border-left:5px solid #ff385c!important;margin:17px 0!important}.game-card-v24{min-height:158px!important;margin-top:10px}.game-card-title-v24{font-size:1.3rem;font-weight:950;margin-top:7px;color:#f6f9ff}.game-result-v24{margin-top:16px}.stewarlde-cell-v23{min-width:0}@media(max-width:900px){.game-stat-v24{min-height:95px!important}.game-card-v24{min-height:142px!important}.game-card-title-v24{font-size:1.12rem}}
+/* Yayın Arayüzü (Faz 16): oyun kartları — Inter, ince hat, net başlık. */
+.game-stat-v24{min-height:104px!important;border-top:1px solid var(--fp-line)!important}
+.game-brief-v24{border-left:2px solid var(--fp-red)!important;margin:17px 0!important}
+.game-card-v24{min-height:156px!important;margin-top:10px}
+.game-card-title-v24{font:600 17px/1.25 var(--fp-f-display);letter-spacing:-.01em;margin-top:8px;color:var(--fp-text)}
+.game-result-v24{margin-top:16px}.stewarlde-cell-v23{min-width:0}
+@media(max-width:900px){.game-stat-v24{min-height:88px!important}.game-card-v24{min-height:0!important}.game-card-title-v24{font-size:15px}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -9220,104 +9225,102 @@ def _podium_new_round_v67():
 # Strateji Duvarı sim-dışı ekranları + Podyum Tahmini kullanır. `.sws-*` sınıfları.
 # =========================================================
 _GAME_HUD_CSS_V68 = """<style>
-/* Faz 10: tüm renkler --fp-* jetonundan; radius 3/5/8 ölçeğinde; tek turkuaz
-   (--fp-cyan). Açık temada da doğru döner (_root_vars_dual). */
-.sws{border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);color:var(--fp-text);font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,sans-serif;
-  background:linear-gradient(180deg,var(--fp-bg-1),var(--fp-bg-0));padding:15px 17px;margin-bottom:10px}
-.sws-eb{font:700 10px/1 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--fp-text-mute)}
-.sws-h{font:800 21px/1.12 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;margin-top:5px;color:var(--fp-text)}
-.sws-lead{color:var(--fp-text-dim);font-size:.94rem;line-height:1.55;margin-top:8px}
-.sws-stats{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
-.sws-st{background:var(--fp-bg-3);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);padding:6px 11px;min-width:76px}
-.sws-st b{display:block;font:800 15px 'JetBrains Mono','Consolas',ui-monospace,monospace;font-variant-numeric:tabular-nums;color:var(--fp-text)}
-.sws-st span{font:700 8px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--fp-text-mute)}
+/* Yayın Arayüzü (Faz 16): Inter + Mono, düz panel, ince hat. Sıkıştırılmış
+   büyük harf yok; aksan yalnız ince detay. --fp-* jetonu, açık tema uyumlu. */
+.sws{border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);color:var(--fp-text);
+  font-family:var(--fp-f-body);background:var(--fp-bg-2);padding:16px 18px;margin-bottom:10px}
+.sws-eb{font:600 11px/1.3 var(--fp-f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--fp-text-mute)}
+.sws-h{font:600 20px/1.2 var(--fp-f-display);letter-spacing:-.01em;margin-top:6px;color:var(--fp-text)}
+.sws-lead{color:var(--fp-text-dim);font-size:.94rem;line-height:1.6;margin-top:9px}
+.sws-stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.sws-st{background:var(--fp-bg-1);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);padding:8px 12px;min-width:76px}
+.sws-st b{display:block;font:500 15px var(--fp-f-mono);font-variant-numeric:tabular-nums;color:var(--fp-text)}
+.sws-st span{font:600 9px var(--fp-f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--fp-text-mute)}
 .sws-radio{display:flex;flex-direction:column;gap:8px;margin-top:6px}
-.sws-msg{display:grid;grid-template-columns:3px 1fr;gap:12px;background:var(--fp-bg-1);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);padding:10px 13px}
-.sws-msg i{background:var(--fp-cyan);border-radius:2px}
-.sws-msg .who{font:800 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-cyan)}
-.sws-msg .tx{color:var(--fp-text-dim);font-size:.92rem;line-height:1.5;margin-top:3px}
-.sws-row{display:flex;align-items:baseline;gap:15px;flex-wrap:wrap;margin-top:7px}
-.sws-verdict{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
-  font:800 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.13em;text-transform:uppercase}
-.sws-verdict::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
-.sws-verdict.ok{background:color-mix(in srgb,var(--fp-green) 15%,transparent);color:var(--fp-green)}
-.sws-verdict.no{background:color-mix(in srgb,var(--fp-red-bright) 15%,transparent);color:var(--fp-red-bright)}
-.sws-big{font:800 38px/1 'Saira Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;color:var(--fp-text)}
-.sws-score{font:800 32px/1 'Saira Condensed','Arial Narrow',sans-serif;color:var(--fp-cyan);font-variant-numeric:tabular-nums}
-.sws-score s{font-size:.8rem;color:var(--fp-text-mute);text-decoration:none;letter-spacing:.1em;margin-left:4px}
-.sws-break{list-style:none;margin:13px 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+.sws-msg{display:grid;grid-template-columns:2px 1fr;gap:13px;background:var(--fp-bg-1);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);padding:11px 14px}
+.sws-msg i{background:var(--fp-cyan);border-radius:1px}
+.sws-msg .who{font:600 10px var(--fp-f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--fp-cyan)}
+.sws-msg .tx{color:var(--fp-text-dim);font-size:.92rem;line-height:1.55;margin-top:4px}
+.sws-row{display:flex;align-items:baseline;gap:15px;flex-wrap:wrap;margin-top:8px}
+.sws-verdict{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:var(--fp-r-pill);
+  font:600 11px var(--fp-f-body);letter-spacing:.01em;border:1px solid currentColor}
+.sws-verdict::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.sws-verdict.ok{color:var(--fp-green);background:color-mix(in srgb,var(--fp-green) 10%,transparent)}
+.sws-verdict.no{color:var(--fp-red-bright);background:color-mix(in srgb,var(--fp-red-bright) 10%,transparent)}
+.sws-big{font:500 36px/1 var(--fp-f-mono);font-variant-numeric:tabular-nums;color:var(--fp-text);letter-spacing:-.02em}
+.sws-score{font:500 30px/1 var(--fp-f-mono);color:var(--fp-cyan);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.sws-score s{font-size:.72rem;color:var(--fp-text-mute);text-decoration:none;letter-spacing:.06em;margin-left:5px}
+.sws-break{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:1px;
+  background:var(--fp-line);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);overflow:hidden}
 .sws-break li{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;color:var(--fp-text-dim);
-  padding:8px 11px;border-radius:var(--fp-r-md);background:var(--fp-bg-3);border:1px solid var(--fp-line);border-left:3px solid var(--bl,var(--fp-text-mute))}
-.sws-break li b{font-variant-numeric:tabular-nums;font-family:'JetBrains Mono','Consolas',ui-monospace,monospace}
-.sws-tl{position:relative;height:16px;border-radius:var(--fp-r-sm);background:var(--fp-bg-0);border:1px solid var(--fp-line);overflow:hidden;margin-top:11px}
-.sws-tl>i{position:absolute;top:0;bottom:0;opacity:.62}
+  padding:9px 13px;background:var(--fp-bg-2);border-left:2px solid var(--bl,var(--fp-text-mute))}
+.sws-break li b{font-variant-numeric:tabular-nums;font-family:var(--fp-f-mono);color:var(--fp-text)}
+.sws-tl{position:relative;height:14px;border-radius:var(--fp-r-sm);background:var(--fp-bg-1);border:1px solid var(--fp-line);overflow:hidden;margin-top:12px}
+.sws-tl>i{position:absolute;top:0;bottom:0;opacity:.55}
 .sws-tl>b{position:absolute;top:-2px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--fp-text)}
-.sws-tlk{display:flex;gap:13px;flex-wrap:wrap;margin-top:9px;font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--fp-text-mute)}
-.sws-tlk span{display:inline-flex;align-items:center;gap:5px}
+.sws-tlk{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font:500 10px var(--fp-f-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--fp-text-mute)}
+.sws-tlk span{display:inline-flex;align-items:center;gap:6px}
 .sws-tlk i{width:9px;height:9px;border-radius:2px}
-/* --- 8-A: ortak oyun bileşenleri --- */
-.sws-sub{font:700 11px 'JetBrains Mono','Consolas',ui-monospace,monospace;color:var(--fp-text-dim);margin-top:3px}
-.sws-mini{font-size:.86rem;color:var(--fp-text-dim);margin-top:9px;line-height:1.5}
-.sws-mini b{color:var(--fp-text)}
+.sws-sub{font:500 11px var(--fp-f-mono);color:var(--fp-text-dim);margin-top:4px}
+.sws-mini{font-size:.87rem;color:var(--fp-text-dim);margin-top:10px;line-height:1.55}
+.sws-mini b{color:var(--fp-text);font-weight:500}
 /* Stewardle tahmin ızgarası */
-.sws-guess{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-top:8px}
+.sws-guess{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:9px}
 @media(max-width:820px){.sws-guess{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:520px){.sws-guess{grid-template-columns:repeat(2,1fr)}}
-.sws-gc{border-radius:var(--fp-r-md);border:1px solid var(--fp-line);background:var(--fp-bg-3);padding:8px 6px;text-align:center;min-width:0}
-.sws-gc small{display:block;font:700 7.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--fp-text-mute)}
-.sws-gc b{display:block;font:800 13px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--fp-text);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sws-gc i{font:700 10px 'JetBrains Mono',monospace;color:var(--fp-text-mute);font-style:normal}
-.sws-gc.ok{background:color-mix(in srgb,var(--fp-green) 18%,transparent);border-color:color-mix(in srgb,var(--fp-green) 40%,transparent)} .sws-gc.ok b{color:var(--fp-green)}
-.sws-gc.near{background:color-mix(in srgb,var(--fp-amber) 16%,transparent);border-color:color-mix(in srgb,var(--fp-amber) 38%,transparent)} .sws-gc.near b,.sws-gc.near i{color:var(--fp-amber)}
-/* Top Trumps kartı */
-.sws-vs{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:6px}
+.sws-gc{border-radius:var(--fp-r-md);border:1px solid var(--fp-line);background:var(--fp-bg-1);padding:9px 7px;text-align:center;min-width:0}
+.sws-gc small{display:block;font:600 8px var(--fp-f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--fp-text-mute)}
+.sws-gc b{display:block;font:600 13px var(--fp-f-display);color:var(--fp-text);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sws-gc i{font:500 10px var(--fp-f-mono);color:var(--fp-text-mute);font-style:normal}
+.sws-gc.ok{background:color-mix(in srgb,var(--fp-green) 14%,transparent);border-color:color-mix(in srgb,var(--fp-green) 40%,transparent)} .sws-gc.ok b{color:var(--fp-green)}
+.sws-gc.near{background:color-mix(in srgb,var(--fp-amber) 13%,transparent);border-color:color-mix(in srgb,var(--fp-amber) 38%,transparent)} .sws-gc.near b,.sws-gc.near i{color:var(--fp-amber)}
+/* Sıralama Kartları */
+.sws-vs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
 @media(max-width:560px){.sws-vs{grid-template-columns:1fr}}
 .sws-ttc{border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);background:var(--fp-bg-1);overflow:hidden}
-.sws-ttc-hd{padding:10px 13px 8px;background:var(--tc,var(--fp-text-mute))}
-.sws-ttc-hd b{font:800 20px/1 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;color:#fff;letter-spacing:.02em}
-.sws-ttc-hd span{display:block;font-size:.72rem;color:rgba(255,255,255,.82);margin-top:2px}
-.sws-ttr{display:flex;justify-content:space-between;gap:10px;padding:7px 13px;font-size:.85rem;color:var(--fp-text-dim);border-top:1px solid var(--fp-line-soft)}
-.sws-ttr b{font-variant-numeric:tabular-nums;color:var(--fp-text);font-family:'JetBrains Mono',monospace}
-.sws-ttr.hot{background:color-mix(in srgb,var(--fp-amber) 15%,transparent)} .sws-ttr.hot,.sws-ttr.hot b{color:var(--fp-amber)}
+.sws-ttc-hd{padding:11px 14px 9px;background:var(--tc,var(--fp-text-mute))}
+.sws-ttc-hd b{font:600 19px/1.1 var(--fp-f-display);color:#fff;letter-spacing:-.01em}
+.sws-ttc-hd span{display:block;font-size:.72rem;color:rgba(255,255,255,.85);margin-top:3px}
+.sws-ttr{display:flex;justify-content:space-between;gap:10px;padding:8px 14px;font-size:.85rem;color:var(--fp-text-dim);border-top:1px solid var(--fp-line-soft)}
+.sws-ttr b{font-variant-numeric:tabular-nums;color:var(--fp-text);font-family:var(--fp-f-mono)}
+.sws-ttr.hot{background:color-mix(in srgb,var(--fp-amber) 12%,transparent)} .sws-ttr.hot,.sws-ttr.hot b{color:var(--fp-amber)}
 .sws-ttdown{border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);min-height:150px;display:grid;place-items:center;
-  background:repeating-linear-gradient(45deg,var(--fp-bg-1),var(--fp-bg-1) 9px,var(--fp-bg-3) 9px,var(--fp-bg-3) 18px);
-  font:800 12px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.14em;color:var(--fp-text-mute)}
+  background:var(--fp-bg-1);font:600 12px var(--fp-f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--fp-text-mute)}
 /* kurallar / primer */
-.sws-rules{list-style:none;margin:11px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
-.sws-rules li{display:grid;grid-template-columns:auto 1fr;gap:9px;font-size:.9rem;color:var(--fp-text-dim);line-height:1.45}
-.sws-rules li b{font:800 11px 'JetBrains Mono',monospace;color:var(--fp-cyan);white-space:nowrap}
+.sws-rules{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.sws-rules li{display:grid;grid-template-columns:auto 1fr;gap:10px;font-size:.9rem;color:var(--fp-text-dim);line-height:1.5}
+.sws-rules li b{font:500 11px var(--fp-f-mono);color:var(--fp-cyan);white-space:nowrap}
 /* hub oyuncu profili */
-.sws-prof{border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);padding:14px 17px;
-  background:linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-1));display:grid;grid-template-columns:1fr auto;
-  gap:5px 22px;align-items:center;position:relative;overflow:hidden}
-.sws-prof::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pc,var(--fp-cyan))}
-.sws-prof .rk{font:800 20px/1 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;color:var(--pc,var(--fp-cyan))}
-.sws-prof .tl{font:700 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--fp-text-mute);margin-top:2px}
-.sws-prof .ss{display:flex;gap:20px}
+.sws-prof{border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);padding:15px 18px;
+  background:var(--fp-bg-2);display:grid;grid-template-columns:1fr auto;
+  gap:6px 22px;align-items:center;position:relative;border-left:2px solid var(--pc,var(--fp-cyan))}
+.sws-prof .rk{font:600 18px/1.1 var(--fp-f-display);letter-spacing:-.01em;color:var(--fp-text)}
+.sws-prof .tl{font:500 11px var(--fp-f-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--fp-text-mute);margin-top:3px}
+.sws-prof .ss{display:flex;gap:22px}
 .sws-prof .ss div{display:flex;flex-direction:column;align-items:flex-end}
-.sws-prof .ss b{font:700 17px 'JetBrains Mono',monospace;color:var(--fp-text);font-variant-numeric:tabular-nums}
-.sws-prof .ss span{font:700 8.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.12em;color:var(--fp-text-mute)}
-.sws-prof .bar{grid-column:1/-1;height:4px;border-radius:999px;background:var(--fp-bg-0);overflow:hidden;margin-top:5px}
+.sws-prof .ss b{font:500 17px var(--fp-f-mono);color:var(--fp-text);font-variant-numeric:tabular-nums}
+.sws-prof .ss span{font:600 8.5px var(--fp-f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--fp-text-mute)}
+.sws-prof .bar{grid-column:1/-1;height:3px;border-radius:var(--fp-r-pill);background:var(--fp-bg-1);overflow:hidden;margin-top:6px}
 .sws-prof .bar i{display:block;height:100%;background:var(--pc,var(--fp-cyan))}
 /* --- podyum sahnesi (fotoğraflı) --- */
-.sws-pod{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin-top:15px}
+.sws-pod{display:flex;align-items:flex-end;justify-content:center;gap:14px;margin-top:16px}
 .sws-pod .st{flex:1 1 0;max-width:158px;display:flex;flex-direction:column;align-items:center;text-align:center}
-.sws-pod .ph{width:100%;max-width:104px;aspect-ratio:1/1;border-radius:var(--fp-r-lg);overflow:hidden;
-  border:2px solid var(--pc,var(--fp-text-mute));background:var(--fp-bg-1);display:grid;place-items:center}
+.sws-pod .ph{width:100%;max-width:104px;aspect-ratio:1/1;border-radius:var(--fp-r-md);overflow:hidden;
+  border:1px solid var(--pc,var(--fp-line));background:var(--fp-bg-1);display:grid;place-items:center}
 .sws-pod .ph img{width:100%;height:100%;object-fit:cover;object-position:top center}
-.sws-pod .ph b{font:800 27px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--pc,var(--fp-text-mute))}
-.sws-pod .nm{font:800 12.5px/1.15 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;margin-top:8px;color:var(--fp-text)}
-.sws-pod .tm{font:700 8.5px 'JetBrains Mono','Consolas',ui-monospace,monospace;color:var(--fp-text-dim);margin-top:3px}
-.sws-pod .base{width:100%;margin-top:9px;border-radius:6px 6px 0 0;
-  background:linear-gradient(180deg,var(--pc,var(--fp-text-mute)),var(--fp-bg-1));box-shadow:inset 0 0 0 1px var(--fp-line);
-  display:grid;place-items:center;font:800 21px 'Saira Condensed','Arial Narrow',sans-serif;color:#fff}
-.sws-pod .p1 .base{height:64px}.sws-pod .p2 .base{height:44px}.sws-pod .p3 .base{height:30px}
-.sws-pod .hit{margin-top:7px;font:800 8px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.11em;
-  text-transform:uppercase;padding:3px 8px;border-radius:99px}
-.sws-pod .hit.ok{background:color-mix(in srgb,var(--fp-green) 16%,transparent);color:var(--fp-green)}
-.sws-pod .hit.mid{background:color-mix(in srgb,var(--fp-amber) 16%,transparent);color:var(--fp-amber)}
-.sws-pod .hit.no{background:color-mix(in srgb,var(--fp-red-bright) 13%,transparent);color:var(--fp-red-bright)}
-@media(max-width:560px){.sws-pod .nm{font-size:11px}.sws-pod .ph b{font-size:20px}}
+.sws-pod .ph b{font:600 26px var(--fp-f-display);color:var(--pc,var(--fp-text-mute))}
+.sws-pod .nm{font:600 13px/1.2 var(--fp-f-display);letter-spacing:-.01em;margin-top:9px;color:var(--fp-text)}
+.sws-pod .tm{font:500 9px var(--fp-f-mono);letter-spacing:.04em;color:var(--fp-text-dim);margin-top:3px}
+.sws-pod .base{width:100%;margin-top:10px;border-radius:4px 4px 0 0;
+  background:var(--pc,var(--fp-bg-3));box-shadow:inset 0 0 0 1px var(--fp-line);
+  display:grid;place-items:center;font:600 20px var(--fp-f-mono);color:#fff}
+.sws-pod .p1 .base{height:60px}.sws-pod .p2 .base{height:42px}.sws-pod .p3 .base{height:28px}
+.sws-pod .hit{margin-top:8px;font:600 8.5px var(--fp-f-mono);letter-spacing:.06em;
+  text-transform:uppercase;padding:3px 8px;border-radius:var(--fp-r-pill)}
+.sws-pod .hit.ok{background:color-mix(in srgb,var(--fp-green) 14%,transparent);color:var(--fp-green)}
+.sws-pod .hit.mid{background:color-mix(in srgb,var(--fp-amber) 14%,transparent);color:var(--fp-amber)}
+.sws-pod .hit.no{background:color-mix(in srgb,var(--fp-red-bright) 12%,transparent);color:var(--fp-red-bright)}
+@media(max-width:560px){.sws-pod .nm{font-size:12px}.sws-pod .ph b{font-size:20px}}
 /* --- rozet ızgarası (tahmin oyunu) --- */
 .sws-badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:7px;margin-top:11px}
 .sws-badge{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--fp-line);border-radius:var(--fp-r-md);
@@ -11135,7 +11138,7 @@ render_games_hub = render_games_hub_v30
 
 st.markdown(r"""
 <style>
-.pit-person-v30{min-height:120px!important;margin-top:8px!important}.pit-name-v30{font-size:1.18rem;font-weight:950;color:var(--fp-text);margin:8px 0 5px}.engine-banner-v30{margin-bottom:14px!important}.engine-title-v30{font-size:1.35rem;font-weight:950;color:var(--fp-text);margin:5px 0}.grid-question-v30{border-left:5px solid #f7c948!important;margin-top:14px!important}.grid-prompt-v30{font-size:1.25rem;font-weight:950;margin-top:12px}.grid-clue-v30{font-size:.94rem;color:var(--fp-muted);margin-top:9px;padding:10px;border-radius:9px;background:color-mix(in srgb,var(--fp-panel2) 75%,#f7c948 8%)}.grid-progress-v30{height:7px;background:var(--fp-panel2);border-radius:99px;margin-top:15px;overflow:hidden}.grid-progress-v30 i{display:block;height:100%;background:linear-gradient(90deg,#f7c948,#ff385c);border-radius:99px}.game-card-v24{transition:transform .15s ease,border-color .15s ease;display:flex;flex-direction:column;min-height:196px!important}.game-card-v24:hover{transform:translateY(-2px)}
+.pit-person-v30{min-height:120px!important;margin-top:8px!important}.pit-name-v30{font:600 18px var(--fp-f-display);letter-spacing:-.01em;color:var(--fp-text);margin:8px 0 5px}.engine-banner-v30{margin-bottom:14px!important}.engine-title-v30{font:600 21px var(--fp-f-display);letter-spacing:-.015em;color:var(--fp-text);margin:5px 0}.grid-question-v30{border-left:2px solid var(--fp-amber)!important;margin-top:14px!important}.grid-prompt-v30{font:600 20px var(--fp-f-display);letter-spacing:-.01em;margin-top:12px}.grid-clue-v30{font-size:.94rem;color:var(--fp-text-dim);margin-top:9px;padding:11px 13px;border-radius:var(--fp-r-md);background:var(--fp-bg-1);border:1px solid var(--fp-line)}.grid-progress-v30{height:4px;background:var(--fp-bg-1);border-radius:var(--fp-r-pill);margin-top:15px;overflow:hidden}.grid-progress-v30 i{display:block;height:100%;background:var(--fp-cyan);border-radius:var(--fp-r-pill)}.game-card-v24{transition:border-color .14s ease;display:flex;flex-direction:column;min-height:196px!important}
 .game-card-v24 .history-copy{min-height:3.9em}
 .game-card-v24 .sws-stats{margin-top:auto;padding-top:11px}
 [data-testid="stHorizontalBlock"]:has(.game-card-v24) [data-testid="column"]{align-self:stretch}

@@ -217,12 +217,12 @@ abbr.fp-term,.fp-term{text-decoration:none;border-bottom:1px dotted var(--fp-cya
 abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix(in srgb,var(--fp-cyan) 12%,transparent)}
 
 /* ---- kırıntı yolu (breadcrumb) ---- */
-.fp-crumb{display:flex;flex-wrap:wrap;align-items:center;gap:.15rem;margin:2px 0 10px;
-  font:600 11px/1.4 var(--fp-f-mono);letter-spacing:.07em;text-transform:uppercase}
+.fp-crumb{display:flex;flex-wrap:wrap;align-items:center;gap:.2rem;margin:2px 0 12px;
+  font:500 11.5px/1.4 var(--fp-f-body);letter-spacing:.005em;text-transform:none}
 .fp-crumb a{color:var(--fp-text-mute);text-decoration:none;transition:color .12s ease}
-.fp-crumb a:hover{color:var(--fp-cyan)}
+.fp-crumb a:hover{color:var(--fp-text)}
 .fp-crumb span{color:var(--fp-text-dim)}
-.fp-crumb i{color:var(--fp-line);font-style:normal;padding:0 .35rem}
+.fp-crumb i{color:var(--fp-line-2);font-style:normal;padding:0 .3rem}
 
 /* ---- site ayağı (footer) ---- */
 .fp-foot{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1.2rem;
@@ -245,152 +245,117 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
   padding-bottom:14px;border-bottom:1px solid var(--fp-line);margin-bottom:8px}
 .fp-page-header h1{font-weight:600;font-size:28px;text-transform:none;letter-spacing:-.02em;line-height:1.1;margin:7px 0 0}
 .fp-page-header .sub{color:var(--fp-text-dim);font-size:13.5px;margin-top:7px;max-width:62ch;line-height:1.55}
-.fp-badge{font-family:var(--fp-f-mono);font-size:11px;font-weight:700;letter-spacing:.08em;
-  padding:5px 10px;border-radius:var(--fp-r-sm);white-space:nowrap;
-  background:var(--fp-bg-3);border:1px solid var(--fp-line);color:var(--fp-text-dim)}
+.fp-badge{font:600 11px var(--fp-f-mono);letter-spacing:.06em;
+  padding:5px 10px;border-radius:var(--fp-r-pill);white-space:nowrap;
+  background:var(--fp-bg-2);border:1px solid var(--fp-line);color:var(--fp-text-dim)}
 .fp-badge.live{background:color-mix(in srgb,var(--fp-green) 12%,transparent);border-color:color-mix(in srgb,var(--fp-green) 40%,transparent);color:var(--fp-green)}
 .fp-badge.wait{background:color-mix(in srgb,var(--fp-amber) 10%,transparent);border-color:color-mix(in srgb,var(--fp-amber) 35%,transparent);color:var(--fp-amber)}
 
-/* ---- Yayın Arayüzü (Faz 13): pahlı köşe + nokta-matris DEVRE DIŞI ----
-   Eski `.fp-*` bileşenleri bu değişkenleri hâlâ okuyor; nötrleştirildi
-   (köşe = düz, desen = yok). Faz 15 bileşenleri tamamen yeniden yazacak. */
-:root{
-  --fp-cham:0px;
-  --fp-dot:none;
-  --fp-dot-size:0 0;
-  --fp-tgrid:none;
-  --fp-tgrid-size:0 0;
-}
+/* ============================================================
+   YAYIN ARAYÜZÜ (Faz 15) — .fp-* bileşen katmanı
+   İnce hat + net panel, Inter/Mono, aksan yalnız ince detayda.
+   Pahlı köşe / nokta-matris / kalın aksan rayı yok.
+   ============================================================ */
+:root{--fp-cham:0px;--fp-dot:none;--fp-dot-size:0 0;--fp-tgrid:none;--fp-tgrid-size:0 0}
 .fp-cut{clip-path:none}
 
-/* ---- HUD kart (pit-duvarı kanalı) ---- */
-.fp-hud{position:relative;padding:15px 17px;
-  background-color:var(--fp-bg-2);background-image:var(--fp-dot);background-size:var(--fp-dot-size);
-  clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham));
-  box-shadow:inset 0 0 0 1px var(--fp-line), inset 3px 0 0 var(--accent,var(--fp-red))}
-.fp-hud .lbl{font-family:var(--fp-f-mono);font-weight:700;font-size:11px;letter-spacing:.15em;text-transform:uppercase;
-  color:var(--fp-text-mute);display:flex;align-items:center;gap:7px}
-.fp-hud .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent,var(--fp-red));
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,var(--fp-red)) 20%,transparent);flex:0 0 auto}
-.fp-hud .val{font-family:var(--fp-f-display);font-weight:700;font-size:22px;text-transform:uppercase;letter-spacing:.02em;margin-top:9px;color:var(--fp-text)}
-.fp-hud .cpy{color:var(--fp-text-dim);font-size:13px;margin-top:8px}
+/* ortak panel */
+.fp-hud,.fp-tile,.fp-state,.fp-note,.hud-card,.metric-card,.driver-card,.news-card{
+  background:var(--fp-bg-2) !important;background-image:none !important;
+  border:1px solid var(--fp-line) !important;border-radius:var(--fp-r-lg) !important;
+  clip-path:none !important;box-shadow:none !important}
+.hud-card:hover,.metric-card:hover,.driver-card:hover{
+  transform:none !important;border-color:var(--fp-line-2) !important}
 
-/* ---- pit ızgarası (yan yana widget'lar — yeni fp_ui.pit_grid) ---- */
+/* ---- HUD kart ---- */
+.fp-hud{position:relative;padding:16px 18px}
+.fp-hud .lbl{font:600 11px/1.3 var(--fp-f-mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--fp-text-mute);display:flex;align-items:center;gap:8px}
+.fp-hud .lbl::before{content:"";width:6px;height:6px;border-radius:50%;flex:0 0 auto;
+  background:var(--accent,var(--fp-cyan))}
+.fp-hud .val{font:600 22px/1.15 var(--fp-f-display);letter-spacing:-.01em;margin-top:10px;color:var(--fp-text)}
+.fp-hud .cpy{color:var(--fp-text-dim);font-size:13px;margin-top:8px;line-height:1.55}
+
 .fp-pit{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:6px 0 2px}
 
-/* ---- Oyun Merkezi kartları — pit-duvarı diline uydur (--gc: oyun rengi) ---- */
+/* ---- Oyun Merkezi kartları (--gc: oyun rengi — yalnız ince sol çizgi) ---- */
 .hud-card.game-card-v24,.hud-card.game-choice-v19{
-  border:none !important;border-radius:0 !important;
-  background-color:var(--fp-bg-2) !important;background-image:var(--fp-dot) !important;background-size:var(--fp-dot-size) !important;
-  clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham));
-  box-shadow:inset 0 0 0 1px var(--fp-line), inset 3px 0 0 var(--gc,var(--fp-red)) !important;
-  transform:none !important}
+  position:relative;border-left:2px solid var(--gc,var(--fp-cyan)) !important;transition:border-color .14s ease}
 .hud-card.game-card-v24:hover,.hud-card.game-choice-v19:hover{
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gc,var(--fp-red)) 45%,var(--fp-line)), inset 3px 0 0 var(--gc,var(--fp-red)) !important}
+  border-color:var(--fp-line-2) !important;border-left-color:var(--gc,var(--fp-cyan)) !important}
 .hud-card.game-card-v24 .hud-label,.hud-card.game-choice-v19 .hud-label{
-  font-family:var(--fp-f-mono);letter-spacing:.16em;color:var(--gc,var(--fp-text-mute)) !important}
-
-/* ---- eski kartlar (.hud-card / .driver-card / .news-card / .metric-card) ----
-   Tek dile getir: pahlı köşe + nokta zemin + iç çerçeve. Satır-içi accent
-   border'lar (border-left/top) çoğunlukla görünür kalır (yalnız kesik köşe kırpılır);
-   drop-shadow clip-path ile bozulacağı için iç çerçeveye çevrildi. */
-.hud-card,.metric-card,.driver-card,.news-card{
-  border-radius:0 !important;
-  clip-path:polygon(11px 0,100% 0,100% calc(100% - 11px),calc(100% - 11px) 100%,0 100%,0 11px);
-  background:var(--fp-bg-2) !important;
-  background-image:var(--fp-dot) !important;background-size:var(--fp-dot-size) !important;
-  box-shadow:inset 0 0 0 1px var(--fp-line) !important}
-.hud-card:hover,.metric-card:hover,.driver-card:hover{transform:none !important;box-shadow:inset 0 0 0 1px var(--fp-line) !important}
+  font:600 11px var(--fp-f-mono) !important;letter-spacing:.1em !important;text-transform:uppercase !important;
+  color:var(--fp-text-mute) !important}
 
 /* ---- stat tile ---- */
-.fp-tile{position:relative;background-color:var(--fp-bg-2);
-  background-image:var(--fp-dot);background-size:11px 11px;
-  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
-  box-shadow:inset 0 0 0 1px var(--fp-line-soft), inset 3px 0 0 var(--accent,var(--fp-cyan));
-  padding:12px 15px;height:100%;min-height:96px;display:flex;flex-direction:column;justify-content:flex-start}
-.fp-tile .lbl{font-family:var(--fp-f-mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fp-text-mute);
+.fp-tile{position:relative;border-left:2px solid var(--accent,var(--fp-cyan)) !important;
+  padding:14px 16px;height:100%;min-height:92px;display:flex;flex-direction:column}
+.fp-tile .lbl{font:600 10px var(--fp-f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--fp-text-mute);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fp-tile .val{font-family:var(--fp-f-mono);font-weight:700;font-size:18px;letter-spacing:-.01em;
-  margin-top:7px;color:var(--fp-text);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fp-tile .val.txt{font-family:var(--fp-f-display);font-size:15.5px;letter-spacing:.01em;text-transform:uppercase;
-  line-height:1.15;white-space:normal;overflow:hidden;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:auto;padding-top:4px;line-height:1.3;
+.fp-tile .val{font:500 18px/1.2 var(--fp-f-mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+  margin-top:8px;color:var(--fp-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fp-tile .val.txt{font:600 15px/1.25 var(--fp-f-display);letter-spacing:-.01em;text-transform:none;
+  white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.fp-tile .sub{font-size:11px;color:var(--fp-text-dim);margin-top:auto;padding-top:6px;line-height:1.4;
   overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
-/* ---- data-state (pit-duvarı konsolu) ---- */
-.fp-state{position:relative;padding:14px 18px;
-  background-color:var(--fp-bg-2);background-image:var(--fp-tgrid);background-size:var(--fp-tgrid-size);
-  clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham));
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sc,var(--fp-cyan)) 42%,var(--fp-line)), inset 3px 0 0 var(--sc,var(--fp-cyan))}
-.fp-state .st{font-family:var(--fp-f-mono);font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--sc,var(--fp-cyan));display:flex;align-items:center;gap:7px}
-.fp-state .st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--sc,var(--fp-cyan));
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--sc,var(--fp-cyan)) 22%,transparent);flex:0 0 auto}
-.fp-state .sc{font-size:13px;color:var(--fp-text-dim);margin-top:7px;line-height:1.5}
-.fp-state::after{content:"";position:absolute;right:8px;bottom:8px;width:12px;height:12px;
-  border-right:2px solid var(--sc,var(--fp-cyan));border-bottom:2px solid var(--sc,var(--fp-cyan));opacity:.5}
+/* ---- data-state ---- */
+.fp-state{position:relative;padding:14px 17px;border-left:2px solid var(--sc,var(--fp-cyan)) !important}
+.fp-state .st{font:600 11px var(--fp-f-mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--sc,var(--fp-cyan));display:flex;align-items:center;gap:8px}
+.fp-state .st::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--sc,var(--fp-cyan));flex:0 0 auto}
+.fp-state .sc{font-size:13px;color:var(--fp-text-dim);margin-top:8px;line-height:1.55}
 
 /* ---- result hero (yarış bitti) ---- */
-.fp-result{background:
-    radial-gradient(120% 130% at 8% 0%, color-mix(in srgb,var(--tc) 22%,transparent), transparent 60%),
-    linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));
-  border:1px solid var(--fp-line);border-left:5px solid var(--tc);border-radius:var(--fp-r-md);
-  padding:16px 24px;box-shadow:var(--fp-shadow)}
-.fp-result .eb{font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--fp-text-mute)}
-.fp-result .nm{font-family:var(--fp-f-display);font-weight:800;font-size:36px;line-height:1;text-transform:uppercase;margin-top:8px}
-.fp-result .nm b{color:var(--tc)}
-.fp-result .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
-.fp-result .team{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fp-text-dim)}
-.fp-result .gap{font-family:var(--fp-f-mono);font-weight:700;font-size:13px;padding:6px 11px;border-radius:var(--fp-r-sm);
-  background:var(--fp-bg-0);border:1px solid var(--fp-line);color:var(--fp-text)}
-.fp-result .gap span{color:var(--fp-text-mute);font-weight:500;margin-right:6px}
-.fp-result .next{font-family:var(--fp-f-mono);font-size:12px;color:var(--fp-text-dim)}
-.fp-result .next b{color:var(--fp-text)}
+.fp-result{background:var(--fp-bg-2);border:1px solid var(--fp-line);
+  border-left:2px solid var(--tc);border-radius:var(--fp-r-lg);padding:18px 22px;box-shadow:var(--fp-shadow)}
+.fp-result .eb{font:600 11px var(--fp-f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-result .nm{font:600 30px/1.1 var(--fp-f-display);letter-spacing:-.02em;text-transform:none;margin-top:10px}
+.fp-result .nm b{color:var(--tc);font-weight:600}
+.fp-result .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.fp-result .team{font:500 11px var(--fp-f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--fp-text-dim)}
+.fp-result .gap{font:500 12px var(--fp-f-mono);font-variant-numeric:tabular-nums;padding:5px 10px;
+  border-radius:var(--fp-r-sm);background:var(--fp-bg-1);border:1px solid var(--fp-line);color:var(--fp-text)}
+.fp-result .gap span{color:var(--fp-text-mute);margin-right:6px}
+.fp-result .next{font:500 12px var(--fp-f-mono);color:var(--fp-text-dim)}
+.fp-result .next b{color:var(--fp-text);font-weight:500}
 
 /* ---- news card ---- */
-.fp-news{background:var(--fp-bg-2);border:1px solid var(--fp-line-soft);border-radius:var(--fp-r-md);
-  overflow:hidden;display:flex;flex-direction:column;height:100%}
-.fp-news .ph{height:110px;background:linear-gradient(135deg,#1a2433,#101722);display:flex;
-  align-items:center;justify-content:center;font-family:var(--fp-f-display);font-weight:800;
-  color:#2b3a4d;font-size:24px;letter-spacing:.1em}
+.fp-news{background:var(--fp-bg-2);border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);
+  overflow:hidden;display:flex;flex-direction:column;height:100%;transition:border-color .14s ease}
+.fp-news:hover{border-color:var(--fp-line-2)}
+.fp-news .ph{height:120px;background:var(--fp-bg-3);display:flex;align-items:center;justify-content:center;
+  font:600 22px var(--fp-f-display);color:var(--fp-text-mute);letter-spacing:.02em}
 .fp-news .ph img{width:100%;height:100%;object-fit:cover}
-.fp-news .bd{padding:12px 15px;display:flex;flex-direction:column;gap:6px;flex:1}
-.fp-news .src{font-family:var(--fp-f-mono);font-size:11px;letter-spacing:.05em;color:var(--fp-red-bright);text-transform:uppercase}
-.fp-news .hl{font-family:var(--fp-f-display);font-weight:700;font-size:15px;line-height:1.25}
-.fp-news .ex{font-size:12px;color:var(--fp-text-dim);flex:1}
-.fp-news .lk{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+.fp-news .bd{padding:14px 16px;display:flex;flex-direction:column;gap:7px;flex:1}
+.fp-news .src{font:600 10.5px var(--fp-f-mono);letter-spacing:.06em;color:var(--fp-red-bright);text-transform:uppercase}
+.fp-news .hl{font:600 15px/1.35 var(--fp-f-display);letter-spacing:-.01em;color:var(--fp-text)}
+.fp-news .ex{font-size:12.5px;color:var(--fp-text-dim);flex:1;line-height:1.5}
+.fp-news .lk{font:600 11px var(--fp-f-mono);letter-spacing:.05em;text-transform:uppercase;
   color:var(--fp-cyan);text-decoration:none}
 
-/* ---- mini not (seans ozeti vb.) ---- */
-.fp-note{position:relative;padding:11px 14px;height:100%;font-size:12.5px;color:var(--fp-text-dim);line-height:1.5;
-  background-color:var(--fp-bg-2);background-image:var(--fp-dot);background-size:12px 12px;
-  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
-  box-shadow:inset 0 0 0 1px var(--fp-line-soft), inset 3px 0 0 var(--nc,var(--fp-cyan))}
+/* ---- mini not ---- */
+.fp-note{position:relative;padding:12px 15px;height:100%;font-size:12.5px;color:var(--fp-text-dim);line-height:1.55;
+  border-left:2px solid var(--nc,var(--fp-cyan)) !important}
 .fp-notes-grid{display:grid;grid-template-columns:repeat(var(--per,3),1fr);gap:10px;margin:4px 0 2px}
 .fp-notes-grid .fp-note{height:100%}
 @media(max-width:760px){.fp-notes-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.fp-notes-grid{grid-template-columns:1fr}}
 
-/* ---- Streamlit yerel uyarıları (st.info / warning / success / error) ----
-   Hepsi pit-duvarı kanalına dönüşür; renk = yarış bayrağı. */
+/* ---- Streamlit yerel uyarıları — ince sol bayrak çizgisi, düz panel ---- */
 [data-testid="stAlert"]{background:none !important;border:none !important;box-shadow:none !important;padding:0 !important}
 [data-testid="stAlertContainer"]{
   --fp-flag:var(--fp-cyan);
-  position:relative;border:none !important;border-radius:0 !important;
-  background-color:var(--fp-bg-2) !important;background-image:var(--fp-dot) !important;background-size:var(--fp-dot-size) !important;
-  clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham));
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--fp-flag) 40%,var(--fp-line)), inset 3px 0 0 var(--fp-flag) !important;
-  color:var(--fp-text) !important;padding:13px 17px 13px 19px !important}
+  position:relative;border:1px solid var(--fp-line) !important;border-left:2px solid var(--fp-flag) !important;
+  border-radius:var(--fp-r-md) !important;background:var(--fp-bg-2) !important;background-image:none !important;
+  clip-path:none !important;box-shadow:none !important;
+  color:var(--fp-text) !important;padding:13px 16px !important}
 [data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]){--fp-flag:var(--fp-amber)}
 [data-testid="stAlertContainer"]:has([data-testid="stAlertContentSuccess"]){--fp-flag:var(--fp-green)}
 [data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]){--fp-flag:var(--fp-pink)}
 [data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]){--fp-flag:var(--fp-cyan)}
 [data-testid="stAlertContainer"] p,[data-testid="stAlertContainer"] li{color:var(--fp-text) !important}
 [data-testid="stAlertContainer"] [data-testid="stMarkdownContainer"]{color:var(--fp-text) !important}
-/* köşe braketi (alt-sağ) */
-[data-testid="stAlertContainer"]::after{content:"";position:absolute;right:7px;bottom:7px;width:12px;height:12px;
-  border-right:2px solid var(--fp-flag);border-bottom:2px solid var(--fp-flag);opacity:.45;pointer-events:none}
 
 /* ---- haber kart grid'i (st.columns yerine — satirdaki kartlar esit yukseklik) ---- */
 .fp-news-grid{display:grid;grid-template-columns:repeat(var(--per,2),1fr);gap:14px;
