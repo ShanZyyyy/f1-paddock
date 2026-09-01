@@ -46,16 +46,21 @@ def _display_name(entry) -> str:
     return str(entry)
 
 
+_CODE_STOPWORDS = {"ver", "alo", "law", "ric", "per", "bot", "hul", "col",
+                   "sai", "alb", "lin", "gas", "ant", "oco", "str", "bor"}
+
+
 def _build_extractor() -> EntityExtractor:
     drivers = dict(careers.all_driver_names())          # bundled JSON: tam adlar
     for code, entry in DRIVER_DISPLAY.items():
         disp = _display_name(entry)                     # "L. Hamilton"
-        # bundled adla eşleştir (soyad üzerinden), yoksa kısa adı kullan
         surname = disp.split()[-1].lower()
         canonical = next((v for v in drivers.values()
                           if v.lower().split()[-1] == surname), disp)
-        drivers[code.lower()] = canonical
         drivers[surname] = canonical
+        # 3-harf kod ANCAK Türkçe kelimeyle çakışmıyorsa anahtar olur
+        if code.lower() not in _CODE_STOPWORDS:
+            drivers[code.lower()] = canonical
     teams = {t.lower(): t for t in _CANON_TEAMS_2026}
     return EntityExtractor(driver_names=drivers, team_names=teams,
                            team_aliases=TEAM_NAME_ALIASES)
@@ -87,24 +92,25 @@ def _retrieve(name, ent, u, live, this_year):
         return templates.champion(d) if d else None
 
     if name == "RACE_RESULT":
-        year = ent.year or this_year
-        if ent.gp and year < this_year:
-            d = history_db.race_result(year, ent.gp, ent.metrics)
-            if d:
-                return templates.race_result(d)
-        # güncel/son yarış -> canlı veri
+        # Belirli bir geçmiş yıl istendi -> yalnız tarih DB'si. Başka bir yılın
+        # yarışını ASLA yerine koyma.
+        if ent.year and ent.year < this_year:
+            if not ent.gp:
+                return None
+            d = history_db.race_result(ent.year, ent.gp, ent.metrics)
+            return templates.race_result(d) if d else None
+        # yıl yok / bu sezon -> canlı "en son yarışılan" verisi
         frag = ent.gp or ""
         ed = live.last_edition(frag, this_year) if frag else None
         if ed:
             return templates.race_result({
-                "season": ed.get("year", year), "race": ed.get("event", frag),
+                "season": ed.get("year", this_year), "race": ed.get("event", frag),
                 "circuit": ed.get("circuit", ""), "date": "",
                 "winner": ed.get("winner"), "pole": ed.get("pole"),
                 "podium": ed.get("podium", []), "metrics": ent.metrics,
                 "source": ed.get("source", "Hafta Sonu Merkezi · FastF1")})
-        # geçmiş DB'yi son çare dene
-        if ent.gp:
-            d = history_db.race_result(year, ent.gp, ent.metrics)
+        if ent.gp:  # tarih DB'si son çare
+            d = history_db.race_result(ent.year or this_year, ent.gp, ent.metrics)
             if d:
                 return templates.race_result(d)
         return None
@@ -137,14 +143,12 @@ def _retrieve(name, ent, u, live, this_year):
 
     if name == "NEXT_RACE":
         cal = live.calendar(this_year) or []
-        now = datetime.datetime.now(datetime.timezone.utc)
-        for ev in cal:
-            try:
-                dt = datetime.datetime.fromisoformat(str(ev["date"]).replace("Z", "+00:00"))
-            except (ValueError, KeyError):
-                continue
-            if dt > now:
-                return templates.next_race(ev)
+        today = datetime.date.today().isoformat()
+        upcoming = [ev for ev in cal if str(ev.get("date", ""))[:10] >= today]
+        if upcoming:
+            return templates.next_race(upcoming[0])
+        if cal:  # sezon bitti -> son yarış
+            return templates.next_race(cal[-1])
         return None
 
     if name == "RECORD":

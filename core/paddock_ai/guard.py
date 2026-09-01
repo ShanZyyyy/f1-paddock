@@ -28,6 +28,9 @@ _F1_KEYWORDS = (
     "takim", "yaris", "sezon", "puan durumu", "klasman", "kokpit",
     "sprint", "quali", "fia", "paddock", "circuit", "pist", "tur ",
     "undercut", "drs", "ers", "safety car", "guvenlik araci",
+    "lider", "kim onde", "puanlar", "kazanan", "kazandi", "galip",
+    "guncelleme", "upgrade", "aero", "kanat", "difuzor", "zemin",
+    "tahmin puanim", "sampiyonlar", "rekor", "dunya birincisi",
 )
 
 

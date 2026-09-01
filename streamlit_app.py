@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import openf1_fallback
+from core import paddock_ai
 
 # Yeniden yapilandirma (redesign) — tasarim sistemi
 from core import ui as fp_ui
@@ -3818,217 +3819,6 @@ def race_intelligence_hud_html_v19(info):
     """
 
 
-def _normalise_question_v19(value):
-    text = str(value or '').lower().strip()
-    replacements = str.maketrans({'ı': 'i', 'İ': 'i', 'ş': 's', 'Ş': 's', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u', 'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c'})
-    return text.translate(replacements)
-
-
-def _driver_from_question_v19(question):
-    clean = _normalise_question_v19(question)
-    for details in TEAM_DIRECTORY_2026.values():
-        for name, code, *_ in details.get('drivers', []):
-            full = _normalise_question_v19(name)
-            surname = full.split()[-1] if full else ''
-            if f' {code.lower()} ' in f' {clean} ' or (surname and surname in clean):
-                return code
-    return None
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_paddock_context_v19(year):
-    """Asistanın yalnızca doğrulanmış uygulama verisine yaslanacağı küçük bağlam paketi."""
-    latest = get_latest_completed_session(int(year))
-    if not latest:
-        return {'ok': False, 'reason': 'Tamamlanmış bir seans bulunamadı.'}
-    table, _ = get_session_results_table(latest['year'], latest['event_name'], latest['session_code'])
-    story = get_session_story(latest['year'], latest['event_name'], latest['session_code'])
-    return {
-        'ok': not table.empty,
-        'latest': latest,
-        'rows': table.fillna('—').to_dict('records') if not table.empty else [],
-        'story': story,
-    }
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_assistant_session_context_v20(year, event_name, session_code):
-    """Asistanın pole/galip sorusunda doğru seans tablosunu kullanır."""
-    table, _ = get_session_results_table(int(year), event_name, session_code)
-    if table is None or table.empty:
-        return []
-    return table.fillna('—').to_dict('records')
-
-
-def local_f1_history_answer_v20(question):
-    """İnternet veya AI anahtarı olmadan verilebilecek birkaç kesin tarihsel yanıt."""
-    text = _normalise_question_v19(question)
-    if '6 sampiyon' in text or '6 kez sampiyon' in text:
-        return (
-            'F1 tarihinde altı kez dünya şampiyonu olan pilot yok. Rekor yedi şampiyonlukla '
-            'Lewis Hamilton ve Michael Schumacher’e ait; Juan Manuel Fangio beş kez şampiyon oldu.'
-        )
-    if 'hamilton' in text and any(word in text for word in ['sampiyon', 'sampiyonluk']):
-        return 'Lewis Hamilton yedi kez Formula 1 dünya şampiyonu oldu.'
-    if 'schumacher' in text and any(word in text for word in ['sampiyon', 'sampiyonluk']):
-        return 'Michael Schumacher yedi kez Formula 1 dünya şampiyonu oldu.'
-    return ''
-
-
-def configured_openai_api_key():
-    """Anahtar yoksa uygulama tamamen yerel/FastF1 veri asistanı olarak kalır."""
-    value = os.getenv('OPENAI_API_KEY', '').strip()
-    if value:
-        return value
-    try:
-        return str(st.secrets.get('OPENAI_API_KEY', '')).strip()
-    except Exception:
-        return ''
-
-
-def extract_response_text(response_body):
-    """Responses API'nin ham JSON çıktısından yalnızca görünen metni alır."""
-    texts = []
-    for item in response_body.get('output', []) if isinstance(response_body, dict) else []:
-        if item.get('type') != 'message':
-            continue
-        for content in item.get('content', []):
-            if content.get('type') == 'output_text' and content.get('text'):
-                texts.append(str(content['text']))
-    return '\n'.join(texts).strip()
-
-
-def openai_paddock_reply(question, context):
-    """İsteğe bağlı gerçek ChatGPT katmanı. Yarış sonuçlarında FastF1 her zaman önceliklidir."""
-    api_key = configured_openai_api_key()
-    if not api_key:
-        return None, 'OpenAI anahtarı bağlı değil'
-    latest = context.get('latest', {})
-    rows = context.get('rows', [])[:24]
-    verified_context = {
-        'last_completed_session': {
-            'event': latest.get('event_name'),
-            'session': latest.get('display_name'),
-            'year': latest.get('year'),
-        },
-        'verified_results': rows,
-        'session_story': context.get('story', []),
-    }
-    instructions = (
-        'Sen Formula Paddock uygulamasinin Turkce asistanisin. Kisa, samimi ve net yanit ver. '
-        'Verilen DOGGRULANMIS UYGULAMA VERISI yarıs sonuclari icin tek gercek kaynaktir; '
-        'veride olmayan sonuc, kaza, puan veya zaman uydurma. Sonuc sorulursa "14. sirada bitirdi" '
-        'gibi tam cumle kullan. Genel F1 sorularini yararli sekilde yanitla; emin degilsen bunu acikca soyle. '
-        'Girdi veri:\n' + json.dumps(verified_context, ensure_ascii=False)
-    )
-    payload = json.dumps({
-        'model': os.getenv('PADDOCK_OPENAI_MODEL', 'gpt-4.1-mini'),
-        'instructions': instructions,
-        'input': question,
-        'max_output_tokens': 360,
-    }).encode('utf-8')
-    request = urllib.request.Request(
-        'https://api.openai.com/v1/responses',
-        data=payload,
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-        },
-        method='POST',
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=25) as response:
-            body = json.loads(response.read().decode('utf-8'))
-        answer = extract_response_text(body)
-        return (answer or None), 'OpenAI Responses API'
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
-        log_data_error('paddock openai response', error)
-        return None, 'OpenAI yanıtı şu an alınamadı'
-
-
-def paddock_assistant_answer_v19(question, year=None):
-    """Ücretsiz, veriye dayalı asistan. Bilmediği şeyi tahmin etmez."""
-    current_year = int(year or datetime.datetime.now(datetime.timezone.utc).year)
-    context = get_paddock_context_v19(current_year)
-    if not context.get('ok'):
-        return {'title': 'Veri bekleniyor', 'answer': context.get('reason', 'Bu soru için doğrulanmış sonuç bulunamadı.'), 'source': 'FastF1 sonuç paketi'}
-    latest = context['latest']
-    rows = context['rows']
-    text = _normalise_question_v19(question)
-    driver = _driver_from_question_v19(question)
-    row = next((item for item in rows if str(item.get('Pilot', '')).upper() == str(driver or '').upper()), None)
-    source = f"{latest['event_name']} · {latest['display_name']} · FastF1"
-
-    if 'pole' in text:
-        qualifying_rows = get_assistant_session_context_v20(latest['year'], latest['event_name'], 'Q')
-        if qualifying_rows:
-            leader = qualifying_rows[0]
-            return {
-                'title': 'Pole pozisyonu',
-                'answer': f"{leader.get('Pilot', '—')}, {latest['event_name']} sıralama seansında pole pozisyonunu aldı.",
-                'source': f"{latest['event_name']} · Sıralama · FastF1",
-            }
-        return {
-            'title': 'Pole verisi yok',
-            'answer': 'Bu hafta sonu için doğrulanmış sıralama sonucu henüz bulunamadı.',
-            'source': 'FastF1 sonuç paketi',
-        }
-    if any(token in text for token in ['kim kazandi', 'yarisi kim kazandi', 'galip', 'kazanan', 'zafer']):
-        race_rows = get_assistant_session_context_v20(latest['year'], latest['event_name'], 'R')
-        if race_rows:
-            winner = race_rows[0]
-            return {
-                'title': 'Yarış galibi',
-                'answer': f"{winner.get('Pilot', '—')}, {latest['event_name']} yarışını kazandı.",
-                'source': f"{latest['event_name']} · Yarış · FastF1",
-            }
-        return {
-            'title': 'Yarış sonucu yok',
-            'answer': 'Bu hafta sonu için doğrulanmış yarış sonucu henüz bulunamadı.',
-            'source': 'FastF1 sonuç paketi',
-        }
-    if any(token in text for token in ['ilk kim', 'lider kim']):
-        leader = rows[0] if rows else {}
-        return {
-            'title': 'Son seans lideri',
-            'answer': f"{leader.get('Pilot', '—')} {clean_position_value(leader.get('Sıra'))} ile son tamamlanan seansın lideri.",
-            'source': source,
-        }
-    if driver and row and any(token in text for token in ['kacinci', 'sira', 'siralama', 'nerede bitir', 'pozisyon']):
-        position = format_finish_position(row.get('Sıra'))
-        if str(latest.get('session_code', '')).upper() == 'R':
-            sentence = f"{driver}, {latest['event_name']} yarışını {position} bitirdi."
-        else:
-            sentence = f"{driver}, {latest['display_name']} seansını {position} tamamladı."
-        return {'title': f"{driver} sonucu", 'answer': sentence, 'source': source}
-    if driver and row and any(token in text for token in ['lastik', 'hamur']):
-        tyre = row.get('Lastik')
-        if tyre and tyre != '—':
-            return {'title': f"{driver} lastiği", 'answer': f"{driver} için sonuç tablosunda görünen en hızlı tur lastiği: {tyre}.", 'source': source}
-        return {'title': f"{driver} lastiği", 'answer': 'Bu seansın sonuç tablosunda doğrulanmış lastik hamuru yok.', 'source': source}
-    if any(token in text for token in ['ne oldu', 'olay', 'race control', 'kaza', 'spin']):
-        story = [str(item.get('text', '')) for item in context.get('story', [])]
-        reply = ' '.join(story) if story else 'Bu seans için doğrulanmış dikkat çeken olay notu bulunamadı.'
-        return {'title': 'Seans özeti', 'answer': reply, 'source': source}
-    local_answer = local_f1_history_answer_v20(question)
-    if local_answer:
-        return {'title': 'F1 tarih bilgisi', 'answer': local_answer, 'source': 'Yerel doğrulanmış F1 tarih bilgisi'}
-    if not driver:
-        ai_answer, ai_source = openai_paddock_reply(question, context)
-        if ai_answer:
-            return {'title': 'Paddock AI', 'answer': ai_answer, 'source': ai_source}
-        if configured_openai_api_key():
-            return {'title': 'Paddock AI', 'answer': 'AI yanıtı şu an alınamadı. Sonuç sorularında FastF1 verisi çalışmaya devam ediyor.', 'source': ai_source}
-    direct_tokens = ['kacinci', 'sira', 'siralama', 'nerede bitir', 'pozisyon', 'lastik', 'hamur']
-    if driver and row and not any(token in text for token in direct_tokens):
-        ai_answer, ai_source = openai_paddock_reply(question, context)
-        if ai_answer:
-            return {'title': 'Paddock AI', 'answer': ai_answer, 'source': ai_source}
-    if driver and row:
-        return {'title': f"{driver} — son seans", 'answer': f"{driver}: {clean_position_value(row.get('Sıra'))}. İstersen “{driver} kaçıncı oldu?”, “{driver} lastiği neydi?” veya “son seansta ne oldu?” diye sor.", 'source': source}
-    return {'title': 'Paddock Veri Asistanı', 'answer': 'Şu an son tamamlanan seansın doğrulanmış sonuçlarını okuyabiliyorum. Örnek: “Alonso kaçıncı oldu?”, “Pole kim?”, “Son seansta ne oldu?”', 'source': source}
-
-
 def stewarlde_drivers():
     """Resmî 2026 gridinden türeyen, internet gerektirmeyen oyun havuzu."""
     rows = []
@@ -5232,22 +5022,6 @@ def render_favourites_centre():
 # =========================================================
 
 
-def paddock_history_answer_v18(question):
-    """Stable historic F1 answer set; no API key or network needed."""
-    normal = _normalise_question_v19(question)
-    year_match = re.search(r'\b(19[5-9][0-9]|20[0-2][0-9])\b', normal)
-    wants_champion = any(token in normal for token in ('sampiyon', 'champion', 'wcd', 'dunya birincisi'))
-    if year_match and wants_champion:
-        year = int(year_match.group(1))
-        champion = F1_WORLD_CHAMPIONS.get(year)
-        if champion:
-            return f'{year} Formula 1 dünya şampiyonu {champion} oldu.'
-    if ('1985' in normal or '85' in normal) and wants_champion:
-        return '1985 Formula 1 dünya şampiyonu Alain Prost oldu.'
-    if ('en cok sampiyon' in normal or 'en fazla sampiyon' in normal or '7 sampiyon' in normal):
-        return 'Formula 1 tarihinde rekor yedi şampiyonlukla Lewis Hamilton ve Michael Schumacher arasında paylaşılır.'
-    return ''
-
 
 st.markdown(r"""
 <style>
@@ -5268,168 +5042,110 @@ st.markdown(r"""
 # =========================================================
 
 
-def _ascii_question_v19(question):
-    return unicodedata.normalize('NFKD', str(question or '')).encode('ascii', 'ignore').decode('ascii').lower().strip()
+class _AppLive(paddock_ai.LiveData):
+    """core.paddock_ai için güncel sezon veri adaptörü (bağımlılık enjeksiyonu).
+    Paket streamlit_app'i import etmez; canlı veriyi bu sınıf geçirir."""
 
-
-def paddock_record_answer_v19(question):
-    text = _ascii_question_v19(question)
-    if ('bir sezonda' in text or '1 sezonda' in text or 'tek sezonda' in text) and ('en cok galibiyet' in text or 'en fazla galibiyet' in text or 'cok kazan' in text):
-        return F1_RECORD_FACTS_V19['most_wins_single_season']
-    if ('en cok sampiyon' in text or 'en fazla sampiyon' in text or 'en cok dunya sampiyon' in text):
-        return F1_RECORD_FACTS_V19['most_titles']
-    if ('en cok yaris kazanan' in text or 'en cok galibiyet alan' in text or 'kariyerde en cok galibiyet' in text):
-        return F1_RECORD_FACTS_V19['most_wins']
-    if ('en cok pole' in text or 'pole rekoru' in text):
-        return F1_RECORD_FACTS_V19['most_poles']
-    if ('en genc sampiyon' in text or 'genc dunya sampiyonu' in text):
-        return F1_RECORD_FACTS_V19['youngest_champion']
-    return ''
-
-
-# =========================================================
-# FAZ 6-C · #6 — ASİSTANI SİTENİN KENDİ VERİSİNE BAĞLA
-# "tahmin puanım", "kim lider", "<pilot> bu sezon", "<GP>'de kim kazandı"
-# soruları uygulamanın hesapladığı katmanlardan yanıtlanır. Ağ yok, uydurma yok.
-# =========================================================
-def _assistant_paddock_data_v66(question, year):
-    text = _normalise_question_v19(question)
-
-    # 1) Kendi tahmin performansın (tarayıcı tercihlerinden)
-    if ('tahmin' in text and any(w in text for w in ('puan', 'isabet', 'kac', 'nasil', 'skor', 'benim'))) \
-       or 'tahmin puanim' in text:
-        ps = int(fp_ui.get_pref('ps') or 0)
-        pn = int(fp_ui.get_pref('pn') or 0)
-        if pn == 0:
-            return {'title': 'Tahmin oyunu', 'source': 'Tarayıcı tercihlerin',
-                    'answer': 'Henüz puanlanmış bir hafta sonu tahminin yok. '
-                              'Hafta Sonu Tahmini sayfasından pole + podyum seç.'}
-        acc = min(100, round(ps / (pn * _PRED_MAX) * 100))
-        plog = [r for r in (fp_ui.get_pref('plog') or []) if isinstance(r, dict) and r.get('g')]
-        best = max(plog, key=lambda r: r.get('p', 0)) if plog else None
-        extra = f" En iyi yarışın: {best['g']} ({best.get('p', 0)} puan)." if best else ""
-        return {'title': 'Tahmin performansın', 'source': 'Tarayıcı tercihlerin · uygulama verisi',
-                'answer': f"Bu sezon {pn} hafta sonu tahmini puanlandı: toplam {ps} puan, "
-                          f"%{acc} isabet (yarış başı ort. {round(ps / pn, 1)} / {_PRED_MAX})." + extra}
-
-    # 2) Şampiyona lideri / puan durumu (uygulamanın stabil klasman verisi)
-    if any(w in text for w in ('sampiyona lider', 'sampiyonada lider', 'kim lider',
-                               'kim onde', 'puan durumu', 'klasman', 'lider kim', 'sampiyonluk yolu')):
+    def championship(self, year):
         try:
             ds, *_ = get_championship_data_stable(int(year))
         except Exception:
-            ds = None
-        if ds is not None and not ds.empty and len(ds) >= 2:
-            p1, p2 = ds.iloc[0], ds.iloc[1]
-            gap = int(round(float(p1.get('Puan', 0)) - float(p2.get('Puan', 0))))
-            n1 = _DRIVER_NAME_BY_CODE.get(str(p1.get('Pilot', '')).upper(), p1.get('Pilot', '—'))
-            n2 = _DRIVER_NAME_BY_CODE.get(str(p2.get('Pilot', '')).upper(), p2.get('Pilot', '—'))
-            return {'title': f'{year} şampiyona durumu', 'source': 'Şampiyona Merkezi · FastF1 (tamamlanan yarışlar)',
-                    'answer': f"{n1} {int(float(p1.get('Puan', 0)))} puanla lider; ikinci {n2} "
-                              f"({int(float(p2.get('Puan', 0)))} puan, {gap} puan geride). "
-                              "Bu bir ara tablodur — sezon sürüyor."}
+            return None
+        if ds is None or getattr(ds, 'empty', True):
+            return None
+        return [{'code': str(r.get('Pilot', '')).upper(),
+                 'points': float(r.get('Puan', 0) or 0),
+                 'position': _pnum_or_none(r.get('Sıra'))}
+                for _, r in ds.iterrows()]
 
-    # 3) Bir pilotun bu sezonu — favori ise sezon hikâyesi, değilse klasman satırı
-    driver = _driver_from_question_v19(question)
-    if driver and any(w in text for w in ('bu sezon', 'sezonu', 'nasil gidiyor',
-                                          'kac puan', 'sezonum', 'formda', 'gidisat')):
-        fav_code = _code_for_name(st.session_state.get('favourite_driver'))
-        if driver == fav_code:
-            story = _season_story_v57(int(year), driver)
-            if story.get('ok'):
-                t = story.get('turning')
-                gap = story['final_gap']
-                gtxt = (f"title rakibi {story['rival']}'in {abs(gap)} puan önünde" if gap > 0
-                        else f"title rakibi {story['rival']}'e {abs(gap)} puan geride" if gap < 0
-                        else f"{story['rival']} ile eşit")
-                line = (f"{_DRIVER_NAME_BY_CODE.get(driver, driver)}: {story['fav_total']} puan, {gtxt}. "
-                        f"Son 3 yarışta {story['momentum']} puan topladı.")
-                if t:
-                    line += f" Sezonun dönüm noktası: {t['event']} ({'+' if t['swing'] > 0 else ''}{t['swing']} puanlık makas)."
-                return {'title': f"{driver} · {year} sezonu", 'answer': line,
-                        'source': 'Senin Sezonun · Şampiyona Merkezi verisi'}
+    def calendar(self, year):
         try:
-            ds, *_ = get_championship_data_stable(int(year))
+            cal = get_calendar_details(int(year))
         except Exception:
-            ds = None
-        if ds is not None and not ds.empty:
-            row = next((r for _, r in ds.iterrows()
-                        if str(r.get('Pilot', '')).upper() == driver), None)
-            if row is not None:
-                return {'title': f"{driver} · {year}", 'source': 'Şampiyona Merkezi · FastF1',
-                        'answer': f"{_DRIVER_NAME_BY_CODE.get(driver, driver)} şampiyonada "
-                                  f"{clean_position_value(row.get('Sıra'))} sırada, "
-                                  f"{int(float(row.get('Puan', 0)))} puan."}
+            return None
+        out = []
+        for ev in cal or []:
+            out.append({'name': str(ev.get('EventName', '')).strip(),
+                        'date': str(ev.get('Session5DateUtc', '')),
+                        'location': str(ev.get('Location', '') or '')})
+        return out or None
 
-    # 4) "<GP>'de / <pist>'te kim kazandı" — geçen yılki aynı yarış (GP hub verisi)
-    if any(w in text for w in ('kim kazandi', 'kazanan', 'galip', 'podyum')):
+    def last_edition(self, event_fragment, from_year):
+        name = _resolve_event_name_v9(event_fragment, from_year)
+        if not name:
+            return None
+        ed = _gp_last_edition_v66(name, int(from_year) - 1, back=3)
+        if not ed.get('ok'):
+            return None
+        pod = [{'driver': _DRIVER_NAME_BY_CODE.get(str(p['code']).upper(), p['code']),
+                'code': p['code']} for p in ed.get('podium', [])]
+        return {
+            'year': ed.get('year'), 'event': name, 'circuit': '',
+            'winner': ({'driver': pod[0]['driver'], 'code': pod[0]['code'],
+                        'constructor': None} if pod else None),
+            'pole': ({'driver': _DRIVER_NAME_BY_CODE.get(str(ed['pole']).upper(), ed['pole']),
+                      'code': ed['pole']} if ed.get('pole') else None),
+            'podium': pod,
+            'source': f"Hafta Sonu Merkezi · {ed.get('year')} · FastF1",
+        }
+
+    def user_prediction(self):
+        return {'points': int(fp_ui.get_pref('ps') or 0),
+                'scored': int(fp_ui.get_pref('pn') or 0)}
+
+
+def _pnum_or_none(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_event_name_v9(fragment, year):
+    """'monza' / 'Italian' -> takvimdeki resmî EventName."""
+    frag = str(fragment or '').strip().lower()
+    if not frag:
+        return None
+    for yr in (int(year), int(year) - 1):
         try:
-            calendar = get_calendar_details(int(year))
+            cal = get_calendar_details(yr)
         except Exception:
-            calendar = []
-        hit_event = None
-        for ev in calendar or []:
+            continue
+        for ev in cal or []:
             name = str(ev.get('EventName', ''))
-            loc = str(ev.get('Location', ''))
-            norm_name = _normalise_question_v19(name).replace(' grand prix', '').strip()
-            if norm_name and norm_name in text:
-                hit_event = name
-                break
-            if loc and _normalise_question_v19(loc) in text:
-                hit_event = name
-                break
-        if hit_event:
-            prev = datetime.datetime.now(datetime.timezone.utc).year - 1
-            ed = _gp_last_edition_v66(hit_event, prev, back=3)
-            if ed.get('ok'):
-                pod = " · ".join(f"{i + 1}. {p['code']}" for i, p in enumerate(ed['podium']))
-                extra = f" Pole: {ed['pole']}." if ed.get('pole') else ""
-                return {'title': f"{hit_event} · {ed['year']}",
-                        'source': f"Hafta Sonu Merkezi · {ed['year']} · FastF1",
-                        'answer': f"{ed['year']} {hit_event}: podyum {pod}.{extra} "
-                                  "(Bu sezon henüz yarışılmadıysa en son yarışılan yıl gösterilir.)"}
+            loc = str(ev.get('Location', '') or '')
+            low = name.lower()
+            if frag in low or frag in loc.lower() or low.replace(' grand prix', '').strip() == frag:
+                return name
     return None
 
 
-def paddock_assistant_answer_v19_pro(question, year=2026):
-    try:
-        own = _assistant_paddock_data_v66(question, year)
-    except Exception as _asst_err:  # noqa: BLE001
-        log_data_error('assistant paddock data', _asst_err)
-        own = None
-    if own:
-        return own
-    record = paddock_record_answer_v19(question)
-    if record:
-        return {'title': 'F1 rekor arşivi', 'answer': record, 'source': 'F1 tarih arşivi'}
-    historic = paddock_history_answer_v18(question)
-    if historic:
-        return {'title': 'F1 tarih bilgisi', 'answer': historic, 'source': 'Yerel F1 dünya şampiyonları arşivi'}
-    return paddock_assistant_answer_v19(question, year)
+_APP_LIVE = _AppLive()
 
 
 def render_paddock_assistant_v20():
-    fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"), eyebrow=T("section.paddock"))
-    api_ready = bool(configured_openai_api_key())
-    accent = '#2ee6c9' if api_ready else '#f7c948'
-    mode = 'OPENAI + DOĞRULANMIŞ VERİ' if api_ready else 'F1 VERİSİ VE TARİH ARŞİVİ'
-    description = (
-        'OpenAI bağlantısı aktif. Sonuç sorularında FastF1 verisi önce gelir; genel F1 sorularında AI yanıtı devreye girer.'
-        if api_ready else
-        'Şampiyona durumu, bir pilotun sezonu, senin tahmin puanın, bir GP\'de kim kazandı, '
-        'pole / lastik ve tarihî rekor sorularını — hepsini sitenin kendi doğrulanmış verisinden, '
-        'anahtarsız cevaplar. Genel F1 sohbeti için isteğe bağlı OpenAI anahtarı gerekir.'
-    )
-    st.markdown(f"<div class='hud-card ai-command-card' style='border-top:5px solid {accent}'><div class='hud-label'>{mode}</div><div style='font-size:1.25rem;font-weight:950;margin-top:7px'>F1 sorunu yaz, kaynaklı yanıt al.</div><div class='history-copy' style='margin-top:6px'>{description}</div></div>", unsafe_allow_html=True)
+    fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"),
+                      eyebrow=T("section.paddock"))
+    st.markdown(
+        "<div class='hud-card ai-command-card' style='border-top:5px solid #2ee6c9'>"
+        "<div class='hud-label'>YEREL F1 MOTORU · LLM YOK</div>"
+        "<div style='font-size:1.25rem;font-weight:950;margin-top:7px'>"
+        "F1 sorunu yaz, kaynaklı yanıt al.</div>"
+        "<div class='history-copy' style='margin-top:6px'>Sorunu ayrıştırıp "
+        "kendi veritabanımıza (FastF1 · tarihî SQLite · kariyer/teknik JSON) sorgu atar. "
+        "Bilmediğini uydurmaz. Yalnızca Formula 1 + temel selamlaşma.</div></div>",
+        unsafe_allow_html=True)
+
     if 'paddock_chat_history_v19' not in st.session_state:
         st.session_state['paddock_chat_history_v19'] = []
 
-    examples = ['Kim lider?', 'Tahmin puanim ne durumda?', 'Verstappen bu sezon nasil gidiyor?', 'Monza\'da kim kazandi?']
-    columns = st.columns(4)
-    for col, question in zip(columns, examples):
+    examples = ["1994 dünya şampiyonu kim?", "Kim lider?",
+                "Leclerc kariyerinde kaç galibiyet aldı?",
+                "McLaren son hangi güncellemeyi getirdi?"]
+    for col, q in zip(st.columns(4), examples):
         with col:
-            if st.button(question, key='assistant_v19_' + question, width='stretch'):
-                st.session_state['paddock_pending_v19'] = question
+            if st.button(q, key='asst_ex_' + q, width='stretch'):
+                st.session_state['paddock_pending_v19'] = q
                 st.rerun()
 
     for item in st.session_state['paddock_chat_history_v19'][-10:]:
@@ -5438,22 +5154,25 @@ def render_paddock_assistant_v20():
             if item.get('source'):
                 st.caption('Kaynak: ' + item['source'])
 
-    prompt = st.chat_input('F1 hakkında sor… Örnek: 1 sezonda en çok galibiyet alan isim kim?')
+    prompt = st.chat_input('F1 hakkında sor… Örnek: 1988 Monako GP kazananı kimdi?')
     question = st.session_state.pop('paddock_pending_v19', '') or prompt
     if question:
         st.session_state['paddock_chat_history_v19'].append({'role': 'user', 'text': question})
         with st.chat_message('user'):
             st.markdown(question)
         with st.chat_message('assistant'):
-            with st.spinner('Paddock kaynakları kontrol ediliyor…'):
-                answer = paddock_assistant_answer_v19_pro(question, 2026)
-            st.markdown(answer['answer'])
-            st.caption('Kaynak: ' + answer['source'])
-        st.session_state['paddock_chat_history_v19'].append({'role': 'assistant', 'text': answer['answer'], 'source': answer['source']})
-
-    if not api_ready:
-        with st.expander('Genel sorular için OpenAI bağlantısı'):
-            st.write('ChatGPT hesabının kendisi siteye bağlanmaz; OpenAI API anahtarı gerekir. Proje klasöründeki .streamlit/secrets.toml dosyasına OPENAI_API_KEY eklediğinde asistan genel F1 sorularında OpenAI yanıtı da verir. Anahtar yokken bu ekran yine kaynaklı F1 veri modunda çalışır.')
+            with st.spinner('Veritabanı sorgulanıyor…'):
+                try:
+                    ans = paddock_ai.answer(question, live=_APP_LIVE, this_year=2026)
+                    text, source = ans.text, ans.source
+                except Exception as _ai_err:  # noqa: BLE001
+                    log_data_error('paddock_ai', _ai_err)
+                    text = ('Asistan şu an yanıt veremedi. Birazdan tekrar dener misin?')
+                    source = 'Paddock Asistan'
+            st.markdown(text)
+            st.caption('Kaynak: ' + source)
+        st.session_state['paddock_chat_history_v19'].append(
+            {'role': 'assistant', 'text': text, 'source': source})
 
 
 def _rss_text_v19(node, name):
