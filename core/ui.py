@@ -78,6 +78,7 @@ _FP_URL_SKIP = frozenset({
     "pt", "sw",                                   # podyum + strateji duvarı seri/durum
     "gi",                                         # görülen "nasıl oynanır" ekranları
     "gw",                                          # kişisel haftalık XP takibi
+    "lbid", "lbnm",                               # skor tablosu anon kimlik + takma ad
 })
 
 

@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import openf1_fallback
 from core import paddock_ai
+from core import leaderboard as fp_lb
 
 # Yeniden yapilandirma (redesign) — tasarim sistemi
 from core import ui as fp_ui
@@ -9319,6 +9320,17 @@ _GAME_HUD_CSS_V68 = """<style>
 .sws-badge.on{opacity:1;filter:none;border-color:color-mix(in srgb,var(--fp-amber) 40%,transparent)}
 .sws-badge .bi{font-size:16px;line-height:1}
 .sws-badge .bn{font:800 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--fp-text-dim)}
+/* --- haftalık skor tablosu --- */
+.sws-lb{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
+.sws-lb li{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:11px;
+  padding:7px 11px;border-radius:var(--fp-r-md);background:var(--fp-bg-3);border:1px solid var(--fp-line)}
+.sws-lb li .r{font:800 12px 'JetBrains Mono',monospace;color:var(--fp-text-mute);text-align:right;font-variant-numeric:tabular-nums}
+.sws-lb li .n{font:700 13px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--fp-text-dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sws-lb li b{font:800 14px 'JetBrains Mono',monospace;color:var(--fp-text);font-variant-numeric:tabular-nums}
+.sws-lb li.me{background:color-mix(in srgb,var(--fp-cyan) 13%,transparent);border-color:color-mix(in srgb,var(--fp-cyan) 45%,transparent)}
+.sws-lb li.me .n,.sws-lb li.me .r{color:var(--fp-cyan)}
+.sws-lb li:nth-child(1) .r{color:var(--fp-amber)}
 </style>"""
 
 
@@ -9419,6 +9431,75 @@ def _render_games_week_v8():
              + f"\nGeçen hafta: {px} XP\nRütbe: {_rank} · toplam {prof['xp']} XP\n\nOyun Merkezi")
     fp_ui.share_panel(_card, include_url=False, label="🔗 Haftalık kartı paylaş",
                       key="games_week_share")
+
+
+# --- Faz 12 · haftalık gerçek skor tablosu (Supabase) ------------------------
+def _lb_player_v9():
+    """(player_id, name). id yoksa üret + prefs'e yaz ('lbid'); ad prefs 'lbnm'."""
+    pid = fp_ui.get_pref('lbid')
+    if not isinstance(pid, str) or len(pid) < 8:
+        pid = f"p_{random.randint(0, 1 << 48):012x}"
+        fp_ui.set_pref('lbid', pid)
+    nm = fp_ui.get_pref('lbnm')
+    return pid, (nm.strip() if isinstance(nm, str) else '')
+
+
+@cache_data_safe(ttl=45, on_error=list, label='leaderboard')
+def _lb_top_v9(week, _nonce):
+    return fp_lb.fetch_weekly(week, limit=25)
+
+
+def _render_leaderboard_v9():
+    """Haftalık gerçek skor tablosu. Supabase yapılandırılmamışsa sessizce atlar."""
+    if not fp_lb.configured():
+        return
+    wk = _iso_week_key_v8()
+    pid, name = _lb_player_v9()
+    my_xp = _game_week_v8()['x']
+    st.markdown(f"<div class='sws-eb' style='margin:15px 0 7px'>"
+                f"Haftalık Sıralama · {html_lib.escape(wk)}</div>", unsafe_allow_html=True)
+
+    if not name:
+        st.text_input("Sıralamada görünecek takma adın", key='lb_name_in_v9',
+                      max_chars=24, placeholder="ör. Boxbox Ferhat")
+        if st.button("Sıralamaya katıl", key='lb_join_v9', type='primary'):
+            typed = str(st.session_state.get('lb_name_in_v9', '') or '').strip()
+            if typed:
+                fp_ui.set_pref('lbnm', typed[:24])
+                st.session_state.pop('_lb_sent_v9', None)
+                st.rerun()
+            else:
+                st.warning("Önce bir takma ad yaz.")
+        st.caption("Takma adın herkese görünür. E-posta yok, giriş yok.")
+        return
+
+    if my_xp > 0 and st.session_state.get('_lb_sent_v9') != (wk, my_xp):
+        try:
+            fp_lb.submit_weekly(pid, wk, name, my_xp)
+            st.session_state['_lb_sent_v9'] = (wk, my_xp)
+            _lb_top_v9.clear()
+        except Exception as _lb_err:            # noqa: BLE001
+            log_data_error('leaderboard_submit', _lb_err)
+
+    rows = _lb_top_v9(wk, st.session_state.get('_lb_sent_v9'))
+    if not rows:
+        st.caption("Bu hafta henüz kimse skor göndermedi — bir oyun oyna, ilk sen ol.")
+    else:
+        lis = "".join(
+            f"<li class=\"{'me' if r.get('player_id') == pid else ''}\">"
+            f"<span class='r'>{i}</span>"
+            f"<span class='n'>{html_lib.escape(str(r.get('name') or 'Anonim'))}</span>"
+            f"<b>{int(r.get('xp') or 0)}</b></li>"
+            for i, r in enumerate(rows, 1))
+        st.markdown(f"<ol class='sws-lb'>{lis}</ol>", unsafe_allow_html=True)
+        my_rank = fp_lb.rank_in(rows, pid)
+        if my_rank is None and my_xp > 0:
+            st.caption(f"İlk 25'te değilsin — bu hafta {my_xp} XP ile devam ediyorsun.")
+    c1, c2 = st.columns([1, 3])
+    if c1.button("Yenile", key='lb_refresh_v9'):
+        _lb_top_v9.clear(); st.session_state.pop('_lb_sent_v9', None); st.rerun()
+    if c2.button("Takma adı değiştir", key='lb_rename_v9'):
+        fp_ui.set_pref('lbnm', None); st.rerun()
 
 
 def render_podium_time_v67():
@@ -11022,6 +11103,7 @@ def render_games_hub_v30():
     fp_ui.page_header(T("page.games.title"), T("page.games.sub"), eyebrow=T("section.games"))
     _render_games_profile_v8(_game_profile_v66())
     _render_games_week_v8()
+    _render_leaderboard_v9()
     st.write("")
     for start in range(0, len(_GAMES_HUB_V8), 2):
         columns = st.columns(2)
