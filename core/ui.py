@@ -76,6 +76,7 @@ _FP_URL_SKIP = frozenset({
     "gp", "sds", "sdd", "hl",                     # oyun ilerlemesi + Stewardle/hotlap seri
     "rw", "cmp", "ps", "pn", "pc",                # replay/compare sayaçları + tahmin puanı
     "pt", "sw",                                   # podyum + strateji duvarı seri/durum
+    "gi",                                         # görülen "nasıl oynanır" ekranları
 })
 
 

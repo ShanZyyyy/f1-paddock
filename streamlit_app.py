@@ -6249,6 +6249,8 @@ def render_stewarlde_v25():
         "2010–2026 F1 pilot havuzu · doğrulanmış galibiyet, şampiyonluk, GP startı ve ilk GP yılı bulmacası.",
         "#ff385c",
     )
+    if _game_intro_gate_v8('stewarlde'):
+        return
     mode = st.radio('Oyun modu', ['Günlük', 'Sınırsız'], horizontal=True, key='stewarlde_mode_v25')
     state_key = 'stewarlde_state_v25'
     day_key = datetime.date.today().isoformat()
@@ -8416,6 +8418,8 @@ def _prediction_primer_v65(year):
 
 def render_prediction_game_v55():
     _game_shell("Hafta Sonu Tahmini", "Pole + podyum tahmin et, yarıştan sonra puanla.", colour="#f7c948")
+    if _game_intro_gate_v8('predict'):
+        return
     year = datetime.datetime.now(datetime.timezone.utc).year
     render_season_status_v46(year, compact=True)
     scored = st.session_state.get('_pred_just_scored') or _prediction_maybe_score_v55(year)
@@ -8585,6 +8589,92 @@ def _game_shell(title, subtitle="", colour="#e10600"):
     )
 
 
+# Her oyun için tek ekranlık "nasıl oynanır". İlk açılışta gösterilir, "Başla"
+# ile geçilir (prefs 'gi' — görülenler listesi); sonra küçük bir "Nasıl oynanır?"
+# düğmesiyle tekrar açılır. (label, colour, [kural…], [F1 kavramı "ad: açıklama"…])
+_GAME_INTRO_V8 = {
+    'stratwall': ("Strateji Duvarı", "#f5b942", [
+        "Gerçek bir yarışın pit duvarındasın: brifingi oku, sonra tek bir strateji kur.",
+        "Başlangıç lastiğini ve 1–3 pit turunu seç; en az iki farklı bileşik kullan.",
+        "Simülasyonu tur tur izle — Safety Car ucuz pit fırsatı, lastik uçurumu tur sürelerini patlatır.",
+        "Puan: gerçek pilotun bitiş sırasını yakala, doğru turda pit yap, SC penceresini kullan.",
+    ], [
+        "Undercut: erken pit + taze lastik, öndeki rakip durağa girince öne geçmek",
+        "Lastik uçurumu: belirli bir turdan sonra tur süresinin hızla kötüleşmesi",
+        "SC pit: Safety Car turunda pit kaybı yarıya iner — neredeyse bedava durak",
+        "Stint: iki pit stopu arasında aynı lastikle geçirilen tur aralığı",
+    ]),
+    'podium': ("Podyum Tahmini", "#e10600", [
+        "Rastgele bir tarihî yarış geliyor; sana o yarışın ilk 12'si karışık sırada gösterilir.",
+        "Podyumu tahmin et: 1., 2. ve 3. pilotu seç.",
+        "Doğru pilot ama yanlış sıra puan getirir; sıra da tamsa tam puan.",
+        "Üst üste tutturarak seriyi uzat.",
+    ], None),
+    'stewarlde': ("Stewardle", "#ff385c", [
+        "2010–2026 arasında yarışmış gizli bir pilot var; 6 tahmin hakkın var.",
+        "Her tahminden sonra ipuçları: yeşil = doğru, sarı = yakın (↑/↓ yön), gri = eşleşme yok.",
+        "İpuçları takım, ülke, galibiyet, şampiyonluk, GP sayısı ve ilk yıl için ayrı ayrı gelir.",
+        "Günlük mod herkese aynı bulmacayı verir ve günlük seri tutar.",
+    ], None),
+    'cards': ("Sıralama Kartları", "#2ee6d6", [
+        "Gerçek kariyer istatistikleriyle Top Trumps: sen ve CPU'ya eşit kart dağıtılır.",
+        "Sıradaki elde bir istatistik seç (galibiyet, pole, puan/yarış…). ★ kartının en güçlü statı.",
+        "Yüksek olan turu ve iki kartı da alır; beraberlikte kartlar ortada bekler.",
+        "Bütün desteyi toplayan kazanır.",
+    ], None),
+    'predict': ("Hafta Sonu Tahmini", "#f7c948", [
+        "Sıradaki GP'den önce pole ve podyumu (ilk 3) tahmin et.",
+        "Sprint hafta sonuysa ayrıca sprint galibini seç.",
+        "Yarış bitince tahminin otomatik puanlanır ve sezon puanına eklenir.",
+        "Pole +5, podyum pilotu doğru +3, podyum yeri tam +5.",
+    ], None),
+    'hotlap': ("Kızgın Tur", "#7c5cff", [
+        "Bir yarışın sıralama turundan pole zamanını görürsün.",
+        "Gizli bir pilot seçilir; onun turu pole'a ne kadar yakındı?",
+        "Doğru zaman aralığını seç (ör. 0.1–0.3 sn).",
+        "Doğru bildikçe seri uzar.",
+    ], None),
+}
+
+
+def _game_intro_gate_v8(key):
+    """Oyun ilk açılışsa tek ekranlık kılavuzu bas ve True döndür (çağıran `return`
+    eder). Görülmüşse küçük 'Nasıl oynanır?' düğmesi bırakır, False döndürür."""
+    meta = _GAME_INTRO_V8.get(key)
+    if not meta:
+        return False
+    title, colour, rules = meta[0], meta[1], meta[2]
+    concepts = meta[3] if len(meta) > 3 else None
+    seen = fp_ui.get_pref('gi')
+    seen = list(seen) if isinstance(seen, (list, tuple)) else []
+    reopen = st.session_state.get(f'_gi_reopen_{key}')
+    if key in seen and not reopen:
+        if st.button("Nasıl oynanır?", key=f"gi_open_{key}"):
+            st.session_state[f'_gi_reopen_{key}'] = True
+            st.rerun()
+        return False
+
+    body = "<ul class='sws-rules'>" + "".join(
+        f"<li><b>{i + 1}</b><span>{html_lib.escape(r)}</span></li>"
+        for i, r in enumerate(rules)) + "</ul>"
+    if concepts:
+        body += "<div class='sws-eb' style='margin-top:15px'>F1 Kavramları</div>"
+        body += "<ul class='sws-rules'>" + "".join(
+            f"<li><b>{html_lib.escape(c.split(':', 1)[0])}</b>"
+            f"<span>{html_lib.escape(c.split(':', 1)[1].strip())}</span></li>"
+            for c in concepts) + "</ul>"
+    _sws_panel_v8("Nasıl Oynanır", title,
+                  lead="Oynamadan önce bir dakikanı ayır — bu ekranı sonra da açabilirsin.",
+                  body_html=body, accent=colour)
+    if st.button("Başla →", key=f"gi_start_{key}", type="primary"):
+        if key not in seen:
+            seen.append(key)
+            fp_ui.set_pref('gi', seen)
+        st.session_state.pop(f'_gi_reopen_{key}', None)
+        st.rerun()
+    return True
+
+
 def render_paddock_career_alpha_v01():
     """Tarayıcıda çalışan 2D yarış motoru — çok rakipli grid, Straight/Overtake
     Mode, lastik aşınması, pit yolu. Araç favori pilotun takım renginde;
@@ -8747,6 +8837,8 @@ def render_top_trumps_v66():
     _game_shell("Sıralama Kartları",
                 "Gerçek kariyer istatistikleriyle Top Trumps. Daha yüksek stat turu kazanır; "
                 "hedefin bütün desteyi toplamak.", "#38e1d0")
+    if _game_intro_gate_v8('cards'):
+        return
     year = datetime.datetime.now(datetime.timezone.utc).year
     deck = _tt_deck_v66()
     if len(deck) < 6:
@@ -8952,6 +9044,8 @@ def render_hotlap_game_v66():
     _game_shell("Kızgın Tur",
                 "Pole zamanını görüyorsun. Gizli pilot pole'a ne kadar yakın bitirdi? "
                 "Doğru aralığı seç, seriyi uzat.", "#7c5cff")
+    if _game_intro_gate_v8('hotlap'):
+        return
     hl_pref = fp_ui.get_pref('hl') if isinstance(fp_ui.get_pref('hl'), dict) else {}
     streak = int(hl_pref.get('s') or 0)
     best = int(hl_pref.get('b') or 0)
@@ -9257,6 +9351,8 @@ def render_podium_time_v67():
     _game_shell("Podyum Tahmini",
                 "Rastgele bir tarihî yarış. 1., 2. ve 3.'yü bil — doğru sıralama daha çok puan.",
                 "#e10600")
+    if _game_intro_gate_v8('podium'):
+        return
     pt = fp_ui.get_pref('pt') if isinstance(fp_ui.get_pref('pt'), dict) else {}
     streak, best = int(pt.get('s') or 0), int(pt.get('b') or 0)
 
@@ -10370,6 +10466,33 @@ def _sw_brief_screen_v68(m):
         unsafe_allow_html=True)
 
 
+def _sw_lesson_v8(r, m):
+    """Sonuç ekranı için tek cümlelik 'ne öğrendin'."""
+    pos, real = r['finalPos'], r['actual']
+    tags = {t for t, _p in r['breakdown']}
+    g = st.session_state.get('sw67') or {}
+    my_stops = len((g.get('strat') or {}).get('stops') or [])
+    real_stops = len(real['stops'])
+    if any('Safety Car altında pit' in t for t in tags):
+        return ("Safety Car turunda pit yaptın: pit kaybı yarıya indiği için durağı "
+                "neredeyse bedavaya getirdin — SC çıkınca ilk tepki hep 'hemen pit'tir.")
+    if any('hemen sonra SC' in t for t in tags):
+        return ("Pit yaptıktan hemen sonra Safety Car çıktı; rakipler yarı fiyatına "
+                "dururken sen tam bedel ödedin. SC ihtimali yüksekken bir tur beklemek işe yarar.")
+    if any('lastik uçurumu' in t for t in tags):
+        return ("Bir stintin lastik uçurumunu geçti — son turlarda tur süren hızla "
+                "yükseldi. Daha erken pit ya da bir tık daha sert lastik bunu keserdi.")
+    if my_stops and my_stops != real_stops:
+        return (f"Gerçek strateji {real_stops} duraktı, sen {my_stops} yaptın. "
+                + ("Fazladan her durak ~20 sn pit kaybı demek."
+                   if my_stops > real_stops
+                   else "Az durak lastiği daha uzun yorar; tempo sonlara doğru düşer."))
+    if pos <= real['finishPos']:
+        return ("Pit pencereni doğru okudun: stratejin gerçek sonucu tuttu ya da geçti.")
+    return ("Gerçeğin biraz gerisinde kaldın. Pit turlarını 2–3 tur öne/arkaya "
+            "kaydırmak çoğu zaman bir-iki pozisyon değiştirir.")
+
+
 def _sw_result_v67(r, m):
     pos, real = r['finalPos'], r['actual']
     good = pos <= real['finishPos']
@@ -10387,7 +10510,10 @@ def _sw_result_v67(r, m):
         f"<span class='sws-score'>{r['score']}<s>puan</s></span></div>"
         f"<div class='sws-lead'>{html_lib.escape(m['driver_name'])} gerçekte P{real['finishPos']} "
         f"bitirdi — {len(real['stops'])} stop, {_SW_TR_V68.get(sc, sc).title()} başladı.</div>"
-        f"<ul class='sws-break'>{rows}</ul></div>",
+        f"<ul class='sws-break'>{rows}</ul>"
+        f"<div class='sws-eb' style='margin-top:13px'>Ne Öğrendin</div>"
+        f"<div class='sws-lead' style='margin-top:5px'>{html_lib.escape(_sw_lesson_v8(r, m))}</div>"
+        f"</div>",
         unsafe_allow_html=True)
 
 
@@ -10395,6 +10521,8 @@ def render_strategy_wall_v67():
     _game_shell("Strateji Duvarı",
                 "Gerçek bir yarışın pit duvarına geç. Kararını ver, yarışı tur tur izle.",
                 "#f5c33b")
+    if _game_intro_gate_v8('stratwall'):
+        return
     g = st.session_state.setdefault('sw67', {'phase': 'brief', 'race_key': None})
 
     if g['phase'] in ('brief', 'intro', 'dialogue'):
