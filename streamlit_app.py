@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import time
+import collections
 import functools
 import datetime
 import random
@@ -9256,7 +9257,7 @@ def _podium_of_race_v67(year, gp):
     if res is None or getattr(res, 'empty', True):
         return {'ok': False}
     res = res.sort_values('Position', na_position='last')
-    codes, names = [], {}
+    codes, names, teams, colors, photos = [], {}, {}, {}, {}
     pole, best_grid = None, 999
     for _, row in res.iterrows():
         code = str(row.get('Abbreviation', '') or '').strip()
@@ -9267,13 +9268,24 @@ def _podium_of_race_v67(year, gp):
         if not full:
             full = f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip()
         names[code] = full or code
+        teams[code] = str(row.get('TeamName', '') or '').strip()
+        tc = str(row.get('TeamColor', '') or '').strip().lstrip('#')
+        colors[code] = ('#' + tc) if re.fullmatch(r'[0-9A-Fa-f]{6}', tc) else '#8b98a8'
+        hs = str(row.get('HeadshotUrl', '') or '').strip()
+        photos[code] = (_season_headshot_url_v35(year, names[code])
+                        or _season_headshot_url_v35(2019, names[code])  # <2019 → ilk destekli sezon
+                        or hs or '')
         g = pd.to_numeric(row.get('GridPosition'), errors='coerce')
         if pd.notna(g) and 0 < g < best_grid:
             best_grid, pole = int(g), code
     if len(codes) < 6:
         return {'ok': False}
+    keep = codes[:12]
     return {'ok': True, 'year': int(year), 'gp': str(gp),
-            'podium': codes[:3], 'pool': codes[:12], 'names': names, 'pole': pole}
+            'podium': codes[:3], 'pool': keep, 'names': names, 'pole': pole,
+            'teams': {c: teams.get(c, '') for c in keep},
+            'colors': {c: colors.get(c, '#8b98a8') for c in keep},
+            'photos': {c: photos.get(c, '') for c in keep}}
 
 
 def _podium_score_v67(picks, podium):
@@ -9295,24 +9307,61 @@ def _podium_score_v67(picks, podium):
     return pts, detail
 
 
+def _podium_stage_html_v8(r):
+    """Sonuç ekranı için fotoğraflı 3 basamaklı podyum sahnesi (`.sws-pod`)."""
+    podium = r.get('podium') or []
+    picks = r.get('picks') or []
+    names = r.get('names', {}) or {}
+    teams = r.get('teams', {}) or {}
+    colors = r.get('colors', {}) or {}
+    photos = r.get('photos', {}) or {}
+    steps = []
+    for idx in (1, 0, 2):                       # DOM sırası: P2, P1, P3 (P1 ortada)
+        if idx >= len(podium):
+            continue
+        c = podium[idx]
+        col = colors.get(c) or '#8b98a8'
+        ph = safe_external_url(photos.get(c, ''))
+        code_e = html_lib.escape(c)
+        img = (f"<img src='{html_lib.escape(ph, quote=True)}' alt='' loading='lazy' "
+               "onerror=\"this.remove()\" "
+               "onload=\"this.previousElementSibling.style.display='none'\">") if ph else ""
+        if idx < len(picks) and picks[idx] == c:
+            hk, ht = 'ok', 'Tam isabet'
+        elif c in picks:
+            hk, ht = 'mid', 'Podyumda'
+        else:
+            hk, ht = 'no', 'Kaçırdın'
+        steps.append(
+            f"<div class='st p{idx + 1}' style='--pc:{col}'>"
+            f"<div class='ph'><b>{code_e}</b>{img}</div>"
+            f"<div class='nm'>{html_lib.escape(names.get(c, c))}</div>"
+            f"<div class='tm'>{html_lib.escape(teams.get(c, ''))}</div>"
+            f"<div class='base'>P{idx + 1}</div>"
+            f"<div class='hit {hk}'>{ht}</div></div>")
+    return "<div class='sws-pod'>" + "".join(steps) + "</div>"
+
+
 def _podium_new_round_v67():
     seeded = [(int(y), gp) for y, gp in
               (k.split('|', 1) for k in _games_seed_v68().get('podium', {}))]
     random.shuffle(seeded)
     pool = list(_PODIUM_POOL_V67)
     random.shuffle(pool)
-    last = (st.session_state.get('pt67') or {}).get('_key')
     order = seeded + [p for p in pool if p not in seeded]
-    order = [c for c in order if _games_seed_key(*c) != last] + \
-            [c for c in order if _games_seed_key(*c) == last]
+    # bu oturumda görülen yarışları ele — hepsi görüldüyse listeyi sıfırla
+    seen = st.session_state.get('_pt_seen_v8') or []
+    fresh = [c for c in order if _games_seed_key(*c) not in seen]
+    order = fresh or order
     for yr, gp in order[:9]:
         r = _podium_of_race_v67(yr, gp)
         if r.get('ok'):
             drivers = r['pool'][:]
             random.shuffle(drivers)
+            key = _games_seed_key(yr, gp)
             st.session_state['pt67'] = {**r, 'pool': drivers, 'phase': 'guess',
-                                        'picks': [None, None, None],
-                                        '_key': _games_seed_key(yr, gp)}
+                                        'picks': [None, None, None], '_key': key}
+            st.session_state['_pt_seen_v8'] = (seen + [key])[-40:]
             return True
     st.session_state['pt67'] = {'phase': 'error'}
     return False
@@ -9399,6 +9448,25 @@ _GAME_HUD_CSS_V68 = """<style>
 .sws-prof .ss span{font:700 8.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.12em;color:#7f8da3}
 .sws-prof .bar{grid-column:1/-1;height:4px;border-radius:999px;background:#0a0f18;overflow:hidden;margin-top:5px}
 .sws-prof .bar i{display:block;height:100%;background:var(--pc,#2ee6d6)}
+/* --- podyum sahnesi (fotoğraflı) --- */
+.sws-pod{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin-top:15px}
+.sws-pod .st{flex:1 1 0;max-width:158px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.sws-pod .ph{width:100%;max-width:104px;aspect-ratio:1/1;border-radius:11px;overflow:hidden;
+  border:2px solid var(--pc,#8b98a8);background:#0f1521;display:grid;place-items:center}
+.sws-pod .ph img{width:100%;height:100%;object-fit:cover;object-position:top center}
+.sws-pod .ph b{font:800 27px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--pc,#8b98a8)}
+.sws-pod .nm{font:800 12.5px/1.15 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;margin-top:8px;color:#eef2f8}
+.sws-pod .tm{font:700 8.5px 'JetBrains Mono','Consolas',ui-monospace,monospace;color:#93a2b8;margin-top:3px}
+.sws-pod .base{width:100%;margin-top:9px;border-radius:6px 6px 0 0;
+  background:linear-gradient(180deg,var(--pc,#333),#0c1420);box-shadow:inset 0 0 0 1px #20293e;
+  display:grid;place-items:center;font:800 21px 'Saira Condensed','Arial Narrow',sans-serif;color:#fff}
+.sws-pod .p1 .base{height:64px}.sws-pod .p2 .base{height:44px}.sws-pod .p3 .base{height:30px}
+.sws-pod .hit{margin-top:7px;font:800 8px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.11em;
+  text-transform:uppercase;padding:3px 8px;border-radius:99px}
+.sws-pod .hit.ok{background:rgba(55,214,122,.16);color:#37d67a}
+.sws-pod .hit.mid{background:rgba(255,205,60,.16);color:#ffcd3c}
+.sws-pod .hit.no{background:rgba(255,89,100,.13);color:#ff5964}
+@media(max-width:560px){.sws-pod .nm{font-size:11px}.sws-pod .ph b{font-size:20px}}
 </style>"""
 
 
@@ -9522,21 +9590,20 @@ def render_podium_time_v67():
             st.rerun()
     else:
         good = r['pts'] >= 6
-        real = "".join(
-            f"<li style='--bl:#37d67a'><span>{i + 1}. {html_lib.escape(r['names'].get(c, c))}</span>"
-            f"<b>{html_lib.escape(c)}</b></li>" for i, c in enumerate(r['podium']))
-        mine = " · ".join(f"{i + 1}. {html_lib.escape(str(c))}" for i, c in enumerate(r['picks']))
+        mine = " · ".join(
+            f"{i + 1}. {html_lib.escape(r['names'].get(c, str(c)))}"
+            for i, c in enumerate(r['picks']))
         lines = "".join(
             f"<li style='--bl:#37d67a'><span>{html_lib.escape(t)}</span><b>+{p}</b></li>"
             for t, p in r['detail']) or "<li><span>Bu yarıştan puan çıkmadı.</span><b>0</b></li>"
         st.markdown(
-            f"<div class='sws'><div class='sws-eb'>Sonuç · {r['year']} {html_lib.escape(r['gp'])}</div>"
+            f"<div class='sws'><div class='sws-eb'>Kontrol Kulesi · {r['year']} "
+            f"{html_lib.escape(r['gp'])} · Podyum</div>"
             f"<div class='sws-row'><span class='sws-verdict {'ok' if good else 'no'}'>"
             f"{'Seri sürüyor' if good else 'Seri bitti'}</span>"
             f"<span class='sws-score'>{r['pts']}<s>puan</s></span></div>"
-            f"<div class='sws-lead' style='margin-top:10px'>Senin tahminin: {mine}</div>"
-            f"<div class='sws-eb' style='margin-top:13px'>Gerçek podyum</div>"
-            f"<ul class='sws-break'>{real}</ul>"
+            + _podium_stage_html_v8(r) +
+            f"<div class='sws-lead' style='margin-top:12px'>Senin tahminin: {mine}</div>"
             f"<div class='sws-eb' style='margin-top:13px'>Puan dökümü</div>"
             f"<ul class='sws-break'>{lines}</ul></div>",
             unsafe_allow_html=True)
@@ -9721,7 +9788,7 @@ def _strat_race_model_v67(year, gp):
         return seeded
     try:
         s = fastf1.get_session(int(year), gp, 'R')
-        s.load(laps=True, telemetry=False, weather=False, messages=True)
+        s.load(laps=True, telemetry=False, weather=True, messages=True)
     except Exception as error:
         return {'ok': False, 'reason': str(error)}
     laps, res = getattr(s, 'laps', None), getattr(s, 'results', None)
@@ -9800,13 +9867,38 @@ def _strat_race_model_v67(year, gp):
     actual_stops = _strat_driver_stops_v67(laps, driver)
     if len(actual_stops) > 3 or pit_loss_s >= 29:
         return {'ok': False}   # kırmızı bayrak / lastik değişim gürültüsü — temiz strateji yok
+
+    # ıslak yarış: pistte gerçekten ara/yağmur lastiği görüldü mü (Rainfall alanı
+    # örnek başına çok gürültülü — pilotların lastik seçimi daha güvenilir sinyal)
+    _wet_laps = laps['Compound'].astype(str).str.upper().isin(
+        ('INTERMEDIATE', 'WET')).sum()
+    race_wet = bool(_wet_laps >= max(12, 0.06 * len(laps)))
+
+    weather = {}
+    try:
+        wd = getattr(s, 'weather_data', None)
+        if wd is not None and not wd.empty:
+            air = pd.to_numeric(wd.get('AirTemp'), errors='coerce').dropna()
+            trk = pd.to_numeric(wd.get('TrackTemp'), errors='coerce').dropna()
+            rain = wd.get('Rainfall')
+            rainy = (rain is not None and pd.Series(rain).astype(bool).mean() > 0.4)
+            weather = {
+                'air': round(float(air.mean()), 1) if len(air) else None,
+                'track': round(float(trk.mean()), 1) if len(trk) else None,
+                'trackMax': round(float(trk.max()), 1) if len(trk) else None,
+                'wet': bool(race_wet or (rainy and _wet_laps >= 4)),
+            }
+    except Exception as _wx_err:  # noqa: BLE001
+        log_data_error('strat weather', _wx_err)
+        weather = {'wet': race_wet}
+
     return {
         'ok': True, 'year': int(year), 'gp': str(gp), 'total_laps': total_laps,
         'driver': driver, 'driver_name': d_name, 'driver_team': d_team,
         'driver_col': _team_hex(d_res), 'grid': grid, 'field': field_n,
         'base_lap_s': base_lap_s, 'fuel_effect': fuel_effect, 'pit_loss_s': pit_loss_s,
         'compounds': compounds, 'sc_windows': sc_windows, 'vsc_windows': vsc_windows,
-        'rivals': rivals,
+        'rivals': rivals, 'weather': weather,
         'actual': {'stops': actual_stops,
                    'start_compound': _strat_start_compound_v67(laps, driver),
                    'finish_pos': finish},
@@ -9970,9 +10062,21 @@ def _strat_simulate_v67(model, strat):
         gap_ahead = round(cum - board[me_ix - 1][0], 1) if me_ix > 0 else None
         gap_behind = round(board[me_ix + 1][0] - cum, 1) if me_ix + 1 < len(board) else None
 
+        # undercut penceresi: öndeki 2.2 sn içinde + benim lastik yeterince eski +
+        # öndeki ya benden çok durak borçlu ya da belirgin daha eski lastikte
+        undercut_win = False
+        if (me_ix > 0 and gap_ahead is not None and gap_ahead <= 2.2
+                and my_stops_left > 0 and not (in_sc or in_vsc)):
+            ah = board[me_ix - 1]
+            ah_r = rival_by_code.get(ah[1])
+            ah_left = sum(1 for s in ah_r['stops'] if int(s['lap']) > lap) if ah_r else 0
+            if tyre_age >= 0.5 * max(6, cc['cliff']) and (ah_left >= my_stops_left
+                                                          or ah[4] > tyre_age + 4):
+                undercut_win = True
+
         frames.append({
             'lap': lap, 'pos': cur_pos, 'projPos': proj_pos,
-            'stopsLeft': my_stops_left,
+            'stopsLeft': my_stops_left, 'undercutWin': undercut_win,
             'compound': compound, 'age': tyre_age,
             'wearPct': min(100, round(tyre_age / max(1, cc['cliff']) * 100)),
             'cliff': tyre_age > cc['cliff'],
@@ -10109,7 +10213,7 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
 .rc-i .l{font:700 10px 'JetBrains Mono',monospace;color:var(--dim);flex:none}
 .rc-i .x{color:#cdd6e4;letter-spacing:.01em}
 /* senin araç telemetrisi */
-.car{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;margin-top:10px;
+.car{position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;margin-top:10px;
   padding:11px 13px;border:1px solid var(--ln);border-radius:10px;
   background:linear-gradient(120deg,var(--p2),var(--p1))}
 .car-pos{display:flex;flex-direction:column;align-items:center;border-left:3px solid var(--pc,var(--teal));
@@ -10141,6 +10245,14 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
 .tl-pit{position:absolute;top:-2px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--tx)}
 .tl-head{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}
 #rng{width:100%;margin-top:5px;accent-color:var(--teal);cursor:pointer;height:14px}
+.uc{position:absolute;right:11px;top:-8px;z-index:3;font:800 8px 'Saira Condensed','Arial Narrow',sans-serif;
+  letter-spacing:.12em;padding:3px 9px;border-radius:99px;background:var(--teal);color:#06120f;
+  display:none;animation:ucp 1s infinite}
+.uc.on{display:block}
+@keyframes ucp{50%{opacity:.5}}
+.psl{width:100%;height:26px;display:block;margin-top:7px;overflow:visible}
+.psl polyline{fill:none;stroke:var(--teal);stroke-width:1.4;vector-effect:non-scaling-stroke;opacity:.85}
+.psl .now{fill:#fff}
 /* bitiş */
 .fin{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   background:linear-gradient(180deg,rgba(8,11,18,.96),rgba(8,11,18,.99));opacity:0;pointer-events:none;transition:opacity .45s}
@@ -10163,6 +10275,7 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
     <div class="rc"><div class="rc-h">Yarış Kontrol</div><div class="rc-list" id="rc"></div></div>
   </div>
   <div class="car">
+    <span class="uc" id="uc">◂ UNDERCUT PENCERESİ</span>
     <div class="car-pos"><span class="pl">SENİN ARAÇ</span><b class="mono" id="cpos">P1</b>
       <span class="pp" id="cpp"></span></div>
     <div class="car-tyre">
@@ -10180,8 +10293,9 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
     </div>
   </div>
   <div class="strat">
-    <div class="strat-h"><span>Strateji</span><span id="stxt">—</span></div>
+    <div class="strat-h"><span>Strateji · pozisyon eğrisi</span><span id="stxt">—</span></div>
     <div class="tl" id="tl"><div class="tl-head" id="tlhead"></div></div>
+    <svg class="psl" id="psl" viewBox="0 0 100 24" preserveAspectRatio="none"></svg>
     <input id="rng" type="range" min="0" value="0">
   </div>
   <div class="fin" id="fin"><div class="fl">Yarış Bitti</div><div class="fp mono" id="finp">P1</div>
@@ -10218,6 +10332,16 @@ document.querySelector('.car').style.setProperty('--pc', M.driverCol||'#2ee6d6')
   const seq=[F[0].compound]; for(let k=1;k<F.length;k++) if(F[k].compound!==F[k-1].compound) seq.push(F[k].compound);
   $('stxt').textContent=seq.map(c=>TR[c]||c).join(' → ');
   $('tl').appendChild($('tlhead'));
+})();
+
+// --- pozisyon eğrisi (tur-tur sıralaman) ---
+const PSL_FLD=Math.max(2,M.field);
+const psY=p=>((p-1)/(PSL_FLD-1)*22+1);
+const psX=l=>((l-1)/Math.max(1,M.laps-1)*100);
+(function(){
+  const pts=F.map(f=>psX(f.lap).toFixed(1)+','+psY(f.pos).toFixed(1)).join(' ');
+  $('psl').innerHTML='<polyline points="'+pts+'"></polyline>'
+    +'<circle class="now" r="1.9" cx="0" cy="'+psY(F[0].pos).toFixed(1)+'"></circle>';
 })();
 
 function fmtLap(s){ if(s==null) return '—'; const m=Math.floor(s/60), r=(s-m*60);
@@ -10304,6 +10428,9 @@ function render(f){
   $('cgb').textContent=f.gapBehind==null?'—':'+'+f.gapBehind.toFixed(1);
   $('clt').textContent=fmtLap(f.lapTime);
   $('tlhead').style.left=(f.lap/M.laps*100)+'%';
+  $('uc').classList.toggle('on', !!f.undercutWin);
+  const _now=$('psl').querySelector('.now');
+  if(_now){ _now.setAttribute('cx',psX(f.lap).toFixed(1)); _now.setAttribute('cy',psY(f.pos).toFixed(1)); }
   tower(f); apply(f); renderRC(f.lap);
   prevPos=f.pos;
 }
@@ -10599,25 +10726,79 @@ _SW_TR_V68 = {'SOFT': 'YUMUŞAK', 'MEDIUM': 'ORTA', 'HARD': 'SERT',
               'INTERMEDIATE': 'ARA', 'WET': 'YAĞMUR'}
 
 
+def _strat_rival_plan_v8(m):
+    """Rakiplerin gerçek stratejilerinden özet: durak sayısı dağılımı + yaygın başlangıç."""
+    rivals = [r for r in (m.get('rivals') or []) if len(r.get('stops') or []) <= 3]
+    if len(rivals) < 3:
+        return None
+    stops = collections.Counter(len(r.get('stops') or []) for r in rivals)
+    starts = collections.Counter(
+        _strat_comp_family_v68(r.get('start') or 'MEDIUM') for r in rivals)
+    dist = " · ".join(f"{n}×{k}-stop" for k, n in sorted(stops.items()))
+    common = starts.most_common(1)[0][0]
+    return {'dist': dist, 'mode': stops.most_common(1)[0][0],
+            'start': _SW_TR_V68.get(common, common).title()}
+
+
+def _strat_weather_line_v8(w):
+    if not w:
+        return None
+    if w.get('wet'):
+        return ("Islak / değişken pist — ara ya da yağmur lastiği devreye girebilir. "
+                "Pit pencereni geniş tut, hava dönerse ilk hamleyi sen yap.")
+    bits = []
+    trk = w.get('track')
+    if trk is not None:
+        bits.append(f"pist ~{trk:.0f}°C" + (" (sıcak, soft hızlı düşer)" if trk >= 40 else ""))
+    if w.get('air') is not None:
+        bits.append(f"hava ~{w['air']:.0f}°C")
+    return "Kuru yarış" + (" · " + ", ".join(bits) if bits else "") + "."
+
+
 def _sw_brief_screen_v68(m):
-    """intro + diyalog tek ekranda: yarış künyesi + pit duvarı telsizleri."""
+    """intro + diyalog tek ekranda: yarış künyesi + yarış-öncesi okuma + telsizler."""
     n_real = len(m['actual']['stops'])
+    w = m.get('weather') or {}
+    _pist = (f"{w['track']:.0f}°C" if w.get('track') is not None
+             else ('ISLAK' if w.get('wet') else '—'))
     stats = "".join(
         f"<div class='sws-st'><b>{v}</b><span>{k}</span></div>" for k, v in [
             ('Izgara', f"P{m['grid']}"), ('Tur', m['total_laps']),
             ('Temel tur', f"{m['base_lap_s']:.1f}s"), ('Pit kaybı', f"{m['pit_loss_s']:.0f}s"),
-            ('O gün', f"{n_real} stop · P{m['actual']['finish_pos']}"),
+            ('Pist', _pist), ('Gerçek', f"{n_real} stop · P{m['actual']['finish_pos']}"),
         ])
     msgs = "".join(
         f"<div class='sws-msg'><i></i><div><div class='who'>{html_lib.escape(who)}</div>"
         f"<div class='tx'>{html_lib.escape(text)}</div></div></div>"
         for who, text in _sw_dialogue_v67(m))
+
+    reads = []
+    _wl = _strat_weather_line_v8(w)
+    if _wl:
+        reads.append(("Koşullar", _wl))
+    _rp = _strat_rival_plan_v8(m)
+    if _rp:
+        reads.append(("Rakip planı",
+                      f"Saha {_rp['dist']} kullandı — {_rp['mode']} durak baskın. "
+                      f"Çoğu {_rp['start']} lastikle başladı. Farklı bir plan seçmek "
+                      "seni öne de çıkarabilir, geriye de düşürebilir."))
+    _life = m['compounds'].get('SOFT', {}).get('cliff', 15)
+    reads.append(("Yakıt & ısınma",
+                  f"Depo başta ~{m['total_laps'] * 1.6:.0f} kg — ilk turlar en yavaş, tur "
+                  f"başına ~{abs(m['fuel_effect']) * 60:.0f} sn/kg açılırsın. Soft ~1 turda "
+                  f"ısınır ama ~{_life}. turdan sonra uçuruma girer."))
+    reads_html = "".join(
+        f"<div class='sws-msg'><i></i><div><div class='who'>{html_lib.escape(w0)}</div>"
+        f"<div class='tx'>{html_lib.escape(t0)}</div></div></div>" for w0, t0 in reads)
+
     st.markdown(
         f"<div class='sws'><div class='sws-eb'>Duvar Brifingi · {m['year']} "
         f"{html_lib.escape(m['gp'])}</div>"
         f"<div class='sws-h'>{html_lib.escape(m['driver_name'])} · P{m['grid']}’den</div>"
         f"<div class='sws-lead'>{html_lib.escape(_sw_intro_line_v67(m))}</div>"
         f"<div class='sws-stats'>{stats}</div></div>"
+        f"<div class='sws'><div class='sws-eb'>Yarış Öncesi Okuma</div>"
+        f"<div class='sws-radio'>{reads_html}</div></div>"
         f"<div class='sws'><div class='sws-eb'>Pit Duvarı · Telsiz</div>"
         f"<div class='sws-radio'>{msgs}</div></div>",
         unsafe_allow_html=True)
@@ -10650,7 +10831,66 @@ def _sw_lesson_v8(r, m):
             "kaydırmak çoğu zaman bir-iki pozisyon değiştirir.")
 
 
-def _sw_result_v67(r, m):
+def _strat_cand_label_v8(c):
+    seq = [str(c['start_compound']).upper()] + [str(s['compound']).upper() for s in c['stops']]
+    laps = "/".join(f"T{int(s['lap'])}" for s in c['stops'])
+    return " → ".join(_SW_TR_V68.get(x, x).title() for x in seq) + f" · pit {laps}"
+
+
+def _strat_analysis_v8(m, strat, played_frames):
+    """Sonuç ekranı derin analizi: strateji vs en iyi bulunan + SC senaryosu + pace."""
+    laps = m['total_laps']
+    played_pos = played_frames[-1]['pos'] if played_frames else m['grid']
+    mids = [max(3, round(laps * f)) for f in (0.32, 0.42, 0.52, 0.62)]
+    cands = []
+    for a in ('SOFT', 'MEDIUM', 'HARD'):
+        for b in ('SOFT', 'MEDIUM', 'HARD'):
+            if a == b:
+                continue
+            for lp in mids:
+                cands.append({'start_compound': a, 'stops': [{'lap': lp, 'compound': b}]})
+    for a, b in ((0.30, 0.60), (0.34, 0.66), (0.40, 0.72)):
+        cands.append({'start_compound': 'MEDIUM',
+                      'stops': [{'lap': max(3, round(laps * a)), 'compound': 'HARD'},
+                                {'lap': min(laps - 2, round(laps * b)), 'compound': 'MEDIUM'}]})
+        cands.append({'start_compound': 'SOFT',
+                      'stops': [{'lap': max(3, round(laps * a)), 'compound': 'MEDIUM'},
+                                {'lap': min(laps - 2, round(laps * b)), 'compound': 'HARD'}]})
+    best_pos, best_c = 99, None
+    for c in cands:
+        try:
+            fp = _strat_simulate_v67(m, c)['frames'][-1]['pos']
+        except Exception:
+            continue
+        if fp < best_pos:
+            best_pos, best_c = fp, c
+    out = {'played_pos': played_pos, 'best_pos': best_pos,
+           'best_label': _strat_cand_label_v8(best_c) if best_c else None}
+
+    my_laps = {int(s['lap']) for s in strat['stops']}
+    for a, b in (m.get('sc_windows') or []):
+        if any(a - 1 <= l <= b + 1 for l in my_laps):
+            continue
+        mid = max(2, min(laps - 2, (a + b) // 2))
+        alt = {'start_compound': strat['start_compound'],
+               'stops': sorted(strat['stops'] + [{'lap': mid, 'compound': 'HARD'}],
+                               key=lambda s: s['lap'])}
+        try:
+            out['sc_alt'] = {'lap': mid,
+                             'pos': _strat_simulate_v67(m, alt)['frames'][-1]['pos']}
+        except Exception:
+            pass
+        break
+
+    times = [f['lapTime'] for f in (played_frames or []) if f.get('lapTime')]
+    if len(times) >= 10:
+        head = sum(times[:5]) / 5
+        tail = sum(times[-5:]) / 5
+        out['pace_drop'] = round(tail - head, 2)
+    return out
+
+
+def _sw_result_v67(r, m, analysis=None):
     pos, real = r['finalPos'], r['actual']
     good = pos <= real['finishPos']
     sc = str(real['startCompound']).upper()
@@ -10670,8 +10910,44 @@ def _sw_result_v67(r, m):
         f"<ul class='sws-break'>{rows}</ul>"
         f"<div class='sws-eb' style='margin-top:13px'>Ne Öğrendin</div>"
         f"<div class='sws-lead' style='margin-top:5px'>{html_lib.escape(_sw_lesson_v8(r, m))}</div>"
+        + _sw_analysis_html_v8(analysis, pos) +
         f"</div>",
         unsafe_allow_html=True)
+
+
+def _sw_analysis_html_v8(a, played_pos):
+    if not a:
+        return ""
+    parts = ["<div class='sws-eb' style='margin-top:13px'>Derin Analiz</div>"]
+    bd = []
+    if a.get('best_label'):
+        gap = played_pos - a['best_pos']
+        if gap > 0:
+            bd.append((f"En iyi bulunan plan P{a['best_pos']} verirdi — {a['best_label']}",
+                       -gap))
+        else:
+            bd.append((f"Stratejin denenen tüm planlar kadar iyi ya da daha iyi (P{played_pos})",
+                       1))
+    if a.get('sc_alt'):
+        d = played_pos - a['sc_alt']['pos']
+        bd.append((f"O SC penceresinde (T{a['sc_alt']['lap']}) pit yapsaydın ≈ P{a['sc_alt']['pos']}",
+                   d if d != 0 else 1))
+    if a.get('pace_drop') is not None:
+        pd_ = a['pace_drop']
+        # yakıt yükü ~2 sn kazandırdığı halde son turlar hâlâ yavaşsa lastik yönetimi zorlanmış
+        if pd_ > 0.15:
+            bd.append(("Son stint belirgin yavaşladı — yakıt hafiflemesine rağmen "
+                       "lastikler tükendi", -1))
+        else:
+            bd.append(("Tempon yarış boyu tutarlıydı — stint uzunlukların lastiğe uydu", 1))
+    if not bd:
+        return ""
+    lis = "".join(
+        f"<li style='--bl:{'#37d67a' if v > 0 else '#ff5964'}'>"
+        f"<span>{html_lib.escape(t)}</span><b>{'▲' if v > 0 else '▼'}</b></li>"
+        for t, v in bd)
+    parts.append(f"<ul class='sws-break'>{lis}</ul>")
+    return "".join(parts)
 
 
 def render_strategy_wall_v67():
@@ -10737,10 +11013,18 @@ def render_strategy_wall_v67():
         if not g.get('awarded'):
             g['awarded'] = True
             _game_award_v66(xp=max(5, r['score'] // 4), played=True)
-        _sw_result_v67(r, g['model'])
+        if 'analysis' not in g:
+            try:
+                g['analysis'] = _strat_analysis_v8(
+                    g['model'], g['strat'], g['sim'].get('frames'))
+            except Exception as _an_err:  # noqa: BLE001
+                log_data_error('strat analysis', _an_err)
+                g['analysis'] = None
+        _sw_result_v67(r, g['model'], g.get('analysis'))
         cols = st.columns(2)
         if cols[0].button("Aynı yarış, yeni strateji", key="sw_retry", width='stretch'):
             g.update(phase='strategy', sim=None, strat=None, awarded=False)
+            g.pop('analysis', None)
             st.rerun()
         if cols[1].button("Başka yarış →", type="primary", key="sw_new", width='stretch'):
             st.session_state['sw67'] = {'phase': 'brief', 'race_key': None, 'model': None}
