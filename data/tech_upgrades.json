@@ -1,0 +1,32 @@
+[
+  {
+    "team": "McLaren",
+    "season": 2026,
+    "event": "Bahrain Grand Prix",
+    "date": "2026-03-08",
+    "type": "floor",
+    "components": ["yeni zemin kenarı", "revize edilmiş difüzör kanalları"],
+    "goal": "orta hızlı virajlarda yere basma tutarlılığı",
+    "note": "FIA teknik doküman özeti — örnek kayıt"
+  },
+  {
+    "team": "Ferrari",
+    "season": 2026,
+    "event": "Emilia Romagna Grand Prix",
+    "date": "2026-05-17",
+    "type": "aero",
+    "components": ["yeni ön kanat üst elemanı", "bargeboard revizyonu"],
+    "goal": "ön aks kararlılığı ve düşük hız dengesi",
+    "note": "örnek kayıt"
+  },
+  {
+    "team": "Mercedes",
+    "season": 2026,
+    "event": "Spanish Grand Prix",
+    "date": "2026-05-31",
+    "type": "suspension",
+    "components": ["revize arka süspansiyon geometrisi"],
+    "goal": "lastik sıcaklık penceresini genişletmek",
+    "note": "örnek kayıt"
+  }
+]
