@@ -9795,9 +9795,12 @@ def _strat_simulate_v67(model, strat):
     tyre_age = 0
     sc_active = False
     cur_pos = model['grid']
+    proj_pos = model['grid']
     pending = []
     frames = []
     rival_stop_laps = {r['code']: {int(s['lap']) for s in r['stops']} for r in model['rivals']}
+    rival_by_code = {r['code']: r for r in model['rivals']}
+    my_total_stops = len(strat['stops'])
 
     for lap in range(1, laps + 1):
         ev = []
@@ -9860,6 +9863,24 @@ def _strat_simulate_v67(model, strat):
         me_ix = next(k for k, e in enumerate(board) if e[6])
         new_pos = max(1, min(model['field'], me_ix + 1))
 
+        # pit-ayarlı sıralama: pistte önümde olup benden fazla durak borcu olan
+        # araçlar durakta geri düşecek; arkamda olup benden az borcu olanlar öne
+        # geçecek. Beklenen sıralama = canlı sıra bu iki etkiyle düzeltilmiş.
+        my_stops_left = sum(1 for s in strat['stops'] if int(s['lap']) > lap)
+        _swing = 0
+        for _wi, _e in enumerate(board):
+            if _e[6]:
+                continue
+            _r = rival_by_code.get(_e[1])
+            if not _r:
+                continue
+            _left = sum(1 for s in _r['stops'] if int(s['lap']) > lap)
+            if _wi < me_ix and _left > my_stops_left:
+                _swing -= 1
+            elif _wi > me_ix and _left < my_stops_left:
+                _swing += 1
+        new_proj = max(1, min(model['field'], me_ix + 1 + _swing))
+
         # undercut/overcut çöz
         for b in list(pending):
             rc = next((r for r in model['rivals'] if r['code'] == b['rival']), None)
@@ -9885,6 +9906,7 @@ def _strat_simulate_v67(model, strat):
             ev.append({'t': 'POS_UP' if new_pos < cur_pos else 'POS_DOWN',
                        'from': cur_pos, 'to': new_pos})
             cur_pos = new_pos
+        proj_pos = new_proj
 
         tower = [{
             'pos': wi + 1, 'code': e[1], 'me': e[6], 'col': e[2],
@@ -9895,7 +9917,8 @@ def _strat_simulate_v67(model, strat):
         gap_behind = round(board[me_ix + 1][0] - cum, 1) if me_ix + 1 < len(board) else None
 
         frames.append({
-            'lap': lap, 'pos': cur_pos,
+            'lap': lap, 'pos': cur_pos, 'projPos': proj_pos,
+            'stopsLeft': my_stops_left,
             'compound': compound, 'age': tyre_age,
             'wearPct': min(100, round(tyre_age / max(1, cc['cliff']) * 100)),
             'cliff': tyre_age > cc['cliff'],
@@ -10039,6 +10062,7 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
   border-right:1px solid var(--ln);padding:0 14px}
 .car-pos .pl{font:700 8.5px 'Saira Condensed';letter-spacing:.18em;color:var(--dim)}
 .car-pos b{font:800 30px/1 'Saira Condensed';font-variant-numeric:tabular-nums}
+.car-pos .pp{font:700 8.5px 'Saira Condensed';letter-spacing:.05em;color:var(--yel);margin-top:3px;text-align:center;min-height:10px}
 .car-tyre{display:flex;align-items:center;gap:11px}
 .car-tyre .tw{width:38px;height:38px;border-radius:50%;border:3px solid var(--tc,#888);
   display:grid;place-items:center;font:800 15px 'Saira Condensed';color:var(--tc,#888);flex:none}
@@ -10085,7 +10109,8 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
     <div class="rc"><div class="rc-h">Yarış Kontrol</div><div class="rc-list" id="rc"></div></div>
   </div>
   <div class="car">
-    <div class="car-pos"><span class="pl">SENİN ARAÇ</span><b class="mono" id="cpos">P1</b></div>
+    <div class="car-pos"><span class="pl">SENİN ARAÇ</span><b class="mono" id="cpos">P1</b>
+      <span class="pp" id="cpp"></span></div>
     <div class="car-tyre">
       <div class="tw" id="ctd">M</div>
       <div class="tinfo">
@@ -10210,6 +10235,12 @@ function apply(f){
 function render(f){
   $('lap').textContent=f.lap;
   $('cpos').textContent='P'+f.pos;
+  const sl=f.stopsLeft||0;
+  if(sl>0 && f.projPos && f.projPos!==f.pos){
+    $('cpp').textContent='PİT SONRASI ≈P'+f.projPos;
+  } else if(sl>0){
+    $('cpp').textContent=sl+' PİT KALDI';
+  } else { $('cpp').textContent=''; }
   const tc=TCOL[f.compound]||'#888';
   $('ctd').textContent=L1[f.compound]||'?'; $('ctd').style.borderColor=tc; $('ctd').style.color=tc;
   $('ctn').textContent=(TR[f.compound]||f.compound)+' LASTİK';
