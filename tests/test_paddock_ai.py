@@ -69,3 +69,28 @@ def test_unknown_race_says_no_data_not_hallucinate():
     a = answer("1988 Monako GP'sini kim kazandı?")
     # f1_history.sqlite yoksa: uydurmaz, "veri yok" der
     assert a.intent in ("RACE_RESULT",) and (not a.ok or "kazandı" in a.text)
+
+
+def test_season_calendar_intent():
+    a = answer("1956 da pistleri sayar mısın")
+    assert a.intent == "SEASON_CALENDAR"
+    # DB varsa liste; yoksa "veri yok" — ikisi de kabul, uydurma yok
+    a2 = answer("1962 sezonunda kaç yarış vardı")
+    assert a2.intent == "SEASON_CALENDAR"
+
+
+def test_season_first_last_intent():
+    a = answer("1958 sezonu nerede başladı?")
+    assert a.intent == "SEASON_FIRST_LAST"
+    a2 = answer("1970 sezonu nerede bitti?")
+    assert a2.intent == "SEASON_FIRST_LAST"
+
+
+def test_season_calendar_from_db_if_present():
+    from core.paddock_ai.retrievers import history_db
+    if not history_db.available():
+        return  # DB henüz üretilmedi
+    d = history_db.season_races(1950)
+    if d:
+        assert d["count"] == 7  # 1950'de 7 yarış vardı
+        assert d["first"]["name"] == "British Grand Prix"

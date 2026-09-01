@@ -26,12 +26,14 @@ SECTIONS = [
         ("Pilot Karsilastirma", "compare_arrows", "compare"),
         ("Pilotlar", "badge", "drivers"),
     ]),
+    ("Paddock AI", [
+        ("Paddock AI", "smart_toy", "assistant"),
+    ]),
     ("Sampiyonalar", [
         ("2026 Takimlar & Pilotlar", "groups", "teams"),
         ("F2 & F3 Takip", "stacked_line_chart", "f2f3"),
     ]),
     ("Paddock", [
-        ("Paddock Asistani", "smart_toy", "assistant"),
         ("F1 Baslangic Garaji", "school", "learn"),
         ("Favori Paddock", "star", "favourites"),
         ("F1 Sozlugu", "quiz", "glossary"),

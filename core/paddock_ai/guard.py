@@ -31,6 +31,8 @@ _F1_KEYWORDS = (
     "lider", "kim onde", "puanlar", "kazanan", "kazandi", "galip",
     "guncelleme", "upgrade", "aero", "kanat", "difuzor", "zemin",
     "tahmin puanim", "sampiyonlar", "rekor", "dunya birincisi",
+    "takvim", "pistleri", "yarislar", "yarisi", "sezonu", "sezonunda",
+    "nerede basladi", "nerede bitti", "ilk yari", "grand prix", "kac tane",
 )
 
 

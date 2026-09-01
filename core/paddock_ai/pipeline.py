@@ -91,6 +91,23 @@ def _retrieve(name, ent, u, live, this_year):
         d = history_db.champion(ent.year)
         return templates.champion(d) if d else None
 
+    if name == "SEASON_CALENDAR" and ent.year:
+        d = history_db.season_races(ent.year)
+        if not d:
+            return None
+        if u.has_any("kac yaris", "kac tane", "kac pist"):
+            return templates.Answer(
+                f"{ent.year} sezonunda {d['count']} Grand Prix düzenlendi.",
+                d["source"], "SEASON_CALENDAR")
+        return templates.season_calendar(d)
+
+    if name == "SEASON_FIRST_LAST" and ent.year:
+        d = history_db.season_races(ent.year)
+        if not d:
+            return None
+        which = "last" if u.has_any("son yaris", "nerede bitti", "kapanis") else "first"
+        return templates.season_first_last(d, which)
+
     if name == "RACE_RESULT":
         # Belirli bir geçmiş yıl istendi -> yalnız tarih DB'si. Başka bir yılın
         # yarışını ASLA yerine koyma.

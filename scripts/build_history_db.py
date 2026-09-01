@@ -41,16 +41,43 @@ CREATE INDEX IF NOT EXISTS ix_race_name ON races(season, name);
 """
 
 
-def _get(path: str, limit: int = 100) -> dict:
-    url = f"{BASE}/{path}.json?limit={limit}"
+def _get_page(path: str, offset: int) -> dict:
+    """Jolpica sayfa başına 100 satırda sınırlıdır — offset ile çağrılır."""
+    url = f"{BASE}/{path}.json?limit=100&offset={offset}"
     for attempt in range(4):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "FormulaPaddock/hist"})
-            with urllib.request.urlopen(req, timeout=15) as r:
+            with urllib.request.urlopen(req, timeout=20) as r:
                 return json.loads(r.read().decode("utf-8"))
         except Exception:
             time.sleep(1.5 * (attempt + 1))
     return {}
+
+
+def _get_all_races(path: str) -> list:
+    """Bir sezonun TÜM yarışlarını sayfalayarak birleştirir (round -> race dict)."""
+    merged: dict = {}
+    offset, total = 0, None
+    while total is None or offset < total:
+        data = _get_page(path, offset)
+        md = data.get("MRData", {})
+        if total is None:
+            total = int(md.get("total", 0) or 0)
+        races = md.get("RaceTable", {}).get("Races", [])
+        if not races:
+            break
+        for race in races:
+            rnd = race.get("round")
+            if rnd not in merged:
+                merged[rnd] = race
+            else:
+                # aynı yarışın devam eden satırları (Results / QualifyingResults)
+                for key in ("Results", "QualifyingResults"):
+                    merged[rnd].setdefault(key, []).extend(race.get(key, []))
+        offset += 100
+        if total == 0:
+            break
+    return list(merged.values())
 
 
 def _num(v, default=None):
@@ -68,10 +95,9 @@ def _driver_name(d: dict) -> str:
 
 
 def ingest_season(conn: sqlite3.Connection, season: int) -> int:
-    data = _get(f"{season}/results", limit=1000)
-    table = (data.get("MRData", {}).get("RaceTable", {}).get("Races", []))
+    races = _get_all_races(f"{season}/results")
     n = 0
-    for race in table:
+    for race in races:
         rnd = _num(race.get("round"))
         circ = race.get("Circuit", {})
         conn.execute(
@@ -90,9 +116,8 @@ def ingest_season(conn: sqlite3.Connection, season: int) -> int:
                  _num(res.get("points"), 0.0), _num(fl)))
         n += 1
 
-    # sıralama (Ergast'ta 2003+)
-    qd = _get(f"{season}/qualifying", limit=1000)
-    for race in qd.get("MRData", {}).get("RaceTable", {}).get("Races", []):
+    # sıralama (Ergast'ta 1994+ eksiksiz, 2003+ Q1/Q2/Q3)
+    for race in _get_all_races(f"{season}/qualifying"):
         rnd = _num(race.get("round"))
         for q in race.get("QualifyingResults", []):
             drv = q.get("Driver", {})
@@ -103,7 +128,7 @@ def ingest_season(conn: sqlite3.Connection, season: int) -> int:
                  q.get("Q1"), q.get("Q2"), q.get("Q3")))
 
     # şampiyon
-    cd = _get(f"{season}/driverStandings", limit=1)
+    cd = _get_page(f"{season}/driverStandings", 0)
     lists = cd.get("MRData", {}).get("StandingsTable", {}).get("StandingsLists", [])
     if lists and lists[0].get("DriverStandings"):
         top = lists[0]["DriverStandings"][0]

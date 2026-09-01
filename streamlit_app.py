@@ -468,7 +468,7 @@ st.markdown(
 _nav_now = st.session_state['page']
 
 # Üst bar: "Haberler" düz sekme + eski sidebar bölümlerinin aynısı (her grup kendi açılır listesi)
-NAV_STANDALONE = [("news", T("nav.news"))]
+NAV_STANDALONE = [("news", T("nav.news")), ("assistant", T("nav.assistant"))]
 NAV_GROUPS = [
     (T("section.data"), "telemetry", [("telemetry", T("nav.telemetry"))]),
     (T("section.live"), "live", [
@@ -477,7 +477,7 @@ NAV_GROUPS = [
     (T("section.paddock"), "learn", [("learn", T("nav.learn")), ("favourites", T("nav.favourites"))]),
     (T("section.champ"), "teams", [
         ("teams", T("nav.teams")), ("standings", T("nav.standings")), ("f2f3", T("nav.f2f3")),
-        ("glossary", T("nav.glossary")), ("assistant", T("nav.assistant"))]),
+        ("glossary", T("nav.glossary"))]),
     (T("section.games"), "games", [("games", T("nav.games"))]),
 ]
 
@@ -5123,56 +5123,109 @@ def _resolve_event_name_v9(fragment, year):
 _APP_LIVE = _AppLive()
 
 
+_PADDOCK_AI_CSS = """<style>
+.pa-hero{border:1px solid #20293e;border-radius:14px;padding:17px 19px;margin-bottom:14px;
+  background:linear-gradient(150deg,#0d1420,#0a0e16);position:relative;overflow:hidden}
+.pa-hero::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:#2ee6d6}
+.pa-hero-eb{font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.2em;color:#2ee6d6}
+.pa-hero-h{font:800 20px/1.15 'Saira Condensed','Arial Narrow',sans-serif;color:#eef2f8;margin:7px 0 5px;text-transform:uppercase}
+.pa-hero-p{color:#93a2b8;font-size:.9rem;line-height:1.55;max-width:64ch}
+.pa-caps{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.pa-caps span{font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.09em;text-transform:uppercase;
+  color:#c7d0de;background:#131c2c;border:1px solid #20293e;border-radius:99px;padding:4px 10px}
+.pa-try{font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.14em;text-transform:uppercase;
+  color:#7f8da3;margin:4px 0 6px}
+/* sohbet balonlarını yeniden biçimle */
+[data-testid="stChatMessage"]{background:#0f1521 !important;border:1px solid #20293e !important;
+  border-radius:11px !important;padding:11px 14px !important;margin-bottom:8px !important}
+[data-testid="stChatMessage"]:has(.pa-user){background:transparent !important;border:0 !important;
+  justify-content:flex-end;padding:2px 0 !important}
+.pa-user{display:inline-block;background:#1c2a44;border:1px solid rgba(46,230,214,.3);border-radius:11px;
+  padding:8px 13px;color:#eef2f8;font-size:.92rem;max-width:80%}
+.pa-tag{display:inline-flex;align-items:center;gap:6px;font:800 9px 'Saira Condensed','Arial Narrow',sans-serif;
+  letter-spacing:.13em;text-transform:uppercase;color:#2ee6d6;margin-bottom:6px}
+.pa-tag.no{color:#ff9d5c}
+.pa-src{display:inline-block;margin-top:9px;font:700 9px 'JetBrains Mono','Consolas',monospace;
+  letter-spacing:.05em;color:#6b7787}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p{margin:0 0 .3rem;font-size:.94rem;line-height:1.55;color:#d5dde9}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li{font-size:.9rem;color:#c7d0de}
+</style>"""
+
+_PA_INTENT_V9 = {
+    'RACE_RESULT': ('🏁', 'Yarış Sonucu'), 'SEASON_CHAMPION': ('🏆', 'Şampiyon'),
+    'SEASON_CALENDAR': ('📅', 'Sezon Takvimi'), 'SEASON_FIRST_LAST': ('📍', 'Sezon Yarışı'),
+    'STANDINGS': ('📊', 'Klasman'), 'DRIVER_CAREER': ('👤', 'Kariyer'),
+    'DRIVER_SEASON': ('📈', 'Sezon Formu'), 'HEAD_TO_HEAD': ('⚔️', 'Kıyas'),
+    'RECORD': ('📖', 'Rekor'), 'TECH_UPGRADE': ('🔧', 'Teknik Güncelleme'),
+    'NEXT_RACE': ('⏭️', 'Sıradaki Yarış'), 'USER_STATS': ('🎯', 'Tahmin Puanın'),
+    'SMALLTALK': ('💬', 'Sohbet'), 'REFUSE': ('🚫', 'Kapsam Dışı'),
+    'FALLBACK': ('❓', 'Netleştirir misin'),
+}
+
+
+def _pa_render_answer_v9(turn):
+    ic, lbl = _PA_INTENT_V9.get(turn.get('intent', ''), ('◆', 'Yanıt'))
+    with st.chat_message('assistant', avatar='🏎️'):
+        st.markdown(
+            f"<div class='pa-tag{'' if turn.get('ok', True) else ' no'}'>{ic} "
+            f"{html_lib.escape(lbl)}</div>", unsafe_allow_html=True)
+        st.markdown(turn['text'])
+        if turn.get('source'):
+            st.markdown(f"<div class='pa-src'>Kaynak · {html_lib.escape(turn['source'])}</div>",
+                        unsafe_allow_html=True)
+
+
 def render_paddock_assistant_v20():
-    fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"),
-                      eyebrow=T("section.paddock"))
+    fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"), eyebrow="PADDOCK AI")
+    st.markdown(_PADDOCK_AI_CSS, unsafe_allow_html=True)
     st.markdown(
-        "<div class='hud-card ai-command-card' style='border-top:5px solid #2ee6c9'>"
-        "<div class='hud-label'>YEREL F1 MOTORU · LLM YOK</div>"
-        "<div style='font-size:1.25rem;font-weight:950;margin-top:7px'>"
-        "F1 sorunu yaz, kaynaklı yanıt al.</div>"
-        "<div class='history-copy' style='margin-top:6px'>Sorunu ayrıştırıp "
-        "kendi veritabanımıza (FastF1 · tarihî SQLite · kariyer/teknik JSON) sorgu atar. "
-        "Bilmediğini uydurmaz. Yalnızca Formula 1 + temel selamlaşma.</div></div>",
+        "<div class='pa-hero'>"
+        "<div class='pa-hero-eb'>◆ YEREL F1 MOTORU · LLM YOK · API ANAHTARI YOK</div>"
+        "<div class='pa-hero-h'>Sorunu ayrıştırır, kendi veritabanımıza sorgu atar</div>"
+        "<div class='pa-hero-p'>Cümleden yıl · yarış · pilot · takım çıkarılır, sonra "
+        "FastF1 · tarihî SQLite (1950'den bugüne) · kariyer &amp; teknik JSON'a sorgu "
+        "gider. Yanıt Türkçe cümle + kaynak. Bilmediğini uydurmaz — yalnızca Formula 1.</div>"
+        "<div class='pa-caps'>" + "".join(
+            f"<span>{c}</span>" for c in
+            ("Yarış sonuçları", "Şampiyonlar", "Sezon takvimi", "Güncel klasman",
+             "Kariyer &amp; rekor", "Teknik güncelleme")) +
+        "</div></div>",
         unsafe_allow_html=True)
 
-    if 'paddock_chat_history_v19' not in st.session_state:
-        st.session_state['paddock_chat_history_v19'] = []
+    if 'paddock_chat_v9' not in st.session_state:
+        st.session_state['paddock_chat_v9'] = []
 
-    examples = ["1994 dünya şampiyonu kim?", "Kim lider?",
-                "Leclerc kariyerinde kaç galibiyet aldı?",
-                "McLaren son hangi güncellemeyi getirdi?"]
-    for col, q in zip(st.columns(4), examples):
-        with col:
-            if st.button(q, key='asst_ex_' + q, width='stretch'):
-                st.session_state['paddock_pending_v19'] = q
-                st.rerun()
+    st.markdown("<div class='pa-try'>Dene</div>", unsafe_allow_html=True)
+    examples = ["1961 Monako GP kazananı kimdi?", "1958 sezonu nerede başladı?",
+                "Kim lider?", "Leclerc kariyerinde kaç galibiyet aldı?"]
+    for col, q in zip(st.columns(len(examples)), examples):
+        if col.button(q, key='pa_ex_' + q, width='stretch'):
+            st.session_state['pa_pending'] = q
+            st.rerun()
 
-    for item in st.session_state['paddock_chat_history_v19'][-10:]:
-        with st.chat_message(item['role']):
-            st.markdown(item['text'])
-            if item.get('source'):
-                st.caption('Kaynak: ' + item['source'])
+    for turn in st.session_state['paddock_chat_v9'][-12:]:
+        if turn['role'] == 'user':
+            with st.chat_message('user', avatar='🧑'):
+                st.markdown(f"<span class='pa-user'>{html_lib.escape(turn['text'])}</span>",
+                            unsafe_allow_html=True)
+        else:
+            _pa_render_answer_v9(turn)
 
-    prompt = st.chat_input('F1 hakkında sor… Örnek: 1988 Monako GP kazananı kimdi?')
-    question = st.session_state.pop('paddock_pending_v19', '') or prompt
+    prompt = st.chat_input('F1 hakkında sor…')
+    question = st.session_state.pop('pa_pending', '') or prompt
     if question:
-        st.session_state['paddock_chat_history_v19'].append({'role': 'user', 'text': question})
-        with st.chat_message('user'):
-            st.markdown(question)
-        with st.chat_message('assistant'):
-            with st.spinner('Veritabanı sorgulanıyor…'):
-                try:
-                    ans = paddock_ai.answer(question, live=_APP_LIVE, this_year=2026)
-                    text, source = ans.text, ans.source
-                except Exception as _ai_err:  # noqa: BLE001
-                    log_data_error('paddock_ai', _ai_err)
-                    text = ('Asistan şu an yanıt veremedi. Birazdan tekrar dener misin?')
-                    source = 'Paddock Asistan'
-            st.markdown(text)
-            st.caption('Kaynak: ' + source)
-        st.session_state['paddock_chat_history_v19'].append(
-            {'role': 'assistant', 'text': text, 'source': source})
+        st.session_state['paddock_chat_v9'].append({'role': 'user', 'text': str(question)})
+        with st.spinner('Veritabanı sorgulanıyor…'):
+            try:
+                a = paddock_ai.answer(question, live=_APP_LIVE, this_year=2026)
+                turn = {'role': 'ai', 'text': a.text, 'source': a.source,
+                        'intent': a.intent, 'ok': a.ok}
+            except Exception as _ai_err:  # noqa: BLE001
+                log_data_error('paddock_ai', _ai_err)
+                turn = {'role': 'ai', 'text': 'Şu an yanıt veremedim — birazdan tekrar dener misin?',
+                        'source': 'Paddock AI', 'intent': 'FALLBACK', 'ok': False}
+        st.session_state['paddock_chat_v9'].append(turn)
+        st.rerun()
 
 
 def _rss_text_v19(node, name):

@@ -43,6 +43,41 @@ def race_result(d: dict) -> Answer:
                   "RACE_RESULT", bool(parts))
 
 
+_MONTHS_TR = ("", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
+              "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
+
+
+def _date_tr(iso: str) -> str:
+    try:
+        y, m, d = str(iso)[:10].split("-")
+        return f"{int(d)} {_MONTHS_TR[int(m)]}"
+    except (ValueError, IndexError):
+        return str(iso or "")
+
+
+def _race_label(r: dict) -> str:
+    where = r.get("circuit") or r.get("country") or ""
+    return f"{r['name']}" + (f" — {where}" if where else "")
+
+
+def season_calendar(d: dict) -> Answer:
+    lines = [f"**{d['season']} sezonu — {d['count']} yarış:**"]
+    for r in d["races"]:
+        lines.append(f"{r['round']}. {_race_label(r)}"
+                     + (f"  ({_date_tr(r['date'])})" if r.get("date") else ""))
+    return Answer("\n".join(lines), d["source"], "SEASON_CALENDAR")
+
+
+def season_first_last(d: dict, which: str) -> Answer:
+    r = d["last"] if which == "last" else d["first"]
+    tail = "kapanış" if which == "last" else "açılış"
+    where = r.get("circuit") or r.get("country") or "—"
+    return Answer(
+        f"{d['season']} sezonunun {tail} yarışı {r['name']} idi — {where}"
+        + (f", {_date_tr(r['date'])}" if r.get("date") else "") + ".",
+        d["source"], "SEASON_FIRST_LAST")
+
+
 def champion(d: dict) -> Answer:
     c = f" ({d['constructor']})" if d.get("constructor") else ""
     return Answer(f"{d['season']} Formula 1 Dünya Şampiyonu {d['driver']}{c} oldu.",

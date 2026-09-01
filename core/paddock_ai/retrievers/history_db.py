@@ -114,6 +114,23 @@ def race_result(season: int, gp_fragment: str, metrics: list[str]) -> dict | Non
     }
 
 
+def season_races(season: int) -> dict | None:
+    """Bir sezonun tüm yarışları (sıralı). 'takvim', 'kaç yarış', 'ilk/son yarış'."""
+    conn = _db()
+    if conn is None:
+        return None
+    rows = conn.execute(
+        "SELECT round, name, circuit, country, date FROM races "
+        "WHERE season = ? ORDER BY round", (season,),
+    ).fetchall()
+    if not rows:
+        return None
+    races = [{"round": r["round"], "name": r["name"], "circuit": r["circuit"],
+              "country": r["country"], "date": r["date"]} for r in rows]
+    return {"season": season, "count": len(races), "races": races,
+            "first": races[0], "last": races[-1], "source": "f1_history.sqlite"}
+
+
 def driver_career(name_or_code: str) -> dict | None:
     """Tarihî toplamlar — kariyer seed'inde olmayan eski pilotlar için."""
     conn = _db()

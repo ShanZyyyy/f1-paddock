@@ -37,7 +37,7 @@ STRINGS = {
     "nav.standings": {"tr": "Şampiyona Merkezi", "en": "Championship Centre"},
     "nav.f2f3": {"tr": "F2 & F3 Takip", "en": "F2 & F3 Tracker"},
     "nav.glossary": {"tr": "F1 Sözlüğü", "en": "F1 Glossary"},
-    "nav.assistant": {"tr": "Paddock Asistanı", "en": "Paddock Assistant"},
+    "nav.assistant": {"tr": "Paddock AI", "en": "Paddock AI"},
     "nav.games": {"tr": "Oyun Merkezi", "en": "Games Hub"},
 
     # ---- sayfa basliklari: eyebrow / title / sub ----
@@ -89,9 +89,9 @@ STRINGS = {
     "page.news.title": {"tr": "Haber Merkezi", "en": "News Centre"},
     "page.news.sub": {"tr": "Türkçe Formula 1 haberleri, kapak seçkisi ve takımına göre filtrelenmiş akış.",
                       "en": "Formula 1 news, a cover selection and a feed filtered by your team."},
-    "page.assistant.title": {"tr": "Paddock Asistanı", "en": "Paddock Assistant"},
-    "page.assistant.sub": {"tr": "Sonuç, pole, lastik ve tarihî sorular doğrulanmış F1 verisinden yanıtlanır.",
-                           "en": "Result, pole, tyre and history questions answered from verified F1 data."},
+    "page.assistant.title": {"tr": "Paddock AI", "en": "Paddock AI"},
+    "page.assistant.sub": {"tr": "Yerel F1 uzman motoru — sorunu ayrıştırır, kendi veritabanımıza sorgu atar. LLM yok, uydurma yok.",
+                           "en": "Local F1 expert engine — parses your question, queries our own database. No LLM, no guessing."},
 
     # ---- kontrol panosu ----
     "dock.view": {"tr": "Görünüm", "en": "Theme"},
