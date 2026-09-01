@@ -10171,6 +10171,11 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
 .spd button{border:1px solid var(--ln);background:var(--p1);color:var(--tx);border-radius:6px;
   font:800 10px 'Saira Condensed';letter-spacing:.04em;padding:5px 8px;cursor:pointer;min-width:26px}
 .spd button.on{border-color:var(--teal);color:var(--teal);background:rgba(46,230,214,.09)}
+.pitnow{border:1px solid var(--yel);background:rgba(255,205,60,.12);color:var(--yel);border-radius:6px;
+  font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;padding:5px 10px;cursor:pointer;white-space:nowrap}
+.pitnow:hover{background:rgba(255,205,60,.22)}
+.pitnow:disabled{opacity:.32;cursor:default;border-color:var(--ln);color:var(--dim);background:var(--p1)}
+.pitnow.lit{animation:ucp .9s infinite;box-shadow:0 0 10px rgba(255,205,60,.5)}
 .flag{overflow:hidden;max-height:0;transition:max-height .25s}
 .flag.show{max-height:34px}
 .flag div{margin-top:9px;padding:6px;text-align:center;border-radius:6px;
@@ -10266,6 +10271,7 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
     <div class="live"><i></i>CANLI</div>
     <div class="lap"><b id="lap">1</b><span>/ <span id="laps">--</span> TUR</span></div>
     <div class="gp" id="gp">—</div>
+    <button id="pitnow" class="pitnow" disabled>PİT ▸ ŞİMDİ</button>
     <div class="spd"><button id="pp">❙❙</button>
       <button data-x="1" class="on">1×</button><button data-x="2">2×</button><button data-x="4">4×</button></div>
   </div>
@@ -10310,6 +10316,7 @@ let i=0,playing=true,speed=1,last=0,raf=0,prevPos=M.grid;const LAP_MS=170;
 const $=id=>document.getElementById(id);
 $('rng').max=N-1; $('laps').textContent=M.laps; $('gp').textContent=M.year+' '+M.gp;
 document.querySelector('.car').style.setProperty('--pc', M.driverCol||'#2ee6d6');
+if(M.resumeLap){ const ri=F.findIndex(f=>f.lap>=M.resumeLap); if(ri>0) i=ri; }
 
 // --- strateji zaman çizgisi: stint segmentleri + SC bölgeleri + pit oklari ---
 (function(){
@@ -10429,6 +10436,8 @@ function render(f){
   $('clt').textContent=fmtLap(f.lapTime);
   $('tlhead').style.left=(f.lap/M.laps*100)+'%';
   $('uc').classList.toggle('on', !!f.undercutWin);
+  if(!pitSent){ const pn=$('pitnow'); pn.disabled=!((f.stopsLeft||0)>0);
+    pn.classList.toggle('lit', !!f.undercutWin && (f.stopsLeft||0)>0); }
   const _now=$('psl').querySelector('.now');
   if(_now){ _now.setAttribute('cx',psX(f.lap).toFixed(1)); _now.setAttribute('cy',psY(f.pos).toFixed(1)); }
   tower(f); apply(f); renderRC(f.lap);
@@ -10455,7 +10464,30 @@ $('rng').oninput=function(e){ i=+e.target.value; playing=false; $('pp').textCont
   render(F[Math.min(i,N-1)]); };
 document.querySelectorAll('[data-x]').forEach(b=>b.onclick=function(){ speed=+b.dataset.x;
   document.querySelectorAll('[data-x]').forEach(x=>x.classList.toggle('on',x===b)); });
-render(F[0]);
+
+// --- canlı karar: "PİT ▸ ŞİMDİ" → Python planı bu tura taşıyıp yeniden simüle eder ---
+let pitSent=false;
+$('pitnow').onclick=function(){
+  if(this.disabled||pitSent) return;
+  pitSent=true; playing=false; $('pp').textContent='▶';
+  const L=F[Math.min(i,N-1)].lap;
+  const payload=JSON.stringify({action:'pit',lap:L,nonce:Date.now()});
+  try{
+    const doc=window.parent.document;
+    const inp=doc.querySelector('[class*="st-key-sw_liveaction"] input, [class*="st-key-sw_liveaction"] textarea');
+    const proto=inp.tagName==='TEXTAREA'?window.parent.HTMLTextAreaElement.prototype:window.parent.HTMLInputElement.prototype;
+    const set=Object.getOwnPropertyDescriptor(proto,'value').set;
+    inp.focus(); set.call(inp,payload);
+    inp.dispatchEvent(new Event('input',{bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+    inp.blur();
+    this.textContent='PİT GÖNDERİLDİ…';
+  }catch(err){ this.textContent='HATA — YENİLE'; pitSent=false; }
+};
+if(M.resumeLap){ flag('grn','PİT UYGULANDI · T'+M.resumeLap); }
+
+render(F[i]||F[0]);
 raf=requestAnimationFrame(step);
 // pano gizlendiğinde rAF durur — güvenlik ağı (replay HUD ile aynı desen)
 setInterval(function(){ if(playing && performance.now()-last > 240){ step(performance.now()); } }, 90);
@@ -10690,6 +10722,46 @@ def _sw_strat_lock_cb_v68():
     g['sim'] = _strat_simulate_v67(m, g['strat'])
     g['phase'] = 'sim'
     g['awarded'] = False
+    g.pop('analysis', None)
+
+
+def _sw_liveaction_cb_v68():
+    """Sim iframe'inden 'PİT ▸ ŞİMDİ' — planlı bir sonraki durağı bu tura taşır,
+    yarışı yeniden simüle eder ve o turdan itibaren oynatır."""
+    raw = st.session_state.get('sw_liveaction', '') or ''
+    st.session_state['sw_liveaction'] = ''
+    g = st.session_state.get('sw67') or {}
+    m = g.get('model') or {}
+    strat = g.get('strat') or {}
+    if not (raw and m.get('ok') and strat.get('stops') and g.get('phase') == 'sim'):
+        return
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return
+    if data.get('action') != 'pit':
+        return
+    if data.get('nonce') and data.get('nonce') == g.get('_live_nonce'):
+        return
+    g['_live_nonce'] = data.get('nonce')
+    try:
+        lap = int(data['lap'])
+    except (KeyError, TypeError, ValueError):
+        return
+    total = int(m['total_laps'])
+    lap = max(2, min(total - 1, lap))
+    stops = sorted(({'lap': int(s['lap']), 'compound': str(s['compound']).upper()}
+                    for s in strat['stops']), key=lambda s: s['lap'])
+    nxt = next((s for s in stops if s['lap'] > lap), None)
+    if not nxt or any(s is not nxt and s['lap'] == lap for s in stops):
+        return
+    nxt['lap'] = lap
+    stops.sort(key=lambda s: s['lap'])
+    g['strat'] = {'start_compound': strat['start_compound'], 'stops': stops}
+    g['sim'] = _strat_simulate_v67(m, g['strat'])
+    g['sim']['meta']['resumeLap'] = lap
+    g['awarded'] = False
+    g.pop('analysis', None)
 
 
 def _sw_intro_line_v67(m):
@@ -11000,13 +11072,18 @@ def render_strategy_wall_v67():
                    "sonra kilitle.")
 
     elif g['phase'] == 'sim':
-        st.markdown("<style>[class*='st-key-sw_done']{position:fixed !important;width:1px !important;"
-                    "height:1px !important;overflow:hidden !important;opacity:0 !important}</style>",
-                    unsafe_allow_html=True)
+        st.markdown(
+            "<style>[class*='st-key-sw_done'],[class*='st-key-sw_liveaction']{"
+            "position:fixed !important;left:-9999px !important;width:1px !important;"
+            "height:1px !important;overflow:hidden !important;opacity:0 !important}</style>",
+            unsafe_allow_html=True)
         st.button("done", key="sw_done",
                   on_click=lambda: st.session_state['sw67'].update(phase='result'))
+        st.text_input("liveaction", key="sw_liveaction", label_visibility="collapsed",
+                      on_change=_sw_liveaction_cb_v68)
         render_html_hud(strategy_wall_sim_html(g['sim']), height=520, scrolling=False)
-        st.caption("Yarış oynanıyor… bittiğinde sonuç ekranı gelir. Çubuğu sürükleyerek de gezebilirsin.")
+        st.caption("Yarış oynanıyor. **PİT ▸ ŞİMDİ** ile planlı durağını bu tura çekebilirsin "
+                   "— çubuğu sürükleyerek de gezebilirsin.")
 
     else:  # result
         r = g['sim']['result']
