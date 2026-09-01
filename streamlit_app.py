@@ -6270,21 +6270,12 @@ def render_stewarlde_v25():
         return
 
     target = drivers[stewarlde_target_index_v23(len(drivers), mode, game['round'])]
-    cards = st.columns(3)
-    values = [
-        ('TEKİL PİLOT HAVUZU', f"{len(drivers)} pilot", 'Aynı kişi yalnızca bir kez listelenir'),
-        ('OYUN MODU', mode, 'Günlük hedef veya sınırsız tur'),
-        ('TAHMİN HAKKI', f"{max(0, 6-len(game['guesses']))} / 6", f"Tur {game['round']}"),
-    ]
-    for col, (label, value, note) in zip(cards, values):
-        with col:
-            st.markdown(f"<div class='hud-card game-stat-v24'><div class='hud-label'>{label}</div><div class='hud-value'>{html_lib.escape(value)}</div><div class='driver-meta'>{html_lib.escape(note)}</div></div>", unsafe_allow_html=True)
-
-    st.markdown(
-        "<div class='hud-card game-brief-v24'><div class='hud-label'>STEWARDLE // F1 KARİYER BULMACASI</div>"
-        "<div class='history-copy' style='margin-top:7px'>2010–2026 döneminde yarışmış pilotu altı tahminde bul. Yeşil doğru cevabı, sarı hedefin daha yüksek veya düşük olduğunu, gri ise eşleşme olmadığını gösterir.</div></div>",
-        unsafe_allow_html=True,
-    )
+    _sws_panel_v8(
+        f"F1 Kariyer Bulmacası · {mode}",
+        f"{max(0, 6 - len(game['guesses']))} / 6 tahmin",
+        lead="2010–2026 döneminde yarışmış pilotu bul. Yeşil = doğru; sarı = hedef "
+             "daha yüksek/düşük (↑/↓); gri = eşleşme yok.",
+        chips=[("Pilot havuzu", f"{len(drivers)}"), ("Mod", mode), ("Tur", game['round'])])
 
     if not game['finished'] and len(game['guesses']) < 6:
         used = set(game['guesses'])
@@ -6322,22 +6313,27 @@ def render_stewarlde_v25():
             ]
             cells = []
             for label, value, status, hint in cells_data:
-                state = 'match' if status is True or status == 'match' else 'near' if status == 'near' else 'miss'
+                state = 'ok' if status is True or status == 'match' else 'near' if status == 'near' else ''
                 display = value if value is not None else '—'
-                cells.append(f"<div class='stewarlde-cell-v23 {state}'><small>{html_lib.escape(label)}</small><b>{html_lib.escape(str(display))}</b><i>{html_lib.escape(str(hint))}</i></div>")
-            rows.append("<div class='stewarlde-row-v25'>" + ''.join(cells) + '</div>')
-        st.markdown("<div class='stewarlde-table-v23'>" + ''.join(rows) + '</div>', unsafe_allow_html=True)
+                cells.append(
+                    f"<div class='sws-gc {state}'><small>{html_lib.escape(label)}</small>"
+                    f"<b>{html_lib.escape(str(display))}</b>"
+                    f"<i>{html_lib.escape(str(hint))}</i></div>")
+            rows.append("<div class='sws-guess'>" + ''.join(cells) + '</div>')
+        st.markdown("<div class='sws' style='padding:13px'>" + ''.join(rows) + '</div>',
+                    unsafe_allow_html=True)
 
     if game['finished']:
         won = bool(game['guesses']) and game['guesses'][-1] == target['identity']
-        if won:
-            st.success(f"Doğru cevap: {target['name']}. {len(game['guesses'])}/6 tahminde buldun.")
-        else:
-            st.error(f"Bu tur bitti. Doğru cevap: {target['name']} ({target['team']}).")
+        _daily = ""
         if mode == 'Günlük':
             _sds = int(fp_ui.get_pref('sds') or 0)
-            _line = (f"🔥 Günlük seri: {_sds} gün. " if _sds > 1 else "")
-            st.caption(f"{_line}Yeni bulmaca yarın — seriyi sürdür.")
+            _daily = (f" · 🔥 Günlük seri {_sds} gün" if _sds > 1 else "") + " · Yeni bulmaca yarın."
+        _sws_panel_v8(
+            "Bulmaca Sonucu",
+            f"{target['name']}",
+            verdict=(won, f"{len(game['guesses'])}/6'da buldun" if won else "Bu tur bitti"),
+            lead=f"Doğru cevap: {target['name']} · {target['team']}.{_daily}")
         colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
         st.markdown(stewarlde_profile_v25(target, target_stats or {}, colour), unsafe_allow_html=True)
         if mode == 'Sınırsız':
@@ -8381,19 +8377,17 @@ def _prediction_history_html(plog):
 def _prediction_primer_v65(year):
     """Henüz tahmin yapmamış kullanıcıya: puanlama kuralı + kilitli rozet
     önizlemesi + 'geçen yarışı şampiyona sırasına göre tahmin etseydin' örneği."""
-    st.markdown(
-        "<div class='hud-card' style='border-left:4px solid #f7c948'>"
-        "<div class='hud-label'>NASIL ÇALIŞIR</div>"
-        "<div class='history-copy' style='margin-top:6px'>Her yarıştan önce <b>pole</b> ve "
-        "<b>ilk 3</b>'ü seç. Yarış bitince tahminin otomatik puanlanır:</div>"
-        "<ul style='margin:8px 0 0 1.1rem;font-size:.9rem;line-height:1.7'>"
-        "<li>Pole doğru → <b>+5</b></li>"
-        "<li>Podyum pilotu doğru ama yer yanlış → <b>+3</b></li>"
-        "<li>Podyum yeri tam → <b>+5</b></li>"
-        "<li>Sprint hafta sonu: sprint galibi doğru → <b>+3</b></li>"
-        "</ul></div>",
-        unsafe_allow_html=True,
-    )
+    _sws_panel_v8(
+        "Nasıl Çalışır",
+        "Pole + podyum tahmini",
+        lead="Her yarıştan önce pole ve ilk 3'ü seç. Yarış bitince tahminin otomatik puanlanır.",
+        body_html=(
+            "<ul class='sws-rules'>"
+            "<li><b>+5</b><span>Pole doğru</span></li>"
+            "<li><b>+3</b><span>Podyum pilotu doğru, yer yanlış</span></li>"
+            "<li><b>+5</b><span>Podyum yeri tam isabet</span></li>"
+            "<li><b>+3</b><span>Sprint hafta sonu: sprint galibi doğru</span></li>"
+            "</ul>"))
     try:
         _last = _latest_completed_race_v43(year).get('last')
         if _last:
@@ -8416,7 +8410,7 @@ def _prediction_primer_v65(year):
     _locked = _prediction_badges_v63([], 0, 0)
     st.caption("Kazanabileceğin rozetler:")
     render_html_hud(_prediction_badges_html(_locked),
-                    height=90 + 46 * ((len(_locked) + 2) // 3), scrolling=True)
+                    height=64 + 44 * ((len(_locked) + 2) // 3), scrolling=True)
     st.write("")
 
 
@@ -8432,27 +8426,26 @@ def render_prediction_game_v55():
     _season_n = int(fp_ui.get_pref('pn') or 0)
     _acc = min(100, round(_season_pts / (_season_n * _PRED_MAX) * 100)) if _season_n else 0
     _next_days = _latest_completed_race_v43(year).get('next_in_days')
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Sezon puanı", _season_pts)
-    m2.metric("Puanlanan yarış", _season_n)
-    m3.metric("İsabet", f"%{_acc}")
-    m4.metric("Sıradaki yarış", f"{_next_days} gün" if _next_days is not None else "—")
+    _sws_panel_v8(
+        "Tahmin Karnesi",
+        f"Sezon {_season_pts} puan",
+        sub=f"{year} Hafta Sonu Tahmini",
+        chips=[("Puanlanan yarış", f"{_season_n}"),
+               ("İsabet", f"%{_acc}"),
+               ("Sıradaki yarış", f"{_next_days} gün" if _next_days is not None else "—")])
 
     if scored:
         _ap = " · ".join(f"{i + 1}. {c or '—'}" for i, c in enumerate(scored['actual_podium']))
-        _lines = "".join(f"<li>{html_lib.escape(t)} <b>+{p}</b></li>" for t, p in scored['detail']) \
-            or "<li>Bu yarıştan puan çıkmadı.</li>"
-        _sprint_line = (f" · Sprint galibi: <b>{html_lib.escape(scored['actual_sprint'])}</b>"
+        _sprint_line = (f" · Sprint galibi: {html_lib.escape(scored['actual_sprint'])}"
                         if scored.get('actual_sprint') else "")
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid #f7c948'>"
-            f"<div class='hud-label'>{html_lib.escape(scored['gp'])} SONUCU · +{scored['points']} PUAN</div>"
-            f"<div class='history-copy' style='margin-top:6px'>Gerçek pole: <b>{html_lib.escape(scored['actual_pole'] or '—')}</b>"
-            f" · Podyum: {html_lib.escape(_ap)}{_sprint_line}</div>"
-            f"<ul style='margin:8px 0 0 1.1rem;font-size:.9rem;line-height:1.6'>{_lines}</ul></div>",
-            unsafe_allow_html=True,
-        )
-        st.write("")
+        _bd = [(t, p) for t, p in scored['detail']] or [("Bu yarıştan puan çıkmadı.", 0)]
+        _sws_panel_v8(
+            f"{scored['gp']} Sonucu",
+            f"+{scored['points']} puan",
+            verdict=(scored['points'] > 0, "Tahmin puanlandı"),
+            lead=f"Gerçek pole: {html_lib.escape(scored['actual_pole'] or '—')} · "
+                 f"Podyum: {html_lib.escape(_ap)}{_sprint_line}",
+            breakdown=_bd)
 
     if _season_n == 0 and not scored:
         _prediction_primer_v65(year)
@@ -8475,15 +8468,15 @@ def render_prediction_game_v55():
                         + (" · SPRINT HAFTA SONU" if _is_sprint else ""))
     if _locked:
         _pp = _cur.get('po') or []
-        _sw_line = (f" · Sprint galibi: <b>{html_lib.escape(_cur.get('sw') or '—')}</b>"
+        _sw_line = (f" · Sprint galibi: {html_lib.escape(_cur.get('sw') or '—')}"
                     if _is_sprint else "")
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid #7fe0a6'>"
-            f"<div class='hud-label'>KAYITLI TAHMİN</div>"
-            f"<div class='history-copy' style='margin-top:6px'>Pole: <b>{html_lib.escape(_cur.get('pl') or '—')}</b>"
-            f" · Podyum: {html_lib.escape(' · '.join(f'{i+1}. {c}' for i, c in enumerate(_pp)))}{_sw_line}</div></div>",
-            unsafe_allow_html=True,
-        )
+        _sws_panel_v8(
+            f"{target} · Kayıtlı Tahmin",
+            f"Pole: {html_lib.escape(_cur.get('pl') or '—')}",
+            verdict=(True, "Kilitli — yarıştan sonra puanlanır"),
+            lead="Podyum: "
+                 + html_lib.escape(' · '.join(f'{i+1}. {c}' for i, c in enumerate(_pp)))
+                 + _sw_line)
         if st.button("Tahmini değiştir", key="pred_edit_v55"):
             fp_ui.set_pref('pc', None)
             st.rerun()
@@ -8529,7 +8522,7 @@ def _pred_history_and_badges_v63():
     if any(b['got'] for b in _badges):
         st.write("")
         render_html_hud(_prediction_badges_html(_badges),
-                        height=90 + 46 * ((len(_badges) + 2) // 3), scrolling=True)
+                        height=64 + 44 * ((len(_badges) + 2) // 3), scrolling=True)
 
 
 # =========================================================
@@ -8735,24 +8728,19 @@ def _tt_cpu_stat_v66(deck, g):
 def _tt_card_html_v66(card, year, face_down=False, highlight=None):
     col = season_team_colour(card['team'], year) or '#8a9bb0'
     if face_down:
-        return ("<div style='border:1px solid #26313f;border-radius:12px;background:"
-                "repeating-linear-gradient(45deg,#11161f,#11161f 8px,#161d28 8px,#161d28 16px);"
-                "min-height:210px;display:grid;place-items:center;color:#63748a;"
-                "font:800 13px Saira,sans-serif'>RAKİP KARTI</div>")
-    rows = ''.join(
-        f"<div style='display:flex;justify-content:space-between;padding:6px 0;"
-        f"border-top:1px solid #1b2330;font:700 13px \"JetBrains Mono\",monospace;"
-        f"{'color:#f7c948' if highlight == k else 'color:#c4d2e0'}'>"
-        f"<span style='font-family:Saira,sans-serif;font-weight:600;color:#9fb0c0'>{lbl}</span>"
-        f"<b>{card[k]}</b></div>"
-        for k, lbl in _TT_STATS_V66
-    )
-    return (f"<div style='border:1px solid #26313f;border-left:3px solid {col};border-radius:12px;"
-            f"background:#11161f;padding:13px 15px'>"
-            f"<div style='font:800 20px \"Saira Condensed\",sans-serif;text-transform:uppercase;color:{col}'>"
-            f"{html_lib.escape(card['code'])}</div>"
-            f"<div style='font:600 11px Saira,sans-serif;color:#8a9bb0;margin-bottom:4px'>"
-            f"{html_lib.escape(card['name'])} · {html_lib.escape(card['team'])}</div>{rows}</div>")
+        return "<div class='sws-ttdown'>Rakip kartı</div>"
+    rows = "".join(
+        f"<div class='sws-ttr{' hot' if highlight == k else ''}'>"
+        f"<span>{html_lib.escape(lbl)}</span><b>{card[k]}</b></div>"
+        for k, lbl in _TT_STATS_V66)
+    return (f"<div class='sws-ttc' style='--tc:{col}'>"
+            f"<div class='sws-ttc-hd'><b>{html_lib.escape(card['code'])}</b>"
+            f"<span>{html_lib.escape(card['name'])} · {html_lib.escape(card['team'])}</span></div>"
+            f"{rows}</div>")
+
+
+def _tt_stat_max_v8(stat):
+    return max((c[stat] for c in _tt_deck_v66()), default=1) or 1
 
 
 def render_top_trumps_v66():
@@ -8768,45 +8756,53 @@ def render_top_trumps_v66():
         _tt_new_game_v66()
     g = st.session_state['tt66']
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Senin deste", len(g['p']))
-    c2.metric("Rakip deste", len(g['c']))
-    c3.metric("Ortak (beraberlik)", len(g['pot']))
-
     game_over = not g['p'] or not g['c'] or g['round'] > 40
     if game_over and g['phase'] != 'over':
         g['phase'] = 'over'
 
     if g['phase'] == 'over':
         won = len(g['p']) >= len(g['c'])
+        swept = len(g['c']) == 0
         if won and not g['awarded']:
             g['awarded'] = True
-            _game_award_v66(xp=35 if len(g['c']) == 0 else 18, played=True)
-        (st.success if won else st.error)(
-            f"{'Bütün desteyi topladın! 🏆' if len(g['c']) == 0 else 'Oyun bitti.'} "
-            f"Sen {len(g['p'])} — Rakip {len(g['c'])} kart."
-        )
-        if st.button("Yeni oyun", type="primary", key="tt_new"):
+            _game_award_v66(xp=35 if swept else 18, played=True)
+        _sws_panel_v8(
+            "Kart Düellosu · Sonuç",
+            "Bütün desteyi topladın!" if swept else ("Kazandın" if won else "Oyun bitti"),
+            verdict=(won, 'Sen kazandın' if won else 'Rakip kazandı'),
+            chips=[("Senin deste", len(g['p'])), ("Rakip deste", len(g['c']))])
+        if st.button("Yeni oyun", type="primary", key="tt_new", width='stretch'):
             _tt_new_game_v66()
             st.rerun()
         return
 
+    turn_txt = ("Sıra sende" if g['turn'] == 'p' and g['phase'] == 'pick'
+                else "Rakibin sırası" if g['phase'] == 'pick' else "Tur sonucu")
+    _sws_panel_v8("Kart Düellosu", turn_txt,
+                  chips=[("Senin deste", len(g['p'])), ("Rakip deste", len(g['c'])),
+                         ("Ortak", len(g['pot'])), ("Tur", g['round'])])
+
+    my_card = deck[g['p'][0]]
+    hi = g['reveal']['stat'] if g['reveal'] else None
     left, right = st.columns(2)
     with left:
-        st.markdown("**Senin kartın**")
-        st.markdown(_tt_card_html_v66(deck[g['p'][0]], year,
-                    highlight=g['reveal']['stat'] if g['reveal'] else None), unsafe_allow_html=True)
+        st.markdown("<div class='sws-eb' style='margin-bottom:5px'>Senin kartın</div>", unsafe_allow_html=True)
+        st.markdown(_tt_card_html_v66(my_card, year, highlight=hi), unsafe_allow_html=True)
     with right:
-        st.markdown("**Rakip**")
+        st.markdown("<div class='sws-eb' style='margin-bottom:5px'>Rakip</div>", unsafe_allow_html=True)
         st.markdown(_tt_card_html_v66(deck[g['c'][0]], year,
-                    face_down=(g['phase'] == 'pick'),
-                    highlight=g['reveal']['stat'] if g['reveal'] else None), unsafe_allow_html=True)
+                    face_down=(g['phase'] == 'pick'), highlight=hi), unsafe_allow_html=True)
 
     if g['phase'] == 'pick' and g['turn'] == 'p':
-        st.caption("Bir stat seç — rakip kartındaki aynı stat ile karşılaştırılır.")
+        # en güçlü statı öne al + işaretle — acemiye ipucu, kurala dokunmaz
+        best_k = max((k for k, _l in _TT_STATS_V66),
+                     key=lambda k: my_card[k] / _tt_stat_max_v8(k))
+        st.caption("Bir stat seç — rakip kartındaki aynı statla karşılaştırılır. "
+                   "★ = bu kartın en güçlü statı.")
         cols = st.columns(3)
         for i, (k, lbl) in enumerate(_TT_STATS_V66):
-            if cols[i % 3].button(f"{lbl} · {deck[g['p'][0]][k]}", key=f"tt_pick_{k}", width='stretch'):
+            star = " ★" if k == best_k else ""
+            if cols[i % 3].button(f"{lbl} · {my_card[k]}{star}", key=f"tt_pick_{k}", width='stretch'):
                 _tt_compare_v66(g, deck, k)
                 st.rerun()
     elif g['phase'] == 'pick' and g['turn'] == 'c':
@@ -8816,15 +8812,12 @@ def render_top_trumps_v66():
         r = g['reveal']
         lbl = dict(_TT_STATS_V66)[r['stat']]
         who = "Rakip seçti" if r.get('by') == 'c' else "Sen seçtin"
-        verdict = ("Turu sen aldın." if r['win'] == 'p'
-                   else "Rakip aldı." if r['win'] == 'c' else "Berabere — kartlar ortaya gider.")
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid "
-            f"{'#7fe0a6' if r['win'] == 'p' else '#ff8b78' if r['win'] == 'c' else '#f7c948'}'>"
-            f"<div class='hud-label'>{html_lib.escape(who)} · {html_lib.escape(lbl.upper())}</div>"
-            f"<div class='history-copy' style='margin-top:5px'>{r['pc']} <b>{r['pv']}</b> — "
-            f"{r['cc']} <b>{r['cv']}</b> · {verdict}</div></div>", unsafe_allow_html=True)
-        if st.button("Devam →", type="primary", key=f"tt_cont_{g['round']}"):
+        vt = ("Turu sen aldın" if r['win'] == 'p'
+              else "Rakip aldı" if r['win'] == 'c' else "Berabere — kartlar ortaya")
+        _sws_panel_v8(
+            f"{who} · {lbl}", f"{r['pc']} {r['pv']} — {r['cc']} {r['cv']}",
+            verdict=(r['win'] == 'p', vt) if r['win'] != 'tie' else None)
+        if st.button("Devam →", type="primary", key=f"tt_cont_{g['round']}", width='stretch'):
             _tt_advance_v66(g)
             st.rerun()
 
@@ -8962,9 +8955,6 @@ def render_hotlap_game_v66():
     hl_pref = fp_ui.get_pref('hl') if isinstance(fp_ui.get_pref('hl'), dict) else {}
     streak = int(hl_pref.get('s') or 0)
     best = int(hl_pref.get('b') or 0)
-    m1, m2 = st.columns(2)
-    m1.metric("Güncel seri", streak)
-    m2.metric("En iyi seri", best)
 
     if 'hl66' not in st.session_state:
         with st.spinner("Sıralama turu seçiliyor…"):
@@ -8980,12 +8970,11 @@ def render_hotlap_game_v66():
     def _fmt(s):
         return f"{int(s // 60)}:{s % 60:06.3f}"
 
-    st.markdown(
-        f"<div class='hud-card' style='border-left:4px solid #7c5cff'>"
-        f"<div class='hud-label'>{html_lib.escape(r['gp'])} · {r['year']} · SIRALAMA</div>"
-        f"<div class='history-copy' style='margin-top:6px'>Pole: <b>{html_lib.escape(r['pole_code'])}</b> "
-        f"— {_fmt(r['pole_secs'])}<br>Gizli pilot <b>P{r['hidden_pos']}</b> oldu. "
-        f"Pole'a farkı hangi aralıkta?</div></div>", unsafe_allow_html=True)
+    _sws_panel_v8(
+        f"{r['gp']} · {r['year']} · Sıralama",
+        f"Pole · {r['pole_code']} — {_fmt(r['pole_secs'])}",
+        lead=f"Gizli pilot P{r['hidden_pos']} oldu. Pole’a farkı hangi aralıkta?",
+        chips=[("Güncel seri", streak), ("En iyi seri", best)])
 
     if r['phase'] == 'guess':
         cols = st.columns(len(_HL_BUCKETS_V66))
@@ -9001,15 +8990,12 @@ def render_hotlap_game_v66():
                 st.rerun()
     else:
         correct = r['pick'] == r['answer']
-        st.markdown(
-            f"<div class='hud-card' style='border-left:4px solid "
-            f"{'#7fe0a6' if correct else '#ff8b78'}'>"
-            f"<div class='hud-label'>{'DOĞRU' if correct else 'YANLIŞ'} · +{8 if correct else 1} XP</div>"
-            f"<div class='history-copy' style='margin-top:5px'>"
-            f"<b>{html_lib.escape(r['hidden_code'])}</b> pole'a <b>+{r['gap']:.3f} sn</b> "
-            f"({html_lib.escape(r['answer'])}). Senin tahminin: {html_lib.escape(r['pick'])}.</div></div>",
-            unsafe_allow_html=True)
-        if st.button("Sıradaki tur →", type="primary", key="hl_next"):
+        _sws_panel_v8(
+            "Tur Sonucu", f"{r['hidden_code']} · pole’a +{r['gap']:.3f} sn",
+            verdict=(correct, 'Doğru' if correct else 'Yanlış'),
+            score=(8 if correct else 1), score_tail='xp',
+            lead=f"Gerçek aralık: {r['answer']} · senin tahminin: {r['pick']}.")
+        if st.button("Sıradaki tur →", type="primary", key="hl_next", width='stretch'):
             st.session_state.pop('hl66', None)
             st.rerun()
 
@@ -9155,14 +9141,122 @@ _GAME_HUD_CSS_V68 = """<style>
 .sws-tlk{display:flex;gap:13px;flex-wrap:wrap;margin-top:9px;font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7f8da3}
 .sws-tlk span{display:inline-flex;align-items:center;gap:5px}
 .sws-tlk i{width:9px;height:9px;border-radius:2px}
+/* --- 8-A: ortak oyun bileşenleri --- */
+.sws-sub{font:700 11px 'JetBrains Mono','Consolas',ui-monospace,monospace;color:#93a2b8;margin-top:3px}
+.sws-mini{font-size:.86rem;color:#93a2b8;margin-top:9px;line-height:1.5}
+.sws-mini b{color:#eef2f8}
+/* Stewardle tahmin ızgarası */
+.sws-guess{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:8px}
+@media(max-width:640px){.sws-guess{grid-template-columns:repeat(3,1fr)}}
+.sws-gc{border-radius:8px;border:1px solid #20293e;background:#131c2c;padding:8px 6px;text-align:center;min-width:0}
+.sws-gc small{display:block;font:700 7.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#7f8da3}
+.sws-gc b{display:block;font:800 13px 'Saira Condensed','Arial Narrow',sans-serif;color:#eef2f8;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sws-gc i{font:700 10px 'JetBrains Mono',monospace;color:#7f8da3;font-style:normal}
+.sws-gc.ok{background:rgba(55,214,122,.18);border-color:rgba(55,214,122,.4)} .sws-gc.ok b{color:#5fe08a}
+.sws-gc.near{background:rgba(255,205,60,.16);border-color:rgba(255,205,60,.38)} .sws-gc.near b,.sws-gc.near i{color:#ffcd3c}
+/* Top Trumps kartı */
+.sws-vs{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:6px}
+@media(max-width:560px){.sws-vs{grid-template-columns:1fr}}
+.sws-ttc{border:1px solid #20293e;border-radius:12px;background:#0f1521;overflow:hidden}
+.sws-ttc-hd{padding:10px 13px 8px;background:var(--tc,#55617a)}
+.sws-ttc-hd b{font:800 20px/1 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;color:#fff;letter-spacing:.02em}
+.sws-ttc-hd span{display:block;font-size:.72rem;color:rgba(255,255,255,.82);margin-top:2px}
+.sws-ttr{display:flex;justify-content:space-between;gap:10px;padding:7px 13px;font-size:.85rem;color:#c7d0de;border-top:1px solid #1a2333}
+.sws-ttr b{font-variant-numeric:tabular-nums;color:#eef2f8;font-family:'JetBrains Mono',monospace}
+.sws-ttr.hot{background:rgba(255,205,60,.15)} .sws-ttr.hot,.sws-ttr.hot b{color:#ffcd3c}
+.sws-ttdown{border:1px solid #20293e;border-radius:12px;min-height:150px;display:grid;place-items:center;
+  background:repeating-linear-gradient(45deg,#0f1521,#0f1521 9px,#131c2c 9px,#131c2c 18px);
+  font:800 12px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.14em;color:#7f8da3}
+/* kurallar / primer */
+.sws-rules{list-style:none;margin:11px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.sws-rules li{display:grid;grid-template-columns:auto 1fr;gap:9px;font-size:.9rem;color:#c7d0de;line-height:1.45}
+.sws-rules li b{font:800 11px 'JetBrains Mono',monospace;color:#2ee6d6;white-space:nowrap}
+/* hub oyuncu profili */
+.sws-prof{border:1px solid #20293e;border-radius:13px;padding:14px 17px;
+  background:linear-gradient(160deg,#131a27,#0f1521);display:grid;grid-template-columns:1fr auto;
+  gap:5px 22px;align-items:center;position:relative;overflow:hidden}
+.sws-prof::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pc,#2ee6d6)}
+.sws-prof .rk{font:800 20px/1 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;color:var(--pc,#2ee6d6)}
+.sws-prof .tl{font:700 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#7f8da3;margin-top:2px}
+.sws-prof .ss{display:flex;gap:20px}
+.sws-prof .ss div{display:flex;flex-direction:column;align-items:flex-end}
+.sws-prof .ss b{font:700 17px 'JetBrains Mono',monospace;color:#eef2f8;font-variant-numeric:tabular-nums}
+.sws-prof .ss span{font:700 8.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.12em;color:#7f8da3}
+.sws-prof .bar{grid-column:1/-1;height:4px;border-radius:999px;background:#0a0f18;overflow:hidden;margin-top:5px}
+.sws-prof .bar i{display:block;height:100%;background:var(--pc,#2ee6d6)}
 </style>"""
+
+
+def _sws_chips_v8(items):
+    """[(etiket, değer), …] → `.sws-stats` çip satırı HTML'i (st.markdown YAPMAZ)."""
+    return "<div class='sws-stats'>" + "".join(
+        f"<div class='sws-st'><b>{html_lib.escape(str(v))}</b>"
+        f"<span>{html_lib.escape(str(k))}</span></div>" for k, v in items) + "</div>"
+
+
+def _sws_panel_v8(eyebrow, headline="", *, sub="", lead="", verdict=None, score=None,
+                  score_tail="", chips=None, breakdown=None, body_html="", accent=None):
+    """Oyunların ortak F1 Manager panosu — tek tema. `.sws` kutusu."""
+    p = [f"<div class='sws-eb'>{html_lib.escape(eyebrow)}</div>"]
+    if headline:
+        p.append(f"<div class='sws-h'>{html_lib.escape(headline)}</div>")
+    if sub:
+        p.append(f"<div class='sws-sub'>{html_lib.escape(sub)}</div>")
+    if verdict is not None or score is not None:
+        row = ["<div class='sws-row'>"]
+        if verdict is not None:
+            good, vt = verdict
+            row.append(f"<span class='sws-verdict {'ok' if good else 'no'}'>{html_lib.escape(vt)}</span>")
+        if score is not None:
+            tail = f"<s>{html_lib.escape(score_tail)}</s>" if score_tail else ""
+            row.append(f"<span class='sws-score'>{score}{tail}</span>")
+        row.append("</div>")
+        p.append("".join(row))
+    if lead:
+        p.append(f"<div class='sws-lead'>{html_lib.escape(lead)}</div>")
+    if body_html:
+        p.append(body_html)
+    if chips:
+        p.append(_sws_chips_v8(chips))
+    if breakdown:
+        lis = "".join(
+            f"<li style='--bl:{'#37d67a' if pv > 0 else '#ff5964'}'>"
+            f"<span>{html_lib.escape(t)}</span><b>{'+' if pv > 0 else ''}{pv}</b></li>"
+            for t, pv in breakdown) or "<li><span>Bu turdan puan çıkmadı.</span><b>0</b></li>"
+        p.append(f"<ul class='sws-break'>{lis}</ul>")
+    style = f" style='border-left:3px solid {accent};padding-left:14px'" if accent else ""
+    st.markdown(f"<div class='sws'{style}>" + "".join(p) + "</div>", unsafe_allow_html=True)
+
+
+def _render_games_profile_v8(profile):
+    """Oyun Merkezi üstündeki oyuncu profili — iframe yok, inline `.sws-prof`."""
+    xp = int(profile.get('xp', 0) or 0)
+    played = int(profile.get('played', 0) or 0)
+    streak = int(profile.get('best_streak', 0) or 0)
+    ranks = [(0, 'ÇAYLAK', '#9fb0c0'), (150, 'YARIŞÇI', '#2ee6d6'),
+             (500, 'UZMAN', '#f5b942'), (1200, 'ŞAMPİYON', '#ff5964')]
+    idx = max(i for i, (t, _n, _c) in enumerate(ranks) if xp >= t)
+    floor, name, col = ranks[idx]
+    if idx + 1 < len(ranks):
+        nxt = ranks[idx + 1][0]
+        pct = max(4, min(100, round((xp - floor) / max(1, nxt - floor) * 100)))
+        tail = f"{nxt - xp} XP → {ranks[idx + 1][1]}"
+    else:
+        pct, tail = 100, 'en yüksek rütbe'
+    st.markdown(
+        f"<div class='sws-prof' style='--pc:{col}'>"
+        f"<div><div class='rk'>{name}</div><div class='tl'>{html_lib.escape(tail)}</div></div>"
+        f"<div class='ss'><div><b>{xp}</b><span>XP</span></div>"
+        f"<div><b>{played}</b><span>OYUN</span></div>"
+        f"<div><b>{streak}</b><span>SERİ</span></div></div>"
+        f"<div class='bar'><i style='width:{pct}%'></i></div></div>",
+        unsafe_allow_html=True)
 
 
 def render_podium_time_v67():
     _game_shell("Podyum Tahmini",
                 "Rastgele bir tarihî yarış. 1., 2. ve 3.'yü bil — doğru sıralama daha çok puan.",
                 "#e10600")
-    st.markdown(_GAME_HUD_CSS_V68, unsafe_allow_html=True)
     pt = fp_ui.get_pref('pt') if isinstance(fp_ui.get_pref('pt'), dict) else {}
     streak, best = int(pt.get('s') or 0), int(pt.get('b') or 0)
 
@@ -10250,7 +10344,6 @@ def _sw_dialogue_v67(m):
 # =========================================================
 _SW_TR_V68 = {'SOFT': 'YUMUŞAK', 'MEDIUM': 'ORTA', 'HARD': 'SERT',
               'INTERMEDIATE': 'ARA', 'WET': 'YAĞMUR'}
-_SW_SCREEN_CSS_V68 = _GAME_HUD_CSS_V68  # geriye dönük ad
 
 
 def _sw_brief_screen_v68(m):
@@ -10302,7 +10395,6 @@ def render_strategy_wall_v67():
     _game_shell("Strateji Duvarı",
                 "Gerçek bir yarışın pit duvarına geç. Kararını ver, yarışı tur tur izle.",
                 "#f5c33b")
-    st.markdown(_SW_SCREEN_CSS_V68, unsafe_allow_html=True)
     g = st.session_state.setdefault('sw67', {'phase': 'brief', 'race_key': None})
 
     if g['phase'] in ('brief', 'intro', 'dialogue'):
@@ -10370,66 +10462,54 @@ def render_strategy_wall_v67():
             st.rerun()
 
 
-def games_profile_hud_html(profile):
-    xp = int(profile.get('xp', 0))
-    played = int(profile.get('played', 0))
-    streak = int(profile.get('best_streak', 0))
-    ranks = [(0, 'ÇAYLAK', '#9fb0c0'), (150, 'YARIŞÇI', '#38e1d0'),
-             (500, 'UZMAN', '#f5c33b'), (1200, 'ŞAMPİYON', '#e10600')]
-    rank_name, rank_col = ranks[0][1], ranks[0][2]
-    next_xp = ranks[-1][0]
-    for i, (threshold, name, col) in enumerate(ranks):
-        if xp >= threshold:
-            rank_name, rank_col = name, col
-            next_xp = ranks[i + 1][0] if i + 1 < len(ranks) else threshold
-    progress = 100 if xp >= ranks[-1][0] else min(100, round((xp - 0) / max(1, next_xp) * 100))
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .gp{{background:linear-gradient(160deg,#161d28,#11161f);border:1px solid #26313f;
-        border-left:4px solid {rank_col};border-radius:5px;padding:16px 18px}}
-      .gp-top{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}}
-      .gp-eyebrow{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#63748a}}
-      .gp-rank{{font:800 26px 'Saira Condensed',sans-serif;text-transform:uppercase;color:{rank_col};margin-top:4px;line-height:1}}
-      .gp-stats{{display:flex;gap:22px;flex-wrap:wrap}}
-      .gp-stat b{{display:block;font:700 20px 'JetBrains Mono',monospace}}
-      .gp-stat span{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8a9bb0}}
-      .gp-bar{{height:5px;background:#0c1016;border-radius:99px;margin-top:14px;overflow:hidden}}
-      .gp-bar i{{display:block;height:100%;width:{progress}%;background:{rank_col}}}
-    </style>
-    <div class="gp">
-      <div class="gp-top">
-        <div><div class="gp-eyebrow">Paddock Oyuncu Profili</div><div class="gp-rank">{rank_name}</div></div>
-        <div class="gp-stats">
-          <div class="gp-stat"><b>{xp}</b><span>XP</span></div>
-          <div class="gp-stat"><b>{played}</b><span>Oynanan Oyun</span></div>
-          <div class="gp-stat"><b>{streak}</b><span>En İyi Seri</span></div>
-        </div>
-      </div>
-      <div class="gp-bar"><i></i></div>
-    </div>
-    """
+
+
+_GAMES_HUB_V8 = [
+    # label, title, desc, colour, btn, page, zorluk, süre, F1 bilgisi
+    ("PİT DUVARI", "Strateji Duvarı",
+     "Gerçek bir yarışın pit duvarına geç: brifing, lastik planı, tur tur oynayan simülasyon.",
+     "#f5b942", "Duvara geç", "stratwall", "Zor", "~4 dk", "yardımcı"),
+    ("TARİHE YOLCULUK", "Podyum Tahmini",
+     "Rastgele bir tarihî yarışın ilk 3'ünü bil; üst üste tutturup seriyi uzat.",
+     "#e10600", "Yarış getir", "podium", "Orta", "~1 dk", "yardımcı"),
+    ("TARİHÎ BULMACA", "Stewardle",
+     "Gerçek kariyer verisiyle gizli pilotu altı tahminde bul. Günlük bulmaca ve seri.",
+     "#ff385c", "Stewardle aç", "stewarlde", "Orta", "~3 dk", "yardımcı"),
+    ("KART DÜELLOSU", "Sıralama Kartları",
+     "Gerçek kariyer istatistikleriyle Top Trumps; CPU'ya karşı bütün desteyi kap.",
+     "#2ee6d6", "Deste dağıt", "cards", "Kolay", "~4 dk", "gerekmez"),
+    ("HAFTA SONU", "Hafta Sonu Tahmini",
+     "Sıradaki GP'nin pole ve podyumunu tahmin et; yarıştan sonra otomatik puanlanır.",
+     "#f7c948", "Tahmin yap", "predict", "Orta", "haftalık", "gerekli"),
+    ("SIRALAMA", "Kızgın Tur",
+     "Pole zamanını gördün; gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.",
+     "#7c5cff", "Tur ver", "hotlap", "Kolay", "~30 sn", "gerekmez"),
+    ("2D YARIŞ", "Paddock Career",
+     "Çok rakipli grid, Overtake Mode, lastik aşınması ve pit yolu ile 2D yarış.",
+     "#e10600", "Motoru çalıştır", "paddock_career", "Kolay", "3–8 dk", "gerekmez"),
+]
 
 
 def render_games_hub_v30():
     fp_ui.page_header(T("page.games.title"), T("page.games.sub"), eyebrow=T("section.games"))
-    render_html_hud(games_profile_hud_html(_game_profile_v66()), height=98)
-    games = [
-        ("PİT DUVARI", "Strateji Duvarı", "Gerçek bir yarışın pit duvarına geç: diyalog, strateji, tur tur oynayan simülasyon. Safety Car'ı yakala.", "#f5c33b", "Duvara geç", "stratwall"),
-        ("TARİHE YOLCULUK", "Podyum Tahmini", "Rastgele bir tarihî yarış — ilk 3'ü bil, seriyi uzat.", "#e10600", "Yarış getir", "podium"),
-        ("TARİHÎ BULMACA", "Stewardle", "Gerçek kariyer verisiyle pilotu altı tahminde bul. Günlük bulmaca + seri.", "#ff385c", "Stewardle aç", "stewarlde"),
-        ("KART DÜELLOSU", "Sıralama Kartları", "Gerçek kariyer istatistikleriyle Top Trumps — CPU'ya karşı bütün desteyi kap.", "#38e1d0", "Deste dağıt", "cards"),
-        ("HAFTA SONU", "Hafta Sonu Tahmini", "Sıradaki GP'nin pole + podyumunu tahmin et; yarıştan sonra otomatik puanlanır.", "#f7c948", "Tahmin yap", "predict"),
-        ("SIRALAMA", "Kızgın Tur", "Pole zamanını gördün — gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.", "#7c5cff", "Tur ver", "hotlap"),
-        ("2D YARIŞ", "Paddock Career", "Çok rakipli grid, Straight/Overtake Mode, lastik aşınması ve pit yolu ile 2D yarış.", "#e10600", "Motoru çalıştır", "paddock_career"),
-    ]
-    for start in range(0, len(games), 2):
+    _render_games_profile_v8(_game_profile_v66())
+    st.write("")
+    for start in range(0, len(_GAMES_HUB_V8), 2):
         columns = st.columns(2)
-        for column, game in zip(columns, games[start:start + 2]):
-            label, title, description, colour, button_text, page = game
+        for column, game in zip(columns, _GAMES_HUB_V8[start:start + 2]):
+            label, title, desc, colour, btn, page, diff, dur, f1 = game
             with column:
-                st.markdown(f"<div class='hud-card game-card-v24' style='--gc:{colour}'><div class='hud-label'>{label}</div><div class='game-card-title-v24'>{title}</div><div class='history-copy' style='margin-top:8px'>{description}</div></div>", unsafe_allow_html=True)
-                if st.button(button_text, key=f"games_v30_{page}", width='stretch'):
+                st.markdown(
+                    f"<div class='hud-card game-card-v24' style='--gc:{colour}'>"
+                    f"<div class='hud-label'>{label}</div>"
+                    f"<div class='game-card-title-v24'>{title}</div>"
+                    f"<div class='history-copy' style='margin-top:8px'>{desc}</div>"
+                    f"<div class='sws-stats' style='margin-top:11px'>"
+                    f"<div class='sws-st'><b>{diff}</b><span>Zorluk</span></div>"
+                    f"<div class='sws-st'><b>{dur}</b><span>Süre</span></div>"
+                    f"<div class='sws-st'><b>{f1}</b><span>F1 bilgisi</span></div></div></div>",
+                    unsafe_allow_html=True)
+                if st.button(btn, key=f"games_v30_{page}", width='stretch'):
                     st.session_state['page'] = page
                     st.rerun()
 
@@ -10438,10 +10518,19 @@ render_games_hub = render_games_hub_v30
 
 st.markdown(r"""
 <style>
-.pit-person-v30{min-height:120px!important;margin-top:8px!important}.pit-name-v30{font-size:1.18rem;font-weight:950;color:var(--fp-text);margin:8px 0 5px}.engine-banner-v30{margin-bottom:14px!important}.engine-title-v30{font-size:1.35rem;font-weight:950;color:var(--fp-text);margin:5px 0}.grid-question-v30{border-left:5px solid #f7c948!important;margin-top:14px!important}.grid-prompt-v30{font-size:1.25rem;font-weight:950;margin-top:12px}.grid-clue-v30{font-size:.94rem;color:var(--fp-muted);margin-top:9px;padding:10px;border-radius:9px;background:color-mix(in srgb,var(--fp-panel2) 75%,#f7c948 8%)}.grid-progress-v30{height:7px;background:var(--fp-panel2);border-radius:99px;margin-top:15px;overflow:hidden}.grid-progress-v30 i{display:block;height:100%;background:linear-gradient(90deg,#f7c948,#ff385c);border-radius:99px}.game-card-v24{transition:transform .15s ease,border-color .15s ease}.game-card-v24:hover{transform:translateY(-2px)}
-@media(max-width:800px){.pit-person-v30{min-height:98px!important}.grid-prompt-v30{font-size:1.08rem}}
+.pit-person-v30{min-height:120px!important;margin-top:8px!important}.pit-name-v30{font-size:1.18rem;font-weight:950;color:var(--fp-text);margin:8px 0 5px}.engine-banner-v30{margin-bottom:14px!important}.engine-title-v30{font-size:1.35rem;font-weight:950;color:var(--fp-text);margin:5px 0}.grid-question-v30{border-left:5px solid #f7c948!important;margin-top:14px!important}.grid-prompt-v30{font-size:1.25rem;font-weight:950;margin-top:12px}.grid-clue-v30{font-size:.94rem;color:var(--fp-muted);margin-top:9px;padding:10px;border-radius:9px;background:color-mix(in srgb,var(--fp-panel2) 75%,#f7c948 8%)}.grid-progress-v30{height:7px;background:var(--fp-panel2);border-radius:99px;margin-top:15px;overflow:hidden}.grid-progress-v30 i{display:block;height:100%;background:linear-gradient(90deg,#f7c948,#ff385c);border-radius:99px}.game-card-v24{transition:transform .15s ease,border-color .15s ease;display:flex;flex-direction:column;min-height:196px!important}.game-card-v24:hover{transform:translateY(-2px)}
+.game-card-v24 .history-copy{min-height:3.9em}
+.game-card-v24 .sws-stats{margin-top:auto;padding-top:11px}
+[data-testid="stHorizontalBlock"]:has(.game-card-v24) [data-testid="column"]{align-self:stretch}
+[data-testid="stHorizontalBlock"]:has(.game-card-v24) [data-testid="column"]>[data-testid="stVerticalBlock"]{height:100%}
+[data-testid="stHorizontalBlock"]:has(.game-card-v24) [data-testid="column"] .stMarkdown:has(.game-card-v24){flex:1 1 auto}
+[data-testid="stHorizontalBlock"]:has(.game-card-v24) [data-testid="column"] .stMarkdown:has(.game-card-v24)>div{height:100%}
+@media(max-width:800px){.pit-person-v30{min-height:98px!important}.grid-prompt-v30{font-size:1.08rem}.game-card-v24{min-height:0!important}}
 </style>
 """, unsafe_allow_html=True)
+
+# Ortak F1 Manager oyun HUD dili — bir kez, tüm oyun sayfalarında geçerli.
+st.markdown(_GAME_HUD_CSS_V68, unsafe_allow_html=True)
 
 
 # Final authoritative theme layer. This comes after legacy visual patches so
