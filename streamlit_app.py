@@ -11086,6 +11086,24 @@ section[data-testid="stSidebar"] [data-testid="stExpander"]{background:var(--fp-
 div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}
 .status-dot-v31{animation:none!important;box-shadow:0 0 9px rgba(104,231,174,.7)!important}
 *{scrollbar-color:var(--fp-line) var(--fp-panel2)}
+
+/* Faz 11 — klavye odak halkası: her interaktif öğede görünür, tutarlı */
+a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
+select:focus-visible,summary:focus-visible,[tabindex]:focus-visible,
+[role="button"]:focus-visible,[data-baseweb="select"] div:focus-visible{
+  outline:2px solid var(--fp-cyan)!important;outline-offset:2px!important;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--fp-cyan) 22%,transparent)!important;
+  border-radius:2px}
+/* fare tıklamasında halka çıkmasın (yalnız :focus-visible zaten bunu yapar,
+   ama bazı baseweb bileşenleri :focus veriyor) */
+button:focus:not(:focus-visible){outline:none!important;box-shadow:none!important}
+
+/* Faz 11 — Streamlit kabuğu tam gizli (canlıda "Deploy/Stop/menü" sızıntısı) */
+[data-testid="stToolbar"],[data-testid="stToolbarActions"],
+[data-testid="stAppDeployButton"],[data-testid="stMainMenu"],
+[data-testid="stStatusWidget"],[data-testid="stDecoration"],
+header[data-testid="stHeader"] [data-testid="stToolbar"],
+.stAppDeployButton,#MainMenu{display:none!important}
 </style>
 """, unsafe_allow_html=True)
 

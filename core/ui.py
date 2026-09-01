@@ -422,9 +422,12 @@ _TOPBAR_SKELETON = r"""
 /* Kritik önyükleme: sidebar/toolbar gizle + üst bar için boşluk. EN BAŞTA
    çalışır ki Streamlit tam temayı basmadan önce yerleşim doğru olsun. */
 section[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"],
-[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],#MainMenu{
+[data-testid="stToolbar"],[data-testid="stToolbarActions"],[data-testid="stAppDeployButton"],
+[data-testid="stMainMenu"],[data-testid="stDecoration"],[data-testid="stStatusWidget"],#MainMenu{
   display:none !important}
-[data-testid="stHeader"],header[data-testid="stHeader"]{height:0 !important;min-height:0 !important;background:transparent !important}
+[data-testid="stHeader"],header[data-testid="stHeader"]{
+  height:0 !important;min-height:0 !important;background:transparent !important;
+  pointer-events:none !important;overflow:hidden !important}
 .stApp [data-testid="stMain"] .block-container{padding-top:5.8rem}
 
 /* ---- iskelet üst bar ----------------------------------------------------

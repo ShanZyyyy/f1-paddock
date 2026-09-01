@@ -33,7 +33,7 @@ _TEMPLATE = r"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
 <style>
 :root{
   --ink:#07090d;--ink-deep:#030405;--steel:#c9d5e2;--steel-dim:#8b9bad;--rush:#e10600;
-  --text:#f2f5f8;--text-dim:#9fb0c0;--text-mute:#63748a;--line:#26313f;
+  --text:#f2f5f8;--text-dim:#9fb0c0;--text-mute:#7c8b9e;--line:#26313f;
   --info:#38e1d0;--caution:#f5c33b;--go:#4ade80;
   --f-display:'Antonio','Arial Narrow',sans-serif;--f-body:'Saira',system-ui,sans-serif;
   --f-mono:'JetBrains Mono',ui-monospace,monospace;--px:0px;--py:0px;--ch:14px;
@@ -169,28 +169,33 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .stage.play .skip{opacity:1}.stage.settled .skip{display:none}
 .skip:hover{color:var(--text);border-color:var(--steel-dim)}
 @media(max-width:580px){
-  /* geri sayım gizlenmez — üstte kompakt tam-genişlik şerit; küçük dial + rakamlar yan yana */
-  .dash{position:absolute;left:1rem;right:1rem;top:.85rem;width:auto;transform:none;
+  /* Mobil sıralama: TEZ önce (üst), geri sayım hemen altında. Eski düzende
+     tez ekranın dibindeydi ve arada büyük boşluk vardı. */
+  /* dekoratif kayan telemetri metni dar ekranda okunabilirliği bozuyordu */
+  .datastream{display:none}
+
+  .tag-block{position:absolute;left:1rem;right:1rem;top:4vh;bottom:auto;max-width:none;z-index:16}
+  .tag{font-size:clamp(1.95rem,10vw,2.7rem);line-height:.92}
+  .tag .p::after{width:2rem;bottom:-.1em}
+  .tag-sub{margin-top:.7rem;font-size:.9rem;line-height:1.42;padding-left:11px;max-width:36ch}
+  .tag-cta{margin-top:.9rem;padding:.62rem 1.05rem}
+  .tag-cta2{font-size:.66rem;margin-top:.8rem}
+  .stage.play .tag-block,.stage.settled .tag-block{animation:none;opacity:1;transform:none}
+
+  /* geri sayım: alta sabit kompakt tam-genişlik şerit (tez üstte, bu altta) */
+  .dash{position:absolute;left:1rem;right:1rem;top:auto;bottom:1rem;width:auto;transform:none;
     padding:12px 14px 11px;z-index:14;opacity:1;
     display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;
     column-gap:14px;align-items:center}
   .dash-hd{grid-column:1/-1}
-  .dial{width:96px;height:96px;margin:4px 0;grid-row:2/4}
-  .dial .ctr b{font-size:1.9rem}
+  .dial{width:88px;height:88px;margin:4px 0;grid-row:2/4}
+  .dial .ctr b{font-size:1.75rem}
   .dial .ctr s{font-size:.5rem}
   .dash-row{grid-column:2;justify-content:flex-start;gap:16px;margin:0}
-  .dash-row b{font-size:1.35rem}
+  .dash-row b{font-size:1.3rem}
   .dash-row s{font-size:.46rem}
   .dash-ft{grid-column:2;margin:4px 0 0;padding:0;border:0;font-size:.5rem}
   .stage.play .dash,.stage.settled .dash{animation:none;opacity:1;transform:none}
-  /* dar ekranda geri sayım kartı + başlık üst üste biniyordu: başlığı küçült,
-     alt boşluğu azalt, blok kartın altında net başlasın */
-  .tag-block{bottom:7vh;max-width:90vw}
-  .tag{font-size:2rem;line-height:.94}
-  .tag .p::after{width:2rem;bottom:-.1em}
-  .tag-sub{margin-top:.85rem;font-size:.9rem;line-height:1.42;padding-left:11px;max-width:34ch}
-  .tag-cta{margin-top:1rem;padding:.62rem 1.05rem}
-  .tag-cta2{font-size:.68rem}
 }
 @media(prefers-reduced-motion:reduce){
   .stage.play .wordmark,.stage.play .dash,.stage.play .bloom,.stage.play .tag-block,.stage.play .circuit,.bloom{animation:none!important}

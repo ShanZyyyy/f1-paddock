@@ -33,7 +33,7 @@ TOKENS = {
     # Metin
     "text": "#f2f5f8",
     "text-dim": "#9fb0c0",
-    "text-mute": "#63748a",
+    "text-mute": "#7c8b9e",   # Faz 11: #63748a → WCAG AA (koyu zeminde ~3:1 idi)
     # Marka & durum
     "red": "#e10600",
     "red-bright": "#ff1801",
@@ -55,7 +55,7 @@ TOKENS_LIGHT = {
     "line-soft": "#d5deea",
     "text": "#0f1b2a",
     "text-dim": "#3c5064",
-    "text-mute": "#66788c",
+    "text-mute": "#5a6b7e",   # Faz 11: #66788c → açık zeminde daha okunur
     "red": "#d10600",
     "red-bright": "#e8002d",
     "cyan": "#0f9b8e",
