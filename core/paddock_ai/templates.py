@@ -14,6 +14,7 @@ class Answer:
     source: str
     intent: str = ""
     ok: bool = True
+    items: list | None = None   # [(sol, sağ), …] — liste tipi cevaplarda HUD satır satır render eder
 
 
 def _podium(rows) -> str:
@@ -62,10 +63,12 @@ def _race_label(r: dict) -> str:
 
 def season_calendar(d: dict) -> Answer:
     lines = [f"**{d['season']} sezonu — {d['count']} yarış:**"]
+    items = []
     for r in d["races"]:
         lines.append(f"{r['round']}. {_race_label(r)}"
                      + (f"  ({_date_tr(r['date'])})" if r.get("date") else ""))
-    return Answer("\n".join(lines), d["source"], "SEASON_CALENDAR")
+        items.append((f"{r['round']}. {_race_label(r)}", _date_tr(r.get("date")) or "—"))
+    return Answer("\n".join(lines), d["source"], "SEASON_CALENDAR", items=items)
 
 
 def season_first_last(d: dict, which: str) -> Answer:

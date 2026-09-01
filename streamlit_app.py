@@ -5124,31 +5124,51 @@ _APP_LIVE = _AppLive()
 
 
 _PADDOCK_AI_CSS = """<style>
-.pa-hero{border:1px solid #20293e;border-radius:14px;padding:17px 19px;margin-bottom:14px;
-  background:linear-gradient(150deg,#0d1420,#0a0e16);position:relative;overflow:hidden}
-.pa-hero::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:#2ee6d6}
-.pa-hero-eb{font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.2em;color:#2ee6d6}
-.pa-hero-h{font:800 20px/1.15 'Saira Condensed','Arial Narrow',sans-serif;color:#eef2f8;margin:7px 0 5px;text-transform:uppercase}
-.pa-hero-p{color:#93a2b8;font-size:.9rem;line-height:1.55;max-width:64ch}
-.pa-caps{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-.pa-caps span{font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.09em;text-transform:uppercase;
-  color:#c7d0de;background:#131c2c;border:1px solid #20293e;border-radius:99px;padding:4px 10px}
-.pa-try{font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.14em;text-transform:uppercase;
-  color:#7f8da3;margin:4px 0 6px}
-/* sohbet balonlarını yeniden biçimle */
-[data-testid="stChatMessage"]{background:#0f1521 !important;border:1px solid #20293e !important;
-  border-radius:11px !important;padding:11px 14px !important;margin-bottom:8px !important}
+/* Paddock AI — oyunlarla aynı .sws dilini kullanır (globalde tanımlı),
+   yalnız bu sayfaya özgü bileşenler + teal aksan burada. */
+.pa-cap{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:center;
+  background:#131c2c;border:1px solid #20293e;border-radius:9px;padding:8px 11px}
+.pa-cap .i{font-size:15px;line-height:1}
+.pa-cap .t{font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;
+  text-transform:uppercase;color:#c7d0de}
+.pa-caps{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:13px}
+@media(max-width:640px){.pa-caps{grid-template-columns:repeat(2,1fr)}}
+.pa-try{font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.14em;
+  text-transform:uppercase;color:#7f8da3;margin:18px 0 8px}
+/* "Dene" örnek soru düğmeleri → .sws dilinde çip (yüksek özgüllük: tema katmanını geç) */
+.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button{background:#0f1521!important;
+  border:1px solid #20293e!important;border-radius:9px!important;color:#c7d0de!important;
+  font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',sans-serif!important;
+  font-weight:700!important;font-size:12px!important;letter-spacing:.02em!important;
+  min-height:0!important;padding:11px 12px!important;line-height:1.25!important;
+  box-shadow:none!important;transition:border-color .15s,color .15s,background .15s!important}
+.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button:hover{border-color:#2ee6d6!important;
+  color:#eef2f8!important;background:rgba(46,230,214,.08)!important}
+.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button p{font-weight:700!important;
+  font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',sans-serif!important;
+  font-size:12px!important;letter-spacing:.02em!important}
+/* sohbet balonları */
+[data-testid="stChatMessage"]{background:#0c111c !important;border:1px solid #20293e !important;
+  border-radius:12px !important;padding:12px 15px !important;margin-bottom:8px !important;gap:11px !important}
 [data-testid="stChatMessage"]:has(.pa-user){background:transparent !important;border:0 !important;
   justify-content:flex-end;padding:2px 0 !important}
-.pa-user{display:inline-block;background:#1c2a44;border:1px solid rgba(46,230,214,.3);border-radius:11px;
-  padding:8px 13px;color:#eef2f8;font-size:.92rem;max-width:80%}
-.pa-tag{display:inline-flex;align-items:center;gap:6px;font:800 9px 'Saira Condensed','Arial Narrow',sans-serif;
-  letter-spacing:.13em;text-transform:uppercase;color:#2ee6d6;margin-bottom:6px}
-.pa-tag.no{color:#ff9d5c}
-.pa-src{display:inline-block;margin-top:9px;font:700 9px 'JetBrains Mono','Consolas',monospace;
-  letter-spacing:.05em;color:#6b7787}
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p{margin:0 0 .3rem;font-size:.94rem;line-height:1.55;color:#d5dde9}
-[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] li{font-size:.9rem;color:#c7d0de}
+.pa-user{display:inline-block;background:#1a2436;border:1px solid #33415c;border-radius:12px;
+  padding:9px 14px;color:#eef2f8;font-size:.92rem;line-height:1.45;max-width:82%}
+.pa-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
+  font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.13em;text-transform:uppercase;
+  background:rgba(46,230,214,.15);color:#2ee6d6;margin-bottom:7px}
+.pa-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pa-tag.no{background:rgba(255,157,92,.15);color:#ff9d5c}
+.pa-src{display:inline-block;margin-top:9px;font:700 9px 'JetBrains Mono','Consolas',ui-monospace,monospace;
+  letter-spacing:.04em;color:#6b7787}
+.pa-body p{margin:0 0 .35rem;font-size:.94rem;line-height:1.55;color:#d5dde9}
+.pa-list{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pa-list li{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;color:#c7d0de;
+  padding:7px 11px;border-radius:7px;background:#131c2c;border:1px solid #20293e;border-left:3px solid #2ee6d6}
+.pa-list li b{font:700 11px 'JetBrains Mono',monospace;color:#9fb0c0;white-space:nowrap}
+/* girdi kutusu odak rengi: site kırmızısı yerine teal */
+[data-testid="stChatInput"] textarea:focus{box-shadow:0 0 0 1px #2ee6d6 !important;border-color:#2ee6d6 !important}
+[data-testid="stChatInput"]:focus-within{border-color:#2ee6d6 !important}
 </style>"""
 
 _PA_INTENT_V9 = {
@@ -5162,6 +5182,11 @@ _PA_INTENT_V9 = {
     'FALLBACK': ('❓', 'Netleştirir misin'),
 }
 
+_PA_CAPS_V9 = [
+    ('🏁', 'Yarış sonuçları'), ('🏆', 'Şampiyonlar'), ('📅', 'Sezon takvimi'),
+    ('📊', 'Güncel klasman'), ('👤', 'Kariyer & rekor'), ('🔧', 'Teknik güncelleme'),
+]
+
 
 def _pa_render_answer_v9(turn):
     ic, lbl = _PA_INTENT_V9.get(turn.get('intent', ''), ('◆', 'Yanıt'))
@@ -5169,7 +5194,16 @@ def _pa_render_answer_v9(turn):
         st.markdown(
             f"<div class='pa-tag{'' if turn.get('ok', True) else ' no'}'>{ic} "
             f"{html_lib.escape(lbl)}</div>", unsafe_allow_html=True)
-        st.markdown(turn['text'])
+        items = turn.get('items')
+        if items:
+            head = str(turn.get('text', '')).split('\n', 1)[0].strip('* ')
+            rows = "".join(
+                f"<li><span>{html_lib.escape(str(a))}</span><b>{html_lib.escape(str(b))}</b></li>"
+                for a, b in items)
+            st.markdown(f"<div class='pa-body'><p><b>{html_lib.escape(head)}</b></p>"
+                        f"<ul class='pa-list'>{rows}</ul></div>", unsafe_allow_html=True)
+        else:
+            st.markdown(turn['text'])
         if turn.get('source'):
             st.markdown(f"<div class='pa-src'>Kaynak · {html_lib.escape(turn['source'])}</div>",
                         unsafe_allow_html=True)
@@ -5178,19 +5212,20 @@ def _pa_render_answer_v9(turn):
 def render_paddock_assistant_v20():
     fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"), eyebrow="PADDOCK AI")
     st.markdown(_PADDOCK_AI_CSS, unsafe_allow_html=True)
-    st.markdown(
-        "<div class='pa-hero'>"
-        "<div class='pa-hero-eb'>◆ YEREL F1 MOTORU · LLM YOK · API ANAHTARI YOK</div>"
-        "<div class='pa-hero-h'>Sorunu ayrıştırır, kendi veritabanımıza sorgu atar</div>"
-        "<div class='pa-hero-p'>Cümleden yıl · yarış · pilot · takım çıkarılır, sonra "
-        "FastF1 · tarihî SQLite (1950'den bugüne) · kariyer &amp; teknik JSON'a sorgu "
-        "gider. Yanıt Türkçe cümle + kaynak. Bilmediğini uydurmaz — yalnızca Formula 1.</div>"
-        "<div class='pa-caps'>" + "".join(
-            f"<span>{c}</span>" for c in
-            ("Yarış sonuçları", "Şampiyonlar", "Sezon takvimi", "Güncel klasman",
-             "Kariyer &amp; rekor", "Teknik güncelleme")) +
-        "</div></div>",
-        unsafe_allow_html=True)
+
+    caps = "".join(f"<div class='pa-cap'><span class='i'>{ic}</span>"
+                   f"<span class='t'>{html_lib.escape(lbl)}</span></div>"
+                   for ic, lbl in _PA_CAPS_V9)
+    _sws_panel_v8(
+        "◆ Yerel F1 Motoru · LLM Yok · API Anahtarı Yok",
+        "Sorunu ayrıştırır, kendi veritabanımıza sorgu atar",
+        lead="Cümleden yıl · yarış · pilot · takım çıkarılır, sonra FastF1 · tarihî "
+             "SQLite (1950'den bugüne) · kariyer ve teknik JSON'a sorgu gider. Yanıt "
+             "Türkçe cümle + kaynak. Bilmediğini uydurmaz — yalnızca Formula 1.",
+        body_html=f"<div class='pa-caps'>{caps}</div>"
+                  "<div class='sws-sub' style='margin-top:11px'>Bir örneği dene ya da "
+                  "aşağıya kendi sorunu yaz.</div>",
+        accent="#2ee6d6")
 
     if 'paddock_chat_v9' not in st.session_state:
         st.session_state['paddock_chat_v9'] = []
@@ -5198,8 +5233,8 @@ def render_paddock_assistant_v20():
     st.markdown("<div class='pa-try'>Dene</div>", unsafe_allow_html=True)
     examples = ["1961 Monako GP kazananı kimdi?", "1958 sezonu nerede başladı?",
                 "Kim lider?", "Leclerc kariyerinde kaç galibiyet aldı?"]
-    for col, q in zip(st.columns(len(examples)), examples):
-        if col.button(q, key='pa_ex_' + q, width='stretch'):
+    for i, (col, q) in enumerate(zip(st.columns(len(examples)), examples)):
+        if col.button(q, key=f'pa_ex_{i}', width='stretch'):
             st.session_state['pa_pending'] = q
             st.rerun()
 
@@ -5219,11 +5254,11 @@ def render_paddock_assistant_v20():
             try:
                 a = paddock_ai.answer(question, live=_APP_LIVE, this_year=2026)
                 turn = {'role': 'ai', 'text': a.text, 'source': a.source,
-                        'intent': a.intent, 'ok': a.ok}
+                        'intent': a.intent, 'ok': a.ok, 'items': a.items}
             except Exception as _ai_err:  # noqa: BLE001
                 log_data_error('paddock_ai', _ai_err)
                 turn = {'role': 'ai', 'text': 'Şu an yanıt veremedim — birazdan tekrar dener misin?',
-                        'source': 'Paddock AI', 'intent': 'FALLBACK', 'ok': False}
+                        'source': 'Paddock AI', 'intent': 'FALLBACK', 'ok': False, 'items': None}
         st.session_state['paddock_chat_v9'].append(turn)
         st.rerun()
 
