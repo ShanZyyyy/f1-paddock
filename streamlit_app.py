@@ -8375,6 +8375,52 @@ def _prediction_history_html(plog):
     """
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _prediction_form_guide_v8(year):
+    """Son 3 tamamlanan yarışın pole + ilk 3'ü — tahmin için form rehberi."""
+    try:
+        cal = get_calendar_details(int(year))
+    except Exception:
+        return []
+    now = datetime.datetime.now(datetime.timezone.utc)
+    done = []
+    for ev in cal or []:
+        raw = ev.get('Session5DateUtc')
+        if pd.isnull(raw):
+            continue
+        t = pd.to_datetime(raw)
+        t = t.tz_localize('UTC') if t.tzinfo is None else t.tz_convert('UTC')
+        if t + datetime.timedelta(hours=3) <= now:
+            done.append((t, str(ev.get('EventName', '')).strip()))
+    done.sort()
+    out = []
+    for _t, name in done[-3:]:
+        race = (get_championship_round_v19(int(year), name) or {}).get('race') or []
+        if not race:
+            continue
+        top = sorted(race, key=lambda r: int(r['position']) if str(r['position']).isdigit()
+                     else 999)[:3]
+        pole = next((r['code'] for r in race if r.get('grid') == 1), None)
+        out.append({'gp': name, 'podium': [r['code'] for r in top], 'pole': pole})
+    return out
+
+
+def _prediction_form_guide_render_v8(year):
+    guide = _prediction_form_guide_v8(year)
+    if not guide:
+        return
+    rows = "".join(
+        f"<li style='--bl:#f7c948'><span>{html_lib.escape(g['gp'])}"
+        + (f" · pole {html_lib.escape(g['pole'])}" if g['pole'] else "")
+        + f"</span><b>{' · '.join(html_lib.escape(c) for c in g['podium'])}</b></li>"
+        for g in guide)
+    st.markdown(
+        f"<div class='sws'><div class='sws-eb'>Form Rehberi · Son {len(guide)} Yarış</div>"
+        f"<div class='sws-lead'>Pole ve podyum — tahminini buna göre kalibre et.</div>"
+        f"<ul class='sws-break'>{rows}</ul></div>",
+        unsafe_allow_html=True)
+
+
 # --- FAZ 6-B · #3 — İLK-TEMAS PRİMERİ ---
 def _prediction_primer_v65(year):
     """Henüz tahmin yapmamış kullanıcıya: puanlama kuralı + kilitli rozet
@@ -8486,6 +8532,8 @@ def render_prediction_game_v55():
             st.rerun()
         _pred_history_and_badges_v63()
         return
+
+    _prediction_form_guide_render_v8(year)
 
     _pole = st.selectbox("Pole pozisyonu", _codes, format_func=_fmt,
                          index=_codes.index(_cur['pl']) if _cur.get('pl') in _codes else 0,
@@ -8773,11 +8821,24 @@ def _tt_deck_v66():
 
 def _tt_new_game_v66():
     deck = _tt_deck_v66()
-    order = list(range(len(deck)))
-    random.shuffle(order)
-    half = len(order) // 2
+    # Dengeli dağıtım: kartları toplam güce göre sırala, ardışık çiftlerin birini
+    # oyuncuya birini CPU'ya ver — iki el de her güç kademesinden bir kart alır.
+    stats = ('wins', 'podiums', 'poles', 'starts', 'titles', 'ppr')
+    mx = {s: max((c[s] for c in deck), default=1) or 1 for s in stats}
+    ranked = sorted(range(len(deck)),
+                    key=lambda i: -sum(deck[i][s] / mx[s] for s in stats))
+    p, c = [], []
+    for a in range(0, len(ranked) - 1, 2):
+        pair = [ranked[a], ranked[a + 1]]
+        random.shuffle(pair)
+        p.append(pair[0])
+        c.append(pair[1])
+    if len(ranked) % 2:
+        (p if random.random() < 0.5 else c).append(ranked[-1])
+    random.shuffle(p)
+    random.shuffle(c)
     st.session_state['tt66'] = {
-        'p': order[:half], 'c': order[half:2 * half], 'pot': [],
+        'p': p, 'c': c, 'pot': [],
         'turn': 'p', 'phase': 'pick', 'round': 1, 'msg': '', 'reveal': None, 'awarded': False,
     }
 
@@ -9067,8 +9128,10 @@ def render_hotlap_game_v66():
     _sws_panel_v8(
         f"{r['gp']} · {r['year']} · Sıralama",
         f"Pole · {r['pole_code']} — {_fmt(r['pole_secs'])}",
-        lead=f"Gizli pilot P{r['hidden_pos']} oldu. Pole’a farkı hangi aralıkta?",
-        chips=[("Güncel seri", streak), ("En iyi seri", best)])
+        lead=f"{r['hidden_code']} sıralamada P{r['hidden_pos']} oldu — turu pole'daki "
+             f"{r['pole_code']}'e ne kadar yakındı?",
+        chips=[("Gizli pilot", r['hidden_code']), ("Sırası", f"P{r['hidden_pos']}"),
+               ("Güncel seri", streak), ("En iyi seri", best)])
 
     if r['phase'] == 'guess':
         cols = st.columns(len(_HL_BUCKETS_V66))
@@ -9140,6 +9203,7 @@ def _podium_of_race_v67(year, gp):
         return {'ok': False}
     res = res.sort_values('Position', na_position='last')
     codes, names = [], {}
+    pole, best_grid = None, 999
     for _, row in res.iterrows():
         code = str(row.get('Abbreviation', '') or '').strip()
         if not code or code.lower() == 'nan':
@@ -9149,10 +9213,13 @@ def _podium_of_race_v67(year, gp):
         if not full:
             full = f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip()
         names[code] = full or code
+        g = pd.to_numeric(row.get('GridPosition'), errors='coerce')
+        if pd.notna(g) and 0 < g < best_grid:
+            best_grid, pole = int(g), code
     if len(codes) < 6:
         return {'ok': False}
     return {'ok': True, 'year': int(year), 'gp': str(gp),
-            'podium': codes[:3], 'pool': codes[:12], 'names': names}
+            'podium': codes[:3], 'pool': codes[:12], 'names': names, 'pole': pole}
 
 
 def _podium_score_v67(picks, podium):
@@ -9367,12 +9434,17 @@ def render_podium_time_v67():
             st.rerun()
         return
 
+    _pole = r.get('pole')
+    _pole_chip = (f"<div class='sws-st'><b>{html_lib.escape(_pole)}</b>"
+                  f"<span>Pole</span></div>" if _pole else "")
+    _pole_lead = (f" O gün pole {html_lib.escape(r['names'].get(_pole, _pole))}'de başladı."
+                  if _pole else "")
     st.markdown(
         f"<div class='sws'><div class='sws-eb'>Tarihe Yolculuk · Podyum Tahmini</div>"
         f"<div class='sws-h'>{r['year']} · {html_lib.escape(r['gp'])}</div>"
         f"<div class='sws-lead'>Aşağıdaki isimler o yarışın ilk 12’si — karışık sırada. "
-        f"Podyumu (1., 2., 3.) seç. 6+ puan seriyi uzatır.</div>"
-        f"<div class='sws-stats'>"
+        f"Podyumu (1., 2., 3.) seç. 6+ puan seriyi uzatır.{_pole_lead}</div>"
+        f"<div class='sws-stats'>{_pole_chip}"
         f"<div class='sws-st'><b>{streak}</b><span>Güncel seri</span></div>"
         f"<div class='sws-st'><b>{best}</b><span>En iyi seri</span></div></div></div>",
         unsafe_allow_html=True)
