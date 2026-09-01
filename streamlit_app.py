@@ -23,6 +23,7 @@ import pandas as pd
 import openf1_fallback
 from core import paddock_ai
 from core import leaderboard as fp_lb
+from core import icons as fp_ic
 
 # Yeniden yapilandirma (redesign) — tasarim sistemi
 from core import ui as fp_ui
@@ -80,7 +81,7 @@ def render_data_diagnostics_panel():
         debug_on = False
     if not debug_on:
         return
-    with st.expander(f"🩺 Veri tanılama · {_DATA_ERROR_COUNT['n']} hata", expanded=False):
+    with st.expander(f"Veri tanılama · {_DATA_ERROR_COUNT['n']} hata", expanded=False):
         if not _DATA_ERROR_LOG:
             st.caption("Bu oturumda kaydedilmiş veri hatası yok.")
         else:
@@ -208,7 +209,11 @@ html, body, #root {
    Sol menunun slim-rail temasi icin: fp_ui.inject_rail_theme() (asagida). */
 :root:not([data-fp-theme="light"]) [data-testid="stApp"],
 :root:not([data-fp-theme="light"]) [data-testid="stAppViewContainer"]{
-    background:#0c1016 !important;
+    background:#0a0e14 !important;   /* Faz 13: --fp-bg-1 (yayın gecesi) */
+}
+:root[data-fp-theme="light"] [data-testid="stApp"],
+:root[data-fp-theme="light"] [data-testid="stAppViewContainer"]{
+    background:#eef1f6 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -729,10 +734,10 @@ def get_session_summary(year, gp_name, session_code):
                 upper = message.upper()
                 pen = re.search(r'(\d+)\s*SECOND', upper)
                 if 'YELLOW FLAG INFRINGEMENT' in upper:
-                    clean = f"⚠️ {driver_label} için sarı bayrak ihlali incelemesi başlatıldı."
+                    clean = f"{driver_label} için sarı bayrak ihlali incelemesi başlatıldı."
                     incident_key = f"yellow-{driver_label}"
                 elif 'DISQUALIFIED' in upper:
-                    clean = f"⛔ {driver_label} diskalifiye edildi."
+                    clean = f"{driver_label} diskalifiye edildi."
                     incident_key = f"dsq-{driver_label}"
                 elif 'PENALTY' in upper or 'DRIVE THROUGH' in upper or 'STOP AND GO' in upper:
                     reason = 'kural ihlali'
@@ -743,25 +748,25 @@ def get_session_summary(year, gp_name, session_code):
                             reason = label
                             break
                     amount = f" · {pen.group(1)} sn ceza" if pen else (" · geç-git cezası" if 'DRIVE THROUGH' in upper else "")
-                    clean = f"🟥 {driver_label} — {reason}{amount}."
+                    clean = f"{driver_label} — {reason}{amount}."
                     incident_key = f"pen-{driver_label}-{reason}"
                 elif 'REPRIMAND' in upper:
-                    clean = f"🟨 {driver_label} kınama (reprimand) aldı."
+                    clean = f"{driver_label} kınama (reprimand) aldı."
                     incident_key = f"repr-{driver_label}"
                 elif 'RED FLAG' in upper:
-                    clean = '🚩 Seans kırmızı bayrakla durduruldu.'
+                    clean = 'Seans kırmızı bayrakla durduruldu.'
                     incident_key = 'red-flag'
                 elif 'VIRTUAL SAFETY' in upper:
-                    clean = '🟡 Sanal Güvenlik Aracı (VSC) uygulandı.'
+                    clean = 'Sanal Güvenlik Aracı (VSC) uygulandı.'
                     incident_key = 'vsc'
                 elif 'SAFETY CAR' in upper:
-                    clean = '🚗 Güvenlik Aracı piste çıktı.'
+                    clean = 'Güvenlik Aracı piste çıktı.'
                     incident_key = 'safety-car'
                 elif 'SPUN' in upper:
-                    clean = f"↪️ {driver_label} spin attı."
+                    clean = f"{driver_label} spin attı."
                     incident_key = f"spin-{driver_label}"
                 elif 'CRASH' in upper or 'STOPPED' in upper:
-                    clean = f"⚠️ {driver_label} ile ilgili pistte olay kaydedildi."
+                    clean = f"{driver_label} ile ilgili pistte olay kaydedildi."
                     incident_key = f"incident-{driver_label}"
                 else:
                     continue
@@ -776,13 +781,13 @@ def get_session_summary(year, gp_name, session_code):
         q3_teams = ordered[pd.to_numeric(ordered.get('Position'), errors='coerce') <= 10].groupby('TeamName').size()
         double_q3 = q3_teams[q3_teams >= 2]
         for team_name in double_q3.index[:1]:
-            summary.append(f"📈 {team_name}, iki pilotuyla Q3'e kaldı.")
+            summary.append(f"{team_name}, iki pilotuyla Q3'e kaldı.")
     elif session_code in ['R', 'S']:
         if 'GridPosition' in ordered.columns:
             ordered['gain'] = pd.to_numeric(ordered['GridPosition'], errors='coerce') - pd.to_numeric(ordered['Position'], errors='coerce')
             biggest_gain = ordered.sort_values('gain', ascending=False).iloc[0]
             if pd.notnull(biggest_gain.get('gain')) and biggest_gain['gain'] >= 4:
-                summary.append(f"⬆️ {biggest_gain.get('Abbreviation', 'Bir pilot')}, start yerine göre {int(biggest_gain['gain'])} sıra kazandı.")
+                summary.append(f"{biggest_gain.get('Abbreviation', 'Bir pilot')}, start yerine göre {int(biggest_gain['gain'])} sıra kazandı.")
         # yarisi tamamlayamayanlar
         if 'Status' in ordered.columns:
             _dnf = []
@@ -792,7 +797,7 @@ def get_session_summary(year, gp_name, session_code):
             if _dnf:
                 _names = ', '.join(d for d in _dnf[:3] if d)
                 _extra = f" +{len(_dnf) - 3}" if len(_dnf) > 3 else ""
-                summary.append(f"🔧 Yarışı tamamlayamayan: {_names}{_extra}.")
+                summary.append(f"Yarışı tamamlayamayan: {_names}{_extra}.")
 
     return summary[:5]
 
@@ -2048,7 +2053,7 @@ def render_season_status_v46(year, compact=False):
                "Aşağıdaki sıralama / sonuçlar yalnızca yer tutucudur — ilk gerçek yarış sonucu "
                "geldiğinde kendiliğinden güncellenir.")
         if compact:
-            st.caption(f"⚠️ {year} sezonu henüz yarışılmadı — aşağıdakiler yer tutucudur.")
+            st.caption(f"{year} sezonu henüz yarışılmadı — aşağıdakiler yer tutucudur.")
         else:
             fp_ui.data_state(title, msg, "error")
     elif progress['ongoing']:
@@ -2056,7 +2061,7 @@ def render_season_status_v46(year, compact=False):
         msg = ("Bu bir ara tablodur — yalnızca şimdiye kadar biten yarışların doğrulanmış "
                "sonuçlarını yansıtır, sezon sonu klasmanı değildir.")
         if compact:
-            st.caption(f"⚠️ {year} sezonu sürüyor ({progress['done']}/{progress['total']}) — "
+            st.caption(f"{year} sezonu sürüyor ({progress['done']}/{progress['total']}) — "
                        "bu bir ara tablo, kesin sonuç değil.")
         else:
             fp_ui.data_state(title, msg, "warning")
@@ -4615,7 +4620,7 @@ def render_gp_hub_v63(event, event_name, sessions):
     if upcoming:
         ics_text, slug = _weekend_ics_v63(event_name, str(event.get('Location', '')), upcoming)
         st.download_button(
-            f"📅 Takvime ekle · {len(upcoming)} seans (.ics)", ics_text,
+            f"Takvime ekle · {len(upcoming)} seans (.ics)", ics_text,
             file_name=f"{slug}-{prev_year + 1}.ics", mime="text/calendar",
             key=f"wc_ics_{slug}",
         )
@@ -4922,13 +4927,13 @@ def render_favourites_centre():
     # Faz 4 #9 — Paddock kimliği
     render_html_hud(_paddock_profile_html(), height=260, scrolling=True)
     fp_ui.share_panel(
-        "🏎️ Formula Paddock — benim paddock'um\n"
+        "Formula Paddock — benim paddock'um\n"
         f"Favori: {driver_name} · {team_name}\n"
         + (f"Takip: {', '.join(_follow_list())}\n" if _follow_list() else "")
         + "Aşağıdaki bağlantıyı aç, aynı favori ve takip listesiyle başla:",
         include_url=False,
         url_query=_fp_share_query_v65('home'),
-        label="🔗 Paddock'unu paylaş",
+        label="Paddock'unu paylaş",
     )
 
     # Faz 4 #3 — takip listesi
@@ -5125,76 +5130,75 @@ _APP_LIVE = _AppLive()
 
 
 _PADDOCK_AI_CSS = """<style>
-/* Paddock AI — oyunlarla aynı .sws dilini kullanır (globalde tanımlı).
-   Faz 10: tüm renkler --fp-* jetonundan; açık temada da doğru döner. */
-.pa-cap{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:center;
-  background:var(--fp-bg-3);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);padding:8px 11px}
-.pa-cap .i{font-size:15px;line-height:1}
-.pa-cap .t{font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--fp-text-dim)}
-.pa-caps{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:13px}
+/* Paddock AI — Yayın Arayüzü (Faz 14/16). Inter + Mono, cam panel, çizgi ikon. */
+.pa-cap{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;
+  background:var(--fp-bg-2);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);padding:10px 13px}
+.pa-cap .i{display:flex;color:var(--fp-text-dim)}
+.pa-cap .t{font:600 11px/1.35 var(--fp-f-body);letter-spacing:.02em;color:var(--fp-text-dim)}
+.pa-caps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
 @media(max-width:640px){.pa-caps{grid-template-columns:repeat(2,1fr)}}
-.pa-try{font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--fp-text-mute);margin:18px 0 8px}
-/* "Dene" örnek soru düğmeleri → .sws dilinde çip (yüksek özgüllük: tema katmanını geç) */
-.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button{background:var(--fp-bg-1)!important;
+.pa-try{font:600 11px var(--fp-f-mono);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--fp-text-mute);margin:20px 0 9px}
+/* "Dene" örnek soru düğmeleri (yüksek özgüllük: tema katmanını geç) */
+.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button{background:var(--fp-bg-2)!important;
   border:1px solid var(--fp-line)!important;border-radius:var(--fp-r-md)!important;color:var(--fp-text-dim)!important;
-  font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',sans-serif!important;
-  font-weight:700!important;font-size:12px!important;letter-spacing:.02em!important;
-  min-height:0!important;padding:11px 12px!important;line-height:1.25!important;
-  box-shadow:none!important;transition:border-color .15s,color .15s,background .15s!important}
-.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button:hover{border-color:var(--fp-cyan)!important;
-  color:var(--fp-text)!important;background:color-mix(in srgb,var(--fp-cyan) 9%,transparent)!important}
-.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button p{font-weight:700!important;
-  font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',sans-serif!important;
-  font-size:12px!important;letter-spacing:.02em!important}
+  font-family:var(--fp-f-body)!important;font-weight:500!important;font-size:12.5px!important;
+  letter-spacing:0!important;min-height:0!important;padding:12px 14px!important;line-height:1.4!important;
+  text-align:left!important;box-shadow:none!important;transition:border-color .14s,color .14s,background .14s!important}
+.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button:hover{border-color:var(--fp-line-2)!important;
+  color:var(--fp-text)!important;background:var(--fp-bg-3)!important}
+.stApp [class*="st-key-pa_ex_"] [data-testid="stButton"] button p{font-weight:500!important;
+  font-family:var(--fp-f-body)!important;font-size:12.5px!important;letter-spacing:0!important}
 /* sohbet balonları */
-[data-testid="stChatMessage"]{background:var(--fp-bg-1) !important;border:1px solid var(--fp-line) !important;
-  border-radius:var(--fp-r-lg) !important;padding:12px 15px !important;margin-bottom:8px !important;gap:11px !important}
+[data-testid="stChatMessage"]{background:var(--fp-bg-2) !important;border:1px solid var(--fp-line) !important;
+  border-radius:var(--fp-r-lg) !important;padding:14px 16px !important;margin-bottom:9px !important;gap:12px !important}
 [data-testid="stChatMessage"]:has(.pa-user){background:transparent !important;border:0 !important;
   justify-content:flex-end;padding:2px 0 !important}
-.pa-user{display:inline-block;background:var(--fp-bg-4);border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);
-  padding:9px 14px;color:var(--fp-text);font-size:.92rem;line-height:1.45;max-width:82%}
-.pa-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;
-  font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.13em;text-transform:uppercase;
-  background:color-mix(in srgb,var(--fp-cyan) 15%,transparent);color:var(--fp-cyan);margin-bottom:7px}
-.pa-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
-.pa-tag.no{background:color-mix(in srgb,var(--fp-amber) 16%,transparent);color:var(--fp-amber)}
-.pa-src{display:inline-block;margin-top:9px;font:700 9px 'JetBrains Mono','Consolas',ui-monospace,monospace;
-  letter-spacing:.04em;color:var(--fp-text-mute)}
-.pa-body p{margin:0 0 .35rem;font-size:.94rem;line-height:1.55;color:var(--fp-text-dim)}
-.pa-list{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
-.pa-list li{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;color:var(--fp-text-dim);
-  padding:7px 11px;border-radius:var(--fp-r-md);background:var(--fp-bg-3);border:1px solid var(--fp-line);border-left:3px solid var(--fp-cyan)}
-.pa-list li b{font:700 11px 'JetBrains Mono',monospace;color:var(--fp-text-dim);white-space:nowrap}
-/* girdi kutusu odak rengi: site kırmızısı yerine teal */
+.pa-user{display:inline-block;background:var(--fp-bg-3);border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);
+  padding:10px 15px;color:var(--fp-text);font-size:.93rem;line-height:1.5;max-width:82%}
+.pa-tag{display:inline-flex;align-items:center;gap:7px;padding:4px 11px 4px 9px;border-radius:var(--fp-r-pill);
+  font:600 11px var(--fp-f-body);letter-spacing:.02em;
+  border:1px solid color-mix(in srgb,var(--fp-cyan) 32%,var(--fp-line));
+  background:color-mix(in srgb,var(--fp-cyan) 10%,transparent);color:var(--fp-cyan);margin-bottom:9px}
+.pa-tag svg{flex:0 0 auto}
+.pa-tag.no{border-color:color-mix(in srgb,var(--fp-amber) 32%,var(--fp-line));
+  background:color-mix(in srgb,var(--fp-amber) 10%,transparent);color:var(--fp-amber)}
+.pa-src{display:inline-flex;align-items:center;gap:6px;margin-top:11px;
+  font:500 10.5px var(--fp-f-mono);letter-spacing:.03em;color:var(--fp-text-mute)}
+.pa-body p{margin:0 0 .4rem;font-size:.94rem;line-height:1.6;color:var(--fp-text)}
+.pa-list{list-style:none;margin:11px 0 0;padding:0;display:flex;flex-direction:column;gap:1px;
+  background:var(--fp-line);border:1px solid var(--fp-line);border-radius:var(--fp-r-md);overflow:hidden}
+.pa-list li{display:flex;justify-content:space-between;gap:14px;font-size:.88rem;color:var(--fp-text-dim);
+  padding:9px 13px;background:var(--fp-bg-2)}
+.pa-list li b{font:500 12px var(--fp-f-mono);color:var(--fp-text);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* girdi kutusu odak rengi */
 [data-testid="stChatInput"] textarea:focus{box-shadow:0 0 0 1px var(--fp-cyan) !important;border-color:var(--fp-cyan) !important}
 [data-testid="stChatInput"]:focus-within{border-color:var(--fp-cyan) !important}
 </style>"""
 
 _PA_INTENT_V9 = {
-    'RACE_RESULT': ('🏁', 'Yarış Sonucu'), 'SEASON_CHAMPION': ('🏆', 'Şampiyon'),
-    'SEASON_CALENDAR': ('📅', 'Sezon Takvimi'), 'SEASON_FIRST_LAST': ('📍', 'Sezon Yarışı'),
-    'STANDINGS': ('📊', 'Klasman'), 'DRIVER_CAREER': ('👤', 'Kariyer'),
-    'DRIVER_SEASON': ('📈', 'Sezon Formu'), 'HEAD_TO_HEAD': ('⚔️', 'Kıyas'),
-    'RECORD': ('📖', 'Rekor'), 'TECH_UPGRADE': ('🔧', 'Teknik Güncelleme'),
-    'NEXT_RACE': ('⏭️', 'Sıradaki Yarış'), 'USER_STATS': ('🎯', 'Tahmin Puanın'),
-    'SMALLTALK': ('💬', 'Sohbet'), 'REFUSE': ('🚫', 'Kapsam Dışı'),
-    'FALLBACK': ('❓', 'Netleştirir misin'),
+    'RACE_RESULT': ('flag', 'Yarış Sonucu'), 'SEASON_CHAMPION': ('trophy', 'Şampiyon'),
+    'SEASON_CALENDAR': ('calendar', 'Sezon Takvimi'), 'SEASON_FIRST_LAST': ('pin', 'Sezon Yarışı'),
+    'STANDINGS': ('chart', 'Klasman'), 'DRIVER_CAREER': ('user', 'Kariyer'),
+    'DRIVER_SEASON': ('pulse', 'Sezon Formu'), 'HEAD_TO_HEAD': ('layers', 'Kıyas'),
+    'RECORD': ('book', 'Rekor'), 'TECH_UPGRADE': ('wrench', 'Teknik Güncelleme'),
+    'NEXT_RACE': ('chevron-right', 'Sıradaki Yarış'), 'USER_STATS': ('target', 'Tahmin Puanın'),
+    'SMALLTALK': ('message', 'Sohbet'), 'REFUSE': ('x', 'Kapsam Dışı'),
+    'FALLBACK': ('help', 'Netleştirir misin'),
 }
 
 _PA_CAPS_V9 = [
-    ('🏁', 'Yarış sonuçları'), ('🏆', 'Şampiyonlar'), ('📅', 'Sezon takvimi'),
-    ('📊', 'Güncel klasman'), ('👤', 'Kariyer & rekor'), ('🔧', 'Teknik güncelleme'),
+    ('flag', 'Yarış sonuçları'), ('trophy', 'Şampiyonlar'), ('calendar', 'Sezon takvimi'),
+    ('chart', 'Güncel klasman'), ('user', 'Kariyer & rekor'), ('wrench', 'Teknik güncelleme'),
 ]
 
 
 def _pa_render_answer_v9(turn):
-    ic, lbl = _PA_INTENT_V9.get(turn.get('intent', ''), ('◆', 'Yanıt'))
-    with st.chat_message('assistant', avatar='🏎️'):
+    ic, lbl = _PA_INTENT_V9.get(turn.get('intent', ''), ('dot', 'Yanıt'))
+    with st.chat_message('assistant'):
         st.markdown(
-            f"<div class='pa-tag{'' if turn.get('ok', True) else ' no'}'>{ic} "
-            f"{html_lib.escape(lbl)}</div>", unsafe_allow_html=True)
+            f"<div class='pa-tag{'' if turn.get('ok', True) else ' no'}'>{fp_ic.icon(ic, 13)}"
+            f"<span>{html_lib.escape(lbl)}</span></div>", unsafe_allow_html=True)
         items = turn.get('items')
         if items:
             head = str(turn.get('text', '')).split('\n', 1)[0].strip('* ')
@@ -5206,7 +5210,8 @@ def _pa_render_answer_v9(turn):
         else:
             st.markdown(turn['text'])
         if turn.get('source'):
-            st.markdown(f"<div class='pa-src'>Kaynak · {html_lib.escape(turn['source'])}</div>",
+            st.markdown(f"<div class='pa-src'>{fp_ic.icon('book', 12)}"
+                        f"Kaynak · {html_lib.escape(turn['source'])}</div>",
                         unsafe_allow_html=True)
 
 
@@ -5214,11 +5219,11 @@ def render_paddock_assistant_v20():
     fp_ui.page_header(T("page.assistant.title"), T("page.assistant.sub"), eyebrow="PADDOCK AI")
     st.markdown(_PADDOCK_AI_CSS, unsafe_allow_html=True)
 
-    caps = "".join(f"<div class='pa-cap'><span class='i'>{ic}</span>"
+    caps = "".join(f"<div class='pa-cap'><span class='i'>{fp_ic.icon(ic, 15)}</span>"
                    f"<span class='t'>{html_lib.escape(lbl)}</span></div>"
                    for ic, lbl in _PA_CAPS_V9)
     _sws_panel_v8(
-        "◆ Yerel F1 Motoru · LLM Yok · API Anahtarı Yok",
+        "Yerel F1 Motoru · LLM Yok · API Anahtarı Yok",
         "Sorunu ayrıştırır, kendi veritabanımıza sorgu atar",
         lead="Cümleden yıl · yarış · pilot · takım çıkarılır, sonra FastF1 · tarihî "
              "SQLite (1950'den bugüne) · kariyer ve teknik JSON'a sorgu gider. Yanıt "
@@ -5241,7 +5246,7 @@ def render_paddock_assistant_v20():
 
     for turn in st.session_state['paddock_chat_v9'][-12:]:
         if turn['role'] == 'user':
-            with st.chat_message('user', avatar='🧑'):
+            with st.chat_message('user'):
                 st.markdown(f"<span class='pa-user'>{html_lib.escape(turn['text'])}</span>",
                             unsafe_allow_html=True)
         else:
@@ -5594,7 +5599,7 @@ def render_news_centre_v20():
         unsafe_allow_html=True,
     )
     if _untr:
-        st.caption(f"⚠️ {len(_untr)} haber otomatik çevrilemedi (çeviri servisi kotası) — "
+        st.caption(f"{len(_untr)} haber otomatik çevrilemedi (çeviri servisi kotası) — "
                    "bu başlıklar kaynak dilinde (İngilizce) gösteriliyor, "
                    "‹EN› rozetiyle işaretli.")
     if not localized:
@@ -6136,7 +6141,7 @@ def render_stewarlde_v25():
             emoji = []
             for label, value, status, hint in cells_data:
                 state = 'ok' if status is True or status == 'match' else 'near' if status == 'near' else ''
-                emoji.append('🟩' if state == 'ok' else '🟨' if state == 'near' else '⬜')
+                emoji.append('●' if state == 'ok' else '◐' if state == 'near' else '○')
                 display = value if value is not None else '—'
                 cells.append(
                     f"<div class='sws-gc {state}'><small>{html_lib.escape(label)}</small>"
@@ -6152,7 +6157,7 @@ def render_stewarlde_v25():
         _daily = ""
         if mode == 'Günlük':
             _sds = int(fp_ui.get_pref('sds') or 0)
-            _daily = (f" · 🔥 Günlük seri {_sds} gün" if _sds > 1 else "") + " · Yeni bulmaca yarın."
+            _daily = (f" · Günlük seri {_sds} gün" if _sds > 1 else "") + " · Yeni bulmaca yarın."
         _sws_panel_v8(
             "Bulmaca Sonucu",
             f"{target['name']}",
@@ -6169,9 +6174,9 @@ def render_stewarlde_v25():
             _head += f" · {day_key}"
             _sds = int(fp_ui.get_pref('sds') or 0)
             if won and _sds > 1:
-                _head += f" · 🔥{_sds}g"
+                _head += f" · seri {_sds}g"
         _share = _head + "\n\n" + "\n".join(emoji_rows) + "\n\nFormula Paddock"
-        fp_ui.share_panel(_share, include_url=False, label="🔗 Sonucu paylaş",
+        fp_ui.share_panel(_share, include_url=False, label="Sonucu paylaş",
                           key=f"stw_share_{mode}_{game['round']}")
 
         if mode == 'Sınırsız':
@@ -8127,17 +8132,17 @@ def _prediction_maybe_score_v55(year):
 
 # --- FAZ 5-C · #8 — rozetler + sprint tahmini + çapraz bildirim ---
 _PRED_BADGES_V63 = [
-    ('🎯', 'İlk isabet', 'Bir yarıştan puan çıkardın',
+    ('target', 'İlk isabet', 'Bir yarıştan puan çıkardın',
      lambda log, ps, pn: any(r.get('p', 0) > 0 for r in log)),
-    ('🏁', 'Pole avcısı', 'Üç kez pole pozisyonunu tam bildin',
+    ('flag', 'Pole avcısı', 'Üç kez pole pozisyonunu tam bildin',
      lambda log, ps, pn: sum(r.get('pl', 0) for r in log) >= 3),
-    ('💎', 'Keskin nişancı', 'Bir yarışta bir podyum yerini tam bildin',
+    ('gem', 'Keskin nişancı', 'Bir yarışta bir podyum yerini tam bildin',
      lambda log, ps, pn: any(r.get('ex', 0) >= 1 for r in log)),
-    ('👑', 'Kusursuz hafta sonu', 'Bir yarışta pole + üç podyum yeri tam',
+    ('crown', 'Kusursuz hafta sonu', 'Bir yarışta pole + üç podyum yeri tam',
      lambda log, ps, pn: any(r.get('pl', 0) and r.get('ex', 0) >= 3 for r in log)),
-    ('🔥', 'Seri x3', 'Üst üste üç yarıştan puan',
+    ('flame', 'Seri x3', 'Üst üste üç yarıştan puan',
      lambda log, ps, pn: _pred_streak_v63(log) >= 3),
-    ('📈', 'Yarım yüz', 'Sezon puanın 50+',
+    ('chart', 'Yarım yüz', 'Sezon puanın 50+',
      lambda log, ps, pn: ps >= 50),
 ]
 
@@ -8161,10 +8166,10 @@ def _prediction_badges_html(badges):
     got = [b for b in badges if b['got']]
     cells = ''.join(
         f"<div class='sws-badge{' on' if b['got'] else ''}' title='{html_lib.escape(b['desc'])}'>"
-        f"<span class='bi'>{b['icon']}</span>"
+        f"<span class='bi'>{fp_ic.icon(b['icon'], 16)}</span>"
         f"<span class='bn'>{html_lib.escape(b['name'])}</span></div>"
         for b in badges)
-    return (f"<div class='sws' style='border-left:3px solid #f7c948;padding-left:14px'>"
+    return (f"<div class='sws'>"
             f"<div class='sws-eb'>Rozetler · {len(got)}/{len(badges)}</div>"
             f"<div class='sws-badges'>{cells}</div></div>")
 
@@ -8180,7 +8185,7 @@ def _prediction_scored_toast_v63(year):
     scored = st.session_state.get('_pred_just_scored') or _prediction_maybe_score_v55(year)
     if scored:
         st.session_state['_pred_toast_shown'] = True
-        st.toast(f"🎯 {scored['gp']} tahminin puanlandı: +{scored['points']} puan "
+        st.toast(f"{scored['gp']} tahminin puanlandı: +{scored['points']} puan "
                  "— Hafta Sonu Tahmini'nde detaylar.")
 
 
@@ -9315,11 +9320,12 @@ _GAME_HUD_CSS_V68 = """<style>
 @media(max-width:560px){.sws-pod .nm{font-size:11px}.sws-pod .ph b{font-size:20px}}
 /* --- rozet ızgarası (tahmin oyunu) --- */
 .sws-badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:7px;margin-top:11px}
-.sws-badge{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--fp-line);border-radius:var(--fp-r-md);
-  background:var(--fp-bg-3);opacity:.4;filter:grayscale(1)}
-.sws-badge.on{opacity:1;filter:none;border-color:color-mix(in srgb,var(--fp-amber) 40%,transparent)}
-.sws-badge .bi{font-size:16px;line-height:1}
-.sws-badge .bn{font:800 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--fp-text-dim)}
+.sws-badge{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--fp-line);border-radius:var(--fp-r-md);
+  background:var(--fp-bg-2);color:var(--fp-text-mute)}
+.sws-badge.on{color:var(--fp-text);border-color:var(--fp-line-2)}
+.sws-badge.on .bi{color:var(--fp-cyan)}
+.sws-badge .bi{display:flex;flex:0 0 auto}
+.sws-badge .bn{font:600 11.5px var(--fp-f-body);letter-spacing:.01em;color:inherit}
 /* --- haftalık skor tablosu --- */
 .sws-lb{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
 .sws-lb li{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:11px;
@@ -9429,7 +9435,7 @@ def _render_games_week_v8():
     _card = (f"Formula Paddock · Haftalık\n{w['w']}\n\n"
              f"Bu hafta: {x} XP" + (f" ({trend})" if px else "")
              + f"\nGeçen hafta: {px} XP\nRütbe: {_rank} · toplam {prof['xp']} XP\n\nOyun Merkezi")
-    fp_ui.share_panel(_card, include_url=False, label="🔗 Haftalık kartı paylaş",
+    fp_ui.share_panel(_card, include_url=False, label="Haftalık kartı paylaş",
                       key="games_week_share")
 
 
@@ -11151,8 +11157,7 @@ st.markdown(r"""
 html,body,#root,.stApp,[data-testid="stApp"],[data-testid="stAppViewContainer"]{
   color:var(--fp-text)!important;
   background-color:var(--fp-page)!important;
-  background-image:linear-gradient(var(--fp-grid) 1px,transparent 1px),linear-gradient(90deg,var(--fp-grid) 1px,transparent 1px),radial-gradient(circle at 82% 8%,var(--fp-glow),transparent 31%),linear-gradient(135deg,var(--fp-page),var(--fp-page2))!important;
-  background-size:44px 44px,44px 44px,100% 100%,100% 100%!important;
+  background-image:none!important;
   animation:none!important;
 }
 [data-testid="stHeader"]{background:color-mix(in srgb,var(--fp-page) 92%,transparent)!important}
@@ -11164,6 +11169,8 @@ section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{backgr
 section[data-testid="stSidebar"] [data-testid="stExpander"]{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}
 .f1-header,.hud-card,.metric-card,.news-card,.driver-card,.career-panel-v28,.career-metric-v28,[data-testid="stMetric"],[data-testid="stAlert"],div[data-testid="stExpander"]{background:linear-gradient(145deg,var(--fp-panel),var(--fp-panel2))!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important;box-shadow:0 10px 26px var(--fp-shadow)!important}
 .f1-header h1,.hud-value,.news-title,.metric-card .value,.career-metric-v28 b,h1,h2,h3,h4{color:var(--fp-text)!important}
+h1,h2,h3,h4,h5,h6,[data-testid="stHeading"]{font-family:var(--fp-f-display)!important;font-weight:600!important;letter-spacing:-.015em!important;text-transform:none!important}
+[data-testid="stMarkdownContainer"],[data-testid="stText"],.stMarkdown p,label,[data-testid="stWidgetLabel"]{font-family:var(--fp-f-body)}
 .f1-header p,.history-copy,.driver-meta,.news-desc,.metric-card .title,.career-hero-v28 p,.career-source-v28,[data-testid="stCaptionContainer"]{color:var(--fp-muted)!important}
 div[data-testid="stButton"]>button,[data-baseweb="select"]>div,input,textarea{background:var(--fp-panel2)!important;color:var(--fp-text)!important;border-color:var(--fp-line)!important}
 .status-dot-v31{animation:none!important;box-shadow:0 0 9px rgba(104,231,174,.7)!important}
@@ -11720,7 +11727,7 @@ def _fp_share_query_v65(page='favourites'):
 def _digest_share_text_v59(digest, race_name):
     drv = digest.get('driver') or {}
     pod = " · ".join(f"{i + 1}. {p['code']}" for i, p in enumerate(digest.get('podium', [])))
-    lines = [f"🏁 {race_name} — Formula Paddock"]
+    lines = [f"{race_name} — Formula Paddock"]
     if pod:
         lines.append(f"Podyum: {pod}")
     if drv:
@@ -11740,7 +11747,7 @@ def _season_share_text_v59(story, year):
     gap = story['final_gap']
     rel = (f"{abs(gap)} puan önde" if gap > 0 else f"{abs(gap)} puan geride" if gap < 0 else "eşit")
     lines = [
-        f"📊 {story['fav']} — {year} sezonu · Formula Paddock",
+        f"{story['fav']} — {year} sezonu · Formula Paddock",
         f"{story['fav_total']} puan · title rakibi {story['rival']}'e {rel}",
         f"Son 3 yarışta {story['momentum']} puan",
     ]
@@ -11754,7 +11761,7 @@ def _champ_share_text_v59(driver_standings, year, rounds):
     if driver_standings is None or driver_standings.empty:
         return ""
     rn = len(rounds or [])
-    lines = [f"🏆 F1 {year} şampiyona — {rn}. yarış sonrası · Formula Paddock"]
+    lines = [f"F1 {year} şampiyona — {rn}. yarış sonrası · Formula Paddock"]
     for _, row in driver_standings.head(5).iterrows():
         lines.append(f"{int(row.get('Sıra', 0))}. {row.get('Pilot', '')} — {row.get('Puan', 0)}")
     return "\n".join(lines)
@@ -11921,11 +11928,11 @@ def _race_ready_banner_v53(key_suffix=""):
     _bc1, _bc2 = st.columns([4, 1.2])
     with _bc1:
         st.markdown(
-            "<style>.fp-rr{border:1px solid #3a2130;border-left:4px solid var(--fp-red);"
-            "border-radius:9px;background:linear-gradient(135deg,#1c1420,#12161f);"
-            "padding:12px 15px;margin-bottom:6px}"
-            ".fp-rr b{color:#f2f5f8;font-size:14px}.fp-rr span{color:#9fb0c0;font-size:12.5px}</style>"
-            f"<div class='fp-rr'>🏁 <b>{html_lib.escape(race)} bitti</b>{tail}"
+            "<style>.fp-rr{border:1px solid var(--fp-line);border-left:2px solid var(--fp-red);"
+            "border-radius:var(--fp-r-md);background:var(--fp-bg-2);"
+            "padding:13px 16px;margin-bottom:6px}"
+            ".fp-rr b{color:var(--fp-text);font-size:14px}.fp-rr span{color:var(--fp-text-dim);font-size:12.5px}</style>"
+            f"<div class='fp-rr'><b>{html_lib.escape(race)} bitti</b>{tail}"
             f"<br><span>Kişisel yarış özetin hazır — podyum, favori pilotun ve takımın.</span></div>",
             unsafe_allow_html=True,
         )
@@ -12049,9 +12056,9 @@ def _onboarding_step2_v62():
         unsafe_allow_html=True,
     )
     tries = [
-        ("▶ Rehberli yarış turu", "2D yarış tekrarını aç, 5 adımlık tur seni gezdirsin", 'live', {'_want_replay_tour': True}),
-        ("🎯 Bu hafta tahmin yap", "Sıradaki GP'nin pole + podyumunu tahmin et, puanla", 'predict', {}),
-        ("⚖️ İki pilotu karşılaştır", "Kariyer boyu, sektör sektör, pist pist", 'compare', {}),
+        ("Rehberli yarış turu", "2D yarış tekrarını aç, 5 adımlık tur seni gezdirsin", 'live', {'_want_replay_tour': True}),
+        ("Bu hafta tahmin yap", "Sıradaki GP'nin pole + podyumunu tahmin et, puanla", 'predict', {}),
+        ("İki pilotu karşılaştır", "Kariyer boyu, sektör sektör, pist pist", 'compare', {}),
     ]
     cols = st.columns(3)
     for c, (label, desc, page, extra) in zip(cols, tries):
@@ -12351,7 +12358,7 @@ def _router_page_live():
             _lc1, _lc2 = st.columns([3, 1])
             _lc1.caption(f"{gp_name} · {target_s_name} şu an sürüyor. Aşağıdaki tablo resmî "
                          "zamanlama beslemesinden gelir — konum haritası veya araç hareketi yok.")
-            if _lc2.button("🔄 Yenile", key="live_timing_refresh_v61", width='stretch'):
+            if _lc2.button("Yenile", key="live_timing_refresh_v61", width='stretch'):
                 _live_timing_v61.clear()
             _auto = st.toggle("30 saniyede bir otomatik yenile", value=False, key="live_timing_auto_v61")
 
@@ -12386,7 +12393,7 @@ def _router_page_live():
             "Sezon", _yr_opts, index=0, key="replay_year_pick",
             help="2018 ve sonrası için doğrulanmış konum telemetrisi bulunur; daha eski yıllarda yalnızca sonuç tablosu gelebilir.",
         )
-        st.markdown(f"### 🎬 {replay_year} Yarış Tekrar Merkezi")
+        st.markdown(f"### {replay_year} Yarış Tekrar Merkezi")
         st.caption(f"Seçtiğin sezonun tüm hafta sonları. Tamamlanan seansların doğrulanmış sonuçları ve yarış lastik stintleri otomatik gelir; gelecekteki yarışlarda program görünür.")
         render_season_status_v46(replay_year)
         replay_events = get_calendar_details(replay_year)
@@ -12432,7 +12439,7 @@ def _router_page_live():
                 # 2D butonu sonuç tablosundan önce gelir. Böylece uzun tablo, kullanıcıyı
                 # gerçek replay girişinden aşağıya itmez ve boş geçici bir tablo 2D'yi engellemez.
                 if is_race_replay:
-                    st.markdown("#### 🏎️ Tam yarış 2D pist kontrolü")
+                    st.markdown("#### Tam yarış 2D pist kontrolü")
                     st.caption(
                         "Pist, tek temiz telemetri turundan çizilir. Araçlar doğrulanmış yarış başlangıcı, tur süresi, "
                         "sıra, pit ve lastik verisiyle akıcı olarak bu yörüngede ilerler; bu alan canlı GPS diye etiketlenmez."
@@ -12465,7 +12472,7 @@ def _router_page_live():
                             ], key=f"howto_replay_{replay_year}")
                             render_html_hud(stable_race_replay_html(replay_payload), height=1010, scrolling=True)
                             _track_replay_watched_v56(f"{replay_year}·{replay_event_name}")
-                            st.markdown("#### 🛞 Tyre Strategy Wall")
+                            st.markdown("#### Lastik Strateji Duvarı")
                             render_html_hud(
                                 strategy_wall_html(replay_payload),
                                 height=strategy_wall_component_height(replay_payload),
@@ -12473,7 +12480,7 @@ def _router_page_live():
                             )
                             # Ağır ikincil paneller varsayılan olarak kapalı — 2D tekrar
                             # anında açılsın, sayfa donmuş hissi vermesin.
-                            with st.expander("🛞 Stint temposu & aşınma (degradasyon eğimi)", expanded=False):
+                            with st.expander("Stint temposu & aşınma (degradasyon eğimi)", expanded=False):
                                 st.caption(
                                     "Bir pilot seç: her stint'in tur-zaman eğrisi ve lineer degradasyon eğimi (sn/tur). "
                                     "1. tur, pit in/out ve aşırı turlar (safety car, trafik) eğim hesabına katılmaz."
@@ -12484,10 +12491,10 @@ def _router_page_live():
                                     scrolling=True,
                                 )
 
-                            with st.expander("📈 Tur tur pozisyon akışı", expanded=False):
+                            with st.expander("Tur tur pozisyon akışı", expanded=False):
                                 render_html_hud(position_flow_html(replay_payload), height=520, scrolling=True)
 
-                            with st.expander("🌦️ Hava · pit-lane · Race Control", expanded=False):
+                            with st.expander("Hava · pit-lane · Race Control", expanded=False):
                                 with st.spinner("Hava, pit-lane ve Race Control verisi hazırlanıyor..."):
                                     race_intelligence = get_race_intelligence_v19(replay_year, replay_event_name)
                                 render_html_hud(
@@ -12507,7 +12514,7 @@ def _router_page_live():
 
                 # Sonuçlar artık 2D oyuncudan bağımsızdır; geçici FastF1 gecikmesi
                 # replay düğmesini ortadan kaldırmaz.
-                with st.expander("🏁 Seans sonuçları ve lastik detayları", expanded=not is_race_replay):
+                with st.expander("Seans sonuçları ve lastik detayları", expanded=not is_race_replay):
                     with st.spinner("Doğrulanmış seans sonuçları hazırlanıyor..."):
                         replay_table, replay_laps = get_session_results_table(replay_year, replay_event_name, replay_session['code'])
 
@@ -12525,13 +12532,13 @@ def _router_page_live():
 
                     if is_race_replay:
                         strategy = build_strategy_from_laps(replay_laps)
-                        st.markdown("#### 🧾 Lastik ve stint detay tablosu")
+                        st.markdown("#### Lastik ve stint detay tablosu")
                         if strategy.empty:
                             st.info("Bu yarış için stint bilgisi henüz alınamadı.")
                         else:
                             tyre_label = {
-                                'SOFT': '🔴 S • SOFT', 'MEDIUM': '🟡 M • MEDIUM', 'HARD': '⚪ H • HARD',
-                                'INTERMEDIATE': '🟢 I • INTERMEDIATE', 'WET': '🔵 W • WET'
+                                'SOFT': 'S · SOFT', 'MEDIUM': 'M · MEDIUM', 'HARD': 'H · HARD',
+                                'INTERMEDIATE': 'I · INTERMEDIATE', 'WET': 'W · WET'
                             }
                             strategy['Lastik'] = strategy['Lastik'].map(
                                 lambda value: tyre_label.get(str(value).upper(), str(value))
@@ -12580,12 +12587,12 @@ def _router_page_telemetry():
         target_q = "Q3" if "Q3" in q_sub_session else "Q2" if "Q2" in q_sub_session else "Q1" if "Q1" in q_sub_session else None
 
     _MODES = [
-        "🗺️ Kuş Bakışı Pist Dominasyonu",
-        "🏎️ 2D Tur Düellosu",
-        "🛑 Telemetri & Fren Analizi",
-        "📊 Top Hız & Sürücü Tablosu",
-        "🛞 Lastik Stratejisi & Stintler",
-        "🌦️ Hava & Pist Evrimi",
+        "Kuş Bakışı Pist Dominasyonu",
+        "2D Tur Düellosu",
+        "Telemetri & Fren Analizi",
+        "Top Hız & Sürücü Tablosu",
+        "Lastik Stratejisi & Stintler",
+        "Hava & Pist Evrimi",
     ]
     _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Top Hız", "Lastik Stratejisi", "Hava & Evrim"]
     if hasattr(st, "segmented_control"):
@@ -12701,7 +12708,7 @@ def _router_page_telemetry():
                         )
 
             # --- MOD 1: KUŞ BAKIŞI PİST DOMİNASYON HARİTASI ---
-            if analiz_turu == "🗺️ Kuş Bakışı Pist Dominasyonu":
+            if analiz_turu == "Kuş Bakışı Pist Dominasyonu":
                 fp_ui.section_title(f"{session.event['EventName']} · Pist Dominasyonu{header_suffix}")
 
                 col1, col2 = st.columns(2)
@@ -12753,7 +12760,7 @@ def _router_page_telemetry():
                         fp_ui.data_state("İÇGÖRÜ", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
             # --- MOD 2: 2D TUR DÜELLOSU ---
-            elif analiz_turu == "🏎️ 2D Tur Düellosu":
+            elif analiz_turu == "2D Tur Düellosu":
                 fp_ui.section_title(f"{session.event['EventName']} · 2D Tur Düellosu{header_suffix}")
                 st.caption("Mesafe modu aynı virajdaki hız farkını; gerçek zaman modu iki turun fiziksel zaman farkını gösterir.")
 
@@ -12835,7 +12842,7 @@ def _router_page_telemetry():
                         fp_ui.data_state("İÇGÖRÜ", get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2), "success")
 
             # --- MOD 3: DETAYLI TELEMETRİ & FREN ANALİZİ ---
-            elif analiz_turu == "🛑 Telemetri & Fren Analizi":
+            elif analiz_turu == "Telemetri & Fren Analizi":
                 fp_ui.section_title(f"{session.event['EventName']} · Telemetri & Fren{header_suffix}")
                 
                 col1, col2 = st.columns(2)
@@ -12914,7 +12921,7 @@ def _router_page_telemetry():
                     st.warning("Veri çekilemedi.")
 
             # --- MOD 4: LASTİK STRATEJİSİ ---
-            elif analiz_turu == "🛞 Lastik Stratejisi & Stintler":
+            elif analiz_turu == "Lastik Stratejisi & Stintler":
                 fp_ui.section_title(f"{session.event['EventName']} · Lastik Stratejisi{header_suffix}")
                 if session_type != "R":
                     st.info("En anlamlı strateji görünümü yarış seansında oluşur. Bu seans için mevcut stintler gösteriliyor.")
@@ -12992,15 +12999,15 @@ def _router_page_calendar():
             race_time = pd.to_datetime(event.get('Session5DateUtc'))
             race_time = race_time.tz_localize('UTC') if race_time.tzinfo is None else race_time.tz_convert('UTC')
             now = datetime.datetime.now(datetime.timezone.utc)
-            status = "✅ Tamamlandı" if race_time < now else f"⏱️ {max(0, (race_time - now).days)} gün kaldı"
+            status = "Tamamlandı" if race_time < now else f"{max(0, (race_time - now).days)} gün kaldı"
             with column:
-                if st.button(f"🏎️ {event_name}\n{status}", key=f"calendar_{calendar_year}_{event_name}", width='stretch'):
+                if st.button(f"{event_name}\n{status}", key=f"calendar_{calendar_year}_{event_name}", width='stretch'):
                     st.session_state['calendar_event'] = event_name
                     st.rerun()
 
     selected_event = next((event for event in events if event['EventName'] == st.session_state['calendar_event']), events[0])
     st.markdown("---")
-    st.markdown(f"### 📍 {selected_event['EventName']} — {selected_event.get('Location', '')}")
+    st.markdown(f"### {selected_event['EventName']} — {selected_event.get('Location', '')}")
     sessions = event_session_cards(selected_event)
     if not sessions:
         st.info("Bu yarış için seans takvimi henüz alınamadı.")
@@ -13016,7 +13023,7 @@ def _router_page_calendar():
             st.metric(item['title'], local_time, item['status'])
 
     map_key = f"track_map_{calendar_year}_{selected_event['EventName']}"
-    if st.button("🗺️ Pist görünümünü aç", width='stretch'):
+    if st.button("Pist görünümünü aç", width='stretch'):
         st.session_state[map_key] = True
     if st.session_state.get(map_key):
         with st.spinner("Pist çizimi hazırlanıyor..."):
@@ -13040,7 +13047,7 @@ def _router_page_calendar():
         selected_session = next(item for item in completed_sessions if item['title'] == selected_session_name)
         session_story = get_session_story(calendar_year, selected_event['EventName'], selected_session['code'])
         if session_story:
-            st.markdown("#### 🧠 Bu seansta ne oldu?")
+            st.markdown("#### Bu seansta ne oldu?")
             for item in session_story:
                 tone = '#f4cf5a' if item['kind'] in ['POLE', 'WIN'] else '#67d8ff' if item['kind'] == 'PACE' else '#ff8a9b' if item['kind'] == 'RACE CONTROL' else '#a9b9d0'
                 st.markdown(
@@ -13081,7 +13088,7 @@ def _router_page_calendar():
     else:
         st.info("Bu hafta sonu henüz tamamlanan seans yok. İstanbul saatine göre program yukarıda.")
 
-    st.markdown("### 📺 Nereden izlenir?")
+    st.markdown("### Nereden izlenir?")
     watch_tr, watch_global = st.columns(2)
     with watch_tr:
         st.markdown("""

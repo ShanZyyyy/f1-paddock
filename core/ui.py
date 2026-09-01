@@ -14,6 +14,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from core import brand, theme
+from core.icons import icon as _ic
 
 _LIGHT_KEY = "paddock_light_mode_v31"  # eski anahtarla uyumlu
 
@@ -237,11 +238,12 @@ _DOCK_CSS = """
 <style>
 #fp-dock{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;
   align-items:flex-end;gap:10px;font-family:var(--fp-f-body)}
-#fp-dock-toggle{width:46px;height:46px;border-radius:50%;border:1px solid var(--fp-line);
-  background:linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));color:var(--fp-text);
-  font-size:19px;cursor:pointer;box-shadow:var(--fp-shadow);display:flex;align-items:center;justify-content:center;
-  transition:transform .15s ease,border-color .15s ease}
-#fp-dock-toggle:hover{border-color:var(--fp-red);transform:rotate(35deg)}
+#fp-dock-toggle{width:42px;height:42px;border-radius:50%;border:1px solid var(--fp-line);
+  background:var(--fp-bg-2);color:var(--fp-text-dim);
+  cursor:pointer;box-shadow:var(--fp-shadow);display:flex;align-items:center;justify-content:center;
+  transition:color .15s ease,border-color .15s ease}
+#fp-dock-toggle:hover{border-color:var(--fp-line-2);color:var(--fp-text)}
+#fp-dock-toggle svg,.fp-dock-music button svg{display:block}
 #fp-dock-panel{display:none;flex-direction:column;gap:12px;width:232px;padding:14px;
   background:linear-gradient(160deg,var(--fp-bg-3),var(--fp-bg-2));border:1px solid var(--fp-line);
   border-radius:var(--fp-r-md);box-shadow:var(--fp-shadow)}
@@ -271,9 +273,9 @@ def _dock_markup():
         f"<button data-theme='light' id='fp-th-light'>{_esc(_i18n.t('dock.light'))}</button>"
         "</div></div>"
         f"<div class='fp-dock-row'><span>{_esc(_i18n.t('dock.music'))}</span>"
-        "<div class='fp-dock-music'><button id='fp-music'>&#9654;</button>"
+        f"<div class='fp-dock-music'><button id='fp-music'>{_ic('play', 14)}</button>"
         "<input id='fp-vol' type='range' min='0' max='100' value='35' aria-label='Ses'></div></div>"
-        "</div><button id='fp-dock-toggle' aria-label='Ayarlar'>&#9881;</button></div>"
+        f"</div><button id='fp-dock-toggle' aria-label='Ayarlar'>{_ic('sliders', 18)}</button></div>"
     )
 
 _DOCK_SCRIPT = r"""
@@ -313,10 +315,12 @@ _DOCK_SCRIPT = r"""
   var PROG = [ [57,60,64,67], [53,57,60,65], [48,52,55,59], [55,59,62,67] ]; /* MIDI: Am7 Fmaj7 Cmaj7 G */
   function mtof(n){ return 440 * Math.pow(2, (n - 69) / 12); }
   function gain(){ return Math.max(0, Math.min(1, A.vol)) * 0.5; }
-  function sync(){ if(mBtn) mBtn.textContent = A.on ? '⏸' : '▶'; if(vol) vol.value = Math.round(A.vol*100); }
+  var IC_PLAY = "<svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M8 5v14l11-7z'/></svg>";
+  var IC_PAUSE = "<svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M9 5v14M15 5v14'/></svg>";
+  function sync(){ if(mBtn) mBtn.innerHTML = A.on ? IC_PAUSE : IC_PLAY; if(vol) vol.value = Math.round(A.vol*100); }
 
   function startMusic(){
-    if(!AC){ if(mBtn) mBtn.textContent='—'; return; }
+    if(!AC){ if(mBtn) mBtn.textContent='–'; return; }
     var ctx = new AC(); A.ctx = ctx; ctx.resume && ctx.resume();
     var master = ctx.createGain(); master.gain.value = 0.0001; A.master = master;
     var lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1500; lp.Q.value=0.5;
@@ -685,7 +689,7 @@ def news_grid(items, per_row=2):
     )
 
 
-def share_panel(text, *, include_url=True, url_query=None, label="🔗 Paylaş", key=None):
+def share_panel(text, *, include_url=True, url_query=None, label="Paylaş", key=None):
     """Katlanır 'paylaş' paneli — temiz metin özeti + kopyala düğmesi.
     ``url_query`` verilirse (ör. "/?p=home&fp=<kısa blob>") bağlantı olarak
     origin + o path eklenir (kısa link); yoksa ``include_url`` ile tam URL.
@@ -768,7 +772,7 @@ def how_to_read(bullets, legend=None, *, label="Bu ekran nasıl okunur?", expand
     ``legend``:  isteğe bağlı [(renk_hex, etiket), ...] renk kodu şeridi.
     """
     open_state = bool(expanded) or (bool(key) and _howto_first_visit(key))
-    with st.expander(f"❔ {label}", expanded=open_state):
+    with st.expander(f"{label}", expanded=open_state):
         rows = []
         for item in bullets:
             if isinstance(item, (list, tuple)) and len(item) == 2:
@@ -841,7 +845,7 @@ def how_to_hud(sections, *, title="Bu ekran nasıl okunur?", legend=None, note=N
         ".fp-hth-note{margin-top:10px;font-size:12px;color:var(--fp-text-mute);font-style:italic;line-height:1.5}"
         "@media(max-width:560px){.fp-hth-row{grid-template-columns:1fr;gap:1px}}"
         "</style>"
-        f"<div class='fp-hth'><div class='fp-hth-hd'>❔ {_esc(title)}</div>"
+        f"<div class='fp-hth'><div class='fp-hth-hd'>{_esc(title)}</div>"
         f"<div class='fp-hth-body'>{rows}{legend_html}{note_html}</div></div>",
         unsafe_allow_html=True,
     )

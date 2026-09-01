@@ -20,49 +20,53 @@ from core import brand
 # =====================================================================
 # RENK JETONLARI
 # =====================================================================
+# Yayın Arayüzü paleti (Faz 13). Mavi çalan koyu zemin, iki aksan (kırmızı marka
+# + cyan telemetri) yalnız ince detayda. Semantik renkler aksandan ayrı.
 TOKENS = {
     # Zemin katmanları (arkadan öne)
-    "bg-0": "#07090d",
-    "bg-1": "#0c1016",
-    "bg-2": "#11161f",
-    "bg-3": "#161d28",
-    "bg-4": "#1e2836",
+    "bg-0": "#080b11",
+    "bg-1": "#0a0e14",   # zemin (yayın gecesi)
+    "bg-2": "#141a24",   # panel / cam
+    "bg-3": "#1b2330",   # yükseltilmiş
+    "bg-4": "#232c3a",   # yükseltilmiş-2 / hover
     # Çizgi / kenar
-    "line": "#26313f",
-    "line-soft": "#1b2330",
+    "line": "#232c3a",
+    "line-2": "#33404f",     # hover / odak hattı
+    "line-soft": "#171d27",
     # Metin
-    "text": "#f2f5f8",
-    "text-dim": "#9fb0c0",
-    "text-mute": "#7c8b9e",   # Faz 11: #63748a → WCAG AA (koyu zeminde ~3:1 idi)
+    "text": "#eef2f7",
+    "text-dim": "#9aa7b8",   # etiket / ikincil
+    "text-mute": "#6d7a8c",  # birim / zaman damgası (koyu zeminde AA)
     # Marka & durum
-    "red": "#e10600",
-    "red-bright": "#ff1801",
-    "cyan": "#38e1d0",
-    "amber": "#f5c33b",
-    "green": "#4ade80",
-    "purple": "#b98bff",
-    "pink": "#ff5c8a",
+    "red": "#e10600",        # marka kırmızısı — yalnız ince detay
+    "red-bright": "#ff4438",
+    "cyan": "#33d6c8",       # telemetri aksanı
+    "amber": "#f5b843",      # SC / dikkat
+    "green": "#3ecf8e",      # kazanç
+    "purple": "#9a8cff",
+    "pink": "#ff5a4d",       # kayıp / hata
 }
 
-# Açık tema (isteğe bağlı). Koyu = varsayılan, yayın grafiği koyu çalışır.
+# Açık tema. Koyu = varsayılan, yayın grafiği koyu çalışır.
 TOKENS_LIGHT = {
-    "bg-0": "#dfe7f0",
-    "bg-1": "#e9eff6",
-    "bg-2": "#f6f9fc",
-    "bg-3": "#ffffff",
-    "bg-4": "#eef3f9",
-    "line": "#c3d1e0",
-    "line-soft": "#d5deea",
-    "text": "#0f1b2a",
-    "text-dim": "#3c5064",
-    "text-mute": "#5a6b7e",   # Faz 11: #66788c → açık zeminde daha okunur
+    "bg-0": "#e8ecf3",
+    "bg-1": "#eef1f6",
+    "bg-2": "#ffffff",
+    "bg-3": "#f4f6fa",
+    "bg-4": "#e9edf4",
+    "line": "#e2e6ee",
+    "line-2": "#cfd6e2",
+    "line-soft": "#edf0f5",
+    "text": "#141a24",
+    "text-dim": "#4a5568",
+    "text-mute": "#727d8f",
     "red": "#d10600",
-    "red-bright": "#e8002d",
-    "cyan": "#0f9b8e",
-    "amber": "#b7861a",
-    "green": "#1f9d57",
-    "purple": "#7a4fd0",
-    "pink": "#d1477e",
+    "red-bright": "#c8110b",
+    "cyan": "#0b8a80",
+    "amber": "#a76a12",
+    "green": "#12915d",
+    "purple": "#5a4fd0",
+    "pink": "#cc352a",
 }
 
 # 2026 takım renkleri. Anahtarlar canonical takım adıyla eşleşir.
@@ -106,17 +110,16 @@ FONT_LINK = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
     '<link href="https://fonts.googleapis.com/css2?'
-    'family=Saira+Condensed:wght@500;600;700;800&'
-    'family=Saira:wght@400;500;600;700&'
+    'family=Inter:wght@400;500;600;700&'
     'family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">'
 )
 
-F_DISPLAY = "'Saira Condensed','Arial Narrow',system-ui,sans-serif"
-F_BODY = "'Saira',system-ui,-apple-system,'Segoe UI',sans-serif"
-F_MONO = "'JetBrains Mono','Consolas',ui-monospace,monospace"
-# Ekstra-condensed başlık — Antonio kaldırıldı (tek kullanım, ağ yükü). Saira
-# Condensed 800 aynı işi görür.
-F_XCOND = "'Saira Condensed','Arial Narrow',sans-serif"
+# Yayın Arayüzü (Faz 13): tek arayüz ailesi Inter, tüm sayısal veri JetBrains Mono.
+# Saira / Saira Condensed / Antonio kaldırıldı.
+F_DISPLAY = "'Inter',system-ui,-apple-system,'Segoe UI',sans-serif"
+F_BODY = "'Inter',system-ui,-apple-system,'Segoe UI',sans-serif"
+F_MONO = "'JetBrains Mono','SFMono-Regular',Consolas,ui-monospace,monospace"
+F_XCOND = "'Inter',system-ui,sans-serif"   # geriye dönük ad
 
 
 def team_color(name):
@@ -159,9 +162,10 @@ def _static_vars():
     parts += [
         f"--fp-f-display:{F_DISPLAY}", f"--fp-f-body:{F_BODY}", f"--fp-f-mono:{F_MONO}",
         f"--fp-f-x:{F_XCOND}",
-        "--fp-edge:3px", "--fp-r-sm:3px", "--fp-r-md:5px", "--fp-r-lg:8px",
-        "--fp-shadow:0 12px 30px rgba(0,0,0,.45)",
-        "--fp-glow:rgba(56,225,208,.10)", "--fp-grid:rgba(120,140,160,.05)",
+        "--fp-edge:2px", "--fp-r-sm:6px", "--fp-r-md:9px", "--fp-r-lg:12px",
+        "--fp-r-pill:999px",
+        "--fp-shadow:0 1px 2px rgba(0,0,0,.35),0 20px 44px -16px rgba(0,0,0,.55)",
+        "--fp-glow:transparent", "--fp-grid:transparent",
     ]
     return ";".join(parts)
 
@@ -198,9 +202,10 @@ def _team_slug_vars():
 # Streamlit kabugu — SADECE tam page_style'da (tum sayfa gecince). Gecis
 # doneminde eski sayfa CSS'iyle catismasin diye shell_style buna dokunmaz.
 _SHELL_CHROME_CSS = r"""
-.block-container{padding-top:2.4rem;max-width:1180px}
-body,[data-testid="stMarkdownContainer"]{font-family:var(--fp-f-body)}
-h1,h2,h3,h4{font-family:var(--fp-f-display);letter-spacing:.02em}
+.block-container{padding-top:2.4rem;max-width:1120px}
+body,[data-testid="stMarkdownContainer"]{font-family:var(--fp-f-body);
+  font-feature-settings:"cv05","ss01";-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--fp-f-display);font-weight:600;letter-spacing:-.015em;text-transform:none}
 a{color:var(--fp-cyan)}
 """
 
@@ -231,32 +236,32 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
 @media(max-width:620px){.fp-foot .yr{margin-left:0}}
 
 /* ---- eyebrow / bölüm başlığı ---- */
-.fp-eyebrow{font-weight:700;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--fp-text-mute)}
-.fp-section{font-family:var(--fp-f-display);font-weight:700;font-size:19px;letter-spacing:.05em;text-transform:uppercase;
-  padding-left:10px;border-left:var(--fp-edge) solid var(--fp-red);margin:6px 0 2px}
+.fp-eyebrow{font:600 11px/1.4 var(--fp-f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--fp-text-mute)}
+.fp-section{font-family:var(--fp-f-display);font-weight:600;font-size:18px;letter-spacing:-.01em;text-transform:none;
+  padding-left:11px;border-left:var(--fp-edge) solid var(--fp-red);margin:6px 0 2px}
 
 /* ---- page header ---- */
 .fp-page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
-  padding-bottom:12px;border-bottom:1px solid var(--fp-line);margin-bottom:6px}
-.fp-page-header h1{font-weight:800;font-size:32px;text-transform:uppercase;line-height:1;margin:6px 0 0}
-.fp-page-header .sub{color:var(--fp-text-dim);font-size:13px;margin-top:5px;max-width:62ch}
+  padding-bottom:14px;border-bottom:1px solid var(--fp-line);margin-bottom:8px}
+.fp-page-header h1{font-weight:600;font-size:28px;text-transform:none;letter-spacing:-.02em;line-height:1.1;margin:7px 0 0}
+.fp-page-header .sub{color:var(--fp-text-dim);font-size:13.5px;margin-top:7px;max-width:62ch;line-height:1.55}
 .fp-badge{font-family:var(--fp-f-mono);font-size:11px;font-weight:700;letter-spacing:.08em;
   padding:5px 10px;border-radius:var(--fp-r-sm);white-space:nowrap;
   background:var(--fp-bg-3);border:1px solid var(--fp-line);color:var(--fp-text-dim)}
 .fp-badge.live{background:color-mix(in srgb,var(--fp-green) 12%,transparent);border-color:color-mix(in srgb,var(--fp-green) 40%,transparent);color:var(--fp-green)}
 .fp-badge.wait{background:color-mix(in srgb,var(--fp-amber) 10%,transparent);border-color:color-mix(in srgb,var(--fp-amber) 35%,transparent);color:var(--fp-amber)}
 
-/* ---- pit-duvarı ortak dili: pah köşe + nokta-matris / telemetri ızgarası ----
-   --fp-cham : köşe kesme derinliği   --fp-dot : nokta deseni   --fp-grid : ızgara */
+/* ---- Yayın Arayüzü (Faz 13): pahlı köşe + nokta-matris DEVRE DIŞI ----
+   Eski `.fp-*` bileşenleri bu değişkenleri hâlâ okuyor; nötrleştirildi
+   (köşe = düz, desen = yok). Faz 15 bileşenleri tamamen yeniden yazacak. */
 :root{
-  --fp-cham:13px;
-  --fp-dot:radial-gradient(rgba(120,140,160,.10) 1px,transparent 1.5px);
-  --fp-dot-size:13px 13px;
-  --fp-tgrid:linear-gradient(rgba(120,140,160,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,140,160,.05) 1px,transparent 1px);
-  --fp-tgrid-size:32px 32px;
+  --fp-cham:0px;
+  --fp-dot:none;
+  --fp-dot-size:0 0;
+  --fp-tgrid:none;
+  --fp-tgrid-size:0 0;
 }
-.fp-cut{clip-path:polygon(var(--fp-cham) 0,100% 0,100% calc(100% - var(--fp-cham)),
-  calc(100% - var(--fp-cham)) 100%,0 100%,0 var(--fp-cham))}
+.fp-cut{clip-path:none}
 
 /* ---- HUD kart (pit-duvarı kanalı) ---- */
 .fp-hud{position:relative;padding:15px 17px;
@@ -545,14 +550,14 @@ section[data-testid="stSidebar"] [data-baseweb="select"] button{
 # Buyuk pist animasyonu artik ayri bir inline SVG katmani: core.ui.background_fx()
 # -> #fp-bgfx. Burada sadece izgara + hiz isigi (salt CSS pseudo-eleman).
 _SHELL_BG_CSS = r"""
-/* Sade koyu zemin — animasyonlu pist/izgara/hiz-isigi kaldirildi.
-   Atmosfer artik yalnizca ana sayfadaki hero duman'inda. */
+/* Yayın Arayüzü (Faz 13): düz, sakin zemin. Renkli köşe ışıması + telemetri
+   tel-kafesi kaldırıldı — atmosfer yalnız ana sayfa hero duman'ında. */
 [data-testid="stAppViewContainer"],.stApp{
-  background:
-    radial-gradient(120% 78% at 85% -8%, color-mix(in srgb,var(--fp-red) 8%,transparent), transparent 55%),
-    linear-gradient(180deg, var(--fp-bg-1), var(--fp-bg-0)) !important;
+  background:var(--fp-bg-1) !important;
   background-attachment:fixed !important;
 }
+/* iç-sayfa telemetri tel-kafesi arka planı — yeni dilde kapalı */
+#fp-pagebg,#fp-bgfx{display:none !important}
 [data-testid="stHeader"]{background:transparent !important}
 [data-testid="stAppViewContainer"] > .main,.stApp [data-testid="stMain"]{position:relative;z-index:1}
 .stApp [data-testid="stMain"] .block-container{position:relative;z-index:1}
