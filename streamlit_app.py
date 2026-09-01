@@ -8319,31 +8319,20 @@ def _prediction_badges_v63(plog, season_pts, season_n):
 
 
 def _prediction_badges_html(badges):
+    """`.sws` panosu içinde rozet ızgarası — iframe YOK, `st.markdown` ile basılır."""
     got = [b for b in badges if b['got']]
     cells = ''.join(
-        f"<div class='pb {'on' if b['got'] else 'off'}' title='{html_lib.escape(b['desc'])}'>"
-        f"<span class='pb-i'>{b['icon']}</span>"
-        f"<span class='pb-n'>{html_lib.escape(b['name'])}</span></div>"
-        for b in badges
-    )
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .pbwrap{{border:1px solid #26313f;border-left:3px solid #f7c948;border-radius:12px;background:#11161f;padding:13px 15px}}
-      .pb-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;
-        color:#8090a2;margin-bottom:10px}}
-      .pb-hd b{{color:#e8eef4}}
-      .pb-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}}
-      .pb{{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #232d3b;border-radius:8px;background:#0e131b}}
-      .pb.off{{opacity:.34;filter:grayscale(1)}}
-      .pb-i{{font-size:17px;line-height:1}}
-      .pb-n{{font:700 11px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.03em;color:#dbe4ee}}
-    </style>
-    <div class="pbwrap">
-      <div class="pb-hd">Rozetler <b>{len(got)}/{len(badges)}</b></div>
-      <div class="pb-grid">{cells}</div>
-    </div>
-    """
+        f"<div class='sws-badge{' on' if b['got'] else ''}' title='{html_lib.escape(b['desc'])}'>"
+        f"<span class='bi'>{b['icon']}</span>"
+        f"<span class='bn'>{html_lib.escape(b['name'])}</span></div>"
+        for b in badges)
+    return (f"<div class='sws' style='border-left:3px solid #f7c948;padding-left:14px'>"
+            f"<div class='sws-eb'>Rozetler · {len(got)}/{len(badges)}</div>"
+            f"<div class='sws-badges'>{cells}</div></div>")
+
+
+def _prediction_badges_render_v8(badges):
+    st.markdown(_prediction_badges_html(badges), unsafe_allow_html=True)
 
 
 def _prediction_scored_toast_v63(year):
@@ -8474,8 +8463,7 @@ def _prediction_primer_v65(year):
 
     _locked = _prediction_badges_v63([], 0, 0)
     st.caption("Kazanabileceğin rozetler:")
-    render_html_hud(_prediction_badges_html(_locked),
-                    height=64 + 44 * ((len(_locked) + 2) // 3), scrolling=True)
+    _prediction_badges_render_v8(_locked)
     st.write("")
 
 
@@ -8590,8 +8578,7 @@ def _pred_history_and_badges_v63():
                                      int(fp_ui.get_pref('pn') or 0))
     if any(b['got'] for b in _badges):
         st.write("")
-        render_html_hud(_prediction_badges_html(_badges),
-                        height=64 + 44 * ((len(_badges) + 2) // 3), scrolling=True)
+        _prediction_badges_render_v8(_badges)
 
 
 # =========================================================
@@ -8619,6 +8606,27 @@ def _game_profile_v66():
     return prof
 
 
+def _iso_week_key_v8():
+    y, w, _d = datetime.date.today().isocalendar()
+    return f"{y}-H{w:02d}"
+
+
+def _game_week_v8(add_xp=0):
+    """Kişisel haftalık XP takibi (prefs 'gw' = {w, x, px}). `add_xp` verilirse
+    bu haftanın kutusuna ekler; hafta değiştiyse önce devreder. Ekleme yoksa
+    salt-okunur döner (görüntülerken hafta devrini de yansıtır, yazmadan)."""
+    cur = fp_ui.get_pref('gw')
+    cur = dict(cur) if isinstance(cur, dict) else {}
+    wk = _iso_week_key_v8()
+    if cur.get('w') != wk:
+        cur = {'w': wk, 'x': 0,
+               'px': int(cur.get('x', 0) or 0) if cur.get('w') else 0}
+    if add_xp:
+        cur['x'] = int(cur.get('x', 0) or 0) + int(add_xp)
+        fp_ui.set_pref('gw', cur)
+    return {'w': wk, 'x': int(cur.get('x', 0) or 0), 'px': int(cur.get('px', 0) or 0)}
+
+
 def _game_award_v66(xp=0, played=False, streak=None):
     """Bir oyun turu bitince: XP ekle, oynanan sayacını artır, en iyi seriyi
     güncelle. Değişiklik varsa prefs'e yazar (flush_prefs footer'da taşır)."""
@@ -8626,6 +8634,7 @@ def _game_award_v66(xp=0, played=False, streak=None):
     changed = False
     if xp:
         prof['xp'] = int(prof.get('xp', 0)) + int(xp)
+        _game_week_v8(add_xp=int(xp))
         changed = True
     if played:
         prof['played'] = int(prof.get('played', 0)) + 1
@@ -9467,6 +9476,13 @@ _GAME_HUD_CSS_V68 = """<style>
 .sws-pod .hit.mid{background:rgba(255,205,60,.16);color:#ffcd3c}
 .sws-pod .hit.no{background:rgba(255,89,100,.13);color:#ff5964}
 @media(max-width:560px){.sws-pod .nm{font-size:11px}.sws-pod .ph b{font-size:20px}}
+/* --- rozet ızgarası (tahmin oyunu) --- */
+.sws-badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:7px;margin-top:11px}
+.sws-badge{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #20293e;border-radius:8px;
+  background:#131c2c;opacity:.4;filter:grayscale(1)}
+.sws-badge.on{opacity:1;filter:none;border-color:rgba(245,201,66,.4)}
+.sws-badge .bi{font-size:16px;line-height:1}
+.sws-badge .bn{font:800 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#d5dde9}
 </style>"""
 
 
@@ -9534,6 +9550,39 @@ def _render_games_profile_v8(profile):
         f"<div><b>{streak}</b><span>SERİ</span></div></div>"
         f"<div class='bar'><i style='width:{pct}%'></i></div></div>",
         unsafe_allow_html=True)
+
+
+def _render_games_week_v8():
+    """Oyun Merkezi'nde kişisel haftalık XP takibi + paylaşılabilir kart."""
+    w = _game_week_v8()
+    x, px = w['x'], w['px']
+    if x == 0 and px == 0:
+        return
+    if px == 0:
+        trend, tcol = "ilk haftan — devam et", '#93a2b8'
+    elif x > px:
+        trend, tcol = f"▲ geçen haftadan +{x - px}", '#37d67a'
+    elif x < px:
+        trend, tcol = f"▼ geçen haftadan {x - px}", '#ff5964'
+    else:
+        trend, tcol = "= geçen haftayla aynı", '#93a2b8'
+    st.markdown(
+        f"<div class='sws' style='padding:12px 16px;margin-bottom:10px'>"
+        f"<div class='sws-eb'>Bu Hafta · {html_lib.escape(w['w'])}</div>"
+        f"<div class='sws-row' style='align-items:baseline;gap:12px'>"
+        f"<span class='sws-score' style='font-size:27px'>{x}<s>xp</s></span>"
+        f"<span style='color:{tcol};font:800 11px \"Saira Condensed\",\"Arial Narrow\",sans-serif;"
+        f"letter-spacing:.08em;text-transform:uppercase'>{html_lib.escape(trend)}</span>"
+        f"<span class='sws-sub' style='margin:0'>geçen hafta {px} XP</span>"
+        f"</div></div>",
+        unsafe_allow_html=True)
+    prof = _game_profile_v66()
+    _rank = next((r for t, r in reversed(_GAME_RANKS_V66) if prof['xp'] >= t), 'ÇAYLAK')
+    _card = (f"Formula Paddock · Haftalık\n{w['w']}\n\n"
+             f"Bu hafta: {x} XP" + (f" ({trend})" if px else "")
+             + f"\nGeçen hafta: {px} XP\nRütbe: {_rank} · toplam {prof['xp']} XP\n\nOyun Merkezi")
+    fp_ui.share_panel(_card, include_url=False, label="🔗 Haftalık kartı paylaş",
+                      key="games_week_share")
 
 
 def render_podium_time_v67():
@@ -11139,6 +11188,7 @@ _GAMES_HUB_V8 = [
 def render_games_hub_v30():
     fp_ui.page_header(T("page.games.title"), T("page.games.sub"), eyebrow=T("section.games"))
     _render_games_profile_v8(_game_profile_v66())
+    _render_games_week_v8()
     st.write("")
     for start in range(0, len(_GAMES_HUB_V8), 2):
         columns = st.columns(2)
