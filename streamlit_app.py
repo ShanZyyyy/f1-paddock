@@ -242,7 +242,7 @@ VALID_PAGES = {
     'compare', 'drivers', 'learn', 'favourites', 'teams', 'standings',
     'f2f3', 'glossary', 'assistant', 'games',
     # oyun alt sayfaları (Oyun Merkezi içinden derin bağlantı)
-    'stewarlde', 'paddock_career', 'predict', 'cards', 'hotlap', 'podium', 'stratwall',
+    'stewarlde', 'predict', 'cards', 'hotlap', 'podium', 'stratwall',
     # yardımcı sayfalar (ayaktan / breadcrumb'dan)
     'faq', 'privacy',
 }
@@ -488,7 +488,6 @@ for _t, _pri, _pages in NAV_GROUPS:
 for _pk, _plbl in NAV_STANDALONE:
     _PAGE_META[_pk] = (_plbl, _plbl, _pk)
 _PAGE_META['stewarlde'] = ("Stewardle", T("section.games"), "games")
-_PAGE_META['paddock_career'] = ("Paddock Career", T("section.games"), "games")
 _PAGE_META['predict'] = ("Hafta Sonu Tahmini", T("section.games"), "games")
 _PAGE_META['cards'] = ("Sıralama Kartları", T("section.games"), "games")
 _PAGE_META['hotlap'] = ("Kızgın Tur", T("section.games"), "games")
@@ -6210,12 +6209,19 @@ def stewarlde_date_cell_v25(value, target):
 
 def stewarlde_profile_v25(driver, stats, colour):
     photo = safe_external_url(driver.get('photo', ''))
-    visual = (
-        f"<img src='{html_lib.escape(photo, quote=True)}' alt='{html_lib.escape(driver['name'])}' "
-        "style='width:108px;height:138px;object-fit:contain;object-position:center bottom' onerror=\"this.style.display='none'\">"
-        if photo else
-        f"<div class='stewarlde-id-v21' style='border-color:{colour};color:{colour}'>{html_lib.escape(''.join(piece[:1] for piece in str(driver['name']).split()[-2:]).upper())}</div>"
-    )
+    _initials = html_lib.escape(''.join(
+        piece[:1] for piece in str(driver['name']).split()[-2:]).upper())
+    _idcard = (f"<div class='stewarlde-id-v21' style='{{disp}}border-color:{colour};color:{colour}'>"
+               f"{_initials}</div>")
+    if photo:
+        visual = (
+            "<span style='display:inline-flex'>"
+            f"<img src='{html_lib.escape(photo, quote=True)}' alt='' loading='lazy' "
+            "style='width:108px;height:138px;object-fit:contain;object-position:center bottom' "
+            "onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex'\">"
+            + _idcard.format(disp="display:none;") + "</span>")
+    else:
+        visual = _idcard.format(disp="")
     def text(value):
         return str(value) if value is not None else 'Kaynakta yok'
     return (
@@ -6224,7 +6230,9 @@ def stewarlde_profile_v25(driver, stats, colour):
         "<div><div class='hud-label'>DOĞRU CEVAP</div>" +
         f"<div style='font-size:1.58rem;font-weight:950;color:{colour};margin-top:4px'>{html_lib.escape(driver['name'])}</div>" +
         f"<div class='driver-meta' style='margin-top:7px'>{html_lib.escape(driver['team'])} · {html_lib.escape(driver['nation'])}</div>" +
-        f"<div class='history-copy' style='margin-top:8px'>Kariyer galibiyeti: {text(stats.get('wins'))} · Dünya şampiyonluğu: {stats.get('titles', 0)} · GP startı: {text(stats.get('starts'))} · F1’e giriş tarihi: {text(stats.get('first_gp_date'))}</div>" +
+        f"<div class='history-copy' style='margin-top:8px'>Kariyer galibiyeti: {text(stats.get('wins'))} · "
+        f"Dünya şampiyonluğu: {stats.get('titles', 0)} · GP startı: {text(stats.get('starts'))} · "
+        f"İlk sezon: {text(stats.get('debut_year'))} · Son sezon: {text(stats.get('last_label'))}</div>" +
         "</div></div></div>"
     )
 
@@ -6313,7 +6321,8 @@ def render_stewarlde_v25():
                 ('Galibiyet', stats['wins'], *stewarlde_numeric_cell_v23(stats['wins'], target_stats['wins'])),
                 ('Şampiyonluk', stats['titles'], *stewarlde_numeric_cell_v23(stats['titles'], target_stats['titles'])),
                 ('GP startı', stats['starts'], *stewarlde_numeric_cell_v23(stats['starts'], target_stats['starts'])),
-                ('F1’e giriş', stats['first_gp_date'], *stewarlde_date_cell_v25(stats['first_gp_date'], target_stats['first_gp_date'])),
+                ('İlk sezon', stats['debut_year'], *stewarlde_numeric_cell_v23(stats['debut_year'], target_stats['debut_year'])),
+                ('Son sezon', stats['last_label'], *stewarlde_numeric_cell_v23(stats['last_season'], target_stats['last_season'])),
             ]
             cells = []
             emoji = []
@@ -6342,7 +6351,9 @@ def render_stewarlde_v25():
             verdict=(won, f"{len(game['guesses'])}/6'da buldun" if won else "Bu tur bitti"),
             lead=f"Doğru cevap: {target['name']} · {target['team']}.{_daily}")
         colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
-        st.markdown(stewarlde_profile_v25(target, target_stats or {}, colour), unsafe_allow_html=True)
+        _target_shown = {**target, 'photo': target.get('photo') or _stewarlde_photo_v9(target)}
+        st.markdown(stewarlde_profile_v25(_target_shown, target_stats or {}, colour),
+                    unsafe_allow_html=True)
 
         _tag = "Günlük" if mode == 'Günlük' else "Sınırsız"
         _head = f"Stewardle {_tag} · {len(game['guesses'])}/6" if won else f"Stewardle {_tag} · X/6"
@@ -6385,13 +6396,32 @@ def fetch_stewarlde_universe_v24():
     return _load_stewarlde_database_v29()
 
 
+_STW_CURRENT_SEASON_V9 = 2026
+
+
 def stewarlde_stats_v25(driver):
+    _debut_y = str(driver.get('first_gp_date') or '')[:4]
+    _last = int(_career_number_v27(driver.get('latest_season')) or 0)
     return {
         'wins': driver.get('wins'),
         'titles': int(driver.get('titles', 0)),
         'starts': driver.get('starts'),
         'first_gp_date': driver.get('first_gp_date'),
+        'debut_year': int(_debut_y) if _debut_y.isdigit() else None,
+        'last_season': _last or None,
+        'last_label': ('Aktif' if _last >= _STW_CURRENT_SEASON_V9
+                       else (str(_last) if _last else '—')),
     }
+
+
+def _stewarlde_photo_v9(driver):
+    """Kazanılan pilotun portresi — yalnız F1.com'un portre bulunduğu sezonlar
+    (2019-2025) için; daha eski emekli pilotlar baş-harf kartına düşer."""
+    yr = int(_career_number_v27(driver.get('latest_season')) or 0)
+    if yr < 2019:
+        return ''
+    name = str(driver.get('name') or '')
+    return _season_headshot_url_v35(min(yr, 2025), name) or ''
 
 
 st.markdown(r"""
@@ -8691,10 +8721,10 @@ _GAME_INTRO_V8 = {
         "Günlük mod herkese aynı bulmacayı verir ve günlük seri tutar.",
     ], None),
     'cards': ("Sıralama Kartları", "#2ee6d6", [
-        "Gerçek kariyer istatistikleriyle Top Trumps: sen ve CPU'ya eşit kart dağıtılır.",
-        "Sıradaki elde bir istatistik seç (galibiyet, pole, puan/yarış…). ★ kartının en güçlü statı.",
+        "Gerçek kariyer istatistikleriyle Top Trumps: 2018'den bugüne pilotların kartları.",
+        "Her elde istatistiği SEN seçersin (galibiyet, pole, puan/yarış…). ★ = o turda en iyi şansın.",
         "Yüksek olan turu ve iki kartı da alır; beraberlikte kartlar ortada bekler.",
-        "Bütün desteyi toplayan kazanır.",
+        "Rakip deste hiç tahmin etmez — sadece kart tutar. Bütün desteyi topla.",
     ], None),
     'predict': ("Hafta Sonu Tahmini", "#f7c948", [
         "Sıradaki GP'den önce pole ve podyumu (ilk 3) tahmin et.",
@@ -8749,40 +8779,6 @@ def _game_intro_gate_v8(key):
     return True
 
 
-def render_paddock_career_alpha_v01():
-    """Tarayıcıda çalışan 2D yarış motoru — çok rakipli grid, Straight/Overtake
-    Mode, lastik aşınması, pit yolu. Araç favori pilotun takım renginde;
-    en iyi tur zamanı tarayıcıda saklanır, yarış bitince Oyun Motoru XP verir."""
-    _year = datetime.datetime.now(datetime.timezone.utc).year
-    _fav_team = st.session_state.get('favourite_team') or ''
-    _fav_code = _code_for_name(st.session_state.get('favourite_driver')) or ''
-    _pcol = season_team_colour(_fav_team, _year) or '#e10600'
-    _game_shell(
-        "Paddock Career · 2D Yarış",
-        "Paddock Ring GP · 6 araçlık grid · Straight/Overtake Mode · lastik aşınması · pit yolu.",
-        "#e10600",
-    )
-    # gizli ödül düğmesi — 2D motor yarış bitince tıklar (bkz. paddock_ring_alpha.html endRace)
-    st.markdown("<style>[class*='st-key-ringxp']{position:fixed !important;width:1px !important;"
-                "height:1px !important;overflow:hidden !important;opacity:0 !important}</style>",
-                unsafe_allow_html=True)
-    st.button("xp", key="ringxp", on_click=lambda: _game_award_v66(xp=18, played=True))
-
-    game_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "paddock_ring_alpha.html")
-    try:
-        with open(game_path, "r", encoding="utf-8") as game_file:
-            game_markup = game_file.read()
-        game_markup = (game_markup
-                       .replace("__FP_PLAYER_COLOUR__", _pcol)
-                       .replace("__FP_PLAYER_CODE__", html_lib.escape(_fav_code or "SEN")))
-        fp_ui._embed_html(game_markup, height=790, scrolling=False)
-        st.caption("Kontroller: W gaz · S fren · A/D direksiyon · Space Overtake Mode · E Straight Mode · "
-                   "P pit · R sıfırla — en iyi tur zamanın tarayıcında saklanır.")
-    except OSError as error:
-        log_data_error("Paddock Career engine", error)
-        st.error("Sürüş paketi yüklenemedi. Oyun dosyasının yayın paketinde bulunduğunu kontrol ediyoruz.")
-
-
 # =========================================================
 # OYUN VERİ TOHUMU — açılış hızı için repoda paketli, ağ yok
 # `data/games_seed_v68.json`: strateji modelleri + tarihî podyumlar + sıralama
@@ -8823,26 +8819,66 @@ _TT_STATS_V66 = [
 ]
 
 
+_CARDS_DECK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'data', 'cards_deck_v9.json')
+
+
+def _tt_deck_bundle_v9():
+    """Repoda paketli kart destesi (`scripts/build_cards_deck.py` üretir).
+    Yoksa boş liste → `_tt_deck_v66` kariyer seed'inden türetir."""
+    try:
+        with open(_CARDS_DECK_FILE, encoding='utf-8') as handle:
+            data = json.load(handle)
+        cards = data.get('cards') if isinstance(data, dict) else data
+        keys = {'code', 'name', 'team', 'wins', 'podiums', 'poles', 'starts', 'titles', 'ppr'}
+        return [c for c in (cards or []) if isinstance(c, dict) and keys.issubset(c)]
+    except (OSError, ValueError, TypeError):
+        return []
+
+
 @st.cache_data(show_spinner=False)
 def _tt_deck_v66():
-    """2026 gridinin kariyer istatistik kartları — seed/disk, ağ yok."""
+    """2018'den bugüne yarışmış pilotların kariyer istatistik kartları —
+    önce paketli deste (`cards_deck_v9.json`), yoksa kariyer seed'inden türet."""
+    bundled = _tt_deck_bundle_v9()
+    if len(bundled) >= 12:
+        for c in bundled:
+            c.setdefault('col', season_team_colour(c.get('team', ''),
+                                                   int(c.get('last', 2024) or 2024)) or '#8a9bb0')
+        bundled.sort(key=lambda c: -int(c.get('starts') or 0))
+        return bundled[:26]
     seed = _career_seed_all_v45().get('drivers', {})
+    meta = {}
+    for row in _load_stewarlde_database_v29():
+        api = str(row.get('api_code', '')).strip()
+        if api:
+            meta[api] = row
     cards = []
-    for code, name in _DRIVER_NAME_BY_CODE.items():
-        api = STEWARDLE_ACTIVE_API_IDS_V24.get(code, str(code).lower())
-        prof = seed.get(api) or {}
-        if not (isinstance(prof, dict) and prof.get('ok') and int(prof.get('starts') or 0) >= 5):
+    for api, prof in seed.items():
+        if not (isinstance(prof, dict) and prof.get('ok')):
             continue
-        starts = int(prof.get('starts') or 0)
+        last = int(_career_number_v27(prof.get('last_season')) or 0)
+        row = meta.get(api) or {}
+        if not row:
+            last = last or int(_career_number_v27(row.get('latest_season')) or 0)
+        if last < 2018:
+            continue
+        starts = int(prof.get('starts') or row.get('starts') or 0)
+        if starts < 5:
+            continue
+        name = str(row.get('name') or api.title())
+        team = str(row.get('team') or (prof.get('teams') or [''])[-1] or '')
         cards.append({
-            'code': code, 'name': name, 'team': _DRIVER_TEAM_BY_CODE.get(code, ''),
+            'code': str(row.get('code') or api)[:3].upper(),
+            'name': name, 'team': team,
+            'col': season_team_colour(team, last) or '#8a9bb0',
             'wins': int(prof.get('wins') or 0), 'podiums': int(prof.get('podiums') or 0),
             'poles': int(prof.get('poles') or 0), 'starts': starts,
-            'titles': int(CAREER_TITLES_V27.get(code, 0)),
+            'titles': int(_career_number_v27(row.get('titles')) or 0),
             'ppr': round(float(prof.get('points') or 0) / max(1, starts), 1),
         })
     cards.sort(key=lambda c: -c['starts'])
-    return cards[:18]
+    return cards[:24]
 
 
 def _tt_new_game_v66():
@@ -8865,7 +8901,7 @@ def _tt_new_game_v66():
     random.shuffle(c)
     st.session_state['tt66'] = {
         'p': p, 'c': c, 'pot': [],
-        'turn': 'p', 'phase': 'pick', 'round': 1, 'msg': '', 'reveal': None, 'awarded': False,
+        'phase': 'pick', 'round': 1, 'msg': '', 'reveal': None, 'awarded': False,
     }
 
 
@@ -8876,34 +8912,29 @@ def _tt_compare_v66(g, deck, stat):
     pv, cv = pc[stat], cc[stat]
     win = 'p' if pv > cv else 'c' if cv > pv else 'tie'
     g['reveal'] = {'stat': stat, 'pv': pv, 'cv': cv, 'win': win,
-                   'pc': pc['code'], 'cc': cc['code'], 'by': g['turn']}
+                   'pc': pc['code'], 'cc': cc['code']}
     g['phase'] = 'reveal'
 
 
 def _tt_advance_v66(g):
-    """'Devam' — kazanan kartları alır, sıra kazanana geçer, yeni tura."""
+    """'Devam' — kazanan kartları alır, yeni tura. Statı hep oyuncu seçer;
+    rakip deste sadece kart tutar, tahmin etmez."""
     r = g['reveal'] or {}
     stack = [g['p'].pop(0), g['c'].pop(0)] + g['pot']
     g['pot'] = []
     if r.get('win') == 'p':
-        g['p'].extend(stack); g['turn'] = 'p'
+        g['p'].extend(stack)
     elif r.get('win') == 'c':
-        g['c'].extend(stack); g['turn'] = 'c'
+        g['c'].extend(stack)
     else:
-        g['pot'] = stack   # berabere: sıra değişmez
+        g['pot'] = stack   # berabere: kartlar ortada bekler
     g['reveal'] = None
     g['phase'] = 'pick'
     g['round'] += 1
 
 
-def _tt_cpu_stat_v66(deck, g):
-    cc = deck[g['c'][0]]
-    tops = {k: max((deck[i][k] for i in range(len(deck))), default=1) or 1 for k, _ in _TT_STATS_V66}
-    return max(_TT_STATS_V66, key=lambda kv: cc[kv[0]] / tops[kv[0]])[0]
-
-
 def _tt_card_html_v66(card, year, face_down=False, highlight=None):
-    col = season_team_colour(card['team'], year) or '#8a9bb0'
+    col = card.get('col') or season_team_colour(card['team'], year) or '#8a9bb0'
     if face_down:
         return "<div class='sws-ttdown'>Rakip kartı</div>"
     rows = "".join(
@@ -8935,7 +8966,7 @@ def render_top_trumps_v66():
         _tt_new_game_v66()
     g = st.session_state['tt66']
 
-    game_over = not g['p'] or not g['c'] or g['round'] > 40
+    game_over = not g['p'] or not g['c'] or g['round'] > 60
     if game_over and g['phase'] != 'over':
         g['phase'] = 'over'
 
@@ -8955,8 +8986,7 @@ def render_top_trumps_v66():
             st.rerun()
         return
 
-    turn_txt = ("Sıra sende" if g['turn'] == 'p' and g['phase'] == 'pick'
-                else "Rakibin sırası" if g['phase'] == 'pick' else "Tur sonucu")
+    turn_txt = "Sıra sende" if g['phase'] == 'pick' else "Tur sonucu"
     _sws_panel_v8("Kart Düellosu", turn_txt,
                   chips=[("Senin deste", len(g['p'])), ("Rakip deste", len(g['c'])),
                          ("Ortak", len(g['pot'])), ("Tur", g['round'])])
@@ -8972,29 +9002,25 @@ def render_top_trumps_v66():
         st.markdown(_tt_card_html_v66(deck[g['c'][0]], year,
                     face_down=(g['phase'] == 'pick'), highlight=hi), unsafe_allow_html=True)
 
-    if g['phase'] == 'pick' and g['turn'] == 'p':
+    if g['phase'] == 'pick':
         # en güçlü statı öne al + işaretle — acemiye ipucu, kurala dokunmaz
         best_k = max((k for k, _l in _TT_STATS_V66),
                      key=lambda k: my_card[k] / _tt_stat_max_v8(k))
         st.caption("Bir stat seç — rakip kartındaki aynı statla karşılaştırılır. "
-                   "★ = bu kartın en güçlü statı.")
+                   "★ = bu turda en iyi şansın.")
         cols = st.columns(3)
         for i, (k, lbl) in enumerate(_TT_STATS_V66):
             star = " ★" if k == best_k else ""
             if cols[i % 3].button(f"{lbl} · {my_card[k]}{star}", key=f"tt_pick_{k}", width='stretch'):
                 _tt_compare_v66(g, deck, k)
                 st.rerun()
-    elif g['phase'] == 'pick' and g['turn'] == 'c':
-        _tt_compare_v66(g, deck, _tt_cpu_stat_v66(deck, g))
-        st.rerun()
     elif g['phase'] == 'reveal':
         r = g['reveal']
         lbl = dict(_TT_STATS_V66)[r['stat']]
-        who = "Rakip seçti" if r.get('by') == 'c' else "Sen seçtin"
         vt = ("Turu sen aldın" if r['win'] == 'p'
               else "Rakip aldı" if r['win'] == 'c' else "Berabere — kartlar ortaya")
         _sws_panel_v8(
-            f"{who} · {lbl}", f"{r['pc']} {r['pv']} — {r['cc']} {r['cv']}",
+            f"Sen seçtin · {lbl}", f"{r['pc']} {r['pv']} — {r['cc']} {r['cv']}",
             verdict=(r['win'] == 'p', vt) if r['win'] != 'tie' else None)
         if st.button("Devam →", type="primary", key=f"tt_cont_{g['round']}", width='stretch'):
             _tt_advance_v66(g)
@@ -9419,8 +9445,9 @@ _GAME_HUD_CSS_V68 = """<style>
 .sws-mini{font-size:.86rem;color:#93a2b8;margin-top:9px;line-height:1.5}
 .sws-mini b{color:#eef2f8}
 /* Stewardle tahmin ızgarası */
-.sws-guess{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:8px}
-@media(max-width:640px){.sws-guess{grid-template-columns:repeat(3,1fr)}}
+.sws-guess{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-top:8px}
+@media(max-width:820px){.sws-guess{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:520px){.sws-guess{grid-template-columns:repeat(2,1fr)}}
 .sws-gc{border-radius:8px;border:1px solid #20293e;background:#131c2c;padding:8px 6px;text-align:center;min-width:0}
 .sws-gc small{display:block;font:700 7.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#7f8da3}
 .sws-gc b{display:block;font:800 13px 'Saira Condensed','Arial Narrow',sans-serif;color:#eef2f8;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -11171,7 +11198,7 @@ _GAMES_HUB_V8 = [
      "Gerçek kariyer verisiyle gizli pilotu altı tahminde bul. Günlük bulmaca ve seri.",
      "#ff385c", "Stewardle aç", "stewarlde", "Orta", "~3 dk", "yardımcı"),
     ("KART DÜELLOSU", "Sıralama Kartları",
-     "Gerçek kariyer istatistikleriyle Top Trumps; CPU'ya karşı bütün desteyi kap.",
+     "2018'den bugüne pilotların kariyer kartları; statı sen seç, bütün desteyi kap.",
      "#2ee6d6", "Deste dağıt", "cards", "Kolay", "~4 dk", "gerekmez"),
     ("HAFTA SONU", "Hafta Sonu Tahmini",
      "Sıradaki GP'nin pole ve podyumunu tahmin et; yarıştan sonra otomatik puanlanır.",
@@ -11179,9 +11206,6 @@ _GAMES_HUB_V8 = [
     ("SIRALAMA", "Kızgın Tur",
      "Pole zamanını gördün; gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.",
      "#7c5cff", "Tur ver", "hotlap", "Kolay", "~30 sn", "gerekmez"),
-    ("2D YARIŞ", "Paddock Career",
-     "Çok rakipli grid, Overtake Mode, lastik aşınması ve pit yolu ile 2D yarış.",
-     "#e10600", "Motoru çalıştır", "paddock_career", "Kolay", "3–8 dk", "gerekmez"),
 ]
 
 
@@ -13498,8 +13522,9 @@ def render_faq_page():
          "İngilizce F1 haber başlık ve özetleri **DeepL API** ile otomatik çevrilir. "
          "Çeviri geçici olarak alınamazsa özgün metin gösterilir."),
         ("Oyunlar ve tahminler gerçek mi?",
-         "Stewardle gerçek kariyer verisi kullanır. Paddock Career tamamen bir simülasyondur ve açıkça "
-         "öyle etiketlenir; ürettiği sonuçlar gerçek yarış sonucu değildir."),
+         "Tüm oyunlar doğrulanmış FastF1 verisiyle çalışır — kariyer istatistikleri, sıralama "
+         "turları, yarış sonuçları. Strateji Duvarı simülasyonu gerçek turdan/aşınmadan türetilir; "
+         "ürettiği sıralama gerçek yarış sonucu değil, senin kararının sonucudur."),
         ("Neden bazen 'veri yok' yazısı görüyorum?",
          "Seans dışındayken veya kaynak geçici olarak yanıt vermediğinde olur. Hata önbelleğe alınmaz; "
          "sayfayı yenilediğinde sistem yeniden dener."),
@@ -13623,8 +13648,6 @@ elif st.session_state['page'] == 'games':
     render_games_hub()
 elif st.session_state['page'] == 'stewarlde':
     render_stewarlde()
-elif st.session_state['page'] == 'paddock_career':
-    render_paddock_career_alpha_v01()
 elif st.session_state['page'] == 'predict':
     render_prediction_game_v55()
 elif st.session_state['page'] == 'cards':

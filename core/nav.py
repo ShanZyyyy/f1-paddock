@@ -44,7 +44,7 @@ SECTIONS = [
 # Menude butonu olmayan ama router'da gecerli olan alt sayfalar
 # (oyun ic sayfalari, telemetri sonuc ekrani vb.)
 CHILD_PAGES = {
-    "stewarlde", "gridmaster", "team_manager", "predictor", "draft", "paddock_career",
+    "stewarlde", "predict", "cards", "hotlap", "podium", "stratwall",
 }
 
 ALL_PAGES = {key for _, items in SECTIONS for _, _, key in items} | CHILD_PAGES

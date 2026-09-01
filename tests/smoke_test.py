@@ -24,8 +24,7 @@ APP = os.path.join(ROOT, "streamlit_app.py")
 PAGES = [
     "home", "news", "telemetry", "live", "calendar", "weekend", "story",
     "compare", "drivers", "learn", "favourites", "teams", "standings", "f2f3",
-    "assistant", "glossary", "games", "stewarlde", "gridmaster",
-    "team_manager", "predictor", "draft", "paddock_career", "predict",
+    "assistant", "glossary", "games", "stewarlde", "predict",
 ]
 
 TIMEOUT = 90
