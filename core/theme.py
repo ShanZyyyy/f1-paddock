@@ -15,6 +15,8 @@ tekrarı önlenir.
 
 from functools import lru_cache
 
+from core import brand
+
 # =====================================================================
 # RENK JETONLARI
 # =====================================================================
@@ -106,14 +108,15 @@ FONT_LINK = (
     '<link href="https://fonts.googleapis.com/css2?'
     'family=Saira+Condensed:wght@500;600;700;800&'
     'family=Saira:wght@400;500;600;700&'
-    'family=Antonio:wght@400;600;700&'
     'family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">'
 )
 
 F_DISPLAY = "'Saira Condensed','Arial Narrow',system-ui,sans-serif"
 F_BODY = "'Saira',system-ui,-apple-system,'Segoe UI',sans-serif"
 F_MONO = "'JetBrains Mono','Consolas',ui-monospace,monospace"
-F_XCOND = "'Antonio','Saira Condensed','Arial Narrow',sans-serif"
+# Ekstra-condensed başlık — Antonio kaldırıldı (tek kullanım, ağ yükü). Saira
+# Condensed 800 aynı işi görür.
+F_XCOND = "'Saira Condensed','Arial Narrow',sans-serif"
 
 
 def team_color(name):
@@ -457,8 +460,8 @@ section[data-testid="stSidebar"] *{color:var(--fp-text)}
 
 /* marka kilidi */
 .fp-brand{display:flex;align-items:center;gap:11px;padding:6px 4px 14px;margin-bottom:2px;border-bottom:1px solid var(--fp-line)}
-.fp-brand .mark{flex:0 0 auto;width:36px;height:36px;border:1px solid var(--fp-line);border-radius:8px;
-  background:var(--fp-bg-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath d='M13 11 L27 24 L13 37' fill='none' stroke='%23e10600' stroke-width='6.5' stroke-linecap='square'/%3E%3Cpath d='M24.5 15 L33.5 24 L24.5 33' fill='none' stroke='%23e10600' stroke-width='5' stroke-linecap='square' opacity='.5'/%3E%3C/svg%3E") center/34px 34px no-repeat}
+.fp-brand .mark{flex:0 0 auto;width:36px;height:36px;border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);
+  background:var(--fp-bg-2) url("__BRAND_MARK_URI__") center/26px 26px no-repeat}
 .fp-brand .txt{font-family:var(--fp-f-display);font-weight:800;font-size:16.5px;letter-spacing:.045em;text-transform:uppercase;line-height:1.02}
 .fp-brand .txt s{display:block;font-weight:600;font-size:9px;letter-spacing:.24em;color:var(--fp-text-mute);text-decoration:none;margin-top:4px}
 
@@ -536,7 +539,7 @@ section[data-testid="stSidebar"] [data-baseweb="select"] button{
   background:var(--fp-bg-2) !important;color:var(--fp-text) !important;
   border-radius:var(--fp-r-sm) !important;box-shadow:none !important;transform:none !important;
 }
-"""
+""".replace("__BRAND_MARK_URI__", brand.mark_data_uri())
 
 # ---- Uygulama arka plani (F1 TV — hareketli telemetri + canli pist) --------
 # Buyuk pist animasyonu artik ayri bir inline SVG katmani: core.ui.background_fx()

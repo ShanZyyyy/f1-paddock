@@ -13,7 +13,7 @@ import re as _re
 import streamlit as st
 import streamlit.components.v1 as components
 
-from core import theme
+from core import brand, theme
 
 _LIGHT_KEY = "paddock_light_mode_v31"  # eski anahtarla uyumlu
 
@@ -409,8 +409,10 @@ def inject_shell_theme():
     Sayfa govde CSS'i henuz eski monolitten geldigi icin _COMPONENT_CSS'i
     enjekte etmiyoruz. Dosyanin EN SONUNDA cagrilmali ki eski !important
     bloklarini yensin.
+
+    NOT: FONT_LINK burada TEKRAR enjekte edilmez — inject_rail_theme() en
+    başta bir kez basar (çift <link> temizliği, Faz 10).
     """
-    st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
     st.markdown(theme.shell_style(), unsafe_allow_html=True)
     # Eski "kendini çizen pist" arka planı kaldırıldı — sade koyu zemin +
     # ana sayfadaki hero duman'ı yeter. background_fx() artık çağrılmıyor.
@@ -442,7 +444,7 @@ body:has(.fp-tb) .fp-tb-skel{display:none}
 .fp-tb-skel .b{display:flex;align-items:center;gap:.45rem;flex:0 0 auto;white-space:nowrap;
   font-family:var(--fp-f-display);font-weight:800;font-size:15px;letter-spacing:.11em;
   text-transform:uppercase;color:var(--fp-text)}
-.fp-tb-skel .b svg{width:14px;height:14px;flex:0 0 auto}
+.fp-tb-skel .b svg{width:15px;height:15px;flex:0 0 auto}
 .fp-tb-skel .b i{color:var(--fp-red);font-style:normal}
 .fp-tb-skel nav{display:flex;align-items:center;gap:clamp(.55rem,1.6vw,1.35rem);flex:1 1 auto;min-width:0;overflow:hidden}
 .fp-tb-skel nav a{font:600 11px/1 var(--fp-f-display);letter-spacing:.13em;text-transform:uppercase;
@@ -453,7 +455,7 @@ body:has(.fp-tb) .fp-tb-skel{display:none}
 @media(max-width:920px){.fp-tb-skel nav,.fp-tb-skel .lang{display:none}
   .fp-tb-skel::after{content:"";margin-left:auto;width:21px;height:2px;background:var(--fp-text);
     box-shadow:0 6px 0 var(--fp-text),0 -6px 0 var(--fp-text)}}
-@media(max-width:560px){.fp-tb-skel .b{font-size:0;letter-spacing:0}.fp-tb-skel .b svg{width:22px;height:22px}}
+@media(max-width:560px){.fp-tb-skel .b .fp-b-f{display:none}.fp-tb-skel .b svg{width:18px;height:18px}}
 """
 
 # İskelet barın linkleri gerçek NAV birincil sayfalarıyla eşleşir; TR etiketleri
@@ -461,9 +463,8 @@ body:has(.fp-tb) .fp-tb-skel{display:none}
 _TOPBAR_SKELETON_HTML = (
     "<div class='fp-tb-skel' aria-hidden='true'>"
     "<span class='b'>"
-    "<svg viewBox='0 0 48 48'><path d='M13 11 L27 24 L13 37' fill='none' stroke='#e10600' stroke-width='6.5' stroke-linecap='square'/>"
-    "<path d='M24.5 15 L33.5 24 L24.5 33' fill='none' stroke='#e10600' stroke-width='5' stroke-linecap='square' opacity='.5'/></svg>"
-    "Formula&nbsp;<i>Paddock</i></span>"
+    + brand.mark_svg(line="currentColor")
+    + "<span class='fp-b-f'>Formula&nbsp;</span><i>Paddock</i></span>"
     "<nav>"
     "<a href='?p=news' target='_self'>Haber Merkezi</a>"
     "<a href='?p=telemetry' target='_self'>Veri &amp; Analiz</a>"
@@ -481,7 +482,7 @@ def inject_rail_theme():
     """Kritik önyükleme CSS'i — EN BAŞTA (set_page_config'ten hemen sonra):
     :root jetonları + sidebar/toolbar'ı gizle + üst bar için boşluk +
     gerçek bar gelene kadar duracak iskelet bar."""
-    st.markdown(theme.FONT_LINK, unsafe_allow_html=True)
+    st.markdown(brand.favicon_link_tag() + theme.FONT_LINK, unsafe_allow_html=True)
     st.markdown(
         "<style>" + theme._root_vars_dual() + _TOPBAR_SKELETON + "</style>"
         + _TOPBAR_SKELETON_HTML,
@@ -1064,7 +1065,7 @@ body.fp-tb-busy .fp-tb-bar::after{opacity:1;width:100%;
 .fp-tb-brand{display:flex;align-items:center;gap:.45rem;font-family:var(--fp-f-display);font-weight:800;
   font-size:15px;letter-spacing:.11em;text-transform:uppercase;color:var(--fp-text);white-space:nowrap;
   margin-right:.3rem;flex:0 0 auto}
-.fp-tb-brand .ch{width:14px;height:14px;flex:0 0 auto}
+.fp-tb-brand .ch{width:15px;height:15px;flex:0 0 auto}
 .fp-tb-brand b{color:var(--fp-red);font-weight:800}
 .fp-tb-nav{display:flex;align-items:center;gap:clamp(.55rem,1.6vw,1.35rem);flex:1 1 auto;min-width:0}
 
@@ -1147,16 +1148,14 @@ body.fp-tb-busy .fp-tb-bar::after{opacity:1;width:100%;
   .fp-tb-drawer .fp-drop a.on{background:linear-gradient(90deg,rgba(225,6,0,.14),transparent 70%)}
 }
 @media(max-width:560px){
-  .fp-tb-brand{font-size:0;letter-spacing:0;gap:0;margin-right:0}
-  .fp-tb-brand .ch{width:22px;height:22px}
+  .fp-tb-brand{gap:.4rem;margin-right:0}
+  .fp-tb-brand .fp-b-f{display:none}
+  .fp-tb-brand .ch{width:18px;height:18px}
 }
 </style>
 """
 
-_CHEVRON = ("<svg class='ch' viewBox='0 0 48 48'>"
-            "<path d='M13 11 L27 24 L13 37' fill='none' stroke='%23e10600' stroke-width='6.5' stroke-linecap='square'/>"
-            "<path d='M24.5 15 L33.5 24 L24.5 33' fill='none' stroke='%23e10600' stroke-width='5' stroke-linecap='square' opacity='.5'/>"
-            "</svg>").replace("%23", "#")
+_MARK = brand.mark_svg(cls="ch", line="currentColor")
 
 
 _TOPBAR_ACTIVE_JS = """
@@ -1275,7 +1274,8 @@ def topbar(current, lang, standalone=(), groups=(), session_line="", session_liv
         + "<div class='fp-nav-root'>"
         + "<input type='checkbox' id='fp-nav-t' class='fp-nav-t' aria-hidden='true'>"
         + "<div class='fp-tb'><div class='fp-tb-bar'>"
-        + f"<a class='fp-tb-brand' href='?p=home' target='_self'>{_CHEVRON}Formula&nbsp;<b>Paddock</b></a>"
+        + f"<a class='fp-tb-brand' href='?p=home' target='_self'>{_MARK}"
+        + "<span class='fp-b-f'>Formula&nbsp;</span><b>Paddock</b></a>"
         + f"<nav class='fp-tb-nav'>{nav_html}</nav>"
         + f"<div class='fp-tb-right'>{sesh}{lang_html}</div>"
         + "<label for='fp-nav-t' class='fp-burger' aria-label='Menü'><span></span><span></span><span></span></label>"

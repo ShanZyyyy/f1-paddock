@@ -15,6 +15,7 @@ import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 
+from core import brand
 from core import ui as _ui
 
 
@@ -236,7 +237,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
     <div class="datastream ds2"><span>__DS2__</span><span>__DS2__</span></div>
   </div>
   <div class="wordmark">
-    <svg viewBox="0 0 48 48"><path d="M13 11 L27 24 L13 37" fill="none" stroke="#e10600" stroke-width="6.5" stroke-linecap="square"/><path d="M24.5 15 L33.5 24 L24.5 33" fill="none" stroke="#e10600" stroke-width="5" stroke-linecap="square" opacity=".5"/></svg>
+    __MARK__
     FORMULA&nbsp;<b>PADDOCK</b>
   </div>
   <div class="scrim"></div>
@@ -408,6 +409,7 @@ def render(event_name, session_name, target_dt, is_live, height=760, subtitle=No
     label = f"{event_name} · {session_name}".strip(" ·") or "Takvim bekleniyor"
     html = (
         _TEMPLATE
+        .replace("__MARK__", brand.mark_svg(line="currentColor"))
         .replace("__TARGET_MS__", str(target_ms))
         .replace("__LIVE__", "true" if is_live else "false")
         .replace("__LIVECLS__", "live" if is_live else "")
