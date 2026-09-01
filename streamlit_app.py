@@ -6299,6 +6299,7 @@ def render_stewarlde_v25():
     target_stats = stewarlde_stats_v25(target) if game['guesses'] else None
     if game['guesses']:
         rows = []
+        emoji_rows = []
         for identity in game['guesses']:
             guess = lookup.get(identity)
             if not guess:
@@ -6314,14 +6315,17 @@ def render_stewarlde_v25():
                 ('F1’e giriş', stats['first_gp_date'], *stewarlde_date_cell_v25(stats['first_gp_date'], target_stats['first_gp_date'])),
             ]
             cells = []
+            emoji = []
             for label, value, status, hint in cells_data:
                 state = 'ok' if status is True or status == 'match' else 'near' if status == 'near' else ''
+                emoji.append('🟩' if state == 'ok' else '🟨' if state == 'near' else '⬜')
                 display = value if value is not None else '—'
                 cells.append(
                     f"<div class='sws-gc {state}'><small>{html_lib.escape(label)}</small>"
                     f"<b>{html_lib.escape(str(display))}</b>"
                     f"<i>{html_lib.escape(str(hint))}</i></div>")
             rows.append("<div class='sws-guess'>" + ''.join(cells) + '</div>')
+            emoji_rows.append(''.join(emoji))
         st.markdown("<div class='sws' style='padding:13px'>" + ''.join(rows) + '</div>',
                     unsafe_allow_html=True)
 
@@ -6338,6 +6342,18 @@ def render_stewarlde_v25():
             lead=f"Doğru cevap: {target['name']} · {target['team']}.{_daily}")
         colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
         st.markdown(stewarlde_profile_v25(target, target_stats or {}, colour), unsafe_allow_html=True)
+
+        _tag = "Günlük" if mode == 'Günlük' else "Sınırsız"
+        _head = f"Stewardle {_tag} · {len(game['guesses'])}/6" if won else f"Stewardle {_tag} · X/6"
+        if mode == 'Günlük':
+            _head += f" · {day_key}"
+            _sds = int(fp_ui.get_pref('sds') or 0)
+            if won and _sds > 1:
+                _head += f" · 🔥{_sds}g"
+        _share = _head + "\n\n" + "\n".join(emoji_rows) + "\n\nFormula Paddock"
+        fp_ui.share_panel(_share, include_url=False, label="🔗 Sonucu paylaş",
+                          key=f"stw_share_{mode}_{game['round']}")
+
         if mode == 'Sınırsız':
             if st.button('Yeni rastgele pilot', key=f"stewarlde_next_v25_{game['round']}", width='stretch'):
                 st.session_state[state_key] = {'mode': mode, 'day': day_key, 'round': game['round'] + 1, 'guesses': [], 'finished': False}
@@ -8678,9 +8694,9 @@ _GAME_INTRO_V8 = {
     ], None),
     'hotlap': ("Kızgın Tur", "#7c5cff", [
         "Bir yarışın sıralama turundan pole zamanını görürsün.",
-        "Gizli bir pilot seçilir; onun turu pole'a ne kadar yakındı?",
-        "Doğru zaman aralığını seç (ör. 0.1–0.3 sn).",
-        "Doğru bildikçe seri uzar.",
+        "Gizli bir pilot seçilir. Önce: turu pole'a ne kadar yakındı? (zaman aralığı seç)",
+        "Sonra: bu tur onu gridde nereye koydu? (sıralama aralığı seç)",
+        "İki soruyu da doğru bilirsen seri uzar; her doğru +6 XP, ikisi birden +2 bonus.",
     ], None),
 }
 
@@ -9009,6 +9025,16 @@ def _hl_bucket_v66(gap):
     return _HL_BUCKETS_V66[-1][2]
 
 
+_HL_POS_BUCKETS_V68 = [(2, 3, 'P2 – P3'), (4, 6, 'P4 – P6'), (7, 99, 'P7 – P10')]
+
+
+def _hl_pos_bucket_v68(pos):
+    for lo, hi, lbl in _HL_POS_BUCKETS_V68:
+        if lo <= pos <= hi:
+            return lbl
+    return _HL_POS_BUCKETS_V68[-1][2]
+
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def _hotlap_quali_v66(year, gp):
     seeded = _games_seed_get('hotlap', year, gp)
@@ -9093,8 +9119,10 @@ def _hotlap_new_round_v66():
                 'gp': q['gp'], 'year': q['year'], 'pole_code': q['pole_code'],
                 'pole_secs': q['pole_secs'], 'hidden_code': pick['code'],
                 'hidden_pos': pick['pos'], 'gap': pick['gap'],
-                'answer': _hl_bucket_v66(pick['gap']), 'phase': 'guess', 'pick': None,
-                '_key': _games_seed_key(q['year'], q['gp']),
+                'answer': _hl_bucket_v66(pick['gap']),
+                'pos_answer': _hl_pos_bucket_v68(pick['pos']),
+                'phase': 'guess', 'pick': None, 'gap_pick': None, 'pos_pick': None,
+                'gap_ok': None, '_key': _games_seed_key(q['year'], q['gp']),
             }
             return True
     st.session_state['hl66'] = {'phase': 'error'}
@@ -9125,33 +9153,59 @@ def render_hotlap_game_v66():
     def _fmt(s):
         return f"{int(s // 60)}:{s % 60:06.3f}"
 
+    _step = {'guess': '1/2 · pole farkı', 'guess_pos': '2/2 · sıralama yeri'}.get(
+        r['phase'], 'tur sonucu')
+    _lead = ""
+    if r['phase'] == 'guess':
+        _lead = (f"{r['hidden_code']}'in sıralama turu pole'daki {r['pole_code']}'e ne kadar "
+                 "yakındı — ve bu onu gridde nereye koydu? Önce farkı, sonra yeri tahmin et.")
+    if r['phase'] == 'guess_pos' and r.get('gap_pick'):
+        _lead = (f"Pole farkı: senin tahminin {r['gap_pick']} — "
+                 + ("doğru." if r['gap_ok'] else f"gerçeği {r['answer']}.")
+                 + f" Şimdi {r['hidden_code']} sıralamada kaçıncı oldu?")
     _sws_panel_v8(
         f"{r['gp']} · {r['year']} · Sıralama",
         f"Pole · {r['pole_code']} — {_fmt(r['pole_secs'])}",
-        lead=f"{r['hidden_code']} sıralamada P{r['hidden_pos']} oldu — turu pole'daki "
-             f"{r['pole_code']}'e ne kadar yakındı?",
-        chips=[("Gizli pilot", r['hidden_code']), ("Sırası", f"P{r['hidden_pos']}"),
+        sub=_step,
+        lead=_lead,
+        chips=[("Gizli pilot", r['hidden_code']),
                ("Güncel seri", streak), ("En iyi seri", best)])
 
     if r['phase'] == 'guess':
         cols = st.columns(len(_HL_BUCKETS_V66))
         for i, (_lo, _hi, lbl) in enumerate(_HL_BUCKETS_V66):
             if cols[i].button(lbl, key=f"hl_b_{i}", width='stretch'):
-                r['pick'] = lbl
+                r['gap_pick'] = lbl
+                r['gap_ok'] = lbl == r['answer']
+                r['phase'] = 'guess_pos'
+                st.rerun()
+    elif r['phase'] == 'guess_pos':
+        cols = st.columns(len(_HL_POS_BUCKETS_V68))
+        for i, (_lo, _hi, lbl) in enumerate(_HL_POS_BUCKETS_V68):
+            if cols[i].button(lbl, key=f"hl_p_{i}", width='stretch'):
+                r['pos_pick'] = lbl
+                pos_ok = lbl == r['pos_answer']
+                both = bool(r['gap_ok']) and pos_ok
                 r['phase'] = 'reveal'
-                correct = lbl == r['answer']
-                new_streak = streak + 1 if correct else 0
+                new_streak = streak + 1 if both else 0
                 fp_ui.set_pref('hl', {'s': new_streak, 'b': max(best, new_streak)})
-                _game_award_v66(xp=8 if correct else 1, played=True,
-                                streak=new_streak if correct else None)
+                xp = 2 + (6 if r['gap_ok'] else 0) + (6 if pos_ok else 0)
+                _game_award_v66(xp=xp, played=True,
+                                streak=new_streak if both else None)
                 st.rerun()
     else:
-        correct = r['pick'] == r['answer']
+        pos_ok = r['pos_pick'] == r['pos_answer']
+        both = bool(r['gap_ok']) and pos_ok
+        xp = 2 + (6 if r['gap_ok'] else 0) + (6 if pos_ok else 0)
         _sws_panel_v8(
-            "Tur Sonucu", f"{r['hidden_code']} · pole’a +{r['gap']:.3f} sn",
-            verdict=(correct, 'Doğru' if correct else 'Yanlış'),
-            score=(8 if correct else 1), score_tail='xp',
-            lead=f"Gerçek aralık: {r['answer']} · senin tahminin: {r['pick']}.")
+            "Tur Sonucu", f"{r['hidden_code']} · pole’a +{r['gap']:.3f} sn · P{r['hidden_pos']}",
+            verdict=(both, 'İkisi de doğru' if both else 'Seri sıfırlandı'),
+            score=xp, score_tail='xp',
+            breakdown=[
+                (f"Pole farkı — tahmin {r['gap_pick']}, gerçek {r['answer']}",
+                 6 if r['gap_ok'] else 0),
+                (f"Sıralama yeri — tahmin {r['pos_pick']}, gerçek {r['pos_answer']}",
+                 6 if pos_ok else 0)])
         if st.button("Sıradaki tur →", type="primary", key="hl_next", width='stretch'):
             st.session_state.pop('hl66', None)
             st.rerun()
