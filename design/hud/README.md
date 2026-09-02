@@ -11,13 +11,22 @@ Siteye (Streamlit) taşınan parçalar `core/hud_kit.py` üzerinden:
 
 | Site parçası | Dosya | Not |
 |---|---|---|
-| Ortak jeton kiti | `core/hud_kit.py` | `kit_css()` — `theme.TOKENS`'tan türer, tüm iframe HUD'ları paylaşır |
-| Telemetri enstrüman rayı | `streamlit_app.py :: telemetry_trace_html` | Sol küme: HIZ / GAZ-FREN / VİTES + Δ, imleçle canlı — yalnız gerçek payload |
-| Strateji Duvarı (Gantt) | `streamlit_app.py :: strategy_wall_html` | Tur eksenli, aşınma koyulaşması, pit süreleri, undercut etiketi, en hızlı tur |
+| Ortak jeton kiti | `core/hud_kit.py` | `kit_css()` — `theme.TOKENS`'tan türer, `--k-*` ad alanı, tüm iframe HUD'ları paylaşır |
+| Telemetri enstrüman rayı | `telemetry_trace_html` | Sol küme: HIZ / GAZ-FREN / VİTES + Δ, imleçle canlı — yalnız gerçek payload |
+| Strateji Duvarı (Gantt) | `strategy_wall_html` | Tur eksenli, aşınma koyulaşması, pit süreleri, undercut etiketi, en hızlı tur |
+
+**Faz 4 — kit diline restyle** (kabuk `<style>` + Google Fonts; sınıf adları ve
+`<script>` motorları değişmedi):
+`dominance_map_html` · `stint_pace_html` · `position_flow_html` ·
+`session_leaderboard_html` (çok sayfada) · `race_intelligence_hud_html_v19` ·
+`two_driver_duel_html_stable`.
+
+Kalan (bilinçli ertelendi): `stable_race_replay_html` (2D replay motoru — Faz 17
+sweep'i ile palet zaten ~%80 hizalı, tam kit göçü yüksek risk/düşük kazanç).
 
 Streamlit iframe'i çevrimdışı srcdoc olduğu için site tarafı **saf vanilla-JS/
 canvas** — React yok. Bu klasördeki `.jsx` yalnız tam-vizyon referansı.
-Testler: `tests/test_hud_kit.py`.
+Testler: `tests/test_hud_kit.py` (20 test).
 
 ## Dosyalar
 
