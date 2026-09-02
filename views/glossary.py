@@ -70,14 +70,17 @@ def render():
         ('Pilotluk', 'Apex', 'Virajın ideal çizgideki en iç noktasıdır.', False),
         ('Pilotluk', 'Racing Line', 'Pistte en hızlı tur için tercih edilen ideal çizgidir.', False),
         ('Pilotluk', 'Slipstream', 'Öndeki aracın hava koridorunda sürtünme azalmasıyla hız kazanmadır.', False),
-        ('Pilotluk', 'Dirty Air', 'Öndeki aracın bozduğu havanın takip eden aracın yere basmasını azaltmasıdır.', False),
+        ('Pilotluk', 'Downforce', 'Kanatların havayı aşağı iterek aracı piste bastıran kuvvetidir; ne kadar çoksa virajda o kadar hızlı gidilir, ama düzlükte sürtünme artar.', False),
+        ('Pilotluk', 'Dirty Air', 'Öndeki aracın bozduğu havanın takip eden aracın yere basmasını (downforce) azaltmasıdır.', False),
         ('Pilotluk', 'Lift and Coast', 'Yakıt veya enerji yönetimi için fren öncesi gazdan erken çekilmektir.', False),
         ('Pilotluk', 'Late Braking', 'Viraja rakibinden daha geç fren yaparak atak denemektir.', False),
     ]
     _term_viz = {
-        'Straight Mode': 'drs', 'Overtake Mode': 'ers', 'ERS': 'ers', 'MGU-K': 'ers',
-        'Recharge': 'ers', 'Boost Mode': 'ers', 'Stint': 'stint',
-        'Degradation': 'wear', 'Graining': 'wear',
+        'Straight Mode': 'drs', 'Active Aero': 'drs',
+        'Overtake Mode': 'ers', 'ERS': 'ers', 'MGU-K': 'ers',
+        'Recharge': 'ers', 'Boost Mode': 'ers',
+        'Downforce': 'downforce', 'Corner Mode': 'downforce', 'Dirty Air': 'downforce',
+        'Stint': 'stint', 'Degradation': 'wear', 'Graining': 'wear',
     }
     category_names = ['Tümü'] + sorted({term[0] for term in terms})
     filter_col, search_col = st.columns([1, 2])

@@ -852,24 +852,31 @@ def how_to_hud(sections, *, title="Bu ekran nasıl okunur?", legend=None, note=N
 
 
 _TERM_VIZ = {
+    # DRS — arka kanadı temsil eden iki yatay yeşil neon çizgi; üstteki sol
+    # menteşesinden 30° açılıp bekler, kapanır (flap open/close).
     "drs": (
-        "<svg viewBox='0 0 132 62' aria-hidden='true'>"
-        "<rect x='22' y='36' width='78' height='7' rx='2' fill='var(--tv-line)'/>"
-        "<rect x='24' y='23' width='66' height='6' rx='2' fill='var(--tv-mid)'/>"
-        "<g class='tv-flap'><rect x='24' y='14' width='60' height='5' rx='2' fill='#45c8ff'/></g>"
-        "<line class='tv-air' x1='6' y1='16' x2='22' y2='16' stroke='#45c8ff' stroke-width='2'/>"
-        "<line class='tv-air tv-air2' x1='6' y1='24' x2='22' y2='24' stroke='#45c8ff' stroke-width='2'/>"
-        "</svg>",
+        "<div class='tv-art tv-drs'>"
+        "<span class='tv-drs-fixed'></span>"
+        "<span class='tv-drs-flap'></span>"
+        "</div>",
         "arka kanat düzlükte açılır → sürtünme düşer → hız artar",
     ),
+    # ERS — ince yatay pil iskeleti; mor neon dolgu %0→%100 dolar, dolarken
+    # parlaması artar, dolunca yanıp söner ve boşalır (push-to-pass döngüsü).
     "ers": (
-        "<svg viewBox='0 0 132 62' aria-hidden='true'>"
-        "<rect x='26' y='18' width='72' height='26' rx='4' fill='none' stroke='var(--tv-line)' stroke-width='2'/>"
-        "<rect x='98' y='26' width='5' height='10' rx='1' fill='var(--tv-line)'/>"
-        "<rect class='tv-lvl' x='29' y='21' width='0' height='20' rx='1' fill='#4ea981'/>"
-        "<path class='tv-bolt' d='M64 12 L55 33 L63 33 L57 50 L74 27 L65 27 Z' fill='#ffd23f'/>"
-        "</svg>",
-        "frende şarj olur (yeşil) → düzlükte boşalır, ekstra güç verir (sarı)",
+        "<div class='tv-art tv-bat'>"
+        "<span class='tv-bat-body'><span class='tv-bat-fill'></span></span>"
+        "<span class='tv-bat-cap'></span>"
+        "</div>",
+        "frende şarj olur → dolunca boşalır, ekstra güç verir (push-to-pass)",
+    ),
+    # Downforce — aşağı bakan üç kırmızı chevron; yukarıdan aşağı sırayla yanar
+    # (hava akımı aracı yere bastırıyor hissi).
+    "downforce": (
+        "<div class='tv-art tv-df'>"
+        "<span class='tv-df-c'></span><span class='tv-df-c'></span><span class='tv-df-c'></span>"
+        "</div>",
+        "kanatlar havayı aşağı iter → araç yere basar → virajda tutunma artar",
     ),
     "wear": (
         "<svg viewBox='0 0 132 62' aria-hidden='true'>"
@@ -892,38 +899,72 @@ _TERM_VIZ = {
 
 
 def term_viz(kind, *, label=None):
-    """Bir terim için küçük, döngüsel açıklayıcı animasyon (DRS / ERS / lastik
-    aşınması / stint). `st.markdown(..., unsafe_allow_html=True)` ile basılır."""
+    """Bir terim için küçük, döngüsel (infinite) açıklayıcı animasyon.
+
+    Yayın estetiği: karanlık zemin, ince neon hatlar. Saf HTML/CSS `@keyframes`
+    — Streamlit bileşeni yok. `st.markdown(..., unsafe_allow_html=True)` ile basılır.
+    """
     entry = _TERM_VIZ.get(kind)
     if not entry:
         return ""
-    svg, caption = entry
+    art, caption = entry
     caption = label or caption
     return (
         "<style>"
         ".fp-tv{--tv-line:#3a4a5e;--tv-mid:#7aa2c8;--tv-bg:#0a111b;display:flex;align-items:center;gap:12px;"
         "border:1px solid var(--fp-line);border-radius:8px;background:var(--fp-bg-2);padding:9px 12px;margin:2px 0 10px}"
-        ".fp-tv svg{width:112px;height:54px;flex:0 0 auto}"
+        ".fp-tv svg,.fp-tv .tv-art{width:112px;height:54px;flex:0 0 auto}"
+        ".fp-tv .tv-art{display:flex;align-items:center;justify-content:center}"
         ".fp-tv figcaption{font:500 12px var(--fp-f-body),sans-serif;color:var(--fp-text-dim);line-height:1.45}"
-        ".fp-tv .tv-flap{transform-origin:80px 16px;animation:fp-tv-drsflap 3.2s ease-in-out infinite}"
-        "@keyframes fp-tv-drsflap{0%,38%{transform:rotate(0)}52%,88%{transform:rotate(-50deg)}100%{transform:rotate(0)}}"
-        ".fp-tv .tv-air{stroke-dasharray:4 4;opacity:0;animation:fp-tv-drsair 3.2s linear infinite}"
-        ".fp-tv .tv-air2{animation-delay:.15s}"
-        "@keyframes fp-tv-drsair{0%,44%,100%{opacity:0}54%,92%{opacity:.9}}"
-        ".fp-tv .tv-lvl{animation:fp-tv-erslvl 3.6s ease-in-out infinite}"
-        "@keyframes fp-tv-erslvl{0%{width:0;fill:#4ea981}42%{width:66px;fill:#4ea981}48%{fill:#ff9142}100%{width:0;fill:#ff9142}}"
-        ".fp-tv .tv-bolt{opacity:0;animation:fp-tv-ersbolt 3.6s ease-in-out infinite}"
-        "@keyframes fp-tv-ersbolt{0%,46%,100%{opacity:0}54%,88%{opacity:1}}"
+
+        # --- ERS: mor neon batarya dolumu ---
+        ".fp-tv .tv-bat{gap:3px}"
+        ".fp-tv .tv-bat-body{position:relative;width:86px;height:19px;border:1.5px solid #4a3a66;"
+        "border-radius:3px;background:#0a0f1a;overflow:hidden}"
+        ".fp-tv .tv-bat-cap{width:4px;height:9px;border-radius:0 2px 2px 0;background:#4a3a66}"
+        ".fp-tv .tv-bat-fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:2px 0 0 2px;"
+        "background:linear-gradient(90deg,#7a2fe0,#b052ff);animation:fp-tv-ers 3.4s ease-in-out infinite}"
+        "@keyframes fp-tv-ers{"
+        "0%{width:0;box-shadow:0 0 2px #b052ff}"
+        "55%{width:100%;box-shadow:0 0 11px 1px #b052ff,0 0 18px rgba(176,82,255,.5)}"
+        "64%{opacity:1}68%{opacity:.3}"
+        "74%{opacity:1;box-shadow:0 0 16px 3px #b052ff,0 0 26px rgba(176,82,255,.7)}"
+        "80%{width:100%;box-shadow:0 0 10px 1px #b052ff}"
+        "88%{width:0}100%{width:0;box-shadow:0 0 2px #b052ff}}"
+
+        # --- DRS: iki yeşil neon çizgi, üstteki menteşeli açılır ---
+        ".fp-tv .tv-drs{position:relative;width:92px;height:32px}"
+        ".fp-tv .tv-drs-fixed,.fp-tv .tv-drs-flap{position:absolute;left:0;width:100%;height:3px;"
+        "border-radius:2px;background:#3ee08f;box-shadow:0 0 6px #3ee08f,0 0 13px rgba(62,224,143,.45)}"
+        ".fp-tv .tv-drs-fixed{bottom:3px}"
+        ".fp-tv .tv-drs-flap{bottom:15px;transform-origin:left center;"
+        "animation:fp-tv-drs 3.2s ease-in-out infinite}"
+        "@keyframes fp-tv-drs{0%,24%{transform:rotate(0)}40%,76%{transform:rotate(-30deg)}"
+        "92%,100%{transform:rotate(0)}}"
+
+        # --- Downforce: aşağı bakan üç kırmızı chevron, kademeli yanar ---
+        ".fp-tv .tv-df{flex-direction:column;gap:3px}"
+        ".fp-tv .tv-df-c{width:17px;height:17px;border-right:3px solid #ff4438;border-bottom:3px solid #ff4438;"
+        "transform:rotate(45deg);opacity:.13;animation:fp-tv-df 1.9s ease-in-out infinite}"
+        ".fp-tv .tv-df-c:nth-child(2){animation-delay:.22s}"
+        ".fp-tv .tv-df-c:nth-child(3){animation-delay:.44s}"
+        "@keyframes fp-tv-df{0%,100%{opacity:.13;box-shadow:none}"
+        "26%{opacity:1;box-shadow:3px 3px 9px rgba(255,68,56,.55)}55%{opacity:.13;box-shadow:none}}"
+
+        # --- lastik aşınması / stint (SVG, değişmedi) ---
         ".fp-tv .tv-tread{animation:fp-tv-wear 4.2s linear infinite}"
         "@keyframes fp-tv-wear{0%{stroke-dashoffset:0;stroke:#4ea981}50%{stroke:#ffd23f}78%{stroke:#ef5350}100%{stroke-dashoffset:138;stroke:#ef5350}}"
         ".fp-tv .tv-fill{animation:fp-tv-stintfill 3.8s ease-in-out infinite}"
         "@keyframes fp-tv-stintfill{0%{width:0}78%{width:104px}84%,100%{width:0}}"
         ".fp-tv .tv-dot{animation:fp-tv-stintdot 3.8s ease-in-out infinite}"
         "@keyframes fp-tv-stintdot{0%{cx:14px;fill:#ffd23f}78%{cx:112px;fill:#ffd23f}80%{fill:#ef5350}84%,100%{cx:14px;fill:#ffd23f}}"
+
         "@media(prefers-reduced-motion:reduce){.fp-tv *{animation:none !important}"
-        ".fp-tv .tv-lvl{width:44px}.fp-tv .tv-fill{width:60px}.fp-tv .tv-tread{stroke-dashoffset:60;stroke:#ffd23f}.fp-tv .tv-dot{cx:74px}}"
+        ".fp-tv .tv-bat-fill{width:100%;box-shadow:0 0 10px #b052ff}"
+        ".fp-tv .tv-drs-flap{transform:rotate(-30deg)}.fp-tv .tv-df-c{opacity:1}"
+        ".fp-tv .tv-fill{width:60px}.fp-tv .tv-tread{stroke-dashoffset:60;stroke:#ffd23f}.fp-tv .tv-dot{cx:74px}}"
         "</style>"
-        f"<figure class='fp-tv'>{svg}<figcaption>{_esc(caption)}</figcaption></figure>"
+        f"<figure class='fp-tv'>{art}<figcaption>{_esc(caption)}</figcaption></figure>"
     )
 
 
