@@ -9263,10 +9263,9 @@ _GAME_INTRO_V8 = {
         "İkisi de doğruysa seri uzar — her doğru +6 XP, ikisi birden +2 bonus.",
     ], None),
     'decoder': ("Paddock Dekoder", "#9aa1ab", [
-        "Gri-beyaz, bulanık ve kırpılmış bir görsel (2018 sonrası): sırayla bir takım, bir pilot, bir pist.",
-        "Cevabı açılır listeden seç — tahmin SINIRSIZ. İlk birkaç yanlışta kadraj ~%40 açılır, sonra sabitlenir.",
-        "Pist haritaları ilk tahminlerde ters gösterilir. Kadraj sabitlenince metin ipucu gelir. İstersen turu geçebilirsin.",
-        "Puan yanlış sayısıyla düşer: 1. tahmin 50 → taban 8. Üç kategoriyi de bil, +40 bonus.",
+        "Gri-beyaz, bulanık, kırpılmış görsel (2018+): sırayla bir takım, bir pilot, bir pist.",
+        "Cevabı listeden seç — tahmin SINIRSIZ. Kadraj ilk birkaç yanlışta ~%40 açılıp sabitlenir; istersen turu geç.",
+        "Pist ilk tahminlerde ters gösterilir. Puan yanlışla düşer (50→8); üç kategoriyi de bil, +40.",
     ], [
         "Dekoder: yayın öncesi kapalı devre kamerada silüetten tanıma alıştırması",
     ]),
