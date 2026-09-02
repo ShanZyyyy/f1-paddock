@@ -5270,12 +5270,14 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
     <style>
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .dg{{border:1px solid #232c3a;border-left:3px solid {colour_team};border-radius:12px;
-        background:linear-gradient(160deg,#141a24,#141a24);overflow:hidden}}
-      .dg-hd{{padding:14px 16px 10px}}
-      .dg-hd b{{font:800 15px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
-      .dg-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;letter-spacing:.08em}}
-      .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
-      .dg-body{{border-top:1px solid #232c3a;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
+        background:#141a24;overflow:hidden}}
+      .dg-hd{{padding:14px 15px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}}
+      .dg-hd s{{font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;
+        letter-spacing:.14em;text-transform:uppercase;line-height:1}}
+      .dg-hd b{{font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
+        letter-spacing:-.005em;line-height:1.2}}
+      .dg-pod{{padding:0 15px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
+      .dg-body{{border-top:1px solid #232c3a;padding:13px 15px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
       .dg-name{{font:800 20px 'Inter',system-ui,sans-serif;text-transform:uppercase}}
       .dg-verdict{{font:700 13px 'JetBrains Mono',monospace;margin:3px 0 8px}}
       .dg-line{{font:500 12px 'Inter',system-ui,sans-serif;color:#c9d2de;padding:2px 0}}
@@ -5284,7 +5286,7 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
       .dg-cars{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}}
       .dg-car{{border:1px solid #2b3a4d;border-radius:6px;background:#131a24;padding:4px 8px;font:700 11px 'JetBrains Mono',monospace}}
       .dg-empty{{color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif}}
-      .dg-next{{border-top:1px solid #232c3a;padding:10px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
+      .dg-next{{border-top:1px solid #232c3a;padding:10px 15px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
       .dg-next b{{color:#e8eef4}}
       @media(max-width:560px){{.dg-body{{grid-template-columns:1fr}}}}
     </style>
@@ -11830,11 +11832,11 @@ def _home_last_race_html(year, event, next_race, next_days):
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .lr{{border:1px solid #232c3a;border-left:3px solid #e10600;border-radius:12px;
         background:#141a24;overflow:hidden}}
-      .lr-hd{{padding:14px 15px 12px}}
-      .lr-hd s{{display:block;font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;
-        letter-spacing:.14em;text-transform:uppercase}}
-      .lr-hd b{{display:block;font:700 16px/1.15 'Inter',system-ui,sans-serif;text-transform:uppercase;
-        letter-spacing:-.005em;margin-top:6px}}
+      .lr-hd{{padding:14px 15px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}}
+      .lr-hd s{{font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;
+        letter-spacing:.14em;text-transform:uppercase;line-height:1}}
+      .lr-hd b{{font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
+        letter-spacing:-.005em;line-height:1.2}}
       .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
         padding:7px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
@@ -11946,7 +11948,7 @@ def _follow_board_v51(codes, year, last_race_name):
 
 
 def follow_board_component_height(board):
-    return min(400, 44 + 36 * max(1, len((board or {}).get('rows', []))))
+    return min(440, 48 + 41 * max(1, len((board or {}).get('rows', []))))
 
 
 def follow_board_html(board, year):
@@ -11978,11 +11980,11 @@ def follow_board_html(board, year):
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .fb{{border:1px solid #232c3a;border-left:3px solid var(--fp-cyan,#33d6c8);border-radius:12px;
         background:#141a24;overflow:hidden}}
-      .fb-hd{{padding:12px 15px 8px;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;
-        text-transform:uppercase;color:#6d7a8c}}
-      .fb-hd b{{color:#e8eef4}}
-      .fb-row{{display:grid;grid-template-columns:40px 1fr auto auto;gap:10px;align-items:center;
-        padding:8px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
+      .fb-hd{{padding:14px 15px 12px;font:600 9px 'JetBrains Mono',monospace;letter-spacing:.14em;
+        text-transform:uppercase;color:#6d7a8c;line-height:1.5}}
+      .fb-hd b{{color:#e8eef4;font-weight:600}}
+      .fb-row{{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:9px;align-items:center;
+        padding:9px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .fb-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
       .fb-name{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .fb-ch{{font:700 12px 'JetBrains Mono',monospace;color:#9aa7b8;white-space:nowrap}}
@@ -11990,7 +11992,8 @@ def follow_board_html(board, year):
       .fb-last i{{font-style:normal;font-size:11px}}
       .fb-last .up{{color:#3ecf8e}} .fb-last .dn{{color:#ff8a70}} .fb-last .fl{{color:#8a9bb0}}
       .fb-none{{color:#6d7a8c;font:600 11px 'Inter',system-ui,sans-serif}}
-      @media(max-width:520px){{.fb-row{{grid-template-columns:38px 1fr;row-gap:2px}}.fb-ch,.fb-last{{grid-column:2;text-align:right}}}}
+      .fb-ch{{font-size:11px}}
+      @media(max-width:430px){{.fb-row{{grid-template-columns:34px 1fr;row-gap:2px}}.fb-ch,.fb-last{{grid-column:2;text-align:right}}}}
     </style>
     <div class="fb">
       <div class="fb-hd">Takip Panosu{f" · son yarış <b>{race_label}</b>" if race_label else ""}</div>
@@ -12697,11 +12700,15 @@ def _home_cockpit_v44():
     if _follow:
         _board = _follow_board_v51(_follow, year, last.get('last'))
         if _board.get('ok'):
-            fp_ui.section_title("Takip Panosu")
-            render_html_hud(follow_board_html(_board, year),
-                            height=follow_board_component_height(_board), scrolling=True)
-            if len(_follow) < 2:
-                st.caption("Favori Paddock'tan daha fazla pilot ekle — hepsi burada tek panoda görünür.")
+            # "Son Yarış" kartıyla aynı sütun genişliği/hizası: Takip Panosu da
+            # sol kolonda kalır (tam genişlik değil), sol kenar pikseli pikseline eşit.
+            _fbcol = st.columns([1.35, 1])[0]
+            with _fbcol:
+                fp_ui.section_title("Takip Panosu")
+                render_html_hud(follow_board_html(_board, year),
+                                height=follow_board_component_height(_board), scrolling=True)
+                if len(_follow) < 2:
+                    st.caption("Favori Paddock'tan daha fazla pilot ekle — hepsi burada tek panoda görünür.")
     elif fav_code:
         st.caption("Pilotları takip et → burada mini durum panosu (şampiyona sırası + son yarış). "
                    "Favori Paddock'tan ekle.")
