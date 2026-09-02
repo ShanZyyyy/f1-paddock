@@ -4,7 +4,7 @@
     {
       "name": "paddock",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "streamlit", "run", "streamlit_app.py", "--server.port", "${PORT}", "--server.headless", "true"],
+      "runtimeArgs": [".claude/run_streamlit.py"],
       "autoPort": true,
       "port": 8720
     }
