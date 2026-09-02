@@ -9261,8 +9261,8 @@ _GAME_INTRO_V8 = {
         "Önce: tur pole'a ne kadar yakındı? Sonra: bu tur onu gridde nereye koydu? (aralık seç)",
         "İkisi de doğruysa seri uzar — her doğru +6 XP, ikisi birden +2 bonus.",
     ], None),
-    'decoder': ("Paddock Dekoder", "#33d6c8", [
-        "Bulanık bir görsel: sırayla bir takım, bir pilot, bir pist.",
+    'decoder': ("Paddock Dekoder", "#9aa1ab", [
+        "Gri-beyaz, bulanık bir görsel: sırayla bir takım, bir pilot, bir pist. Renk ipucu yok.",
         "5 tahmin hakkın var; her yanlışta görsel biraz netleşir — ama asla tam açılmaz.",
         "Ufak yazım hataları affedilir (\"ferari\" → Ferrari). 2 yanlıştan sonra metin ipucu gelir.",
         "Puan: 1. denemede 50, her denemede düşer; üç kategoriyi de bil, +25 bonus.",
@@ -9828,9 +9828,9 @@ def render_hotlap_game_v66():
 # =========================================================
 _DECODER_CSS = r"""
 <style>
-/* Paddock Dekoder — yayın "kapalı devre dekoder" estetiği: koyu, ince neon hat,
-   monospace veri, cam panel. Streamlit girdi kutusu tamamen yeniden giydirildi. */
-.deco-wrap{--dc:#33d6c8;display:flex;flex-direction:column;gap:14px;margin-top:6px}
+/* Paddock Dekoder — tek renk (gri/beyaz) "kapalı devre dekoder" estetiği:
+   koyu zemin, ince beyaz hat, monospace veri, cam panel. Renk yok. */
+.deco-wrap{--dc:#dfe3e8;display:flex;flex-direction:column;gap:14px;margin-top:6px}
 .deco-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
   border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);background:var(--fp-bg-2);
   padding:12px 16px;flex-wrap:wrap}
@@ -9870,7 +9870,7 @@ _DECODER_CSS = r"""
 .deco-meter{display:flex;gap:5px;margin-top:14px}
 .deco-meter i{flex:1;height:4px;border-radius:2px;background:var(--fp-bg-3);
   box-shadow:inset 0 0 0 1px var(--fp-line)}
-.deco-meter i.live{background:var(--dc);box-shadow:0 0 8px color-mix(in srgb,var(--dc) 55%,transparent)}
+.deco-meter i.live{background:var(--dc)}
 .deco-meter i.spent{background:var(--fp-line-2)}
 .deco-cap{margin-top:9px;font:600 9px var(--fp-f-mono);letter-spacing:.16em;color:var(--fp-text-mute);
   display:flex;justify-content:space-between}
@@ -9905,19 +9905,19 @@ _DECODER_CSS = r"""
 .stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"] button p{
   font:inherit!important;letter-spacing:inherit!important;text-transform:inherit!important;margin:0!important}
 
-.deco-hint{border:1px solid var(--fp-line);border-left:2px solid var(--fp-amber);
+.deco-hint{border:1px solid var(--fp-line);border-left:2px solid var(--fp-text-mute);
   border-radius:var(--fp-r-md);background:var(--fp-bg-2);padding:11px 14px;
   font:500 12.5px var(--fp-f-body);color:var(--fp-text-dim)}
-.deco-hint b{font:600 9px var(--fp-f-mono);letter-spacing:.18em;color:var(--fp-amber);margin-right:8px}
+.deco-hint b{font:600 9px var(--fp-f-mono);letter-spacing:.18em;color:var(--fp-text);margin-right:8px}
 
 .deco-verdict{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-lg);padding:15px 18px;
   background:var(--fp-bg-2);display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.deco-verdict.ok{border-left:3px solid var(--fp-green)}
-.deco-verdict.no{border-left:3px solid var(--fp-red)}
+.deco-verdict.ok{border-left:3px solid #eef1f5}
+.deco-verdict.no{border-left:3px solid var(--fp-line-2)}
 .deco-verdict b{font:700 21px var(--fp-f-display);letter-spacing:-.015em;color:var(--fp-text)}
 .deco-verdict span{font:600 10px var(--fp-f-mono);letter-spacing:.14em;color:var(--fp-text-mute)}
-.deco-verdict.ok span{color:var(--fp-green)}
-.deco-verdict.no span{color:var(--fp-red)}
+.deco-verdict.ok span{color:var(--fp-text)}
+.deco-verdict.no b{color:var(--fp-text-dim)}
 
 .deco-log{border:1px solid var(--fp-line);border-radius:var(--fp-r-md);background:var(--fp-bg-1);overflow:hidden}
 .deco-log-h{font:600 9px var(--fp-f-mono);letter-spacing:.2em;color:var(--fp-text-mute);
@@ -9929,19 +9929,19 @@ _DECODER_CSS = r"""
 .deco-log-row .g{color:var(--fp-text-dim);letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .deco-log-row .r{font:600 9px var(--fp-f-mono);letter-spacing:.14em}
 .deco-log-row.hit .g{color:var(--fp-text)}
-.deco-log-row.hit .r{color:var(--fp-green)}
+.deco-log-row.hit .r{color:var(--fp-text)}
 .deco-log-row.miss .r{color:var(--fp-text-mute)}
 
 .deco-final{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-lg);background:var(--fp-bg-2);
   padding:20px;text-align:center}
 .deco-final .fh{font:600 9px var(--fp-f-mono);letter-spacing:.22em;color:var(--fp-text-mute)}
-.deco-final .fs{font:700 46px var(--fp-f-mono);letter-spacing:-.02em;color:var(--dc);
+.deco-final .fs{font:700 46px var(--fp-f-mono);letter-spacing:-.02em;color:var(--fp-text);
   font-variant-numeric:tabular-nums;margin:6px 0 2px}
 .deco-final .fl{font:500 12px var(--fp-f-body);color:var(--fp-text-dim)}
 .deco-final .fg{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
 .deco-final .fg span{border:1px solid var(--fp-line);border-radius:var(--fp-r-pill);padding:5px 11px;
   font:600 9px var(--fp-f-mono);letter-spacing:.12em;color:var(--fp-text-dim)}
-.deco-final .fg span.win{border-color:var(--fp-green);color:var(--fp-green)}
+.deco-final .fg span.win{border-color:var(--fp-text-dim);color:var(--fp-text)}
 </style>
 """
 
@@ -9949,16 +9949,18 @@ _DECO_LABEL = {"teams": "TAKIM", "drivers": "PİLOT", "tracks": "PİST"}
 
 
 def _deco_image_filter(remaining, solved):
-    """Kalan hakka göre (blur px, grayscale, contrast). Kural: 5 hak ≈ %85 blur,
-    3 hak ≈ %50, 1 hak = %15 taban. Çözülünce net; bilemeyince taban blur kalır —
-    görsel asla tamamen netleşmez."""
+    """Görsel HER ZAMAN gri-beyaz (renk asla ipucu vermez). ``(blur px,
+    contrast, brightness)`` — ``grayscale(1)`` stil dizesinde sabit.
+
+    Blur kalan hakla azalır ama 1. hakta bile taban blur + kontrast bozulması
+    kalır (kalıcı gizem). Çözülünce blur kalkar, görsel yine gridir."""
     if solved:
-        return (0.0, 0.0, 1.0)
+        return (0.0, 1.06, 1.0)
     r = max(0, min(5, int(remaining)))
-    blur = {5: 14.0, 4: 10.5, 3: 7.5, 2: 4.5, 1: 2.5, 0: 2.5}[r]
-    gray = {5: .85, 4: .66, 3: .48, 2: .3, 1: .15, 0: .32}[r]
-    contrast = round(0.84 + (5 - r) * 0.03, 2)
-    return (blur, gray, contrast)
+    blur = {5: 18.0, 4: 14.0, 3: 10.5, 2: 7.5, 1: 5.0, 0: 5.0}[r]
+    contrast = round(1.16 + (5 - r) * 0.05, 2)
+    bright = round(0.98 - (5 - r) * 0.02, 3)
+    return (blur, contrast, bright)
 
 
 def render_paddock_decoder_v1():
@@ -9966,7 +9968,7 @@ def render_paddock_decoder_v1():
         "Paddock Dekoder",
         "Bulanık görseli çöz — sırayla bir takım, bir pilot, bir pist. 5 hak; "
         "görsel her yanlışta biraz netleşir ama asla tam açılmaz.",
-        "#33d6c8",
+        "#9aa1ab",
     )
     if _game_intro_gate_v8('decoder'):
         return
@@ -10030,7 +10032,7 @@ def render_paddock_decoder_v1():
     rnd = view['round']
     rd = sess.current
     cat = rnd['category']
-    blur, gray, contrast = _deco_image_filter(rnd['remaining'], rnd['solved'])
+    blur, contrast, bright = _deco_image_filter(rnd['remaining'], rnd['solved'])
 
     meter = "".join(
         f"<i class='{'spent' if i < rnd['attempts_used'] else 'live'}'></i>"
@@ -10045,7 +10047,7 @@ def render_paddock_decoder_v1():
         f"</div>"
         f"<div class='deco-stage'><div class='deco-frame'>"
         f"<img src='{html_lib.escape(rnd['image'], quote=True)}' alt='' referrerpolicy='no-referrer' "
-        f"style='filter:blur({blur}px) grayscale({gray}) contrast({contrast}) brightness(1.02)' "
+        f"style='filter:grayscale(1) blur({blur}px) contrast({contrast}) brightness({bright})' "
         f"onerror=\"this.closest('.deco-frame').classList.add('noimg')\">"
         f"<div class='sil'>?</div>"
         f"<span class='corner tl'></span><span class='corner tr'></span>"
@@ -12153,8 +12155,8 @@ _GAMES_HUB_V8 = [
      "Pole zamanını gördün; gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.",
      "#7c5cff", "Tur ver", "hotlap", "Kolay", "~30 sn", "gerekmez"),
     ("SİLÜET", "Paddock Dekoder",
-     "Bulanık görseli çöz: bir takım, bir pilot, bir pist. 5 hak, her yanlışta netleşir — ama tam değil.",
-     "#33d6c8", "Dekoderi aç", "decoder", "Kolay", "~2 dk", "gerekmez"),
+     "Gri-beyaz bulanık görseli çöz: bir takım, bir pilot, bir pist. 5 hak, her yanlışta netleşir — ama tam değil.",
+     "#9aa1ab", "Dekoderi aç", "decoder", "Orta", "~2 dk", "gerekmez"),
 ]
 
 
