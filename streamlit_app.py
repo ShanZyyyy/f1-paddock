@@ -2953,7 +2953,7 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
 .d2{display:flex;flex-direction:column;gap:14px;font-family:var(--k-f-ui)}
 #tags{display:none}
 .delta{display:none}
-.d2-vs{display:grid;grid-template-columns:1fr minmax(172px,auto) 1fr;align-items:stretch;
+.d2-vs{display:grid;grid-template-columns:1fr minmax(150px,auto) 1fr;align-items:stretch;
   border:1px solid var(--k-line);border-radius:var(--k-r-l);overflow:hidden;background:var(--k-panel)}
 .d2-drv{position:relative;display:flex;flex-direction:column;gap:2px;padding:15px 20px 16px;min-width:0;
   border-bottom:2px solid var(--tc)}
@@ -3024,14 +3024,15 @@ canvas#dtcv{width:100%;height:120px;display:block;border:1px solid var(--k-line)
 .d2-rates .btn{border:0;background:transparent;padding:7px 10px}
 .d2-rates .btn.active{background:var(--k-raised);color:var(--k-ink)}
 .slider{flex:1;min-width:150px;accent-color:var(--k-cyan);height:4px}
-@media(max-width:680px){
+@media(max-width:540px){
   .d2-vs{grid-template-columns:1fr 1fr}
   .d2-mid{grid-column:1/-1;order:3;flex-direction:row;gap:10px;border:0;border-top:1px solid var(--k-line)}
-  canvas#duel{height:300px}
   .sectors{grid-template-columns:1fr}
 }
+@media(max-width:760px){ canvas#duel{height:340px} }
+@media(max-width:540px){ canvas#duel{height:280px} }
 </style>
-''' + f'''<div class="d2"><header class="d2-vs"><div class="d2-drv d2-drv--a" style="--tc:{_c1}"><span class="d2-drv-eb">{_t1}</span><span class="d2-drv-code" id="cn0">{_d1}</span><span class="d2-drv-lap">{_l1}</span></div><div class="d2-mid"><span class="d2-mid-eb">Canli &#916;</span><span class="d2-mid-delta" id="delta">&#916; --</span><span class="d2-mid-note">ortak zaman ekseni</span></div><div class="d2-drv d2-drv--b" style="--tc:{_c2}"><span class="d2-drv-eb">{_t2}</span><span class="d2-drv-code" id="cn1">{_d2}</span><span class="d2-drv-lap">{_l2}</span></div></header><div id="tags" hidden></div><section class="d2-panel"><div class="d2-panel-hd"><span>Pist &#246;rt&#252;&#351;mesi</span><span class="d2-legend" id="legend"><i style="--l:#33d6c8">SM &#8776; DRS</i><i style="--l:#71e6a1">OM &#8776; ERS</i><i style="--l:#f4d35e">sekt&#246;r</i></span></div><div class="d2-canvaswrap"><canvas id="duel"></canvas></div></section><div class="d2-panel-hd d2-sub-hd">Sekt&#246;r kar&#351;&#305;la&#351;t&#305;rmas&#305;</div><div class="sectors" id="sectors"></div><div id="msec"></div><section class="d2-panel"><div class="dtrace" id="dtrace"><div class="dtlab"><span>K&#252;m&#252;latif &#916; &#183; &#231;izgi yukar&#305;da <s id="dtc0">1.</s> &#246;nde &#183; imlece t&#305;kla</span><span><s id="dtnow">&#916; --</s></span></div><canvas id="dtcv"></canvas></div></section><div class="d2-transport"><button class="btn d2-play" id="play">Oynat</button><div class="d2-rates"><button class="btn active" data-rate="1">1&#215;</button><button class="btn" data-rate="2">2&#215;</button><button class="btn" data-rate="4">4&#215;</button><button class="btn" data-rate="8">8&#215;</button></div><input id="range" class="slider" type="range" min="0" max="1000" value="0"></div></div>''' + r'''
+''' + f'''<div class="d2"><header class="d2-vs"><div class="d2-drv d2-drv--a" style="--tc:{_c1}"><span class="d2-drv-eb">{_t1}</span><span class="d2-drv-code" id="cn0">{_d1}</span><span class="d2-drv-lap">{_l1}</span></div><div class="d2-mid"><span class="d2-mid-eb">Canli &#916;</span><span class="d2-mid-delta" id="delta">&#916; --</span><span class="d2-mid-note">ortak zaman ekseni</span></div><div class="d2-drv d2-drv--b" style="--tc:{_c2}"><span class="d2-drv-eb">{_t2}</span><span class="d2-drv-code" id="cn1">{_d2}</span><span class="d2-drv-lap">{_l2}</span></div></header><div id="tags" hidden></div><section class="d2-panel"><div class="d2-panel-hd"><span>Pist &#246;rt&#252;&#351;mesi</span><span class="d2-legend" id="legend"><i style="--l:#33d6c8">SM &#8776; DRS</i><i style="--l:#71e6a1">OM &#8776; ERS</i><i style="--l:#f4d35e">sekt&#246;r</i></span></div><div class="d2-canvaswrap"><canvas id="duel"></canvas></div></section><div class="d2-transport"><button class="btn d2-play" id="play">Oynat</button><div class="d2-rates"><button class="btn active" data-rate="1">1&#215;</button><button class="btn" data-rate="2">2&#215;</button><button class="btn" data-rate="4">4&#215;</button><button class="btn" data-rate="8">8&#215;</button></div><input id="range" class="slider" type="range" min="0" max="1000" value="0"></div><div class="d2-panel-hd d2-sub-hd">Sekt&#246;r kar&#351;&#305;la&#351;t&#305;rmas&#305;</div><div class="sectors" id="sectors"></div><div id="msec"></div><section class="d2-panel"><div class="dtrace" id="dtrace"><div class="dtlab"><span>K&#252;m&#252;latif &#916; &#183; &#231;izgi yukar&#305;da <s id="dtc0">1.</s> &#246;nde &#183; imlece t&#305;kla</span><span><s id="dtnow">&#916; --</s></span></div><canvas id="dtcv"></canvas></div></section></div>''' + r'''
 <script>
 "use strict";
 (function(){
@@ -13881,7 +13882,7 @@ def _router_page_telemetry():
                         duel_sectors_1 = [format_time(duel_lap_1.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
                         duel_sectors_2 = [format_time(duel_lap_2.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
                         _duel_delta_s = duel_lap_1['LapTime'].total_seconds() - duel_lap_2['LapTime'].total_seconds()
-                        _duel_left, _duel_right = st.columns([1.7, 1], gap="medium")
+                        _duel_left, _duel_right = st.columns([1.9, 1], gap="medium")
                         with _duel_left:
                             render_html_hud(
                                 two_driver_duel_html_repaired(
@@ -13890,7 +13891,7 @@ def _router_page_telemetry():
                                     duel_lap_1['LapTime'].total_seconds(), duel_lap_2['LapTime'].total_seconds(), duel_overlay,
                                     duel_sectors_1, duel_sectors_2
                                 ),
-                                height=1040,
+                                height=1180,
                                 scrolling=True
                             )
                         with _duel_right:
