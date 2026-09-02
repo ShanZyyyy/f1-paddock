@@ -251,6 +251,22 @@ abbr.fp-term:hover,.fp-term:hover{border-bottom-style:solid;background:color-mix
 .fp-badge.live{background:color-mix(in srgb,var(--fp-green) 12%,transparent);border-color:color-mix(in srgb,var(--fp-green) 40%,transparent);color:var(--fp-green)}
 .fp-badge.wait{background:color-mix(in srgb,var(--fp-amber) 10%,transparent);border-color:color-mix(in srgb,var(--fp-amber) 35%,transparent);color:var(--fp-amber)}
 
+/* ---- ince durum göstergesi (yeşil nokta + etiket) — konsol-log metni yerine ---- */
+.fp-statuschip{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:var(--fp-r-pill);
+  border:1px solid var(--fp-line);background:var(--fp-bg-2);
+  font:600 11px/1 var(--fp-f-mono);letter-spacing:.06em;color:var(--fp-text-dim)}
+.fp-statuschip .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--fp-green);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--fp-green) 20%,transparent)}
+
+/* ---- "nasıl okunur" popover içeriği ---- */
+.fp-readhelp p{margin:0 0 9px;font:400 12.5px/1.55 var(--fp-f-body);color:var(--fp-text-dim)}
+.fp-readhelp p b{color:var(--fp-text);font-weight:600}
+.fp-readhelp .fp-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.fp-readhelp .fp-legend-chip{display:inline-flex;align-items:center;gap:5px;
+  font:600 10.5px var(--fp-f-mono);letter-spacing:.02em;color:var(--fp-text-dim);
+  border:1px solid var(--fp-line);border-radius:var(--fp-r-sm);padding:3px 7px}
+.fp-readhelp .fp-legend-chip i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+
 /* ============================================================
    YAYIN ARAYÜZÜ (Faz 15) — .fp-* bileşen katmanı
    İnce hat + net panel, Inter/Mono, aksan yalnız ince detayda.

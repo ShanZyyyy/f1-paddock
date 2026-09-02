@@ -2053,7 +2053,7 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds, y
         tile3 = (f"<div class='ss-t' style='--a:var(--k-amber)'><s>Kalan Yarış</s>"
                  f"<b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>")
     d_label = 'Dünya Şampiyonu' if _is_past else 'Pilot Lideri'
-    t_label = 'Yapımcılar Şampiyonu' if _is_past else 'Takım Lideri'
+    t_label = 'Takımlar Şampiyonu' if _is_past else 'Takım Lideri'
     return (
         fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _CHAMP_SNAPSHOT_CSS + "</style>"
         + "<div class='ss'>"
@@ -11829,10 +11829,12 @@ def _home_last_race_html(year, event, next_race, next_days):
     <style>
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .lr{{border:1px solid #232c3a;border-left:3px solid #e10600;border-radius:12px;
-        background:linear-gradient(160deg,#141a24,#141a24);overflow:hidden}}
-      .lr-hd{{padding:13px 15px 9px}}
-      .lr-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;letter-spacing:.08em}}
-      .lr-hd b{{display:block;font:800 15px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+        background:#141a24;overflow:hidden}}
+      .lr-hd{{padding:14px 15px 12px}}
+      .lr-hd s{{display:block;font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;
+        letter-spacing:.14em;text-transform:uppercase}}
+      .lr-hd b{{display:block;font:700 16px/1.15 'Inter',system-ui,sans-serif;text-transform:uppercase;
+        letter-spacing:-.005em;margin-top:6px}}
       .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
         padding:7px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
@@ -11893,7 +11895,7 @@ def _home_champ_top_html(driver_standings, constructor_standings, year):
     </style>
     <div class="ct">
       <div class="ct-sec"><s>Pilotlar</s>{_rows(driver_standings, False)}</div>
-      <div class="ct-sec"><s>Yapımcılar</s>{_rows(constructor_standings, True)}</div>
+      <div class="ct-sec"><s>Takımlar</s>{_rows(constructor_standings, True)}</div>
     </div>
     """
 
@@ -13000,36 +13002,37 @@ def _router_page_live():
                 # gerçek replay girişinden aşağıya itmez ve boş geçici bir tablo 2D'yi engellemez.
                 if is_race_replay:
                     st.markdown("#### Tam yarış 2D pist kontrolü")
-                    st.caption(
-                        "Pist, tek temiz telemetri turundan çizilir. Araçlar doğrulanmış yarış başlangıcı, tur süresi, "
-                        "sıra, pit ve lastik verisiyle akıcı olarak bu yörüngede ilerler; bu alan canlı GPS diye etiketlenmez."
-                    )
                     st.session_state[replay_hud_key] = True
-                    st.caption("2D tekrar hızlı OpenF1 tarihî paketinden hazırlanır; yalnızca eksik yarışlarda FastF1 yedeği kullanılır.")
 
                     if st.session_state.get(replay_hud_key, False):
-                        render_data_state(
-                            "RACE REPLAY STATUS",
-                            "Yarış paketi bir kez doğrulanır; sonraki açılışlar önbellekten gelir.",
-                            "info",
-                        )
                         with st.spinner("Doğrulanmış yarış haritası hazırlanıyor..."):
                             replay_payload = build_stable_race_replay_payload(replay_year, replay_event_name)
                         if replay_payload.get('ok'):
-                            render_data_state(
-                                "YARIŞ PAKETİ HAZIR",
-                                "Pist, tur, sıralama, pit ve lastik kayıtları doğrulama kontrollerini geçti.",
-                                "success",
-                            )
-                            fp_ui.how_to_read([
-                                ("Pist", "tek temiz telemetri turundan çizilir; araçlar doğrulanmış tur/sıra/pit verisiyle bu yörüngede ilerler."),
-                                ("Sağ panel", "seçili pilotun turu, başlangıç→bitiş sırası, pozisyon değişimi ve lastik seti. Alttaki şeritten pilot değiştir."),
-                                ("Lastik barı", "bu setin aşınması soldan sağa dolar; alttaki ince şerit tüm yarışın plan özeti (her blok bir stint, çizgi bir pit)."),
-                                ("Hız", "varsayılan 6×. 1× = gerçek yarış süresi (çok yavaş), 60× = tüm yarış birkaç dakikada."),
-                            ], [
-                                ("#33d6c8", "Straight Mode (≈DRS)"), ("#71e6a1", "Overtake Mode (≈ERS)"),
-                                ("#b79cff", "pit giriş/çıkış"), ("#ff3b3b", "Soft"), ("#ffd234", "Medium"), ("#f0f4f8", "Hard"),
-                            ], key=f"howto_replay_{replay_year}")
+                            with st.container(horizontal=True, gap="small", vertical_alignment="center"):
+                                st.markdown(
+                                    "<div class='fp-statuschip'><span class='dot'></span>Telemetri · Aktif</div>",
+                                    unsafe_allow_html=True,
+                                )
+                                with st.popover("Nasıl okunur", icon=":material/info:"):
+                                    st.markdown(
+                                        "<div class='fp-readhelp'>"
+                                        "<p><b>Pist</b> tek temiz telemetri turundan çizilir; araçlar doğrulanmış "
+                                        "tur/sıra/pit verisiyle bu yörüngede ilerler.</p>"
+                                        "<p><b>Sağ panel</b> seçili pilotun turu, başlangıç→bitiş sırası, pozisyon "
+                                        "değişimi ve lastik seti. Alttaki şeritten pilot değiştir.</p>"
+                                        "<p><b>Lastik barı</b> setin aşınması soldan sağa dolar; ince şerit tüm "
+                                        "yarışın plan özeti (her blok bir stint, çizgi bir pit).</p>"
+                                        "<p><b>Hız</b> varsayılan 6×. 1× = gerçek süre, 60× = tüm yarış birkaç dakikada.</p>"
+                                        "<div class='fp-legend'>"
+                                        "<span class='fp-legend-chip'><i style='background:#33d6c8'></i>Straight Mode (≈DRS)</span>"
+                                        "<span class='fp-legend-chip'><i style='background:#71e6a1'></i>Overtake Mode (≈ERS)</span>"
+                                        "<span class='fp-legend-chip'><i style='background:#b79cff'></i>pit giriş/çıkış</span>"
+                                        "<span class='fp-legend-chip'><i style='background:#ff3b3b'></i>Soft</span>"
+                                        "<span class='fp-legend-chip'><i style='background:#ffd234'></i>Medium</span>"
+                                        "<span class='fp-legend-chip'><i style='background:#f0f4f8'></i>Hard</span>"
+                                        "</div></div>",
+                                        unsafe_allow_html=True,
+                                    )
                             render_html_hud(stable_race_replay_html(replay_payload), height=1010, scrolling=True)
                             _track_replay_watched_v56(f"{replay_year}·{replay_event_name}")
                             st.markdown("#### Lastik Strateji Duvarı")
