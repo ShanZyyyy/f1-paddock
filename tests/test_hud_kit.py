@@ -380,3 +380,44 @@ def test_stable_race_replay_html_chrome_uses_kit():
         assert el_id in html, el_id
     # .r-scoped so it beats theme.hud_iframe_style bare selectors
     assert "body>.r{" in html and ".r .pilot{" in html
+
+
+# --------------------------------------------------------------------------
+# Oyun "Nasıl Oynanır" kapısı — sabit-ortalanmış glassmorphism panel
+# --------------------------------------------------------------------------
+def test_game_intro_copy_is_condensed():
+    for key, meta in app._GAME_INTRO_V8.items():
+        rules = meta[2]
+        assert 2 <= len(rules) <= 3, f"{key}: {len(rules)} kural"
+        assert all(len(r) <= 130 for r in rules), key
+
+
+def test_game_intro_modal_css():
+    css = app._GAME_INTRO_MODAL_CSS
+    assert 'st-key-giwrap_' in css
+    assert 'position:fixed' in css and 'backdrop-filter:blur' in css
+    assert css.count("{") == css.count("}")
+
+
+def test_game_intro_gate_flow(monkeypatch):
+    import streamlit as st
+    store = {}
+    monkeypatch.setattr(app.fp_ui, "get_pref", lambda k, d=None: store.get(k, d))
+    monkeypatch.setattr(app.fp_ui, "set_pref", lambda k, v: store.__setitem__(k, v))
+    rendered = {"n": 0}
+    monkeypatch.setattr(app.st, "markdown", lambda *a, **k: None)
+    monkeypatch.setattr(app.st, "button", lambda *a, **k: False)
+
+    class _Ctx:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(app.st, "container", lambda *a, **k: _Ctx())
+    monkeypatch.setattr(app.st, "expander", lambda *a, **k: _Ctx())
+
+    # ilk açılış -> True (oyun verisi gösterilmez)
+    assert app._game_intro_gate_v8("podium") is True
+    # görülmüş kabul et -> False
+    store["gi"] = ["podium"]
+    assert app._game_intro_gate_v8("podium") is False
+    # tanımsız anahtar -> False
+    assert app._game_intro_gate_v8("bilinmez") is False

@@ -8999,52 +8999,84 @@ def _game_shell(title, subtitle="", colour="#e10600"):
 # düğmesiyle tekrar açılır. (label, colour, [kural…], [F1 kavramı "ad: açıklama"…])
 _GAME_INTRO_V8 = {
     'stratwall': ("Strateji Duvarı", "#f5b843", [
-        "Gerçek bir yarışın pit duvarındasın: brifingi oku, sonra tek bir strateji kur.",
-        "Başlangıç lastiğini ve 1–3 pit turunu seç; en az iki farklı bileşik kullan.",
-        "Simülasyonu tur tur izle — Safety Car ucuz pit fırsatı, lastik uçurumu tur sürelerini patlatır.",
-        "Puan: gerçek pilotun bitiş sırasını yakala, doğru turda pit yap, SC penceresini kullan.",
+        "Pit duvarındasın: tek bir strateji kur — başlangıç lastiği + 1–3 pit turu, en az iki bileşik.",
+        "Simülasyon tur tur işler; Safety Car ucuz durak, lastik uçurumu tur sürelerini patlatır.",
+        "Puan: gerçek pilotun bitiş sırasını yakala, doğru turda pit yap.",
     ], [
-        "Undercut: erken pit + taze lastik, öndeki rakip durağa girince öne geçmek",
+        "Undercut: erken pit + taze lastik ile öndeki rakip durağa girince öne geçmek",
         "Lastik uçurumu: belirli bir turdan sonra tur süresinin hızla kötüleşmesi",
         "SC pit: Safety Car turunda pit kaybı yarıya iner — neredeyse bedava durak",
-        "Stint: iki pit stopu arasında aynı lastikle geçirilen tur aralığı",
+        "Stint: iki pit arası aynı lastikle geçirilen tur aralığı",
     ]),
     'podium': ("Podyum Tahmini", "#e10600", [
-        "Rastgele bir tarihî yarış geliyor; sana o yarışın ilk 12'si karışık sırada gösterilir.",
-        "Podyumu tahmin et: 1., 2. ve 3. pilotu seç.",
-        "Doğru pilot ama yanlış sıra puan getirir; sıra da tamsa tam puan.",
+        "Rastgele tarihî bir yarışın ilk 12'si karışık sırada gelir.",
+        "Podyumu seç: 1., 2., 3. pilot. Doğru pilot / yanlış sıra kısmi puan; tam sıra tam puan.",
         "Üst üste tutturarak seriyi uzat.",
     ], None),
     'stewarlde': ("Stewardle", "#ff5a4d", [
-        "2010–2026 arasında yarışmış gizli bir pilot var; 6 tahmin hakkın var.",
-        "Her tahminden sonra ipuçları: yeşil = doğru, sarı = yakın (↑/↓ yön), gri = eşleşme yok.",
-        "İpuçları takım, ülke, galibiyet, şampiyonluk, GP sayısı ve ilk yıl için ayrı ayrı gelir.",
-        "Günlük mod herkese aynı bulmacayı verir ve günlük seri tutar.",
-    ], None),
+        "2010–2026 arası gizli bir pilot; 6 tahmin hakkın var.",
+        "İpuçları: yeşil = doğru, sarı = yakın (↑/↓ yön), gri = eşleşme yok — her nitelik ayrı.",
+        "Günlük mod herkese aynı bulmacayı verir, seri tutar.",
+    ], [
+        "Nitelikler: takım, ülke, galibiyet, şampiyonluk, GP sayısı, ilk yıl",
+    ]),
     'cards': ("Sıralama Kartları", "var(--fp-cyan)", [
-        "Gerçek kariyer istatistikleriyle Top Trumps: 2018'den bugüne pilotların kartları.",
-        "Her elde istatistiği SEN seçersin (galibiyet, pole, puan/yarış…). İşaretli = o turda en iyi şansın.",
-        "Yüksek olan turu ve iki kartı da alır; beraberlikte kartlar ortada bekler.",
-        "Rakip deste hiç tahmin etmez — sadece kart tutar. Bütün desteyi topla.",
+        "Gerçek kariyer istatistikleriyle Top Trumps — 2018'den bugüne pilot kartları.",
+        "Her elde istatistiği SEN seçersin; işaretli = o turdaki en iyi şansın.",
+        "Yüksek olan turu ve iki kartı alır; beraberlikte kartlar ortada bekler. Desteyi topla.",
     ], None),
     'predict': ("Hafta Sonu Tahmini", "#f5b843", [
-        "Sıradaki GP'den önce pole ve podyumu (ilk 3) tahmin et.",
-        "Sprint hafta sonuysa ayrıca sprint galibini seç.",
-        "Yarış bitince tahminin otomatik puanlanır ve sezon puanına eklenir.",
-        "Pole +5, podyum pilotu doğru +3, podyum yeri tam +5.",
+        "Sıradaki GP'den önce pole + podyumu (ilk 3) tahmin et; sprint hafta sonuysa sprint galibini de.",
+        "Yarış bitince otomatik puanlanır, sezon puanına eklenir.",
+        "Pole +5 · podyum pilotu doğru +3 · podyum yeri tam +5.",
     ], None),
     'hotlap': ("Kızgın Tur", "#7c5cff", [
-        "Bir yarışın sıralama turundan pole zamanını görürsün.",
-        "Gizli bir pilot seçilir. Önce: turu pole'a ne kadar yakındı? (zaman aralığı seç)",
-        "Sonra: bu tur onu gridde nereye koydu? (sıralama aralığı seç)",
-        "İki soruyu da doğru bilirsen seri uzar; her doğru +6 XP, ikisi birden +2 bonus.",
+        "Bir sıralama turundan pole zamanı + gizli bir pilot gösterilir.",
+        "Önce: tur pole'a ne kadar yakındı? Sonra: bu tur onu gridde nereye koydu? (aralık seç)",
+        "İkisi de doğruysa seri uzar — her doğru +6 XP, ikisi birden +2 bonus.",
     ], None),
 }
 
 
+_GAME_INTRO_MODAL_CSS = r"""
+<style>
+/* Oyun "Nasıl Oynanır" modali — keyed konteyner sabit ortalanmış + arka plan
+   bulanıklığı (st.dialog gate deseni için güvenilir değil: her rerun'da yeniden
+   açılmıyor). Yalnız "Başla →" geçirir; kapatma yok. */
+div[class*="st-key-giwrap_"]{position:fixed;inset:0;z-index:900;
+  display:grid;place-items:center;padding:24px;overflow-y:auto}
+div[class*="st-key-giwrap_"]::before{content:"";position:fixed;inset:0;
+  background:color-mix(in srgb,var(--fp-bg-0) 64%,transparent);
+  backdrop-filter:blur(7px) saturate(1.1);-webkit-backdrop-filter:blur(7px) saturate(1.1)}
+div[class*="st-key-giwrap_"] > div{position:relative;width:min(460px,100%);
+  background:color-mix(in srgb,var(--fp-bg-2) 94%,transparent);
+  border:1px solid var(--fp-line-2);border-radius:16px;padding:22px 24px;
+  box-shadow:0 34px 90px -18px rgba(0,0,0,.78)}
+.gim{--a:var(--fp-cyan)}
+.gim-eb{font:600 9px var(--fp-f-mono,ui-monospace);letter-spacing:.2em;text-transform:uppercase;color:var(--fp-text-mute)}
+.gim-h{font:700 24px/1.08 var(--fp-f-display,Inter);letter-spacing:-.02em;color:var(--a);
+  margin:8px 0 0;text-wrap:balance;padding-bottom:14px;border-bottom:1px solid var(--fp-line)}
+.gim-rules{list-style:none;margin:16px 0 2px;padding:0;display:flex;flex-direction:column;gap:12px}
+.gim-rules li{display:grid;grid-template-columns:22px 1fr;gap:11px;align-items:start;
+  font:400 13.5px/1.55 var(--fp-f-body,Inter);color:var(--fp-text-dim)}
+.gim-rules li .n{font:700 11px var(--fp-f-mono,ui-monospace);color:var(--a);
+  border:1px solid color-mix(in srgb,var(--a) 40%,transparent);border-radius:6px;
+  text-align:center;line-height:20px;height:22px}
+.gim-term{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-top:1px solid var(--fp-line-soft)}
+.gim-term:first-child{border-top:0}
+.gim-term b{font:700 12px var(--fp-f-body,Inter);color:var(--fp-text)}
+.gim-term span{font:400 12px/1.5 var(--fp-f-body,Inter);color:var(--fp-text-dim)}
+div[class*="st-key-giwrap_"] [data-testid="stExpander"]{border:0;background:transparent;margin-top:6px}
+div[class*="st-key-giwrap_"] [data-testid="stExpander"] summary{padding:6px 0;font-size:12px;color:var(--fp-text-mute)}
+div[class*="st-key-giwrap_"] .stButton>button{margin-top:14px}
+</style>
+"""
+
+
 def _game_intro_gate_v8(key):
-    """Oyun ilk açılışsa tek ekranlık kılavuzu bas ve True döndür (çağıran `return`
-    eder). Görülmüşse küçük 'Nasıl oynanır?' düğmesi bırakır, False döndürür."""
+    """Oyun ilk açılışsa sabit-ortalanmış glassmorphism kılavuz panelini basar ve
+    True döndürür (çağıran `return` eder — 'Başla'ya basmadan oyun verisi görünmez).
+    Görülmüşse küçük 'Nasıl oynanır?' düğmesi bırakır, False döndürür."""
     meta = _GAME_INTRO_V8.get(key)
     if not meta:
         return False
@@ -9059,24 +9091,33 @@ def _game_intro_gate_v8(key):
             st.rerun()
         return False
 
-    body = "<ul class='sws-rules'>" + "".join(
-        f"<li><b>{i + 1}</b><span>{html_lib.escape(r)}</span></li>"
-        for i, r in enumerate(rules)) + "</ul>"
-    if concepts:
-        body += "<div class='sws-eb' style='margin-top:15px'>F1 Kavramları</div>"
-        body += "<ul class='sws-rules'>" + "".join(
-            f"<li><b>{html_lib.escape(c.split(':', 1)[0])}</b>"
-            f"<span>{html_lib.escape(c.split(':', 1)[1].strip())}</span></li>"
-            for c in concepts) + "</ul>"
-    _sws_panel_v8("Nasıl Oynanır", title,
-                  lead="Oynamadan önce bir dakikanı ayır — bu ekranı sonra da açabilirsin.",
-                  body_html=body, accent=colour)
-    if st.button("Başla →", key=f"gi_start_{key}", type="primary"):
-        if key not in seen:
-            seen.append(key)
-            fp_ui.set_pref('gi', seen)
-        st.session_state.pop(f'_gi_reopen_{key}', None)
-        st.rerun()
+    st.markdown(_GAME_INTRO_MODAL_CSS, unsafe_allow_html=True)
+    rules_html = "".join(
+        f"<li><span class='n'>{i + 1}</span><span>{html_lib.escape(r)}</span></li>"
+        for i, r in enumerate(rules)
+    )
+    with st.container(key=f"giwrap_{key}"):
+        with st.container():
+            st.markdown(
+                f"<div class='gim' style='--a:{colour}'>"
+                f"<div class='gim-eb'>Oyun kılavuzu</div>"
+                f"<div class='gim-h'>{html_lib.escape(title)}</div>"
+                f"<ol class='gim-rules'>{rules_html}</ol></div>",
+                unsafe_allow_html=True,
+            )
+            if concepts:
+                with st.expander("F1 terimleri"):
+                    st.markdown("".join(
+                        f"<div class='gim-term'><b>{html_lib.escape(c.split(':', 1)[0].strip())}</b>"
+                        f"<span>{html_lib.escape((c.split(':', 1) + [''])[1].strip())}</span></div>"
+                        for c in concepts
+                    ), unsafe_allow_html=True)
+            if st.button("Başla →", key=f"gi_start_{key}", type="primary", width='stretch'):
+                if key not in seen:
+                    seen.append(key)
+                    fp_ui.set_pref('gi', seen)
+                st.session_state.pop(f'_gi_reopen_{key}', None)
+                st.rerun()
     return True
 
 
