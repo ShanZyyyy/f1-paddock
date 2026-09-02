@@ -188,3 +188,18 @@ def test_position_flow_html_uses_kit(replay_payload):
     assert "--k-line" in html and "fonts.googleapis.com" in html
     assert html.count("<style>") == 1 and html.count("</style>") == 1
     assert "RACE POSITION FLOW" in html and "id='chart'" in html
+
+
+def test_session_leaderboard_html_uses_kit():
+    import pandas as pd
+    df = pd.DataFrame([
+        {"Sıra": 1, "Pilot": "Lando Norris", "Takım": "McLaren", "Zaman": "1:30:41", "Lastik": "HARD"},
+        {"Sıra": 2, "Pilot": "Max Verstappen", "Takım": "Red Bull Racing", "Zaman": "+2.4", "Lastik": "HARD"},
+        {"Sıra": 3, "Pilot": "Charles Leclerc", "Takım": "Ferrari", "Zaman": "+6.1", "Lastik": "MEDIUM"},
+        {"Sıra": 4, "Pilot": "George Russell", "Takım": "Mercedes", "Zaman": "+14.2", "Lastik": "MEDIUM"},
+    ])
+    html = app.session_leaderboard_html(df, "SUZUKA // YARIŞ")
+    assert "--k-panel" in html and "fonts.googleapis.com" in html
+    assert html.count("color-scheme:dark") == 1
+    assert "SUZUKA // YARIŞ" in html and "Lando Norris" in html
+    assert app.session_leaderboard_html(pd.DataFrame(), "x") == ""

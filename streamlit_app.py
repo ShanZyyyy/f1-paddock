@@ -2578,12 +2578,41 @@ def career_h2h_component_height(h):
     return min(780, 360 + max(0, n) * 28 + (70 if n else 0))
 
 
+_LEADERBOARD_CSS = r"""
+.wrap{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);overflow:hidden}
+.head{padding:13px 16px;background:var(--k-raised);border-bottom:1px solid var(--k-line);
+  font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.sub{font:600 9px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;color:var(--k-mute);margin-top:5px}
+.tops{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}
+.top{background:var(--k-void);border:1px solid var(--k-line);border-top:var(--k-edge) solid var(--team);
+  border-radius:var(--k-r-m);padding:12px;position:relative;min-height:64px}
+.top .rank{color:var(--team);font:700 20px var(--k-f-data);font-variant-numeric:tabular-nums;
+  position:absolute;right:12px;top:8px}
+.pilot{font:700 13px var(--k-f-ui);color:var(--k-ink)}
+.pilot small{display:block;color:var(--team);font:600 10px var(--k-f-data);letter-spacing:.08em;
+  text-transform:uppercase;margin-top:4px}
+.lap{margin-top:7px;color:var(--k-dim);font:600 12px var(--k-f-data);font-variant-numeric:tabular-nums}
+.tyre{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;
+  border:1.5px solid var(--tyre);border-radius:50%;font:700 10px var(--k-f-data);color:var(--tyre);margin-left:7px}
+.leader-list{border-top:1px solid var(--k-line)}
+.leader-row{display:grid;grid-template-columns:45px 1fr 135px 30px;align-items:center;min-height:52px;
+  padding:0 14px;border-top:1px solid var(--k-line-soft);border-left:var(--k-edge) solid var(--team);
+  transition:background .18s ease}
+.leader-row:hover{background:color-mix(in srgb,var(--k-hover) 38%,transparent)}
+.leader-row .rank{color:var(--k-dim);font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums}
+.leader-row .pilot{font-size:12.5px}
+.leader-row .lap{margin:0;text-align:right}
+@media(max-width:440px){.tops{grid-template-columns:1fr}
+  .leader-row{grid-template-columns:36px 1fr 95px 25px;padding:0 8px}}
+"""
+
+
 def session_leaderboard_html(table, title):
     """FP, sıralama ve yarış sonuçlarını takım renkli HUD leaderboard'a çevirir."""
     if table.empty:
         return ''
     time_column = next((column for column in ['En Hızlı Tur', 'Zaman', 'Q3', 'Q2', 'Q1'] if column in table.columns), '')
-    tyre_colours = {'SOFT': '#ff3b3b', 'MEDIUM': '#ffd234', 'HARD': '#f0f4f8', 'INTERMEDIATE': '#3fd66a', 'WET': '#3aa9ff'}
+    tyre_colours = dict(fp_kit.COMPOUND)
 
     def row_html(row, podium=False):
         raw_rank = row.get('Sıra', '—')
@@ -2596,32 +2625,20 @@ def session_leaderboard_html(table, title):
         colour = team_colour(team)
         time = str(row.get(time_column, row.get('Durum', '—'))) if time_column else str(row.get('Durum', '—'))
         compound = str(row.get('Lastik', '')).upper()
-        tyre = f"<span class='tyre' style='--tyre:{tyre_colours.get(compound, '#64748b')}'>{compound[:1]}</span>" if compound and compound != '—' else ''
+        tyre = f"<span class='tyre' style='--tyre:{tyre_colours.get(compound, '#8fa0b4')}'>{compound[:1]}</span>" if compound and compound != '—' else ''
         class_name = f"top top-{rank}" if podium else 'leader-row'
         return f"<div class='{class_name}' style='--team:{colour}'><div class='rank'>{rank}</div><div class='pilot'>{html_lib.escape(pilot)}<small>{html_lib.escape(team)}</small></div><div class='lap'>{html_lib.escape(time)}</div>{tyre}</div>"
 
     rows = [row for _, row in table.iterrows()]
     podium = ''.join(row_html(row, podium=True) for row in rows[:3])
     rest = ''.join(row_html(row) for row in rows[3:])
-    return f"""
-    <style>
-        body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}
-        .wrap{{border:1px solid #2c3c53;border-radius:13px;background:#141a24;overflow:hidden}}
-        .head{{padding:13px 16px;background:#151f2f;border-bottom:1px solid #2c3c53;font-weight:900;letter-spacing:.04em}}
-        .sub{{font-size:11px;color:#8ea4bc;margin-top:4px;font-weight:700}}
-        .tops{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}}
-        .top{{background:#111b2a;border:1px solid #2c3c53;border-top:4px solid var(--team);border-radius:10px;padding:12px;position:relative;min-height:64px}}
-        .top .rank{{color:var(--team);font-size:20px;font-weight:900;position:absolute;right:12px;top:8px}}
-        .pilot{{font-weight:900;color:#eef2f7}} .pilot small{{display:block;color:var(--team);font-size:11px;margin-top:4px;font-weight:800}}
-        .lap{{margin-top:7px;color:#d7e4f4;font-family:ui-monospace,Consolas,monospace;font-weight:800}}
-        .tyre{{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border:2px solid var(--tyre);border-radius:50%;font-size:10px;color:var(--tyre);font-weight:900;margin-left:7px}}
-        .leader-list{{border-top:1px solid #243145}}
-        .leader-row{{display:grid;grid-template-columns:45px 1fr 135px 30px;align-items:center;min-height:53px;padding:0 14px;border-top:1px solid #243145;border-left:4px solid var(--team)}}
-        .leader-row .rank{{color:#9fb4cb;font-weight:900}} .leader-row .lap{{margin:0;text-align:right}}
-        @media(max-width:440px){{.tops{{grid-template-columns:1fr}} .leader-row{{grid-template-columns:36px 1fr 95px 25px;padding:0 8px}}}}
-    </style>
-    <div class='wrap'><div class='head'>{html_lib.escape(title)}<div class='sub'>TAKIM RENKLERİ • TUR ZAMANI • LASTİK HAMURU</div></div><div class='tops'>{podium}</div><div class='leader-list'>{rest}</div></div>
-    """
+    return (
+        fp_kit.google_fonts_link()
+        + "<style>" + fp_kit.kit_css() + _LEADERBOARD_CSS + "</style>"
+        + f"<div class='wrap'><div class='head'>{html_lib.escape(title)}"
+        + "<div class='sub'>Takım renkleri · tur zamanı · lastik hamuru</div></div>"
+        + f"<div class='tops'>{podium}</div><div class='leader-list'>{rest}</div></div>"
+    )
 
 
 def leaderboard_component_height(table):
