@@ -9962,8 +9962,13 @@ _DECODER_CSS = r"""
 _DECO_LABEL = {"teams": "TAKIM", "drivers": "PİLOT", "tracks": "PİST"}
 
 
+# UI kopyası — core.games.paddock_decoder.REVEAL_STEPS ile aynı tutulur.
+# (Streamlit alt-paket modülünü her zaman anında reload etmiyor; UI bayat
+#  modülle bile çökmesin diye yerel sabit.)
+_DECO_REVEAL_STEPS = 4
+
 # kategori: (blur_ilk, blur_sabit, zoom_ilk, zoom_sabit) — SINIRSIZ tahmin;
-# ilk REVEAL_STEPS yanlış boyunca açılır, sonra "sabit" noktasında kalır (fix).
+# ilk _DECO_REVEAL_STEPS yanlış boyunca açılır, sonra "sabit" noktasında kalır.
 _DECO_OBSCURE = {
     "teams":   (28.0, 9.0, 2.7, 1.55),   # logo — basit şekil, en kapalı kalır
     "drivers": (20.0, 6.5, 2.2, 1.30),
@@ -9980,7 +9985,7 @@ def _deco_image_filter(attempts_used, solved, category=None):
     if solved:
         return (0.6, 1.04, 1.0, 1.0)
     b0, b1, s0, s1 = _DECO_OBSCURE.get(category, _DECO_OBSCURE["drivers"])
-    frac = min(1.0, int(attempts_used) / max(1, fp_deco.REVEAL_STEPS))
+    frac = min(1.0, int(attempts_used) / max(1, _DECO_REVEAL_STEPS))
     blur = round(b0 - (b0 - b1) * frac, 1)
     scale = round(s0 - (s0 - s1) * frac, 3)
     contrast = round(1.26 - 0.10 * frac, 2)
@@ -10057,8 +10062,8 @@ def render_paddock_decoder_v1():
     rnd = view['round']
     rd = sess.current
     cat = rnd['category']
-    att = rnd['attempts_used']
-    revealed = float(rnd.get('revealed', min(1.0, att / max(1, fp_deco.REVEAL_STEPS))))
+    att = rnd.get('attempts_used', len(rnd.get('guesses', [])))
+    revealed = float(rnd.get('revealed', min(1.0, att / _DECO_REVEAL_STEPS)))
     fixed = revealed >= 1.0
     blur, contrast, bright, scale = _deco_image_filter(att, rnd['solved'], cat)
     o_deg = rnd.get('orientation', (0, False))[0]
@@ -10107,6 +10112,7 @@ def render_paddock_decoder_v1():
             unsafe_allow_html=True,
         )
 
+        _skip = getattr(fp_deco, 'skip_round', None)
         if not rnd['over']:
             used = set(rnd['guesses'])
             _pool = rnd.get('pool') or [t.answer for t in fp_deco.TARGETS[cat]]
@@ -10116,18 +10122,19 @@ def render_paddock_decoder_v1():
                     "pick", options, label_visibility="collapsed",
                     key=f"deco_pick_{sess.index}_{att}",
                 )
-                bc = st.columns([2, 1])
+                bc = st.columns([2, 1]) if _skip else [st.container()]
                 with bc[0]:
                     if st.button("ÇÖZ", key=f"deco_go_{sess.index}_{att}", width='stretch'):
                         if pick:
                             fp_deco.submit_guess(rd, pick)
                             st.session_state[key] = sess.to_dict()
                             st.rerun()
-                with bc[1]:
-                    if st.button("Geç", key=f"deco_skip_{sess.index}_{att}", width='stretch'):
-                        fp_deco.skip_round(rd)
-                        st.session_state[key] = sess.to_dict()
-                        st.rerun()
+                if _skip:
+                    with bc[1]:
+                        if st.button("Geç", key=f"deco_skip_{sess.index}_{att}", width='stretch'):
+                            _skip(rd)
+                            st.session_state[key] = sess.to_dict()
+                            st.rerun()
             if rnd['hint']:
                 st.markdown(
                     f"<div class='dcx'><div class='dcx-hint'><s>ÇÖZÜMLEME NOTU</s>"
