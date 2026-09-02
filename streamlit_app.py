@@ -5271,13 +5271,13 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .dg{{border:1px solid #232c3a;border-left:3px solid {colour_team};border-radius:12px;
         background:#141a24;overflow:hidden}}
-      .dg-hd{{padding:14px 15px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}}
-      .dg-hd s{{font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;
-        letter-spacing:.14em;text-transform:uppercase;line-height:1}}
-      .dg-hd b{{font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
-        letter-spacing:-.005em;line-height:1.2}}
-      .dg-pod{{padding:0 15px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
-      .dg-body{{border-top:1px solid #232c3a;padding:13px 15px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
+      .dg-hd{{padding:16px 16px 12px}}
+      .dg-hd s{{display:block;margin:0 0 0.5rem;font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;
+        text-decoration:none;letter-spacing:.14em;text-transform:uppercase}}
+      .dg-hd b{{display:block;margin:0;font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
+        letter-spacing:-.005em}}
+      .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
+      .dg-body{{border-top:1px solid #232c3a;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
       .dg-name{{font:800 20px 'Inter',system-ui,sans-serif;text-transform:uppercase}}
       .dg-verdict{{font:700 13px 'JetBrains Mono',monospace;margin:3px 0 8px}}
       .dg-line{{font:500 12px 'Inter',system-ui,sans-serif;color:#c9d2de;padding:2px 0}}
@@ -5286,7 +5286,7 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
       .dg-cars{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}}
       .dg-car{{border:1px solid #2b3a4d;border-radius:6px;background:#131a24;padding:4px 8px;font:700 11px 'JetBrains Mono',monospace}}
       .dg-empty{{color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif}}
-      .dg-next{{border-top:1px solid #232c3a;padding:10px 15px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
+      .dg-next{{border-top:1px solid #232c3a;padding:11px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
       .dg-next b{{color:#e8eef4}}
       @media(max-width:560px){{.dg-body{{grid-template-columns:1fr}}}}
     </style>
@@ -11832,18 +11832,18 @@ def _home_last_race_html(year, event, next_race, next_days):
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .lr{{border:1px solid #232c3a;border-left:3px solid #e10600;border-radius:12px;
         background:#141a24;overflow:hidden}}
-      .lr-hd{{padding:14px 15px 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}}
-      .lr-hd s{{font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;
-        letter-spacing:.14em;text-transform:uppercase;line-height:1}}
-      .lr-hd b{{font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
-        letter-spacing:-.005em;line-height:1.2}}
+      .lr-hd{{padding:16px 16px 12px}}
+      .lr-hd s{{display:block;margin:0 0 0.5rem;font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;
+        text-decoration:none;letter-spacing:.14em;text-transform:uppercase}}
+      .lr-hd b{{display:block;margin:0;font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
+        letter-spacing:-.005em}}
       .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
-        padding:7px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
+        padding:7px 16px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
       .lr-d{{font:700 13px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
       .lr-d small{{display:block;font:500 10px 'Inter',system-ui,sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
       .lr-pt{{font:700 13px 'JetBrains Mono',monospace;color:#c9d2de}}
-      .lr-next{{border-top:1px solid #232c3a;padding:10px 15px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
+      .lr-next{{border-top:1px solid #232c3a;padding:11px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
       .lr-next b{{color:#e8eef4}}
     </style>
     <div class="lr">
@@ -11980,11 +11980,11 @@ def follow_board_html(board, year):
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .fb{{border:1px solid #232c3a;border-left:3px solid var(--fp-cyan,#33d6c8);border-radius:12px;
         background:#141a24;overflow:hidden}}
-      .fb-hd{{padding:14px 15px 12px;font:600 9px 'JetBrains Mono',monospace;letter-spacing:.14em;
+      .fb-hd{{padding:16px 16px 12px;font:600 9px 'JetBrains Mono',monospace;letter-spacing:.14em;
         text-transform:uppercase;color:#6d7a8c;line-height:1.5}}
       .fb-hd b{{color:#e8eef4;font-weight:600}}
       .fb-row{{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:9px;align-items:center;
-        padding:9px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
+        padding:9px 16px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .fb-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
       .fb-name{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .fb-ch{{font:700 12px 'JetBrains Mono',monospace;color:#9aa7b8;white-space:nowrap}}
@@ -12682,7 +12682,7 @@ def _home_cockpit_v44():
                 _h = personal_race_digest_height(_dg) if _dg.get('ok') else 0
             else:
                 _html = _home_last_race_html(year, last['last'], last.get('next'), last.get('next_in_days'))
-                _h = 330
+                _h = 356
         if _html:
             render_html_hud(_html, height=_h, scrolling=True)
             if not fav_code:
@@ -13015,31 +13015,10 @@ def _router_page_live():
                         with st.spinner("Doğrulanmış yarış haritası hazırlanıyor..."):
                             replay_payload = build_stable_race_replay_payload(replay_year, replay_event_name)
                         if replay_payload.get('ok'):
-                            with st.container(horizontal=True, gap="small", vertical_alignment="center"):
-                                st.markdown(
-                                    "<div class='fp-statuschip'><span class='dot'></span>Telemetri · Aktif</div>",
-                                    unsafe_allow_html=True,
-                                )
-                                with st.popover("Nasıl okunur", icon=":material/info:"):
-                                    st.markdown(
-                                        "<div class='fp-readhelp'>"
-                                        "<p><b>Pist</b> tek temiz telemetri turundan çizilir; araçlar doğrulanmış "
-                                        "tur/sıra/pit verisiyle bu yörüngede ilerler.</p>"
-                                        "<p><b>Sağ panel</b> seçili pilotun turu, başlangıç→bitiş sırası, pozisyon "
-                                        "değişimi ve lastik seti. Alttaki şeritten pilot değiştir.</p>"
-                                        "<p><b>Lastik barı</b> setin aşınması soldan sağa dolar; ince şerit tüm "
-                                        "yarışın plan özeti (her blok bir stint, çizgi bir pit).</p>"
-                                        "<p><b>Hız</b> varsayılan 6×. 1× = gerçek süre, 60× = tüm yarış birkaç dakikada.</p>"
-                                        "<div class='fp-legend'>"
-                                        "<span class='fp-legend-chip'><i style='background:#33d6c8'></i>Straight Mode (≈DRS)</span>"
-                                        "<span class='fp-legend-chip'><i style='background:#71e6a1'></i>Overtake Mode (≈ERS)</span>"
-                                        "<span class='fp-legend-chip'><i style='background:#b79cff'></i>pit giriş/çıkış</span>"
-                                        "<span class='fp-legend-chip'><i style='background:#ff3b3b'></i>Soft</span>"
-                                        "<span class='fp-legend-chip'><i style='background:#ffd234'></i>Medium</span>"
-                                        "<span class='fp-legend-chip'><i style='background:#f0f4f8'></i>Hard</span>"
-                                        "</div></div>",
-                                        unsafe_allow_html=True,
-                                    )
+                            st.markdown(
+                                "<div class='fp-statuschip'><span class='dot'></span>Telemetri · Aktif</div>",
+                                unsafe_allow_html=True,
+                            )
                             render_html_hud(stable_race_replay_html(replay_payload), height=1010, scrolling=True)
                             _track_replay_watched_v56(f"{replay_year}·{replay_event_name}")
                             st.markdown("#### Lastik Strateji Duvarı")
@@ -13170,46 +13149,6 @@ def _router_page_telemetry():
     else:
         _picked = st.radio("Görünüm", _MODE_LABELS, horizontal=True, key="tel_mode")
     analiz_turu = _MODES[_MODE_LABELS.index(_picked)] if _picked in _MODE_LABELS else _MODES[0]
-
-    _HOWTO = {
-        "Pist Dominasyonu": ([
-            ("Pist çizgisi", "iki pilotun turu üst üste bindirilir; her bölüm o an daha hızlı olan pilotun takım rengine boyanır."),
-            ("Renk kuralı", "her pilot kendi takım renginde — alttaki çubuk tur boyunca kimin ne kadar önde olduğunu toplar."),
-            ("Ne aramalı", "uzun tek renk bloklar = bir pilotun net üstün olduğu bölüm; renk sık değişiyorsa turlar denk."),
-        ], None),
-        "2D Tur Düellosu": ([
-            ("Renk kuralı", "her yerde iki pilot kendi takım renginde: sektör kutuları, mini-sektör çubukları ve Δ izi. Renk = kimin, konum = ne kadar."),
-            ("Δ (delta)", "aynı pist noktasında iki pilot arasındaki saniye farkı. Δ 0.30 = öndeki 0,30 sn hızlı."),
-            ("Oynat / hız", "turu 1×–8× hızda izle; alttaki çubukla istediğin ana atla."),
-            ("Sektörler", "hangi pilotun hangi sektörde daha hızlı olduğu alttaki üç kutuda; hızlı olanın satırı kendi renginde ve koyu."),
-            ("Mini-sektör Δ", "tur 20 dilime bölünür; çubuk yukarı = 1. pilot o dilimde hızlı, aşağı = 2. pilot. Zamanın tam nerede kaybedildiğini gösterir."),
-        ], [("#33d6c8", "SM (≈DRS)"), ("#71e6a1", "OM (≈ERS)"), ("#f4d35e", "sektör sınırı")]),
-        "Fren Analizi": ([
-            ("Dört iz", "üstten alta: hız, gaz, fren, vites — hepsi pist mesafesine göre hizalı."),
-            ("İmleç", "fareyi grafiğin veya pistin üzerinde gezdir; dört iz ve haritadaki nokta aynı anda o mesafeye kilitlenir. Soldaki panelde tam değerler."),
-            ("Geç frenleme", "fren izindeki dikey sıçrama fren noktasıdır; daha sağda olan pilot viraja daha geç fren yapmıştır."),
-            ("Hız farkı", "hız izinde çizgiler ayrışıyorsa orada bir pilot belirgin hızlı; soldaki Δ hız satırı farkı sayıyla verir."),
-            ("Renk kuralı", "iki iz de ilgili pilotun takım renginde — üstteki pilot etiketleriyle aynı."),
-        ], [("#f4d35e", "sektör sınırı")]),
-        "Top Hız": ([
-            ("Tablo", "her pilotun o seanstaki en yüksek telemetri hızı, hızlıdan yavaşa."),
-            ("Ne anlatır", "yüksek top hız = düşük kanat / iyi güç ünitesi / iyi slipstream; düşük = yüksek kanat tercihi."),
-        ], None),
-        "Lastik Stratejisi": ([
-            ("Yatay barlar", "her pilotun stint'leri; blok uzunluğu o lastikte geçen tur sayısı."),
-            ("Renk", "kırmızı Soft, sarı Medium, beyaz Hard, yeşil Intermediate, mavi Wet."),
-            ("Ne aramalı", "en anlamlı görünüm yarış seansında; farklı stratejiler (ör. 1 durak vs 2 durak) burada ayrışır."),
-        ], [("#ff3b3b", "Soft"), ("#ffd234", "Medium"), ("#f0f4f8", "Hard"), ("#3fd66a", "Inter"), ("#3aa9ff", "Wet")]),
-        "Hava & Evrim": ([
-            ("Üst grafik", "seans boyunca temsili tur zamanı: mavi = o an atılan en hızlı tur, gri = ortalama. Çizgi aşağı gidiyorsa pist 'lastikleniyor' (hızlanıyor)."),
-            ("Pist kazancı", "ilk dilimdeki en hızlı turdan son dilime kaç saniye düştüğü — yağmur yoksa bu tipik pist evrimidir."),
-            ("Alt grafik", "pist °C (turuncu), hava °C (sarı), nem % (yeşil); mavi gölge = o anda yağış kaydı."),
-            ("İmleç", "fareyi gezdir; alttaki satır o dakikadaki tur zamanı ve hava değerlerini verir."),
-        ], [("#33d6c8", "en hızlı tur"), ("#5b6b7e", "ortalama tur"), ("#ff7a45", "pist °C"), ("#ffd23f", "hava °C"), ("#4ea981", "nem %"), ("#3aa9ff", "yağış")]),
-    }
-    _ht = _HOWTO.get(_picked if _picked in _MODE_LABELS else "Pist Dominasyonu")
-    if _ht:
-        fp_ui.how_to_read(_ht[0], _ht[1], key=f"howto_tel_{_picked}")
 
     st.write("")
     try:
