@@ -179,8 +179,10 @@ class DataHub:
             self._kick_refresh(slot_key, entry, args, kwargs)
             return snap
 
-        # 3) hiç veri yok ya da çok eski
-        if not block_if_cold and has_value:
+        # 3) gösterilebilir veri yok ya da hard_ttl aşıldı.
+        #    block_if_cold=False (prewarm / bloke etmeyen okuma): arka planda
+        #    çek, elde ne varsa (boş bile olsa) onu bayat işaretiyle dön.
+        if not block_if_cold:
             snap = self._snapshot(entry, stale=True)
             self._kick_refresh(slot_key, entry, args, kwargs)
             return snap

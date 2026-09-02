@@ -158,6 +158,30 @@ def test_prewarm_non_blocking_when_warm(hub):
     assert box["n"] == 2
 
 
+def test_prewarm_cold_does_not_block(tmp_path):
+    """Soğuk başlangıçta bile prewarm/block_if_cold=False çağıran'ı bekletmez."""
+    import threading as _t
+    h = DataHub(data_dir=str(tmp_path))
+    gate = _t.Event()
+
+    def slow_loader():
+        gate.wait(timeout=2)
+        return [1]
+
+    h.register(SourceSpec("cold", slow_loader, soft_ttl=10, hard_ttl=100))
+    t0 = time.time()
+    snap = h.get("cold", block_if_cold=False)   # gerçek thread; beklememeli
+    assert time.time() - t0 < 0.5
+    assert snap.ok is False                      # henüz veri yok
+    gate.set()
+    # arka plan thread'i bitince veri gelir
+    for _ in range(40):
+        if h.peek("cold").ok:
+            break
+        time.sleep(0.05)
+    assert h.get("cold").value == [1]
+
+
 def test_unregistered_key_raises(hub):
     with pytest.raises(KeyError):
         hub.get("nope")
