@@ -2934,73 +2934,102 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
         {'code': str(driver_1), 'team': str(team_1), 'colour': colour_1, 'lap': str(lap_time_1), 'samples': first, 'sectors': sector_times_1 or []},
         {'code': str(driver_2), 'team': str(team_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': second, 'sectors': sector_times_2 or []},
     ], 'overlay': track_overlay or {}})
+    _c1 = colour_1 or '#e10600'
+    _c2 = colour_2 or '#33d6c8'
+    _t1 = html_lib.escape(str(team_1 or '—'))
+    _t2 = html_lib.escape(str(team_2 or '—'))
+    _d1 = html_lib.escape(str(driver_1 or '—'))
+    _d2 = html_lib.escape(str(driver_2 or '—'))
+    _l1 = html_lib.escape(str(lap_time_1 or '—'))
+    _l2 = html_lib.escape(str(lap_time_2 or '—'))
     return (fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + r'''
-.hud{border:1px solid var(--k-line);border-radius:var(--k-r-l);padding:12px;background:var(--k-panel)}
-.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.title{font:600 13px var(--k-f-ui);letter-spacing:.02em}
-.sub{font-size:10px;color:var(--k-dim);margin-top:5px;line-height:1.5}
-.tag{border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--team);border-radius:var(--k-r-s);
-  padding:6px 9px;font:700 11px var(--k-f-ui);color:var(--k-ink);background:var(--k-raised)}
-.legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.legend span{border:1px solid var(--k-line);border-radius:var(--k-r-pill,999px);padding:4px 9px;
-  font:600 10px var(--k-f-data);letter-spacing:.04em;color:var(--k-dim);background:var(--k-void)}
-.legend span[title]{cursor:help}
-.map{margin-top:9px;border:1px solid var(--k-line);border-radius:var(--k-r-m);overflow:hidden;
-  background:radial-gradient(circle at 50% 45%,var(--k-panel),var(--k-void) 82%)}
-canvas{width:100%;height:392px;display:block}
-.sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
-.sector{border:1px solid var(--k-line);border-top:var(--k-edge) solid var(--c);border-radius:var(--k-r-s);
-  padding:8px;background:var(--k-void);font:600 12px var(--k-f-data);font-variant-numeric:tabular-nums}
-.sector small{display:block;color:var(--k-dim);font-family:var(--k-f-ui);margin-bottom:6px;font-size:11px}
-.sector .win{opacity:1}
-.sector .lose{opacity:.62}
-.sector .win::before{content:"\25B2 ";font-size:9px;vertical-align:1px}
-.sector .lose::before{content:"\2013 ";opacity:.6}
-.msec{margin-top:12px}
-.mslab{display:flex;justify-content:space-between;gap:8px;font:600 11px var(--k-f-data);color:var(--k-mute);margin-bottom:5px}
-.mslab s{font-style:normal;font-weight:700}
-.msrow{position:relative;display:flex;align-items:stretch;gap:1px;height:48px}
+/* ============================================================
+   2D TUR DUELLOSU - F1 yayin telemetri panosu
+   Split-screen pilot basligi - neon takim aksani - mono veri.
+   JS motoru (durum/canvas/delta) DEGISMEDI - id/class korundu.
+   ============================================================ */
+.d2{display:flex;flex-direction:column;gap:14px;font-family:var(--k-f-ui)}
+#tags{display:none}
+.delta{display:none}
+.d2-vs{display:grid;grid-template-columns:1fr minmax(172px,auto) 1fr;align-items:stretch;
+  border:1px solid var(--k-line);border-radius:var(--k-r-l);overflow:hidden;background:var(--k-panel)}
+.d2-drv{position:relative;display:flex;flex-direction:column;gap:2px;padding:15px 20px 16px;min-width:0;
+  border-bottom:2px solid var(--tc)}
+.d2-drv::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--tc);
+  box-shadow:0 0 14px 1px var(--tc)}
+.d2-drv--b{align-items:flex-end;text-align:right}
+.d2-drv-eb{font:600 8.5px var(--k-f-data);letter-spacing:.18em;text-transform:uppercase;color:var(--k-mute);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.d2-drv-code{font:700 32px/1 var(--k-f-data);letter-spacing:-.03em;color:var(--tc);margin-top:6px}
+.d2-drv-lap{font:500 16px/1 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:.01em;
+  color:var(--k-ink);margin-top:8px}
+.d2-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:12px 16px;
+  border-left:1px solid var(--k-line);border-right:1px solid var(--k-line);background:var(--k-void)}
+.d2-mid-eb{font:600 8px var(--k-f-data);letter-spacing:.22em;text-transform:uppercase;color:var(--k-mute)}
+.d2-mid-delta{font:700 14px/1.35 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.005em;
+  color:var(--k-ink);text-align:center}
+.d2-mid-note{font:500 8px var(--k-f-data);letter-spacing:.06em;text-transform:uppercase;color:var(--k-mute)}
+.d2-panel{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);overflow:hidden}
+.d2-panel-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 15px;
+  border-bottom:1px solid var(--k-line);font:600 9px var(--k-f-data);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--k-mute)}
+.d2-sub-hd{border:0;border-left:2px solid var(--k-cyan);border-radius:0;padding:1px 0 1px 11px;margin:0 0 -4px}
+.d2-legend{display:flex;gap:12px;flex-wrap:wrap}
+.d2-legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px;
+  font:600 8px var(--k-f-data);letter-spacing:.06em;color:var(--k-dim)}
+.d2-legend i::before{content:"";width:9px;height:2px;background:var(--l);box-shadow:0 0 7px var(--l)}
+.d2-canvaswrap{background:radial-gradient(120% 90% at 50% 42%,var(--k-panel),var(--k-void) 90%)}
+canvas#duel{width:100%;height:430px;display:block}
+.sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.sector{position:relative;border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-panel);
+  padding:12px 14px 14px;overflow:hidden}
+.sector::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--c);
+  box-shadow:0 0 11px 0 var(--c)}
+.sector small{display:block;font:600 8px var(--k-f-data);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--k-mute);margin-bottom:10px}
+.sector>div{font:600 13.5px var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:.01em;padding:2px 0}
+.sector .win{opacity:1;font-weight:700}
+.sector .lose{opacity:.45}
+.sector .win::before{content:"\25B2";font-size:8px;margin-right:6px;vertical-align:1px}
+.sector .lose::before{content:"\2013";margin-right:6px;opacity:.6}
+.sector>div:last-child{margin-top:6px;font:600 11px var(--k-f-data);color:var(--k-dim) !important;letter-spacing:.03em}
+#msec{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-panel);padding:13px 15px 15px}
+.mslab{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  font:600 8px var(--k-f-data);letter-spacing:.11em;text-transform:uppercase;color:var(--k-mute);margin-bottom:11px}
+.mslab s{font-style:normal;font-weight:700;letter-spacing:.05em}
+.msrow{position:relative;display:flex;align-items:stretch;gap:2px;height:56px}
 .msrow::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--k-line-lit);z-index:1}
-.msbar{flex:1;position:relative;cursor:help}
-.msbar i{position:absolute;left:0;right:0;display:block;border-radius:1px}
-.msbar.c0 i{bottom:50%;background:var(--mc0,var(--k-green))}
-.msbar.c1 i{top:50%;background:var(--mc1,var(--k-pink))}
-.msbar.big i{box-shadow:0 0 0 1px rgba(255,255,255,.4)}
-.dtrace{margin-top:12px}
-.dtlab{display:flex;justify-content:space-between;gap:8px;font:600 11px var(--k-f-data);color:var(--k-mute);
-  margin-bottom:5px;flex-wrap:wrap}
+.msbar{flex:1;position:relative;cursor:help;min-width:0}
+.msbar i{position:absolute;left:1px;right:1px;display:block;border-radius:1.5px;transition:height .12s ease}
+.msbar.c0 i{bottom:50%;margin-bottom:1px;background:var(--mc0,var(--k-green))}
+.msbar.c1 i{top:50%;margin-top:1px;background:var(--mc1,var(--k-pink))}
+.msbar.big i{box-shadow:0 0 9px -1px currentColor;filter:brightness(1.18)}
+.dtrace{padding:13px 15px 15px}
+.dtlab{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  font:500 8.5px var(--k-f-data);letter-spacing:.05em;text-transform:uppercase;color:var(--k-mute);margin-bottom:9px}
 .dtlab s{font-style:normal;font-weight:700}
-.dtrace canvas{width:100%;height:104px;display:block;border:1px solid var(--k-line);border-radius:var(--k-r-s);
+canvas#dtcv{width:100%;height:120px;display:block;border:1px solid var(--k-line);border-radius:var(--k-r-s);
   background:var(--k-void);cursor:crosshair}
-.bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
-.btn{border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-raised);color:var(--k-ink);
-  font:700 11px var(--k-f-ui);padding:7px 10px;cursor:pointer;transition:background .18s ease}
-.btn:hover{background:var(--k-hover)}
-.btn.active{border-color:color-mix(in srgb,var(--k-red) 60%,transparent);
-  background:color-mix(in srgb,var(--k-red) 16%,transparent)}
-.slider{flex:1;min-width:130px;accent-color:var(--k-red)}
-.delta{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums;margin-left:auto}
-@media(max-width:650px){canvas{height:320px}.sectors{grid-template-columns:1fr}.delta{width:100%;margin-left:0}}
+.d2-transport{display:flex;align-items:center;gap:11px;flex-wrap:wrap;border:1px solid var(--k-line);
+  border-radius:var(--k-r-l);background:var(--k-panel);padding:11px 15px}
+.btn{border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-raised);color:var(--k-dim);
+  font:700 10px var(--k-f-data);letter-spacing:.05em;padding:8px 12px;cursor:pointer;transition:all .16s ease}
+.btn:hover{color:var(--k-ink);border-color:var(--k-line-lit)}
+.btn.active{color:var(--k-void);background:var(--k-cyan);border-color:var(--k-cyan)}
+.d2-play{min-width:82px;color:var(--k-ink);border-color:var(--k-line-lit);text-transform:uppercase;letter-spacing:.08em}
+.d2-play:hover{background:var(--k-hover)}
+.d2-rates{display:flex;gap:2px;padding:2px;border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-void)}
+.d2-rates .btn{border:0;background:transparent;padding:7px 10px}
+.d2-rates .btn.active{background:var(--k-raised);color:var(--k-ink)}
+.slider{flex:1;min-width:150px;accent-color:var(--k-cyan);height:4px}
+@media(max-width:680px){
+  .d2-vs{grid-template-columns:1fr 1fr}
+  .d2-mid{grid-column:1/-1;order:3;flex-direction:row;gap:10px;border:0;border-top:1px solid var(--k-line)}
+  canvas#duel{height:300px}
+  .sectors{grid-template-columns:1fr}
+}
 </style>
-<div class="hud">
-  <div class="head">
-    <div><div class="title">2D TUR DÜELLOSU</div><div class="sub">İKİ TUR ORTAK ZAMAN EKSENİNDE — AYNI PİST NOKTASINDAKİ DELTA</div></div>
-    <div id="tags"></div>
-  </div>
-  <div class="legend" id="legend"><span>START / BİTİŞ</span><span style="border-color:#33d6c8;color:#8fd8ff" title="Straight Mode — düzlükte düşük sürtünme bölgesi. Eski adıyla DRS.">SM · düzlük (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode — ekstra elektrik gücü kullanılabilen, geçiş şansı yüksek bölge. Yayın diliyle ERS hücum / push-to-pass.">OM · geçiş (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektör</span></div>
-  <div class="sub" id="colnote" style="margin-top:6px">Renk kodu: her yerde <b id="cn0">1. pilot</b> ve <b id="cn1">2. pilot</b> kendi takım renginde — sektör kutuları, mini-sektör çubukları ve Δ izi dahil.</div>
-  <div class="map"><canvas id="duel"></canvas></div>
-  <div class="sectors" id="sectors"></div>
-  <div class="msec" id="msec"></div>
-  <div class="dtrace" id="dtrace"><div class="dtlab"><span>KÜMÜLATİF &Delta; — tur boyunca zaman farkının gelişimi (çizgi yukarıda = <s id="dtc0">1.</s> pilot önde) — imlece tıkla</span><span><s id="dtnow">&Delta; --</s></span></div><canvas id="dtcv"></canvas></div>
-  <div class="bottom">
-    <button class="btn" id="play">Oynat</button>
-    <button class="btn active" data-rate="1">1x</button><button class="btn" data-rate="2">2x</button>
-    <button class="btn" data-rate="4">4x</button><button class="btn" data-rate="8">8x</button>
-    <input id="range" class="slider" type="range" min="0" max="1000" value="0">
-    <span class="delta" id="delta">Δ --</span>
-  </div>
-</div>
+''' + f'''<div class="d2"><header class="d2-vs"><div class="d2-drv d2-drv--a" style="--tc:{_c1}"><span class="d2-drv-eb">{_t1}</span><span class="d2-drv-code" id="cn0">{_d1}</span><span class="d2-drv-lap">{_l1}</span></div><div class="d2-mid"><span class="d2-mid-eb">Canli &#916;</span><span class="d2-mid-delta" id="delta">&#916; --</span><span class="d2-mid-note">ortak zaman ekseni</span></div><div class="d2-drv d2-drv--b" style="--tc:{_c2}"><span class="d2-drv-eb">{_t2}</span><span class="d2-drv-code" id="cn1">{_d2}</span><span class="d2-drv-lap">{_l2}</span></div></header><div id="tags" hidden></div><section class="d2-panel"><div class="d2-panel-hd"><span>Pist &#246;rt&#252;&#351;mesi</span><span class="d2-legend" id="legend"><i style="--l:#33d6c8">SM &#8776; DRS</i><i style="--l:#71e6a1">OM &#8776; ERS</i><i style="--l:#f4d35e">sekt&#246;r</i></span></div><div class="d2-canvaswrap"><canvas id="duel"></canvas></div></section><div class="d2-panel-hd d2-sub-hd">Sekt&#246;r kar&#351;&#305;la&#351;t&#305;rmas&#305;</div><div class="sectors" id="sectors"></div><div id="msec"></div><section class="d2-panel"><div class="dtrace" id="dtrace"><div class="dtlab"><span>K&#252;m&#252;latif &#916; &#183; &#231;izgi yukar&#305;da <s id="dtc0">1.</s> &#246;nde &#183; imlece t&#305;kla</span><span><s id="dtnow">&#916; --</s></span></div><canvas id="dtcv"></canvas></div></section><div class="d2-transport"><button class="btn d2-play" id="play">Oynat</button><div class="d2-rates"><button class="btn active" data-rate="1">1&#215;</button><button class="btn" data-rate="2">2&#215;</button><button class="btn" data-rate="4">4&#215;</button><button class="btn" data-rate="8">8&#215;</button></div><input id="range" class="slider" type="range" min="0" max="1000" value="0"></div></div>''' + r'''
 <script>
 "use strict";
 (function(){
@@ -13259,7 +13288,6 @@ def _router_page_telemetry():
             # --- MOD 2: 2D TUR DÜELLOSU ---
             elif analiz_turu == "2D Tur Düellosu":
                 fp_ui.section_title(f"{session.event['EventName']} · 2D Tur Düellosu{header_suffix}")
-                st.caption("Mesafe modu aynı virajdaki hız farkını; gerçek zaman modu iki turun fiziksel zaman farkını gösterir.")
 
                 duel_col_1, duel_col_2 = st.columns(2)
                 default_1 = drivers_list.index("VER") if "VER" in drivers_list else 0
@@ -13311,21 +13339,9 @@ def _router_page_telemetry():
                         colour_2 = colour_for_driver(duel_driver_2, team_2)
                         if colour_1 == colour_2:
                             colour_1, colour_2 = "#E10600", "#38BDF8"
-                        gap_seconds = abs(duel_lap_1['LapTime'].total_seconds() - duel_lap_2['LapTime'].total_seconds())
                         duel_overlay = build_track_overlay(duel_tel_1, duel_lap_1, session)
                         duel_sectors_1 = [format_time(duel_lap_1.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
                         duel_sectors_2 = [format_time(duel_lap_2.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
-                        _mc = st.columns(4)
-                        with _mc[0]:
-                            fp_ui.stat_tile(f"{duel_driver_1} turu", format_time(duel_lap_1['LapTime']), accent="red")
-                        with _mc[1]:
-                            fp_ui.stat_tile(f"{duel_driver_2} turu", format_time(duel_lap_2['LapTime']), accent="cyan")
-                        with _mc[2]:
-                            fp_ui.stat_tile("Tur farki", f"{gap_seconds:.3f} sn", accent="amber")
-                        with _mc[3]:
-                            fp_ui.stat_tile("Onde olan",
-                                            duel_driver_1 if duel_lap_1['LapTime'] < duel_lap_2['LapTime'] else duel_driver_2,
-                                            accent="green", mono=False)
                         render_html_hud(
                             two_driver_duel_html_repaired(
                                 duel_tel_1, duel_tel_2, duel_driver_1, duel_driver_2, team_1, team_2,
@@ -13333,10 +13349,10 @@ def _router_page_telemetry():
                                 duel_lap_1['LapTime'].total_seconds(), duel_lap_2['LapTime'].total_seconds(), duel_overlay,
                                 duel_sectors_1, duel_sectors_2
                             ),
-                            height=880,
+                            height=1040,
                             scrolling=True
                         )
-                        fp_ui.data_state("İÇGÖRÜ", get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2), "success")
+                        st.caption(get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2))
 
             # --- MOD 3: DETAYLI TELEMETRİ & FREN ANALİZİ ---
             elif analiz_turu == "Telemetri & Fren Analizi":
