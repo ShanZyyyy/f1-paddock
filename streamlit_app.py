@@ -124,7 +124,7 @@ def render_html_hud(markup, height=150, scrolling=False):
 
 def render_data_state(title, message, tone='info'):
     """Yükleme/hata/boş veri durumlarının ortak HUD görünümü."""
-    colours = {'info': '#5ddcff', 'success': '#6ee7b7', 'warning': '#f7c948', 'error': '#ff6677'}
+    colours = {'info': '#33d6c8', 'success': '#6ee7b7', 'warning': '#f5b843', 'error': '#ff6677'}
     colour = colours.get(tone, colours['info'])
     st.markdown(
         f"<div class='hud-card' style='border-left:4px solid {colour}'><div class='hud-label'>{html_lib.escape(title)}</div>"
@@ -172,7 +172,7 @@ def validate_stable_replay_payload(payload):
 
 st.set_page_config(
     page_title="Formula Paddock",
-    page_icon="🏎️",
+    page_icon=None,   # gerçek favicon brand.favicon_link_tag() ile enjekte edilir
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -1119,10 +1119,10 @@ st.markdown("""
             radial-gradient(circle at 88% -10%, rgba(36, 99, 235, .13), transparent 30%),
             radial-gradient(circle at 12% 8%, rgba(16, 185, 129, .08), transparent 23%),
             #07090d;
-        color: #f2f5f8;
+        color: #eef2f7;
     }
     section[data-testid="stSidebar"] {
-        background-color: #11161f !important;
+        background-color: #141a24 !important;
         border-right: 1px solid #1E293B;
     }
     
@@ -1148,12 +1148,12 @@ st.markdown("""
         font-size: .78rem;
     }
     .hud-label { color:#7f93ab; font-size:.72rem; font-weight:800; letter-spacing:.12em; }
-    .hud-value { color:#f2f5f8; font-size:1rem; font-weight:800; margin-top:3px; }
+    .hud-value { color:#eef2f7; font-size:1rem; font-weight:800; margin-top:3px; }
     .hud-card {
         background:rgba(15,23,42,.78); border:1px solid #273449; border-radius:12px;
         padding:14px 16px; box-shadow:0 9px 22px rgba(0,0,0,.16);
     }
-    .history-copy { color:#a6b6c9; line-height:1.55; font-size:.92rem; }
+    .history-copy { color:#9aa7b8; line-height:1.55; font-size:.92rem; }
     .driver-meta { color:#90a5bc; font-size:.8rem; margin-top:4px; }
     .term-badge { display:inline-block; color:#60a5fa; border:1px solid #1d4ed8; border-radius:99px; padding:2px 7px; font-size:.68rem; font-weight:800; }
     .new-badge { display:inline-block; color:#7fffd4; border:1px solid #0f766e; border-radius:99px; padding:2px 7px; font-size:.68rem; font-weight:800; }
@@ -1168,11 +1168,11 @@ st.markdown("""
     section[data-testid="stSidebar"] button { background:#111927 !important; }
     section[data-testid="stSidebar"] button:hover { border-color:#60a5fa !important; }
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg,#0e1728 0%,#11161f 100%) !important;
+        background: linear-gradient(180deg,#0e1728 0%,#141a24 100%) !important;
     }
 
     .news-card {
-        background: #11161f;
+        background: #141a24;
         border: 1px solid #1E293B;
         border-left: 4px solid #E10600;
         border-radius: 8px;
@@ -1213,7 +1213,7 @@ st.markdown("""
     }
 
     .metric-card {
-        background: #11161f;
+        background: #141a24;
         border: 1px solid #1E293B;
         border-radius: 10px;
         padding: 14px;
@@ -1462,11 +1462,12 @@ def get_session_story(year, event_name, session_code):
 
 
 def round_badge(event):
-    """Geniş tabloda okunabilen ülke bayrağı + pist kısa adı."""
+    """Geniş tabloda okunabilen ülke kodu + pist kısa adı (emoji yok)."""
     country = str(event.get('Country', ''))
     location = str(event.get('Location', event.get('EventName', 'GP')))
     short_name = re.sub(r'[^A-Za-z0-9]', '', location).upper()[:4] or 'GP'
-    return f"{COUNTRY_FLAGS.get(country, '🏁')} {short_name}"
+    cc = COUNTRY_CODES.get(country, '').upper()
+    return f"{cc} {short_name}".strip()
 
 
 def round_key(event):
@@ -1834,19 +1835,19 @@ def championship_matrix_html(matrix, rounds):
         )
     return f"""
     <style>
-        body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}
+        body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}
         /* Dikey kaydırma ana Streamlit sayfasında kalır: 13. pilotta ikinci bir
            küçük kaydırma alanı oluşmaz. Yalnızca çok geniş yarış sütunları yatay kayar. */
-        .matrix-wrap{{overflow-x:auto;overflow-y:visible;max-height:none;border:1px solid #26313f;border-radius:12px;background:#11161f}}
+        .matrix-wrap{{overflow-x:auto;overflow-y:visible;max-height:none;border:1px solid #232c3a;border-radius:12px;background:#141a24}}
         table{{border-collapse:separate;border-spacing:0;min-width:1180px;width:100%;font-size:14px}}
-        th{{position:sticky;top:0;background:#161d28;color:#9fb0c0;padding:13px 10px;text-align:center;font-size:11px;letter-spacing:.08em;border-bottom:1px solid #26313f;z-index:2}}
-        td{{padding:12px 10px;text-align:center;border-bottom:1px solid #1b2330;color:#f2f5f8;font-weight:700}}
-        tr:last-child td{{border-bottom:0}} tr:hover td{{background:#1e2836}}
-        .rank{{position:sticky;left:0;z-index:1;background:#11161f;width:42px;color:#9fb0c0}}
-        .driver{{position:sticky;left:42px;z-index:1;background:#11161f;text-align:left;min-width:165px}}
+        th{{position:sticky;top:0;background:#141a24;color:#9aa7b8;padding:13px 10px;text-align:center;font-size:11px;letter-spacing:.08em;border-bottom:1px solid #232c3a;z-index:2}}
+        td{{padding:12px 10px;text-align:center;border-bottom:1px solid #1b2330;color:#eef2f7;font-weight:700}}
+        tr:last-child td{{border-bottom:0}} tr:hover td{{background:#1b2330}}
+        .rank{{position:sticky;left:0;z-index:1;background:#141a24;width:42px;color:#9aa7b8}}
+        .driver{{position:sticky;left:42px;z-index:1;background:#141a24;text-align:left;min-width:165px}}
         .driver span{{display:block;font-weight:900}} .driver small{{display:block;margin-top:4px;font-size:11px;font-weight:800}}
         .flag{{width:22px;height:15px;object-fit:cover;border-radius:2px;vertical-align:middle;box-shadow:0 1px 4px rgba(0,0,0,.35)}} .driver-flag{{width:18px;height:12px;margin-right:4px}}
-        .points{{position:sticky;left:207px;z-index:1;background:#11161f;min-width:54px;color:#ffffff}}
+        .points{{position:sticky;left:207px;z-index:1;background:#141a24;min-width:54px;color:#ffffff}}
         th.sticky-rank{{left:0;z-index:3}} th.sticky-driver{{left:42px;z-index:3;text-align:left}} th.sticky-points{{left:207px;z-index:3}}
     </style>
     <div class='matrix-wrap'><table><thead><tr><th class='sticky-rank'>SIRA</th><th class='sticky-driver'>PİLOT</th><th class='sticky-points'>PUAN</th>{headers}</tr></thead><tbody>{''.join(rows)}</tbody></table></div>
@@ -1886,15 +1887,15 @@ def constructor_hud_html(standings):
     rest = ''.join(card(row) for _, row in standings.iterrows() if int(row['Sıra']) > 3)
     return f"""
     <style>
-        body{{margin:0;background:transparent;color:#f2f5f8;font-family:'Saira',system-ui,sans-serif}}
+        body{{margin:0;background:transparent;color:#eef2f7;font-family:'Inter',system-ui,sans-serif}}
         .podium-wrap{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end;padding:2px 0 18px}}
-        .podium,.team-card{{position:relative;background:linear-gradient(160deg,#161d28,#11161f);border:1px solid #26313f;
+        .podium,.team-card{{position:relative;background:linear-gradient(160deg,#141a24,#141a24);border:1px solid #232c3a;
           border-top:3px solid var(--team);border-radius:5px;padding:14px 16px;box-sizing:border-box;overflow:hidden}}
         .podium{{min-height:172px;text-align:center}} .p1{{min-height:206px;order:0;box-shadow:0 12px 30px rgba(0,0,0,.35)}} .p2{{order:-1}} .p3{{order:1}}
         .podium img{{height:60px;max-width:128px;object-fit:contain;margin:10px auto 8px;display:block}} .team-card img{{height:38px;max-width:92px;object-fit:contain;margin-bottom:6px;display:block}}
         .place{{position:absolute;right:12px;top:10px;color:var(--team);font:800 13px 'JetBrains Mono',monospace}}
-        .team-name{{color:var(--team);font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-        .team-points{{margin-top:6px;font:800 22px 'JetBrains Mono',monospace}} .team-points small{{font:700 9px 'Saira Condensed',sans-serif;color:#63748a;letter-spacing:.14em;margin-left:4px}}
+        .team-name{{color:var(--team);font:800 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+        .team-points{{margin-top:6px;font:800 22px 'JetBrains Mono',monospace}} .team-points small{{font:700 9px 'Inter',system-ui,sans-serif;color:#6d7a8c;letter-spacing:.14em;margin-left:4px}}
         .team-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}} .team-card{{min-height:108px}}
         @media(max-width:440px){{.podium-wrap,.team-grid{{grid-template-columns:1fr}} .p1,.p2,.p3{{order:initial;min-height:132px}}}}
     </style>
@@ -1920,7 +1921,7 @@ def weekend_overview_hud(event, sessions):
         if not complete and upcoming is None:
             upcoming = item
         local_time = session_time.tz_convert('Europe/Istanbul').strftime('%a %d %b · %H:%M')
-        colour = '#6ee7b7' if complete else '#f7c948'
+        colour = '#6ee7b7' if complete else '#f5b843'
         status = 'TAMAMLANDI' if complete else 'SIRADA'
         cards.append(
             f"<div class='weekend-session' style='--accent:{colour}'><small>{html_lib.escape(item['title'].upper())}</small>"
@@ -1929,8 +1930,8 @@ def weekend_overview_hud(event, sessions):
     next_text = 'Hafta sonu tamamlandı' if upcoming is None else f"Sıradaki: {upcoming['title']} · İstanbul saatiyle {upcoming['time'].tz_convert('Europe/Istanbul').strftime('%d %b %H:%M')}"
     return f"""
     <style>
-      body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}
-      .weekend-hud{{border:1px solid #2a405a;border-radius:14px;padding:15px;background:linear-gradient(125deg,#111c2c,#0c1420);overflow:hidden}}
+      body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}
+      .weekend-hud{{border:1px solid #2a405a;border-radius:14px;padding:15px;background:linear-gradient(125deg,#111c2c,#0a0e14);overflow:hidden}}
       .weekend-head{{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}}
       .eyebrow{{color:#8ba2bc;font-weight:900;font-size:10px;letter-spacing:.12em}}.race-name{{font-size:22px;font-weight:950;margin-top:5px}}.next{{border:1px solid #36506e;background:#122137;border-radius:8px;padding:8px 10px;color:#b8c9db;font-size:11px;font-weight:800}}
       .weekend-sessions{{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}}.weekend-session{{min-height:70px;padding:10px;border:1px solid #294057;border-top:3px solid var(--accent);border-radius:9px;background:#0d1724}}.weekend-session small,.weekend-session span{{display:block;color:#8da4bc;font-weight:900;font-size:10px;letter-spacing:.07em}}.weekend-session b{{display:block;color:#f3f8ff;margin:7px 0;font-size:12px}}.weekend-session span{{color:var(--accent)}}
@@ -1964,23 +1965,23 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds, y
     remaining = max(0, 24 - len(rounds))
     _is_past = bool(year) and int(year) < datetime.datetime.now(datetime.timezone.utc).year
     third_card = (
-        f"<div class='ss-c' style='--a:#f5c33b'><s>Sezon</s><b>{html_lib.escape(str(year))}</b><i>{len(rounds)} yarış tamamlandı</i></div>"
+        f"<div class='ss-c' style='--a:#f5b843'><s>Sezon</s><b>{html_lib.escape(str(year))}</b><i>{len(rounds)} yarış tamamlandı</i></div>"
         if _is_past else
-        f"<div class='ss-c' style='--a:#f5c33b'><s>Kalan Yarış</s><b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>"
+        f"<div class='ss-c' style='--a:#f5b843'><s>Kalan Yarış</s><b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>"
     )
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .ss{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}}
-      .ss-c{{border:1px solid #26313f;border-left:3px solid var(--a);border-radius:5px;
-        padding:14px 16px;background:linear-gradient(160deg,#161d28,#11161f);
+      .ss-c{{border:1px solid #232c3a;border-left:3px solid var(--a);border-radius:5px;
+        padding:14px 16px;background:linear-gradient(160deg,#141a24,#141a24);
         min-height:118px;display:flex;flex-direction:column}}
-      .ss-c s{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.16em;
-        text-transform:uppercase;color:#63748a;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .ss-c b{{font-family:'Antonio','Saira Condensed',sans-serif;font-weight:700;font-size:26px;
+      .ss-c s{{font:700 9.5px 'Inter',system-ui,sans-serif;letter-spacing:.16em;
+        text-transform:uppercase;color:#6d7a8c;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .ss-c b{{font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:26px;
         text-transform:uppercase;letter-spacing:.01em;color:var(--a);margin-top:9px;line-height:.95;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .ss-c i{{font:12px 'JetBrains Mono',monospace;color:#9fb0c0;margin-top:auto;padding-top:8px;font-style:normal;
+      .ss-c i{{font:12px 'JetBrains Mono',monospace;color:#9aa7b8;margin-top:auto;padding-top:8px;font-style:normal;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       @media(max-width:430px){{.ss{{grid-template-columns:1fr}}.ss-c{{min-height:0}}}}
     </style>
@@ -2135,7 +2136,7 @@ def championship_scenarios_v40(driver_standings, remaining):
 def championship_scenarios_html(scn, colour_of):
     """Matematiksel durum HUD'u — güncel puan, tavan, lidere fark, elendi/yarışta."""
     if not scn.get('ok'):
-        return "<div style='padding:18px;color:#8a9bb0;font-family:Saira,sans-serif'>Senaryo için yeterli puan verisi yok.</div>"
+        return "<div style='padding:18px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>Senaryo için yeterli puan verisi yok.</div>"
     head = (f"{scn['races']} yarış" + (f" · {scn['sprints']} sprint" if scn['sprints'] else "")
             + f" kaldı · sahadaki en yüksek kazanç <b>{int(scn['swing'])} puan</b>")
     if scn['races'] == 0:
@@ -2170,26 +2171,26 @@ def championship_scenarios_html(scn, colour_of):
         )
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .scn{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
-      .scn-hd{{padding:13px 16px;border-bottom:1px solid #26313f;font:600 12px 'Saira',sans-serif;color:#c4d2e0}}
-      .scn-hd b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .scn{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
+      .scn-hd{{padding:13px 16px;border-bottom:1px solid #232c3a;font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de}}
+      .scn-hd b{{color:#eef2f7;font-family:'JetBrains Mono',monospace}}
       .scn-ban{{margin:10px 12px 0;padding:9px 12px;border-radius:7px;background:#12212f;
-        border:1px solid #24445c;font:600 12px 'Saira',sans-serif;color:#9fd0ea;line-height:1.5}}
-      .scn-ban.win{{background:#12241a;border-color:#2c5a3b;color:#7fe0a6}}
+        border:1px solid #232c3a;font:600 12px 'Inter',system-ui,sans-serif;color:#9aa7b8;line-height:1.5}}
+      .scn-ban.win{{background:#12241a;border-color:#232c3a;color:#3ecf8e}}
       .scn-list{{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}}
       .scn-row{{display:grid;grid-template-columns:26px 1.6fr repeat(3,64px) 84px;gap:10px;align-items:center;
-        padding:9px 11px;background:#131a24;border:1px solid #222c39;border-left:3px solid var(--c);border-radius:8px}}
-      .pos{{font:700 13px 'JetBrains Mono',monospace;color:#7c8ea0;text-align:center}}
-      .who b{{font:700 13px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
-      .who small{{font:500 11px 'Saira',sans-serif;color:#93a3b6;display:block;margin-top:1px;
+        padding:9px 11px;background:#131a24;border:1px solid #232c3a;border-left:3px solid var(--c);border-radius:8px}}
+      .pos{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
+      .who b{{font:700 13px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
+      .who small{{font:500 11px 'Inter',system-ui,sans-serif;color:#9aa7b8;display:block;margin-top:1px;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .num{{text-align:right;font:700 13px 'JetBrains Mono',monospace}}
-      .num s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.06em;color:#8090a2;text-decoration:none;margin-bottom:2px}}
+      .num s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.06em;color:#6d7a8c;text-decoration:none;margin-bottom:2px}}
       .st{{text-align:right}}
-      .pill{{display:inline-block;font:800 11px 'Saira Condensed',sans-serif;letter-spacing:.05em;padding:4px 8px;border-radius:5px;white-space:nowrap}}
-      .pill.live{{background:#12241a;color:#7fe0a6}} .pill.out{{background:#241417;color:#ff8b78}}
-      .pill.done{{background:#151b25;color:#63748a}}
+      .pill{{display:inline-block;font:800 11px 'Inter',system-ui,sans-serif;letter-spacing:.05em;padding:4px 8px;border-radius:5px;white-space:nowrap}}
+      .pill.live{{background:#12241a;color:#3ecf8e}} .pill.out{{background:#241417;color:#ff8a70}}
+      .pill.done{{background:#151b25;color:#6d7a8c}}
       @media(max-width:620px){{
         .scn-row{{grid-template-columns:22px 1fr 56px 78px;row-gap:4px}}
         .num:nth-of-type(3){{display:none}} .st{{grid-column:3/-1;text-align:left}}
@@ -2223,17 +2224,17 @@ def championship_projection_html(leader, challenger, leader_pts, challenger_pts,
         )
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .pj{{border:1px solid #26313f;border-radius:12px;background:#11161f;padding:15px 16px}}
-      .pj-v-hd{{font:700 10px 'Saira Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#63748a}}
-      .pj-verdict{{font:700 16px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .pj{{border:1px solid #232c3a;border-radius:12px;background:#141a24;padding:15px 16px}}
+      .pj-v-hd{{font:700 10px 'Inter',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6d7a8c}}
+      .pj-verdict{{font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;
         color:{champ_col};margin:6px 0 14px}}
       .pj-row{{display:grid;grid-template-columns:120px 1fr 46px;gap:10px;align-items:center;padding:5px 0}}
-      .pj-n{{font:600 12px 'Saira',sans-serif;color:#c4d2e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .pj-n{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .pj-bar{{height:14px;background:#0a111b;border-radius:4px;overflow:hidden}}
       .pj-bar i{{display:block;height:100%}}
       .pj-v{{font:700 14px 'JetBrains Mono',monospace;text-align:right}}
-      .pj-note{{margin-top:12px;font:500 11px 'Saira',sans-serif;color:#8a9bb0}}
+      .pj-note{{margin-top:12px;font:500 11px 'Inter',system-ui,sans-serif;color:#8a9bb0}}
     </style>
     <div class="pj">
       <div class="pj-v-hd">Senaryo sonucu</div>
@@ -2342,9 +2343,9 @@ def season_h2h_v41(result_matrix, points_matrix, rounds, standings, code_a, code
 def season_h2h_html(h, colour_a, colour_b):
     """Kafa-kafaya HUD'u — güncel puan farkı, yarışta önde sayısı, form, tur şeridi."""
     if not h.get('ok'):
-        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>"
                 "Bu iki pilot için bu sezona ait karşılaştırma verisi yok.</div>")
-    ca, cb = colour_a or '#e10600', colour_b or '#38e1d0'
+    ca, cb = colour_a or '#e10600', colour_b or '#33d6c8'
     gap = h['pts_a'] - h['pts_b']
     ahead, ahead_col = (h['a'], ca) if gap >= 0 else (h['b'], cb)
     total_races = max(1, h['race_w_a'] + h['race_w_b'])
@@ -2363,41 +2364,41 @@ def season_h2h_html(h, colour_a, colour_b):
                        f"{h['spr_w_b']} <b>{h['b']}</b></div>")
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .h2h{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .h2h{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
       .h2h-top{{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
-        padding:16px;border-bottom:1px solid #26313f}}
+        padding:16px;border-bottom:1px solid #232c3a}}
       .h2h-d{{display:flex;flex-direction:column;gap:3px}}
       .h2h-d.r{{align-items:flex-end;text-align:right}}
-      .h2h-d b{{font:800 20px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-      .h2h-d s{{font:600 11px 'Saira',sans-serif;color:#93a3b6;text-decoration:none;
+      .h2h-d b{{font:800 20px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .h2h-d s{{font:600 11px 'Inter',system-ui,sans-serif;color:#9aa7b8;text-decoration:none;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}}
       .h2h-d i{{font:700 15px 'JetBrains Mono',monospace;font-style:normal;margin-top:2px}}
       .h2h-gap{{text-align:center}}
-      .h2h-gap s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#8090a2;text-decoration:none}}
+      .h2h-gap s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:#6d7a8c;text-decoration:none}}
       .h2h-gap b{{font:800 22px 'JetBrains Mono',monospace;color:{ahead_col}}}
-      .h2h-gap em{{display:block;font:600 11px 'Saira',sans-serif;font-style:normal;color:#a8b8c8;margin-top:2px}}
+      .h2h-gap em{{display:block;font:600 11px 'Inter',system-ui,sans-serif;font-style:normal;color:#a8b8c8;margin-top:2px}}
       .h2h-body{{padding:14px 16px}}
-      .h2h-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin:2px 0 7px}}
-      .h2h-bar{{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #26313f;font:800 12px 'JetBrains Mono',monospace}}
+      .h2h-hd{{font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6d7a8c;margin:2px 0 7px}}
+      .h2h-bar{{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #232c3a;font:800 12px 'JetBrains Mono',monospace}}
       .h2h-bar i{{display:flex;align-items:center;justify-content:center;color:#05080d;min-width:34px}}
       .h2h-bar .ba{{background:{ca};width:{a_share}%}} .h2h-bar .bb{{background:{cb};flex:1}}
-      .h2h-sub{{margin-top:9px;font:600 12px 'Saira',sans-serif;color:#a8b8c8}}
+      .h2h-sub{{margin-top:9px;font:600 12px 'Inter',system-ui,sans-serif;color:#a8b8c8}}
       .h2h-sub b{{color:#e8eef4}}
       .h2h-mom{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}}
-      .h2h-mom>div{{border:1px solid #222c39;border-radius:8px;padding:9px 11px;background:#131a24}}
-      .h2h-mom s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.08em;color:#8090a2;text-decoration:none}}
+      .h2h-mom>div{{border:1px solid #232c3a;border-radius:8px;padding:9px 11px;background:#131a24}}
+      .h2h-mom s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.08em;color:#6d7a8c;text-decoration:none}}
       .h2h-mom b{{font:700 17px 'JetBrains Mono',monospace;margin-top:3px;display:block}}
-      .h2h-mom em{{font:600 11px 'Saira',sans-serif;font-style:normal;color:#7fe0a6}}
+      .h2h-mom em{{font:600 11px 'Inter',system-ui,sans-serif;font-style:normal;color:#3ecf8e}}
       .h2h-strip{{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px}}
       .cell{{flex:1 0 48px;text-align:center;font:700 10px 'JetBrains Mono',monospace;padding:6px 2px;border-radius:4px;
-        border:1px solid #222c39;cursor:help;color:#c9d6e2}}
+        border:1px solid #232c3a;cursor:help;color:#c9d6e2}}
       .cell::before{{font-size:9px;margin-right:2px;opacity:.9}}
-      .cell.a{{background:color-mix(in srgb,{ca} 26%,#11161f);border-color:{ca}}}
+      .cell.a{{background:color-mix(in srgb,{ca} 26%,#141a24);border-color:{ca}}}
       .cell.a::before{{content:"◂"}}
-      .cell.b{{background:color-mix(in srgb,{cb} 26%,#11161f);border-color:{cb}}}
+      .cell.b{{background:color-mix(in srgb,{cb} 26%,#141a24);border-color:{cb}}}
       .cell.b::before{{content:"▸"}}
-      .cell.d{{background:#161d28}}
+      .cell.d{{background:#141a24}}
       .cell.d::before{{content:"=";opacity:.5}}
       @media(max-width:560px){{.h2h-top{{grid-template-columns:1fr auto 1fr;gap:6px}}.h2h-d b{{font-size:16px}}.h2h-mom{{grid-template-columns:1fr}}}}
     </style>
@@ -2491,9 +2492,9 @@ def career_h2h_v49(prof_a, prof_b):
 
 def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=0):
     if not h.get('ok'):
-        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>"
                 "Bu iki pilotun kariyer kaydı şu an alınamadı.</div>")
-    ca, cb = colour_a or '#e10600', colour_b or '#38e1d0'
+    ca, cb = colour_a or '#e10600', colour_b or '#33d6c8'
     a, b = h['career_a'], h['career_b']
 
     def grid(code, s, titles, col, right=False):
@@ -2534,33 +2535,33 @@ def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=
 
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ch{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
-      .ch-hd{{padding:12px 15px;border-bottom:1px solid #26313f;font:800 13px 'Saira Condensed',sans-serif;
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .ch{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
+      .ch-hd{{padding:12px 15px;border-bottom:1px solid #232c3a;font:800 13px 'Inter',system-ui,sans-serif;
         text-transform:uppercase;letter-spacing:.03em}}
       .ch-cols{{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1b2330}}
       .ch-col{{background:#131a24;padding:12px 14px;border-top:3px solid var(--c)}}
       .ch-col.r{{text-align:right}} .ch-col.r .ch-grid{{direction:rtl}}
-      .ch-name{{font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
+      .ch-name{{font:800 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
       .ch-grid{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
-      .ch-grid s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.06em;color:#8090a2;text-decoration:none}}
+      .ch-grid s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.06em;color:#6d7a8c;text-decoration:none}}
       .ch-grid b{{font:700 14px 'JetBrains Mono',monospace;margin-top:2px;display:block}}
       .ch-tm{{padding:13px 15px}}
-      .ch-tmhd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin-bottom:12px}}
+      .ch-tmhd{{font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6d7a8c;margin-bottom:12px}}
       .ch-tl{{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center;
         font:800 13px 'JetBrains Mono',monospace;margin:16px 0 8px;position:relative}}
       .ch-tl:first-of-type{{margin-top:4px}}
-      .ch-tl em{{position:absolute;left:50%;transform:translateX(-50%);top:-13px;font:700 11px 'Saira Condensed',sans-serif;
-        font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:#93a3b6}}
+      .ch-tl em{{position:absolute;left:50%;transform:translateX(-50%);top:-13px;font:700 11px 'Inter',system-ui,sans-serif;
+        font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:#9aa7b8}}
       .ch-bar{{display:flex;height:13px;border-radius:3px;overflow:hidden;background:#0a111b}}
       .ch-bar i{{display:block;height:100%}}
       .ch-srows{{margin-top:10px;border-top:1px solid #1b2330}}
       .ch-srow{{display:grid;grid-template-columns:46px 1fr 64px 64px;gap:8px;align-items:center;
         padding:5px 0;border-bottom:1px solid #1b2330;font:700 11px 'JetBrains Mono',monospace}}
-      .ch-srow .yr{{color:#63748a}}
-      .ch-srow .tm{{font:600 11px 'Saira',sans-serif;color:#c4d2e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .ch-srow .yr{{color:#6d7a8c}}
+      .ch-srow .tm{{font:600 11px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .ch-srow .sc{{text-align:right;color:#c2d4e6}}
-      .ch-note{{color:#8a9bb0;font:500 12px 'Saira',sans-serif;line-height:1.5}}
+      .ch-note{{color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif;line-height:1.5}}
       @media(max-width:560px){{.ch-grid{{grid-template-columns:1fr 1fr}}.ch-name{{font-size:14px}}}}
     </style>
     <div class="ch">
@@ -2603,14 +2604,14 @@ def session_leaderboard_html(table, title):
     rest = ''.join(row_html(row) for row in rows[3:])
     return f"""
     <style>
-        body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}
-        .wrap{{border:1px solid #2c3c53;border-radius:13px;background:#11161f;overflow:hidden}}
+        body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}
+        .wrap{{border:1px solid #2c3c53;border-radius:13px;background:#141a24;overflow:hidden}}
         .head{{padding:13px 16px;background:#151f2f;border-bottom:1px solid #2c3c53;font-weight:900;letter-spacing:.04em}}
         .sub{{font-size:11px;color:#8ea4bc;margin-top:4px;font-weight:700}}
         .tops{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}}
         .top{{background:#111b2a;border:1px solid #2c3c53;border-top:4px solid var(--team);border-radius:10px;padding:12px;position:relative;min-height:64px}}
         .top .rank{{color:var(--team);font-size:20px;font-weight:900;position:absolute;right:12px;top:8px}}
-        .pilot{{font-weight:900;color:#f2f5f8}} .pilot small{{display:block;color:var(--team);font-size:11px;margin-top:4px;font-weight:800}}
+        .pilot{{font-weight:900;color:#eef2f7}} .pilot small{{display:block;color:var(--team);font-size:11px;margin-top:4px;font-weight:800}}
         .lap{{margin-top:7px;color:#d7e4f4;font-family:ui-monospace,Consolas,monospace;font-weight:800}}
         .tyre{{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border:2px solid var(--tyre);border-radius:50%;font-size:10px;color:var(--tyre);font-weight:900;margin-left:7px}}
         .leader-list{{border-top:1px solid #243145}}
@@ -2798,8 +2799,8 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
         {'code': str(driver_2), 'team': str(team_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': second, 'sectors': sector_times_2 or []},
     ], 'overlay': track_overlay or {}})
     return r'''<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #232c3a;border-radius:13px;padding:12px;background:#141a24}
 .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .title{font-size:13px;font-weight:950;letter-spacing:.09em}
 .sub{font-size:11px;color:#a8b8c8;margin-top:5px;line-height:1.5}
@@ -2807,10 +2808,10 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .legend span{border:1px solid #35506d;border-radius:99px;padding:4px 9px;font:800 11px Inter,Arial,sans-serif;color:#c2d4e6;background:#101f34}
 .legend span[title]{cursor:help}
-.map{margin-top:9px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+.map{margin-top:9px;border:1px solid #232c3a;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
 canvas{width:100%;height:392px;display:block}
 .sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
-.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#161d28;font:800 12px ui-monospace,Consolas,monospace}
+.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#141a24;font:800 12px ui-monospace,Consolas,monospace}
 .sector small{display:block;color:#a8b8c8;font-family:Inter,Arial,sans-serif;margin-bottom:6px;font-size:11px}
 .sector .win{opacity:1}
 .sector .lose{opacity:.62}
@@ -2829,9 +2830,9 @@ canvas{width:100%;height:392px;display:block}
 .dtrace{margin-top:12px}
 .dtlab{display:flex;justify-content:space-between;gap:8px;font:700 11px ui-monospace,Consolas,monospace;color:#8ea4bc;margin-bottom:5px;flex-wrap:wrap}
 .dtlab s{font-style:normal;font-weight:900}
-.dtrace canvas{width:100%;height:104px;display:block;border:1px solid #26313f;border-radius:8px;background:#0d131c;cursor:crosshair}
+.dtrace canvas{width:100%;height:104px;display:block;border:1px solid #232c3a;border-radius:8px;background:#0d131c;cursor:crosshair}
 .bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
-.btn{border:1px solid #2b3a4d;border-radius:7px;background:#161d28;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}
+.btn{border:1px solid #2b3a4d;border-radius:7px;background:#141a24;color:#eef2f7;font-weight:900;padding:7px 9px;cursor:pointer}
 .btn.active{border-color:#ff4757;background:#3a0f12}
 .slider{flex:1;min-width:130px;accent-color:#ff4051}
 .delta{font:900 12px ui-monospace,Consolas,monospace;margin-left:auto}
@@ -2842,7 +2843,7 @@ canvas{width:100%;height:392px;display:block}
     <div><div class="title">2D TUR DÜELLOSU</div><div class="sub">İKİ TUR ORTAK ZAMAN EKSENİNDE — AYNI PİST NOKTASINDAKİ DELTA</div></div>
     <div id="tags"></div>
   </div>
-  <div class="legend" id="legend"><span>START / BİTİŞ</span><span style="border-color:#45c8ff;color:#8fd8ff" title="Straight Mode — düzlükte düşük sürtünme bölgesi. Eski adıyla DRS.">SM · düzlük (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode — ekstra elektrik gücü kullanılabilen, geçiş şansı yüksek bölge. Yayın diliyle ERS hücum / push-to-pass.">OM · geçiş (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektör</span></div>
+  <div class="legend" id="legend"><span>START / BİTİŞ</span><span style="border-color:#33d6c8;color:#8fd8ff" title="Straight Mode — düzlükte düşük sürtünme bölgesi. Eski adıyla DRS.">SM · düzlük (≈DRS)</span><span style="border-color:#71e6a1;color:#9af0c4" title="Overtake Mode — ekstra elektrik gücü kullanılabilen, geçiş şansı yüksek bölge. Yayın diliyle ERS hücum / push-to-pass.">OM · geçiş (≈ERS)</span><span style="border-color:#f4d35e;color:#f4d35e">sektör</span></div>
   <div class="sub" id="colnote" style="margin-top:6px">Renk kodu: her yerde <b id="cn0">1. pilot</b> ve <b id="cn1">2. pilot</b> kendi takım renginde — sektör kutuları, mini-sektör çubukları ve Δ izi dahil.</div>
   <div class="map"><canvas id="duel"></canvas></div>
   <div class="sectors" id="sectors"></div>
@@ -2930,7 +2931,7 @@ function drawOverlay(){
       const s=T(q); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); }
     ctx.strokeStyle=c; ctx.lineWidth=6; ctx.globalAlpha=.85; ctx.stroke(); ctx.globalAlpha=1;
     mark(z.start,label,c); };
-  (O.straights||[]).forEach(function(z,i){ zone(z, i?'OM':'SM', i?'#71e6a1':'#45c8ff'); });
+  (O.straights||[]).forEach(function(z,i){ zone(z, i?'OM':'SM', i?'#71e6a1':'#33d6c8'); });
   mark(0,'START / BITIS','#ffffff');
   (O.sectors||[]).forEach(function(x){ mark(x.fraction,x.label,x.colour||'#f4d35e'); });
   (O.pit||[]).forEach(function(x){ mark(x.fraction,x.label,'#b79cff'); });
@@ -2939,7 +2940,7 @@ function drawOverlay(){
 function draw(){
   if(!V) return;
   ctx.clearRect(0,0,V.w,V.h);
-  if(!line.length){ ctx.fillStyle='#9fb0c0'; ctx.font='700 12px Inter,Arial,sans-serif'; ctx.textAlign='center';
+  if(!line.length){ ctx.fillStyle='#9aa7b8'; ctx.font='700 12px Inter,Arial,sans-serif'; ctx.textAlign='center';
     ctx.fillText('Bu tur icin konum telemetrisi yok.', V.w/2, V.h/2); return; }
   ctx.lineJoin='round'; ctx.lineCap='round';
   ctx.beginPath(); for(let i=0;i<line.length;i++){ const s=T(line[i]); i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1]); } ctx.closePath();
@@ -3091,7 +3092,7 @@ function buildStatic(){
     return '<div class="sector" style="--c:'+(d<0?col0:d>0?col1:'#7f97ac')+'"><small>SEKTOR '+(i+1)+' - '+lead+' onde</small>'
       +'<div class="'+(ok&&d<=0?'win':'lose')+'" style="color:'+col0+'">'+cars[0].code+' '+a+'</div>'
       +'<div class="'+(ok&&d>=0?'win':'lose')+'" style="color:'+col1+'">'+cars[1].code+' '+b+'</div>'
-      +'<div style="color:#9fb0c0">Δ '+(ok?Math.abs(d).toFixed(3)+' sn':'-')+'</div></div>';
+      +'<div style="color:#9aa7b8">Δ '+(ok?Math.abs(d).toFixed(3)+' sn':'-')+'</div></div>';
   }).join('');
 }
 
@@ -3197,17 +3198,17 @@ def telemetry_trace_html(payload):
     ekseninde; fare imleci dördünü ve pist üzerindeki konumu eşzamanlı gösterir."""
     packed = fp_ui.json_for_script(payload)
     return r'''<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #232c3a;border-radius:13px;padding:12px;background:#141a24}
 .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
 .title{font-size:13px;font-weight:950;letter-spacing:.09em}
-.sub{font-size:10px;color:#9fb0c0;margin-top:5px;max-width:520px}
+.sub{font-size:10px;color:#9aa7b8;margin-top:5px;max-width:520px}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
 .tag{border:1px solid #35506d;border-radius:7px;padding:5px 8px;font:900 11px Inter,Arial,sans-serif;color:var(--team)}
 .wrap{display:grid;grid-template-columns:290px minmax(0,1fr);gap:12px;margin-top:10px}
-.mapbox{border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+.mapbox{border:1px solid #232c3a;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
 .mapbox canvas{width:100%;height:250px;display:block;cursor:crosshair}
-.readout{margin-top:8px;border:1px solid #26313f;border-radius:9px;background:#0d131c;padding:9px 10px}
+.readout{margin-top:8px;border:1px solid #232c3a;border-radius:9px;background:#0d131c;padding:9px 10px}
 .readout .rh{color:#8496a8;font:900 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;margin-bottom:5px}
 .readout .rd{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid #1b2531;font:800 12px ui-monospace,Consolas,monospace;color:#c7d6e6}
 .readout .rd:first-of-type{border-top:0}
@@ -3373,16 +3374,16 @@ def dominance_map_html(payload):
     pilotun rengiyle boyanır; imleç o noktadaki iki hızı ve farkı okur."""
     packed = fp_ui.json_for_script(payload)
     return r'''<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #26313f;border-radius:13px;padding:12px;background:#11161f}
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #232c3a;border-radius:13px;padding:12px;background:#141a24}
 .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
 .title{font-size:13px;font-weight:950;letter-spacing:.09em}
-.sub{font-size:10px;color:#9fb0c0;margin-top:5px;max-width:540px}
+.sub{font-size:10px;color:#9aa7b8;margin-top:5px;max-width:540px}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
 .tag{border:1px solid #35506d;border-radius:7px;padding:5px 8px;font:900 11px Inter,Arial,sans-serif;color:var(--team)}
-.mapbox{margin-top:10px;border:1px solid #26313f;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+.mapbox{margin-top:10px;border:1px solid #232c3a;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
 .mapbox canvas{width:100%;height:430px;display:block;cursor:crosshair}
-.share{display:flex;height:16px;border-radius:6px;overflow:hidden;margin-top:10px;border:1px solid #26313f;font:900 9px Inter,Arial,sans-serif}
+.share{display:flex;height:16px;border-radius:6px;overflow:hidden;margin-top:10px;border:1px solid #232c3a;font:900 9px Inter,Arial,sans-serif}
 .share i{display:flex;align-items:center;justify-content:center;color:#05080d}
 .rowline{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font:800 12px ui-monospace,Consolas,monospace;color:#c7d6e6}
 .rowline span{color:#8fa2b4}
@@ -3405,7 +3406,7 @@ const N=Math.min(DIST.length, TRACK.length);
 const $=function(s){return document.querySelector(s);};
 if(drv.length<2 || N<4){ $('#cur').innerHTML='<span>Hata</span><b>iki tur için konum telemetrisi yok</b>'; return; }
 const cv=$('#dom'), ctx=cv.getContext('2d'); let MB=null, cursor=-1;
-const c0=drv[0].colour||'#e10600', c1=drv[1].colour||'#38e1d0';
+const c0=drv[0].colour||'#e10600', c1=drv[1].colour||'#33d6c8';
 const faster=[]; let lead0=0;
 for(let i=0;i<N;i++){ const a=(drv[0].speed||[])[i]||0, b=(drv[1].speed||[])[i]||0; const f=a>=b?0:1; faster.push(f); if(f===0) lead0++; }
 
@@ -3553,22 +3554,22 @@ def get_weather_evolution_v42(year, event_name, session_code):
 def weather_evolution_html(p):
     """İki panelli HUD: üstte tur zamanı evrimi, altta hava zaman çizelgesi."""
     if not p.get('ok'):
-        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>"
                 "Bu seans için hava / pist evrimi verisi henüz alınamadı.</div>")
     packed = fp_ui.json_for_script(p)
     return r'''<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #26313f;border-radius:13px;padding:13px;background:#11161f}
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #232c3a;border-radius:13px;padding:13px;background:#141a24}
 .hd{font:950 13px Inter,Arial,sans-serif;letter-spacing:.09em}
-.sub{font:10px Inter,Arial,sans-serif;color:#9fb0c0;margin-top:5px}
+.sub{font:10px Inter,Arial,sans-serif;color:#9aa7b8;margin-top:5px}
 .kpis{display:flex;gap:7px;flex-wrap:wrap;margin:11px 0}
 .kpi{border:1px solid #2b3a4d;border-radius:8px;background:#141b26;padding:7px 10px;font:800 11px ui-monospace,Consolas,monospace}
-.kpi s{display:block;font:700 8px 'Saira Condensed',Inter,sans-serif;letter-spacing:.09em;color:#8496a8;text-decoration:none;margin-bottom:3px}
+.kpi s{display:block;font:700 8px 'Inter',Inter,sans-serif;letter-spacing:.09em;color:#8496a8;text-decoration:none;margin-bottom:3px}
 .kpi b{font-size:13px}
 .panel{position:relative;border:1px solid #212b38;border-radius:9px;background:#0c121b;margin-top:8px}
 .panel .lab{position:absolute;top:6px;left:10px;font:900 9px Inter,Arial,sans-serif;letter-spacing:.08em;color:#7c90a4;z-index:2}
 .panel canvas{width:100%;display:block;cursor:crosshair}
-.leg{display:flex;gap:11px;flex-wrap:wrap;margin-top:7px;font:700 9.5px ui-monospace,Consolas,monospace;color:#9fb0c0}
+.leg{display:flex;gap:11px;flex-wrap:wrap;margin-top:7px;font:700 9.5px ui-monospace,Consolas,monospace;color:#9aa7b8}
 .leg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:middle}
 .read{margin-top:8px;font:800 11px ui-monospace,Consolas,monospace;color:#c7d6e6;min-height:15px}
 </style>
@@ -3577,7 +3578,7 @@ def weather_evolution_html(p):
   <div class="sub">__EVENT__ · imleci grafiğin üzerinde gezdir</div>
   <div class="kpis" id="kpis"></div>
   <div class="panel"><span class="lab">TUR ZAMANI EVRIMI (sn)</span><canvas id="evo"></canvas></div>
-  <div class="leg"><span><i style="background:#45c8ff"></i>en hızlı tur</span><span><i style="background:#5b6b7e"></i>ortalama tur</span></div>
+  <div class="leg"><span><i style="background:#33d6c8"></i>en hızlı tur</span><span><i style="background:#5b6b7e"></i>ortalama tur</span></div>
   <div class="panel"><span class="lab">HAVA</span><canvas id="wx"></canvas></div>
   <div class="leg"><span><i style="background:#ff7a45"></i>pist °C</span><span><i style="background:#ffd23f"></i>hava °C</span><span><i style="background:#4ea981"></i>nem %</span><span><i style="background:#3aa9ff"></i>yağış</span></div>
   <div class="read" id="read"></div>
@@ -3614,7 +3615,7 @@ function drawEvo(){
   const pad=(hi-lo)*0.12||0.4; lo-=pad; hi+=pad;
   const X=function(t){ return pl+(t-tr[0])/(tr[1]-tr[0])*(w-pl-pr); };
   const Y=function(v){ return pt+(1-(v-lo)/(hi-lo))*(h-pt-pb); };
-  ex.strokeStyle='#1a2330';ex.lineWidth=1;ex.fillStyle='#63748a';ex.font='9px Inter,Arial';ex.textAlign='right';
+  ex.strokeStyle='#1a2330';ex.lineWidth=1;ex.fillStyle='#6d7a8c';ex.font='9px Inter,Arial';ex.textAlign='right';
   for(let k=0;k<=3;k++){ const v=lo+(hi-lo)*k/3, gy=Y(v);
     ex.beginPath();ex.moveTo(pl,gy);ex.lineTo(w-pr,gy);ex.stroke(); ex.fillText(v.toFixed(1),pl-5,gy+3); }
   // median band
@@ -3624,8 +3625,8 @@ function drawEvo(){
   // best line
   ex.beginPath();
   EV.forEach(function(p,i){ const x=X(p.t),y=Y(p.best); i?ex.lineTo(x,y):ex.moveTo(x,y); });
-  ex.strokeStyle='#45c8ff';ex.lineWidth=2;ex.stroke();
-  EV.forEach(function(p){ const x=X(p.t),y=Y(p.best); ex.fillStyle='#45c8ff';ex.beginPath();ex.arc(x,y,2.4,0,7);ex.fill(); });
+  ex.strokeStyle='#33d6c8';ex.lineWidth=2;ex.stroke();
+  EV.forEach(function(p){ const x=X(p.t),y=Y(p.best); ex.fillStyle='#33d6c8';ex.beginPath();ex.arc(x,y,2.4,0,7);ex.fill(); });
   cursorLine(ex,X,tr,h,pt,pb,w,pl,pr);
 }
 function drawWx(){
@@ -3653,11 +3654,11 @@ function drawWx(){
   series('track','#ff7a45',tlo-1,thi+1);
   series('air','#ffd23f',tlo-1,thi+1);
   series('hum','#4ea981',0,100);
-  wc.fillStyle='#63748a';wc.font='9px Inter,Arial';wc.textAlign='right';
+  wc.fillStyle='#6d7a8c';wc.font='9px Inter,Arial';wc.textAlign='right';
   wc.fillText(Math.round(thi)+'°',pl-4,pt+8); wc.fillText(Math.round(tlo)+'°',pl-4,h-pb);
   wc.textAlign='left'; wc.fillText('100%',w-pr+4,pt+8); wc.fillText('0%',w-pr+4,h-pb);
   for(let k=0;k<=4;k++){ const t=tr[0]+(tr[1]-tr[0])*k/4;
-    wc.fillStyle='#63748a';wc.textAlign='center';wc.fillText(Math.round(t)+'dk',X(t),h-6); }
+    wc.fillStyle='#6d7a8c';wc.textAlign='center';wc.fillText(Math.round(t)+'dk',X(t),h-6); }
   cursorLine(wc,X,tr,h,pt,pb,w,pl,pr);
 }
 function cursorLine(ctx,X,tr,h,pt,pb){
@@ -3819,7 +3820,7 @@ def race_intelligence_hud_html_v19(info):
     ) or "<span>Hava zaman çizelgesi yok.</span>"
     return f"""
     <style>
-      body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}.hud{{border:1px solid #2c425c;border-radius:13px;background:#11161f;padding:13px}}.head{{font-size:13px;font-weight:950;letter-spacing:.09em}}.sub{{font-size:10px;color:#91a9c0;margin-top:5px}}.tiles{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:11px}}.tile{{border:1px solid #2a405a;border-radius:8px;background:#0d1724;padding:9px}}.tile small{{display:block;color:#8ca3bb;font-weight:800;font-size:10px}}.tile b{{display:block;color:#f4f8ff;margin-top:5px;font-size:13px}}.grid{{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}}.box{{border:1px solid #293e56;border-radius:9px;background:#0d1623;padding:10px;min-height:135px}}.box h4{{margin:0 0 8px;font-size:11px;letter-spacing:.08em}}.msg{{border-left:3px solid #ffd168;padding:6px 7px;background:#19191a;margin:5px 0;font-size:11px;line-height:1.35}}.msg b{{color:#ffd168;margin-right:5px}}.pit{{display:grid;grid-template-columns:1fr 42px 72px 88px;gap:5px;border-top:1px solid #26394e;padding:7px 0;font-size:11px}}.pit b{{color:#f2f5f8}}.pit span{{color:#a9bbcf}}.timeline{{display:flex;gap:7px;overflow:auto;padding-top:8px}}.timeline span{{white-space:nowrap;border:1px solid #2c4059;background:#0c1420;padding:6px 8px;border-radius:6px;font-size:10px;color:#aec1d4}}.muted{{font-size:11px;color:#8da2b8}}@media(max-width:440px){{.tiles{{grid-template-columns:repeat(2,1fr)}}.grid{{grid-template-columns:1fr}}.pit{{grid-template-columns:1fr 38px 58px 76px}}}}
+      body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}.hud{{border:1px solid #2c425c;border-radius:13px;background:#141a24;padding:13px}}.head{{font-size:13px;font-weight:950;letter-spacing:.09em}}.sub{{font-size:10px;color:#91a9c0;margin-top:5px}}.tiles{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:11px}}.tile{{border:1px solid #2a405a;border-radius:8px;background:#0d1724;padding:9px}}.tile small{{display:block;color:#8ca3bb;font-weight:800;font-size:10px}}.tile b{{display:block;color:#f4f8ff;margin-top:5px;font-size:13px}}.grid{{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}}.box{{border:1px solid #293e56;border-radius:9px;background:#0d1623;padding:10px;min-height:135px}}.box h4{{margin:0 0 8px;font-size:11px;letter-spacing:.08em}}.msg{{border-left:3px solid #ffd168;padding:6px 7px;background:#19191a;margin:5px 0;font-size:11px;line-height:1.35}}.msg b{{color:#ffd168;margin-right:5px}}.pit{{display:grid;grid-template-columns:1fr 42px 72px 88px;gap:5px;border-top:1px solid #26394e;padding:7px 0;font-size:11px}}.pit b{{color:#eef2f7}}.pit span{{color:#a9bbcf}}.timeline{{display:flex;gap:7px;overflow:auto;padding-top:8px}}.timeline span{{white-space:nowrap;border:1px solid #2c4059;background:#0a0e14;padding:6px 8px;border-radius:6px;font-size:10px;color:#aec1d4}}.muted{{font-size:11px;color:#8da2b8}}@media(max-width:440px){{.tiles{{grid-template-columns:repeat(2,1fr)}}.grid{{grid-template-columns:1fr}}.pit{{grid-template-columns:1fr 38px 58px 76px}}}}
     </style>
     <div class='hud'><div class='head'>RACE INTELLIGENCE // VERIFIED DATA</div><div class='sub'>HAVA · RESMÎ SPEED TRAP · PİT-LANE GEÇİŞİ · FIA RACE CONTROL</div><div class='tiles'>{tile_html}</div><div class='timeline'>{timeline_html}</div><div class='grid'><div class='box'><h4>FIA RACE CONTROL — TÜRKÇE</h4>{control_html}</div><div class='box'><h4>PIT / LASTİK OLAYLARI</h4>{pit_html}<div class='muted' style='margin-top:8px'>{html_lib.escape(info.get('pit_note', ''))}</div></div></div></div>
     """
@@ -4130,7 +4131,7 @@ def strategy_wall_html(payload):
         note = pit_notes.get(car['code'], '')
         note_html = f"<div class='pitnote'>{html_lib.escape(note)}</div>" if note else ""
         rows.append(f"<div class='row' style='--team:{car['colour']}'><div class='driver'>{html_lib.escape(car['code'])}<small>{html_lib.escape(car['team'])}</small></div><div class='stints'>{blocks}{note_html}</div><div class='finish'>P{car['final_position'] or '—'}<small>{len(groups)-1} PIT</small></div></div>")
-    return f"""<style>body{{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}}.wall{{border:1px solid #2c425c;border-radius:13px;background:#11161f;overflow:hidden}}.head{{padding:13px 15px;border-bottom:1px solid #2b4058;font-size:13px;font-weight:950;letter-spacing:.08em}}.sub{{font-size:10px;color:#91a8bf;margin-top:5px}}.row{{display:grid;grid-template-columns:110px 1fr 58px;gap:10px;align-items:center;min-height:62px;padding:9px 12px;border-top:1px solid #23364b;border-left:4px solid var(--team)}}.driver{{font-weight:950;color:var(--team)}}.driver small,.finish small{{display:block;font-size:10px;color:#8fa6bd;margin-top:4px}}.stints{{display:flex;min-width:380px;height:29px;border-radius:6px;overflow:hidden;background:#0a111b;gap:2px}}.stint{{min-width:20px;display:flex;align-items:center;justify-content:center;gap:5px;background:color-mix(in srgb,var(--tyre) 23%,#11161f);border-top:3px solid var(--tyre);color:#f6f9ff;font-size:11px;font-weight:950}}.stint small{{font-size:9px;color:#bdcadd}}.finish{{font-weight:950;text-align:right}}.stints{{flex-wrap:wrap}}.pitnote{{flex:1 0 100%;font:600 10px ui-monospace,Consolas,monospace;color:#9db3c7;margin-top:5px;line-height:1.4}}@media(max-width:700px){{.row{{grid-template-columns:84px 1fr 42px;padding:8px}}.stints{{min-width:220px}}.stint small{{display:none}}}}</style><div class='wall'><div class='head'>TYRE STRATEGY WALL<div class='sub'>HER BLOK BİR STINT • ALT SATIR: GRID→FİNİŞ SONUCU · İLK PİT · TESPİT EDİLEN UNDERCUT/OVERCUT (kayıtlı veriden) • TOPLAM {total} TUR</div></div><div class='scroll'>{''.join(rows)}</div></div>"""
+    return f"""<style>body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}.wall{{border:1px solid #2c425c;border-radius:13px;background:#141a24;overflow:hidden}}.head{{padding:13px 15px;border-bottom:1px solid #2b4058;font-size:13px;font-weight:950;letter-spacing:.08em}}.sub{{font-size:10px;color:#91a8bf;margin-top:5px}}.row{{display:grid;grid-template-columns:110px 1fr 58px;gap:10px;align-items:center;min-height:62px;padding:9px 12px;border-top:1px solid #23364b;border-left:4px solid var(--team)}}.driver{{font-weight:950;color:var(--team)}}.driver small,.finish small{{display:block;font-size:10px;color:#8fa6bd;margin-top:4px}}.stints{{display:flex;min-width:380px;height:29px;border-radius:6px;overflow:hidden;background:#0a111b;gap:2px}}.stint{{min-width:20px;display:flex;align-items:center;justify-content:center;gap:5px;background:color-mix(in srgb,var(--tyre) 23%,#141a24);border-top:3px solid var(--tyre);color:#eef2f7;font-size:11px;font-weight:950}}.stint small{{font-size:9px;color:#bdcadd}}.finish{{font-weight:950;text-align:right}}.stints{{flex-wrap:wrap}}.pitnote{{flex:1 0 100%;font:600 10px ui-monospace,Consolas,monospace;color:#9db3c7;margin-top:5px;line-height:1.4}}@media(max-width:700px){{.row{{grid-template-columns:84px 1fr 42px;padding:8px}}.stints{{min-width:220px}}.stint small{{display:none}}}}</style><div class='wall'><div class='head'>TYRE STRATEGY WALL<div class='sub'>HER BLOK BİR STINT • ALT SATIR: GRID→FİNİŞ SONUCU · İLK PİT · TESPİT EDİLEN UNDERCUT/OVERCUT (kayıtlı veriden) • TOPLAM {total} TUR</div></div><div class='scroll'>{''.join(rows)}</div></div>"""
 
 
 def strategy_wall_component_height(payload):
@@ -4143,8 +4144,8 @@ def stint_pace_html(payload):
     (sn/tur). Payload'daki tur süre + lastik + pit verisinden; yeni kaynak yok."""
     packed = fp_ui.json_for_script(payload)
     return r"""<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #2c425c;border-radius:13px;background:#11161f;padding:13px}
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
+.hud{border:1px solid #2c425c;border-radius:13px;background:#141a24;padding:13px}
 .head{font-size:13px;font-weight:950;letter-spacing:.08em}
 .sub{font-size:11px;color:#9db2c6;margin-top:5px;line-height:1.5}
 .chips{display:flex;gap:5px;flex-wrap:wrap;margin:11px 0}
@@ -4153,12 +4154,12 @@ def stint_pace_html(payload):
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:12px}
 .graph{border:1px solid #29405a;border-radius:9px;background:#0b121c}
 .graph canvas{display:block;width:100%;height:300px}
-.side{border:1px solid #2b405a;border-radius:9px;padding:10px;background:#11161f;display:flex;flex-direction:column;gap:7px}
+.side{border:1px solid #2b405a;border-radius:9px;padding:10px;background:#141a24;display:flex;flex-direction:column;gap:7px}
 .st{border:1px solid #253a51;border-left:4px solid var(--tc);border-radius:7px;padding:7px 9px;background:#0e1826}
 .st b{font:900 12px ui-monospace,Consolas,monospace;display:block}
 .st small{display:block;color:#a6b7c8;font-size:11px;margin-top:3px;line-height:1.45}
 .st .slope{font:900 13px ui-monospace,Consolas,monospace;margin-top:4px}
-.st .slope.up{color:#ff8b78}.st .slope.flat{color:#9fb0c0}.st .slope.down{color:#7fe0a6}
+.st .slope.up{color:#ff8a70}.st .slope.flat{color:#9aa7b8}.st .slope.down{color:#3ecf8e}
 .empty{color:#8da2b8;font-size:11px;padding:8px}
 @media(max-width:720px){.layout{grid-template-columns:1fr}}
 </style>
@@ -4264,7 +4265,7 @@ def stint_pace_component_height(payload):
 def position_flow_html(payload):
     """Pilotun tur tur sıra değişimini takım renkli, seçilebilir HUD grafiğine dönüştürür."""
     packed = fp_ui.json_for_script(payload)
-    return r"""<style>*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2c425c;border-radius:13px;background:#11161f;padding:13px}.head{font-size:13px;font-weight:950;letter-spacing:.08em}.sub{font-size:10px;color:#90a7be;margin-top:5px}.chips{display:flex;gap:6px;flex-wrap:wrap;margin:11px 0}.chip{border:1px solid #36506e;border-left:4px solid var(--team);border-radius:6px;background:#132137;color:#f1f7ff;padding:6px 8px;font-weight:900;font-size:11px;cursor:pointer}.chip.active{background:#20334d;box-shadow:0 0 0 1px var(--team) inset}.layout{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:12px}.graph{border:1px solid #29405a;border-radius:9px;background:#0b121c}.graph canvas{display:block;width:100%;height:270px}.summary{border:1px solid #2b405a;border-radius:9px;padding:11px;background:#11161f}.name{font-size:19px;font-weight:950;color:var(--team)}.line{display:flex;justify-content:space-between;border-top:1px solid #293b50;padding:8px 0;font-size:12px}.line span{color:#96aac0}.up{color:#79e5a7}.down{color:#ff7380}@media(max-width:720px){.layout{grid-template-columns:1fr}}</style><div class='hud'><div class='head'>RACE POSITION FLOW</div><div class='sub'>TUR TUR SIRA DEĞİŞİMİ • YUKARI OK POZİSYON KAZANCI, AŞAĞI OK POZİSYON KAYBI</div><div class='chips' id='chips'></div><div class='layout'><div class='graph'><canvas id='chart'></canvas></div><aside class='summary' id='summary'></aside></div></div><script>const data=__POSITION_FLOW_PAYLOAD__,cars=data.cars||[],canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');let chosen=cars[0]?.code||'';function info(c){const a=(c.laps||[]).filter(x=>Number.isFinite(x.position));const start=c.grid||a[0]?.position||'—',finish=c.final_position||a[a.length-1]?.position||'—',values=a.map(x=>x.position),best=values.length?Math.min(...values):'—',worst=values.length?Math.max(...values):'—';return{a,start,finish,best,worst,change:(typeof start==='number'&&typeof finish==='number')?start-finish:0}}function draw(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),w=canvas.clientWidth,h=canvas.clientHeight,p={l:35,r:14,t:16,b:25},laps=Math.max(1,data.total_laps||1),maxP=Math.max(20,...cars.flatMap(x=>x.laps.map(y=>y.position||0)));ctx.clearRect(0,0,w,h);ctx.strokeStyle='#23384f';ctx.fillStyle='#8fa6bd';ctx.font='10px Arial';for(let pos=1;pos<=maxP;pos+=4){const y=p.t+(pos-1)/(maxP-1)*(h-p.t-p.b);ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.fillText('P'+pos,4,y+3)}for(let x=1;x<=laps;x+=Math.max(1,Math.ceil(laps/8))){const px=p.l+(x-1)/(laps-1||1)*(w-p.l-p.r);ctx.fillText(x,px-4,h-7)}if(!d.a.length)return;ctx.strokeStyle=c.colour;ctx.lineWidth=3;ctx.beginPath();d.a.forEach((item,i)=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();d.a.forEach(item=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);ctx.fillStyle=c.colour;ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill()})}function render(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),arrow=d.change>0?'↑ '+d.change+' SIRA':d.change<0?'↓ '+Math.abs(d.change)+' SIRA':'→ DEĞİŞMEDİ';document.getElementById('chips').innerHTML=cars.map(x=>`<button class='chip ${x.code===chosen?'active':''}' style='--team:${x.colour}' data-c='${x.code}'>${x.code}</button>`).join('');document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{chosen=b.dataset.c;render()});document.getElementById('summary').style.setProperty('--team',c.colour);document.getElementById('summary').innerHTML=`<div class='name'>${c.code}</div><div class='line'><span>Başlangıç</span><b>P${d.start}</b></div><div class='line'><span>En iyi sıra</span><b>P${d.best}</b></div><div class='line'><span>En kötü sıra</span><b>P${d.worst}</b></div><div class='line'><span>Bitiş</span><b>P${d.finish}</b></div><div class='line'><span>Toplam değişim</span><b class='${d.change>0?'up':d.change<0?'down':''}'>${arrow}</b></div>`;resize()}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}window.addEventListener('resize',resize);render();</script>""".replace('__POSITION_FLOW_PAYLOAD__', packed)
+    return r"""<style>*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2c425c;border-radius:13px;background:#141a24;padding:13px}.head{font-size:13px;font-weight:950;letter-spacing:.08em}.sub{font-size:10px;color:#90a7be;margin-top:5px}.chips{display:flex;gap:6px;flex-wrap:wrap;margin:11px 0}.chip{border:1px solid #36506e;border-left:4px solid var(--team);border-radius:6px;background:#132137;color:#f1f7ff;padding:6px 8px;font-weight:900;font-size:11px;cursor:pointer}.chip.active{background:#20334d;box-shadow:0 0 0 1px var(--team) inset}.layout{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:12px}.graph{border:1px solid #29405a;border-radius:9px;background:#0b121c}.graph canvas{display:block;width:100%;height:270px}.summary{border:1px solid #2b405a;border-radius:9px;padding:11px;background:#141a24}.name{font-size:19px;font-weight:950;color:var(--team)}.line{display:flex;justify-content:space-between;border-top:1px solid #293b50;padding:8px 0;font-size:12px}.line span{color:#96aac0}.up{color:#79e5a7}.down{color:#ff7380}@media(max-width:720px){.layout{grid-template-columns:1fr}}</style><div class='hud'><div class='head'>RACE POSITION FLOW</div><div class='sub'>TUR TUR SIRA DEĞİŞİMİ • YUKARI OK POZİSYON KAZANCI, AŞAĞI OK POZİSYON KAYBI</div><div class='chips' id='chips'></div><div class='layout'><div class='graph'><canvas id='chart'></canvas></div><aside class='summary' id='summary'></aside></div></div><script>const data=__POSITION_FLOW_PAYLOAD__,cars=data.cars||[],canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');let chosen=cars[0]?.code||'';function info(c){const a=(c.laps||[]).filter(x=>Number.isFinite(x.position));const start=c.grid||a[0]?.position||'—',finish=c.final_position||a[a.length-1]?.position||'—',values=a.map(x=>x.position),best=values.length?Math.min(...values):'—',worst=values.length?Math.max(...values):'—';return{a,start,finish,best,worst,change:(typeof start==='number'&&typeof finish==='number')?start-finish:0}}function draw(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),w=canvas.clientWidth,h=canvas.clientHeight,p={l:35,r:14,t:16,b:25},laps=Math.max(1,data.total_laps||1),maxP=Math.max(20,...cars.flatMap(x=>x.laps.map(y=>y.position||0)));ctx.clearRect(0,0,w,h);ctx.strokeStyle='#23384f';ctx.fillStyle='#8fa6bd';ctx.font='10px Arial';for(let pos=1;pos<=maxP;pos+=4){const y=p.t+(pos-1)/(maxP-1)*(h-p.t-p.b);ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.fillText('P'+pos,4,y+3)}for(let x=1;x<=laps;x+=Math.max(1,Math.ceil(laps/8))){const px=p.l+(x-1)/(laps-1||1)*(w-p.l-p.r);ctx.fillText(x,px-4,h-7)}if(!d.a.length)return;ctx.strokeStyle=c.colour;ctx.lineWidth=3;ctx.beginPath();d.a.forEach((item,i)=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();d.a.forEach(item=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);ctx.fillStyle=c.colour;ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill()})}function render(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),arrow=d.change>0?'↑ '+d.change+' SIRA':d.change<0?'↓ '+Math.abs(d.change)+' SIRA':'→ DEĞİŞMEDİ';document.getElementById('chips').innerHTML=cars.map(x=>`<button class='chip ${x.code===chosen?'active':''}' style='--team:${x.colour}' data-c='${x.code}'>${x.code}</button>`).join('');document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{chosen=b.dataset.c;render()});document.getElementById('summary').style.setProperty('--team',c.colour);document.getElementById('summary').innerHTML=`<div class='name'>${c.code}</div><div class='line'><span>Başlangıç</span><b>P${d.start}</b></div><div class='line'><span>En iyi sıra</span><b>P${d.best}</b></div><div class='line'><span>En kötü sıra</span><b>P${d.worst}</b></div><div class='line'><span>Bitiş</span><b>P${d.finish}</b></div><div class='line'><span>Toplam değişim</span><b class='${d.change>0?'up':d.change<0?'down':''}'>${arrow}</b></div>`;resize()}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}window.addEventListener('resize',resize);render();</script>""".replace('__POSITION_FLOW_PAYLOAD__', packed)
 
 # =========================================================
 # BETA 1.2 — VERIFIED DATA / REPLAY STABILITY
@@ -4273,7 +4274,7 @@ def position_flow_html(payload):
 def render_data_trust_hud():
     """Kullanıcıya verinin ne olduğunu açıkça söyler; sahte canlılık iddiası yoktur."""
     st.markdown(
-        "<div class='hud-card' style='border-left:4px solid #5ddcff;margin:8px 0 18px'>"
+        "<div class='hud-card' style='border-left:4px solid #33d6c8;margin:8px 0 18px'>"
         "<div class='hud-label'>BETA 1.3 // VERIFIED DATA</div>"
         "<div class='history-copy' style='margin-top:7px'>"
         "Sonuç, tur, lastik ve pit verileri FastF1 paketinden geldiğinde doğrulanmış olarak gösterilir. "
@@ -4296,7 +4297,7 @@ def render_driver_profile_hud(team_name, driver):
         f"<div class='hud-label'>PILOT DOSYASI // {html_lib.escape(code)}</div>"
         f"<div style='display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:8px'>"
         f"<img src='{html_lib.escape(portrait, quote=True)}' alt='' style='width:96px;height:118px;object-fit:contain;object-position:center bottom' onerror=\"this.style.display='none'\">"
-        f"<div><div style='font-size:1.45rem;font-weight:950;color:{team['color']}'>{html_lib.escape(name)} <span style='color:#f2f5f8'>{html_lib.escape(number)}</span></div>"
+        f"<div><div style='font-size:1.45rem;font-weight:950;color:{team['color']}'>{html_lib.escape(name)} <span style='color:#eef2f7'>{html_lib.escape(number)}</span></div>"
         f"<div class='driver-meta' style='margin-top:5px'>{html_lib.escape(team_name)} · {html_lib.escape(nation)} · {driver_age(code)} yaş</div>"
         f"<div class='history-copy' style='margin-top:7px'>F1 başlangıcı: {html_lib.escape(str(debut))} · Kariyer GP galibiyeti: {html_lib.escape(str(career['wins']))} · Podyum: {html_lib.escape(str(career['podiums']))}</div>"
         f"<div class='history-copy' style='margin-top:7px'>{html_lib.escape(career['bio'])}</div>"
@@ -4391,7 +4392,7 @@ def directory_driver_by_code(code):
     return {'name': str(code), 'code': str(code), 'number': '', 'image': '', 'team': ''}
 
 
-def render_page_header(title, subtitle, accent='#2ee6c9'):
+def render_page_header(title, subtitle, accent='#33d6c8'):
     # redesign: tek noktadan tum merkez sayfalarina F1-TV basligi
     fp_ui.page_header(title, subtitle, eyebrow="Paddock")
 
@@ -4553,18 +4554,18 @@ def _gp_circuit_history_html(history, circuit, year_now):
         )
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .gh{{border:1px solid #26313f;border-left:3px solid #38e1d0;border-radius:12px;background:#11161f;overflow:hidden}}
-      .gh-hd{{padding:12px 15px 9px;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;
-        text-transform:uppercase;color:#8090a2}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .gh{{border:1px solid #232c3a;border-left:3px solid #33d6c8;border-radius:12px;background:#141a24;overflow:hidden}}
+      .gh-hd{{padding:12px 15px 9px;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;
+        text-transform:uppercase;color:#6d7a8c}}
       .gh-hd b{{color:#e8eef4}}
       .gh-row{{display:grid;grid-template-columns:46px 1fr auto auto;gap:10px;align-items:center;
         padding:9px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .gh-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
-      .gh-stat{{font:600 12px 'Saira',sans-serif;color:#c4d2e0}}
-      .gh-tag{{font:700 11px 'JetBrains Mono',monospace;color:#9fb0c0;white-space:nowrap}}
+      .gh-stat{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de}}
+      .gh-tag{{font:700 11px 'JetBrains Mono',monospace;color:#9aa7b8;white-space:nowrap}}
       .gh-last{{font:700 11.5px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap}}
-      .gh-none{{font:600 11.5px 'Saira',sans-serif;color:#63748a;grid-column:2/-1}}
+      .gh-none{{font:600 11.5px 'Inter',system-ui,sans-serif;color:#6d7a8c;grid-column:2/-1}}
       @media(max-width:560px){{
         .gh-row{{grid-template-columns:44px 1fr;row-gap:3px}}
         .gh-tag,.gh-last{{grid-column:2;text-align:left}}
@@ -4723,7 +4724,7 @@ def render_weekend_centre():
         story_cols = st.columns(min(3, len(story)))
         for col, entry in zip(story_cols, story[:3]):
             with col:
-                st.markdown(f"<div class='hud-card' style='border-top:3px solid #f7c948;min-height:94px'><div class='hud-label'>{html_lib.escape(entry.get('kind', 'NOT'))}</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(entry.get('text', ''))}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='hud-card' style='border-top:3px solid #f5b843;min-height:94px'><div class='hud-label'>{html_lib.escape(entry.get('kind', 'NOT'))}</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(entry.get('text', ''))}</div></div>", unsafe_allow_html=True)
     if table.empty:
         st.info('Bu seansın doğrulanmış sonuçları henüz paketlenmedi.')
         return
@@ -4808,7 +4809,7 @@ def personal_race_digest_v43(year, event_name, fav_team, fav_driver_code):
 
 def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
     if not d.get('ok'):
-        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>"
                 "Son yarışın doğrulanmış sonucu henüz alınamadı.</div>")
     drv, team = d.get('driver'), d.get('team')
     pod = " · ".join(f"{i + 1}. {html_lib.escape(p['code'])}" for i, p in enumerate(d['podium']))
@@ -4817,7 +4818,7 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
     if drv:
         if drv['dnf']:
             verdict = f"yarış dışı kaldı ({html_lib.escape(drv['status'] or 'DNF')})"
-            vcol = '#ff8b78'
+            vcol = '#ff8a70'
         else:
             mv = drv['moved']
             move = ("" if mv is None
@@ -4825,12 +4826,12 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
                     else f" · gridden {abs(mv)} sıra geriledi" if mv < 0
                     else " · grid sırasını korudu")
             verdict = f"P{html_lib.escape(str(drv['pos']))}{move}"
-            vcol = '#7fe0a6' if (mv or 0) > 0 else '#ffb37a' if (mv or 0) < 0 else '#e8eef4'
+            vcol = '#3ecf8e' if (mv or 0) > 0 else '#ffb37a' if (mv or 0) < 0 else '#e8eef4'
         mate_line = ""
         if drv['mate']:
             mate_line = (f"<div class='dg-line'>Takım arkadaşı {html_lib.escape(drv['mate'])} "
                          f"P{html_lib.escape(str(drv['mate_pos']))} — "
-                         f"<b style='color:{'#7fe0a6' if drv['beat_mate'] else '#ff8b78'}'>"
+                         f"<b style='color:{'#3ecf8e' if drv['beat_mate'] else '#ff8a70'}'>"
                          f"{'önde bitirdi' if drv['beat_mate'] else 'geride bitirdi'}</b></div>")
         sprint_line = (f"<div class='dg-line'>Sprint: P{html_lib.escape(str(drv['sprint_pos']))}</div>"
                        if drv.get('sprint_pos') else "")
@@ -4861,23 +4862,23 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
 
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .dg{{border:1px solid #26313f;border-left:3px solid {colour_team};border-radius:12px;
-        background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .dg{{border:1px solid #232c3a;border-left:3px solid {colour_team};border-radius:12px;
+        background:linear-gradient(160deg,#141a24,#141a24);overflow:hidden}}
       .dg-hd{{padding:14px 16px 10px}}
-      .dg-hd b{{font:800 15px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
-      .dg-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none;letter-spacing:.08em}}
-      .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9fb0c0}}
-      .dg-body{{border-top:1px solid #26313f;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
-      .dg-name{{font:800 20px 'Saira Condensed',sans-serif;text-transform:uppercase}}
+      .dg-hd b{{font:800 15px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
+      .dg-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;letter-spacing:.08em}}
+      .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
+      .dg-body{{border-top:1px solid #232c3a;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
+      .dg-name{{font:800 20px 'Inter',system-ui,sans-serif;text-transform:uppercase}}
       .dg-verdict{{font:700 13px 'JetBrains Mono',monospace;margin:3px 0 8px}}
-      .dg-line{{font:500 12px 'Saira',sans-serif;color:#c4d2e0;padding:2px 0}}
-      .dg-line b{{color:#f2f5f8}}
-      .dg-sec s{{display:block;font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#63748a;text-decoration:none;margin-bottom:6px}}
+      .dg-line{{font:500 12px 'Inter',system-ui,sans-serif;color:#c9d2de;padding:2px 0}}
+      .dg-line b{{color:#eef2f7}}
+      .dg-sec s{{display:block;font:700 9px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:#6d7a8c;text-decoration:none;margin-bottom:6px}}
       .dg-cars{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}}
       .dg-car{{border:1px solid #2b3a4d;border-radius:6px;background:#131a24;padding:4px 8px;font:700 11px 'JetBrains Mono',monospace}}
-      .dg-empty{{color:#8a9bb0;font:500 12px 'Saira',sans-serif}}
-      .dg-next{{border-top:1px solid #26313f;padding:10px 16px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
+      .dg-empty{{color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif}}
+      .dg-next{{border-top:1px solid #232c3a;padding:10px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
       .dg-next b{{color:#e8eef4}}
       @media(max-width:560px){{.dg-body{{grid-template-columns:1fr}}}}
     </style>
@@ -5301,7 +5302,7 @@ def news_matches_team_v19(item, team_name):
 st.markdown(r"""
 <style>
 /* 1.9: safe component styling only. No fixed overlays, canvas or animations. */
-.ai-command-card{margin-bottom:16px!important}.ai-command-card .history-copy{max-width:900px}.news-command-card{margin:12px 0 18px!important}.news-card-v19{min-height:340px!important;display:flex;flex-direction:column;gap:7px}.news-thumb-v19{width:100%;height:118px;object-fit:cover;border-radius:10px;border:1px solid #2b4669;background:#0b1627}.news-thumb-empty-v19{display:grid;place-items:center;font-size:2rem;font-weight:950;color:#2ee6c9;background:linear-gradient(135deg,#112846,#0c182b)}.news-card-v19 .news-title{margin-top:2px}.news-card-v19 .news-desc{flex:1}.game-choice-v19{min-height:150px}.stChatMessage{border:1px solid rgba(56,108,160,.35);border-radius:14px;padding:8px 12px}
+.ai-command-card{margin-bottom:16px!important}.ai-command-card .history-copy{max-width:900px}.news-command-card{margin:12px 0 18px!important}.news-card-v19{min-height:340px!important;display:flex;flex-direction:column;gap:7px}.news-thumb-v19{width:100%;height:118px;object-fit:cover;border-radius:10px;border:1px solid #2b4669;background:#0b1627}.news-thumb-empty-v19{display:grid;place-items:center;font-size:2rem;font-weight:950;color:#33d6c8;background:linear-gradient(135deg,#112846,#0c182b)}.news-card-v19 .news-title{margin-top:2px}.news-card-v19 .news-desc{flex:1}.game-choice-v19{min-height:150px}.stChatMessage{border:1px solid rgba(56,108,160,.35);border-radius:14px;padding:8px 12px}
 section[data-testid="stSidebar"] .stButton,section[data-testid="stSidebar"] div[data-testid="stButton"]{width:100%!important;margin:0!important}section[data-testid="stSidebar"] .stButton>button,section[data-testid="stSidebar"] div[data-testid="stButton"]>button{width:100%!important;min-height:48px!important;padding:0 16px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;text-align:left!important;gap:8px!important;line-height:1.1!important}section[data-testid="stSidebar"] .stButton>button p,section[data-testid="stSidebar"] div[data-testid="stButton"]>button p{width:100%!important;margin:0!important;text-align:left!important;white-space:normal!important}section[data-testid="stSidebar"] [data-testid="stExpander"]{border-radius:12px!important;overflow:hidden!important}section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:48px!important;display:flex!important;align-items:center!important;padding-left:14px!important}
 </style>
 """, unsafe_allow_html=True)
@@ -5731,9 +5732,9 @@ def render_race_story_centre_v20():
         lead += f" {mover['code']} start yerine göre {mover['gain']} sıra yükseldi."
     st.markdown(f"<div class='story-lead-v20'><div class='hud-label'>60 SANİYEDE YARIŞ</div><div class='story-lead-title-v20'>{html_lib.escape(lead)}</div><div class='history-copy'>Aşağıdaki tüm sonuçlar tamamlanmış FastF1 yarış paketinden gelir.</div></div>", unsafe_allow_html=True)
     cards = [
-        ('KAZANAN', winner.get('code', '-'), winner.get('team', '-'), '#f7c948'),
-        ('PODYUM', ' · '.join(item.get('code', '-') for item in podium) or '-', 'İlk üç', '#ff385c'),
-        ('EN ÇOK YÜKSELEN', mover.get('code', '-') if mover else '-', f"+{mover.get('gain', 0)} sıra" if mover else 'Yükseliş verisi yok', '#2ee6c9'),
+        ('KAZANAN', winner.get('code', '-'), winner.get('team', '-'), '#f5b843'),
+        ('PODYUM', ' · '.join(item.get('code', '-') for item in podium) or '-', 'İlk üç', '#ff5a4d'),
+        ('EN ÇOK YÜKSELEN', mover.get('code', '-') if mover else '-', f"+{mover.get('gain', 0)} sıra" if mover else 'Yükseliş verisi yok', '#33d6c8'),
         ('EN HIZLI TUR', fastest.get('code', '-') if fastest else '-', fastest.get('time', '-') if fastest else 'Veri yok', '#7dd3fc'),
     ]
     columns = st.columns(4)
@@ -5769,9 +5770,9 @@ def render_learning_centre_v20():
     st.markdown("<div class='hud-card learning-hero-v20'><div class='hud-label'>F1'E BAŞLA // 5 DAKİKALIK ROTA</div><div class='hud-value'>Önce yarışı anla, sonra veriyi oku.</div><div class='history-copy'>Buradaki kartlar terim ezberletmez; bir hafta sonunda ekranda neye bakacağını öğretir.</div></div>", unsafe_allow_html=True)
     tracks = [
         ('1', 'Hafta sonu', 'FP1–FP3 hazırlıktır. Sıralama başlangıç sırasını, yarış ise puanları belirler.', '#7dd3fc', None),
-        ('2', 'Start ve ilk tur', 'İlk virajda konum kazanmak önemlidir; ama lastiği gereksiz yıpratmak sonraki turları zorlaştırır.', '#ff385c', None),
-        ('3', 'Lastik kararı', 'Soft (kırmızı) hız verir, Hard (beyaz) uzun sürer, Medium (sarı) ortadadır. Tur geçtikçe lastik aşınır ve yavaşlar.', '#f7c948', 'wear'),
-        ('4', 'Pit duvarı', 'Takım, trafiği ve lastik ömrünü izleyerek pit zamanını seçer. İki pit arası "stint" denir. Rakipten önce pit = "undercut", sonra pit = "overcut".', '#2ee6c9', 'stint'),
+        ('2', 'Start ve ilk tur', 'İlk virajda konum kazanmak önemlidir; ama lastiği gereksiz yıpratmak sonraki turları zorlaştırır.', '#ff5a4d', None),
+        ('3', 'Lastik kararı', 'Soft (kırmızı) hız verir, Hard (beyaz) uzun sürer, Medium (sarı) ortadadır. Tur geçtikçe lastik aşınır ve yavaşlar.', '#f5b843', 'wear'),
+        ('4', 'Pit duvarı', 'Takım, trafiği ve lastik ömrünü izleyerek pit zamanını seçer. İki pit arası "stint" denir. Rakipten önce pit = "undercut", sonra pit = "overcut".', '#33d6c8', 'stint'),
         ('5', 'Geçiş ve enerji', 'Düzlükte Straight Mode (yayında eski adıyla "DRS") sürtünmeyi azaltır; mücadelede Overtake Mode (ERS hücum / push-to-pass) ek elektrik gücü verir.', '#a78bfa', 'drs'),
         ('6', 'Yarış sonrası', 'Sonuçtan sonra en hızlı tur, pitler, sıra değişimi ve takım arkadaşları arasındaki fark okunur.', '#fb923c', None),
     ]
@@ -5790,10 +5791,10 @@ def render_learning_centre_v20():
         'Neden pit yaptılar?': 'Pit zamanı; lastik aşınması, trafik, hava ve rakibin hamlesiyle birlikte değerlendirilir.',
         'İki pilot arasındaki fark nerede?': 'Pilot Karşılaştırma bölümünde tur, sektör, fren ve gaz verilerini aç.',
     }
-    st.markdown(f"<div class='hud-card' style='border-left:4px solid #f7c948'><div class='hud-label'>SANA ÖNERİ</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(watch_copy[watch])}</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='hud-card' style='border-left:4px solid #f5b843'><div class='hud-label'>SANA ÖNERİ</div><div class='history-copy' style='margin-top:7px'>{html_lib.escape(watch_copy[watch])}</div></div>", unsafe_allow_html=True)
     st.markdown("#### Hazırsan, bir yarışı adım adım izle")
     st.caption("Tam 2D yarış tekrarını açar ve ilk açılışta 5 adımlık rehberli tur seni ekranda gezdirir: lider kim, lastikler, pit, zaman çizelgesi ve kontroller.")
-    if st.button('▶ İlk yarışını rehberli izle', key='learn_replay_tour_v20', width='stretch', type='primary'):
+    if st.button('İlk yarışını rehberli izle', key='learn_replay_tour_v20', width='stretch', type='primary'):
         st.session_state['page'] = 'live'
         st.session_state['_want_replay_tour'] = True
         st.rerun()
@@ -5825,7 +5826,7 @@ section[data-testid="stSidebar"] div[data-testid="stButton"]{width:100%!importan
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button{width:100%!important;min-height:50px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;text-align:left!important;padding:0 16px!important;border-radius:11px!important}
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button p{width:100%!important;margin:0!important;text-align:left!important;line-height:1.15!important;font-size:.88rem!important}
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:50px!important;display:flex!important;align-items:center!important;text-align:left!important}
-.news-feature-v20{display:grid;grid-template-columns:minmax(240px,.9fr) minmax(0,1.1fr);gap:18px;align-items:stretch;padding:16px;border:1px solid #325174;border-left:5px solid #ff385c;border-radius:15px;background:linear-gradient(135deg,#101c2d,#111a28);margin:18px 0}.news-feature-image-v20{width:100%;height:230px;object-fit:cover;border-radius:11px;border:1px solid #29435f;background:#0b1422}.news-feature-copy-v20{display:flex;flex-direction:column;gap:9px;justify-content:center}.news-feature-title-v20{font-size:1.45rem;font-weight:950;line-height:1.22;color:#f6f9ff}.news-card-v20{min-height:0!important;display:flex;flex-direction:column;gap:6px}.news-card-v20 .news-desc{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}.news-card-v20 .news-link{margin-top:auto}.news-grid-v20{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px;align-items:stretch}.story-lead-v20{padding:18px;border:1px solid #3a526f;border-left:5px solid #ff385c;border-radius:14px;background:linear-gradient(135deg,#131b2a,#0f1928);margin:16px 0}.story-lead-title-v20{font-size:1.38rem;font-weight:950;line-height:1.3;margin:7px 0}.story-metric-v20{min-height:112px}.story-metric-value-v20{font-size:1.23rem;font-weight:950;margin-top:8px}.story-note-v20{border:1px solid #314964;border-left:4px solid #ff385c;border-radius:10px;background:#111b2a;padding:12px;margin-bottom:8px;line-height:1.5}.learning-hero-v20{border-top:5px solid #f7c948;margin-bottom:18px}.learning-step-v20{min-height:170px;position:relative;overflow:hidden}.learning-number-v20{font-size:2.7rem;font-weight:950;line-height:1;color:rgba(255,255,255,.14);margin-bottom:9px}
+.news-feature-v20{display:grid;grid-template-columns:minmax(240px,.9fr) minmax(0,1.1fr);gap:18px;align-items:stretch;padding:16px;border:1px solid #325174;border-left:5px solid #ff5a4d;border-radius:15px;background:linear-gradient(135deg,#101c2d,#111a28);margin:18px 0}.news-feature-image-v20{width:100%;height:230px;object-fit:cover;border-radius:11px;border:1px solid #29435f;background:#0b1422}.news-feature-copy-v20{display:flex;flex-direction:column;gap:9px;justify-content:center}.news-feature-title-v20{font-size:1.45rem;font-weight:950;line-height:1.22;color:#eef2f7}.news-card-v20{min-height:0!important;display:flex;flex-direction:column;gap:6px}.news-card-v20 .news-desc{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}.news-card-v20 .news-link{margin-top:auto}.news-grid-v20{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px;align-items:stretch}.story-lead-v20{padding:18px;border:1px solid #3a526f;border-left:5px solid #ff5a4d;border-radius:14px;background:linear-gradient(135deg,#131b2a,#0f1928);margin:16px 0}.story-lead-title-v20{font-size:1.38rem;font-weight:950;line-height:1.3;margin:7px 0}.story-metric-v20{min-height:112px}.story-metric-value-v20{font-size:1.23rem;font-weight:950;margin-top:8px}.story-note-v20{border:1px solid #314964;border-left:4px solid #ff5a4d;border-radius:10px;background:#111b2a;padding:12px;margin-bottom:8px;line-height:1.5}.learning-hero-v20{border-top:5px solid #f5b843;margin-bottom:18px}.learning-step-v20{min-height:170px;position:relative;overflow:hidden}.learning-number-v20{font-size:2.7rem;font-weight:950;line-height:1;color:rgba(255,255,255,.14);margin-bottom:9px}
 @media(max-width:900px){.news-grid-v20{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.news-grid-v20{grid-template-columns:1fr}}
 @media(max-width:800px){.news-feature-v20{grid-template-columns:1fr}.news-feature-image-v20{height:190px}.story-metric-value-v20{font-size:1.05rem}.learning-step-v20{min-height:auto}.stButton>button{min-height:46px!important}}
@@ -5906,7 +5907,7 @@ def fetch_stewarlde_historic_roster_v21(season):
 
 def stewarlde_cell_v21(value, target, numeric=False):
     if str(value) == str(target):
-        return 'match', '\u2713'
+        return 'match', ''
     if numeric:
         try:
             return ('near', '\u2191' if int(value) < int(target) else '\u2193')
@@ -5926,7 +5927,7 @@ section[data-testid="stSidebar"] div[data-testid="stButton"]>button{width:100%!i
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button p,section[data-testid="stSidebar"] div[data-testid="stButton"]>button div{width:100%!important;margin:0!important;text-align:left!important;justify-content:flex-start!important;line-height:1.15!important}
 section[data-testid="stSidebar"] [data-testid="stExpander"]{margin:0 0 10px!important;width:100%!important;box-sizing:border-box!important}
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:52px!important;padding:0 18px!important;display:flex!important;align-items:center!important;text-align:left!important;box-sizing:border-box!important}
-.games-hub-v21{border-top:5px solid #a78bfa!important;margin-bottom:18px!important}.stewarlde-brief-v21{border-left:5px solid #ff385c!important;margin:12px 0 16px!important}.stewarlde-row-v21{display:grid;grid-template-columns:1.45fr 1.2fr repeat(4,1fr);gap:8px;margin:9px 0}.stewarlde-cell-v21{min-height:62px;border:1px solid #2d435c;border-radius:10px;padding:9px;background:#111b29;position:relative}.stewarlde-cell-v21 small{display:block;color:#9aafc4;font-size:.66rem;font-weight:850;letter-spacing:.35px}.stewarlde-cell-v21 b{display:block;color:#f4f8fc;font-size:.92rem;margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stewarlde-cell-v21 i{position:absolute;right:9px;bottom:7px;font-style:normal;font-weight:950}.stewarlde-cell-v21.match{background:#123f31;border-color:#45d991}.stewarlde-cell-v21.near{background:#4c3d16;border-color:#efc84a}.stewarlde-cell-v21.miss{background:#252c36;border-color:#465463}.stewarlde-id-v21{width:106px;height:132px;border:2px solid;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:950;background:linear-gradient(145deg,#152743,#0f1928);letter-spacing:2px}
+.games-hub-v21{border-top:5px solid #a78bfa!important;margin-bottom:18px!important}.stewarlde-brief-v21{border-left:5px solid #ff5a4d!important;margin:12px 0 16px!important}.stewarlde-row-v21{display:grid;grid-template-columns:1.45fr 1.2fr repeat(4,1fr);gap:8px;margin:9px 0}.stewarlde-cell-v21{min-height:62px;border:1px solid #2d435c;border-radius:10px;padding:9px;background:#111b29;position:relative}.stewarlde-cell-v21 small{display:block;color:#9aafc4;font-size:.66rem;font-weight:850;letter-spacing:.35px}.stewarlde-cell-v21 b{display:block;color:#f4f8fc;font-size:.92rem;margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stewarlde-cell-v21 i{position:absolute;right:9px;bottom:7px;font-style:normal;font-weight:950}.stewarlde-cell-v21.match{background:#123f31;border-color:#45d991}.stewarlde-cell-v21.near{background:#4c3d16;border-color:#efc84a}.stewarlde-cell-v21.miss{background:#252c36;border-color:#465463}.stewarlde-id-v21{width:106px;height:132px;border:2px solid;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:950;background:linear-gradient(145deg,#152743,#0f1928);letter-spacing:2px}
 @media(max-width:800px){section[data-testid="stSidebar"] div[data-testid="stButton"]>button{min-height:48px!important;padding:0 14px!important}.stewarlde-row-v21{grid-template-columns:repeat(2,1fr)}.stewarlde-cell-v21{min-height:56px}.stewarlde-id-v21{width:84px;height:104px}}
 </style>
 """, unsafe_allow_html=True)
@@ -5979,7 +5980,7 @@ st.markdown(r"""
 /* A light CSS-only motion layer. No canvas, iframe, or positioned overlay. */
 @keyframes paddock-grid-drift-v23{0%{background-position:0 0,0 0,0 0,0 0}50%{background-position:0 0,0 0,22px 16px,-22px -16px}100%{background-position:0 0,0 0,0 0,0 0}}
 @media (prefers-reduced-motion:no-preference){[data-testid="stAppViewContainer"],.stApp{animation:paddock-grid-drift-v23 34s ease-in-out infinite!important}}
-.stewarlde-stat-v23{min-height:118px!important;border-top:5px solid #52d6ff!important;background:linear-gradient(145deg,rgba(17,34,55,.96),rgba(12,21,34,.96))!important}.stewarlde-brief-v23{border-left:5px solid #ff385c!important;margin:16px 0 18px!important;background:linear-gradient(120deg,rgba(20,34,54,.96),rgba(14,24,38,.96))!important}.stewarlde-row-v23{display:grid;grid-template-columns:1.45fr 1.2fr repeat(4,1fr);gap:8px;margin:10px 0}.stewarlde-cell-v23{min-height:68px;border:1px solid #2d435c;border-radius:11px;padding:10px;background:#111b29;position:relative;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}.stewarlde-cell-v23 small{display:block;color:#9cb5d0;font-size:.67rem;font-weight:900;letter-spacing:.42px;text-transform:uppercase}.stewarlde-cell-v23 b{display:block;color:#f2f5f8;font-size:.96rem;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stewarlde-cell-v23 i{position:absolute;right:10px;bottom:8px;font-style:normal;font-size:1rem;font-weight:950}.stewarlde-cell-v23.match{background:linear-gradient(145deg,#123f31,#103528);border-color:#45d991}.stewarlde-cell-v23.near{background:linear-gradient(145deg,#4c3d16,#392e13);border-color:#efc84a}.stewarlde-cell-v23.miss{background:linear-gradient(145deg,#29313d,#232a34);border-color:#4b5a69}
+.stewarlde-stat-v23{min-height:118px!important;border-top:5px solid #33d6c8!important;background:linear-gradient(145deg,rgba(17,34,55,.96),rgba(12,21,34,.96))!important}.stewarlde-brief-v23{border-left:5px solid #ff5a4d!important;margin:16px 0 18px!important;background:linear-gradient(120deg,rgba(20,34,54,.96),rgba(14,24,38,.96))!important}.stewarlde-row-v23{display:grid;grid-template-columns:1.45fr 1.2fr repeat(4,1fr);gap:8px;margin:10px 0}.stewarlde-cell-v23{min-height:68px;border:1px solid #2d435c;border-radius:11px;padding:10px;background:#111b29;position:relative;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}.stewarlde-cell-v23 small{display:block;color:#9cb5d0;font-size:.67rem;font-weight:900;letter-spacing:.42px;text-transform:uppercase}.stewarlde-cell-v23 b{display:block;color:#eef2f7;font-size:.96rem;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.stewarlde-cell-v23 i{position:absolute;right:10px;bottom:8px;font-style:normal;font-size:1rem;font-weight:950}.stewarlde-cell-v23.match{background:linear-gradient(145deg,#123f31,#103528);border-color:#45d991}.stewarlde-cell-v23.near{background:linear-gradient(145deg,#4c3d16,#392e13);border-color:#efc84a}.stewarlde-cell-v23.miss{background:linear-gradient(145deg,#29313d,#232a34);border-color:#4b5a69}
 @media(max-width:900px){.stewarlde-row-v23{grid-template-columns:repeat(2,1fr)}.stewarlde-stat-v23{min-height:100px!important}}
 </style>
 """, unsafe_allow_html=True)
@@ -6021,7 +6022,7 @@ def stewarlde_date_cell_v25(value, target):
     if not value or not target:
         return False, ''
     if value == target:
-        return True, '✓'
+        return True, ''
     return 'near', '↑' if str(target) > str(value) else '↓'
 
 
@@ -6074,7 +6075,7 @@ def render_stewarlde_v25():
     _game_shell(
         "Stewardle",
         "2010–2026 F1 pilot havuzu · doğrulanmış galibiyet, şampiyonluk, GP startı ve ilk GP yılı bulmacası.",
-        "#ff385c",
+        "#ff5a4d",
     )
     if _game_intro_gate_v8('stewarlde'):
         return
@@ -6168,7 +6169,7 @@ def render_stewarlde_v25():
             f"{target['name']}",
             verdict=(won, f"{len(game['guesses'])}/6'da buldun" if won else "Bu tur bitti"),
             lead=f"Doğru cevap: {target['name']} · {target['team']}.{_daily}")
-        colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#52d6ff'
+        colour = team_colour(target['team']) if target['team'] in TEAM_DIRECTORY_2026 else '#33d6c8'
         _target_shown = {**target, 'photo': target.get('photo') or _stewarlde_photo_v9(target)}
         st.markdown(stewarlde_profile_v25(_target_shown, target_stats or {}, colour),
                     unsafe_allow_html=True)
@@ -6484,7 +6485,7 @@ def stable_race_replay_html(payload):
     """
     packed = fp_ui.json_for_script(_replay_overlay_v26(dict(payload)))
     return r"""<!doctype html><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#f2f5f8;font-family:Inter,Segoe UI,Arial,sans-serif}.r{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#11161f,#09101a)}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.key{border:1px solid #334d69;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:850;color:#bcd0e4;background:#101d2f}.key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.key[title]{cursor:help}.key em{font-style:normal;color:#8ea4bc;font-weight:700}.grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:510px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#11161f;padding:12px}.hero{border-bottom:1px solid #2b4058;padding:0 0 10px;margin-bottom:8px;min-height:74px}.hero b{font-size:21px;color:var(--team)}.hero small{display:block;color:#a9bbcd;margin-top:5px}.hero img{float:right;width:65px;height:82px;object-fit:contain;object-position:right bottom;margin:-8px -4px -2px 8px}.stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #26394f;font-size:12px;gap:8px}.stat span{color:#92a7bc}.pit{color:#ffd46b}.on{color:#81e6ac}
+*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}.r{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#141a24,#09101a)}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.key{border:1px solid #334d69;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:850;color:#bcd0e4;background:#101d2f}.key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.key[title]{cursor:help}.key em{font-style:normal;color:#8ea4bc;font-weight:700}.grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:510px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#141a24;padding:12px}.hero{border-bottom:1px solid #2b4058;padding:0 0 10px;margin-bottom:8px;min-height:74px}.hero b{font-size:21px;color:var(--team)}.hero small{display:block;color:#a9bbcd;margin-top:5px}.hero img{float:right;width:65px;height:82px;object-fit:contain;object-position:right bottom;margin:-8px -4px -2px 8px}.stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #26394f;font-size:12px;gap:8px}.stat span{color:#92a7bc}.pit{color:#ffd46b}.on{color:#81e6ac}
 .tyrehud{margin:11px 0 3px}.tyrehud [title],.stat [title]{cursor:help}
 .tyrehead{display:flex;align-items:center;gap:9px}
 .tcompound{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font:900 14px ui-monospace,Consolas,monospace;color:#0a121c;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
@@ -6517,11 +6518,11 @@ def stable_race_replay_html(payload):
 .evlist button{display:block;width:100%;text-align:left;background:none;border:0;color:#9db1c8;padding:2px 0;cursor:pointer;border-left:2px solid transparent;padding-left:7px}
 .evlist button:hover{color:#eef4fa}
 .evlist button.on{color:#eef4fa;border-left-color:#f4d35e}
-.evlist button .lap{color:#7f97ac;font-family:ui-monospace,Consolas,monospace;margin-right:6px}.btn{border:1px solid #39516f;border-radius:7px;background:#142239;color:#f2f5f8;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}
+.evlist button .lap{color:#7f97ac;font-family:ui-monospace,Consolas,monospace;margin-right:6px}.btn{border:1px solid #39516f;border-radius:7px;background:#142239;color:#eef2f7;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}
 .strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px;align-items:stretch}
 .striphd{grid-column:1/-1;font:700 9px ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#7f97ac;margin:2px 0 1px}
 .pilot{display:grid;grid-template-columns:20px 1fr auto;gap:7px;align-items:center;text-align:left;
-  border:1px solid #2a3d55;border-left:4px solid var(--team);border-radius:6px;background:#101c30;color:#f2f5f8;
+  border:1px solid #2a3d55;border-left:4px solid var(--team);border-radius:6px;background:#101c30;color:#eef2f7;
   padding:5px 8px;cursor:pointer;font-family:Inter,Arial,sans-serif}
 .pilot.active{background:#1c3049;box-shadow:0 0 0 1px var(--team) inset}
 .pilot.inpit{opacity:.7}
@@ -6549,7 +6550,7 @@ def stable_race_replay_html(payload):
 #tourcard .tnav button:hover{border-color:#6ee7ff}
 #tourcard .tnav button.pri{background:#1f6feb;border-color:#1f6feb}
 @media(prefers-reduced-motion:reduce){#tourhi{transition:none}}
-</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="tourpill" id="tourbtn" type="button">❔ REHBERLİ TUR</button><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div></div><div class="legend"><span class="key" title="Düzlükte düşük sürtünme bölgesi. 2024 ve öncesinde yayında buna DRS bölgesi deniyordu."><i style="background:#45c8ff"></i>Straight Mode <em>(≈ DRS)</em></span><span class="key" title="Öndeki araca yakınken ekstra elektrik gücü kullanılabilen bölge — geçiş şansı yüksek. Yayın diliyle push-to-pass / ERS hücum."><i style="background:#71e6a1"></i>Overtake Mode <em>(≈ ERS hücum)</em></span><span class="key" title="Pilotun pite girip çıktığı yaklaşık konum."><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key" title="Pit yolu koordinatı resmî olarak yayımlanmaz; bu çizgi yalnızca şematiktir."><i style="background:#ffd46b"></i>Pit şeridi (şematik)</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">❚❚ Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="evwrap"><div class="evnow" id="evnow"></div><div class="evbar" id="evbar"></div><div class="evlist" id="evlist"></div></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Olay çizgisi bu verilerden otomatik türetilir. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
+</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="tourpill" id="tourbtn" type="button">REHBERLİ TUR</button><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div></div><div class="legend"><span class="key" title="Düzlükte düşük sürtünme bölgesi. 2024 ve öncesinde yayında buna DRS bölgesi deniyordu."><i style="background:#33d6c8"></i>Straight Mode <em>(≈ DRS)</em></span><span class="key" title="Öndeki araca yakınken ekstra elektrik gücü kullanılabilen bölge — geçiş şansı yüksek. Yayın diliyle push-to-pass / ERS hücum."><i style="background:#71e6a1"></i>Overtake Mode <em>(≈ ERS hücum)</em></span><span class="key" title="Pilotun pite girip çıktığı yaklaşık konum."><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key" title="Pit yolu koordinatı resmî olarak yayımlanmaz; bu çizgi yalnızca şematiktir."><i style="background:#ffd46b"></i>Pit şeridi (şematik)</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="evwrap"><div class="evnow" id="evnow"></div><div class="evbar" id="evbar"></div><div class="evlist" id="evlist"></div></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Olay çizgisi bu verilerden otomatik türetilir. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
 const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],overlay=data.overlay||{},canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.code||'',playing=true,speed=6,time=0,last=performance.now(),lastHud=0,lastKey='',view=null;const tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const fmt=n=>{n=Math.max(0,Math.round(n));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};const fmtLap=x=>{if(!x||x<=0)return '—';const m=Math.floor(x/60),s=x-m*60;return m+':'+s.toFixed(3).padStart(6,'0')};const avgLap=(data.total_seconds||1)/(data.total_laps||1);
 function lap(c,t){const a=c.laps||[];for(let i=0;i<a.length;i++)if(t<=a[i].end)return a[i];return a[a.length-1]||null}function pitEvent(c,t){return(c.pit_events||[]).find(e=>t>=e.start&&t<=e.end)||null}function state(c,t){const l=lap(c,t),a=c.laps||[],last=a[a.length-1],out=!!c.retired&&t>=(last?.end||0);if(!l)return{lap:0,frac:0,pos:c.grid||20,pit:false,out};const i=a.indexOf(l),previous=a[Math.max(0,i-1)]?.position||l.start_position||c.grid||20,frac=Math.max(0,Math.min(1,(t-l.start)/(l.end-l.start||1)));return{lap:l.lap,frac,pos:frac>.997?(l.position||previous):previous,pit:!out&&!!pitEvent(c,t),out}}
@@ -6569,12 +6570,12 @@ function car(x,y,a,c,code,chosen,pit){ctx.save();ctx.translate(x,y);ctx.rotate(-
  if(pit){ctx.strokeStyle='#ffd44b';ctx.lineWidth=2;ctx.strokeRect(-20*s,-13*s,41*s,26*s);}
  if(chosen){ctx.strokeStyle='#fff';ctx.lineWidth=1.4;ctx.strokeRect(-22*s,-15*s,45*s,30*s);}
  ctx.restore();ctx.fillStyle=chosen?'#fff':c;ctx.font='900 10px Inter,Arial,sans-serif';ctx.textAlign='center';ctx.fillText(code,x,y-16)}
-function draw(){if(!view||!route.length)return;ctx.clearRect(0,0,view.w,view.h);ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;(overlay.straights||[]).forEach((z,i)=>zone(z,i?'OM · OVERTAKE MODE':'SM · STRAIGHT MODE',i?'#71e6a1':'#45c8ff'));mark(0,'START / FINISH','#fff');(overlay.sectors||[]).forEach(x=>mark(x.fraction,x.label,x.colour||'#f4d35e'));(overlay.pit||[]).forEach(x=>mark(x.fraction,x.label,'#b79cff'));drawLane();cars.forEach(c=>{const s=state(c,time);if(s.out)return;const e=pitEvent(c,time);let q,p;if(e){p=pitPoint(e,time);q=[p.x,p.y]}else{p=visual(c,time);q=xy(p,view)}car(q[0],q[1],p.a,c.colour,c.code,c.code===selected,!!e)})}
+function draw(){if(!view||!route.length)return;ctx.clearRect(0,0,view.w,view.h);ctx.strokeStyle='#8094ad';ctx.globalAlpha=.72;ctx.lineWidth=4;ctx.beginPath();route.forEach((p,i)=>{const q=xy({x:p[0],y:p[1]},view);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.stroke();ctx.globalAlpha=1;(overlay.straights||[]).forEach((z,i)=>zone(z,i?'OM · OVERTAKE MODE':'SM · STRAIGHT MODE',i?'#71e6a1':'#33d6c8'));mark(0,'START / FINISH','#fff');(overlay.sectors||[]).forEach(x=>mark(x.fraction,x.label,x.colour||'#f4d35e'));(overlay.pit||[]).forEach(x=>mark(x.fraction,x.label,'#b79cff'));drawLane();cars.forEach(c=>{const s=state(c,time);if(s.out)return;const e=pitEvent(c,time);let q,p;if(e){p=pitPoint(e,time);q=[p.x,p.y]}else{p=visual(c,time);q=xy(p,view)}car(q[0],q[1],p.a,c.colour,c.code,c.code===selected,!!e)})}
 function order(){return cars.filter(c=>!state(c,time).out).sort((a,b)=>{const x=state(a,time),y=state(b,time);return x.pos-y.pos||(y.lap+y.frac)-(x.lap+x.frac)})}function lastPit(c){const e=(c.pit_events||[]).filter(x=>x.end<=time).at(-1);return e?'Tur '+e.lap:'Henüz yok'}
 const TYRE_LIFE={SOFT:19,MEDIUM:29,HARD:42,INTERMEDIATE:26,WET:32};
 function stintSegments(c){const laps=c.laps||[];const segs=[];let cur=null;for(const lp of laps){const comp=String(lp.compound||'').toUpperCase()||'?';const key=(lp.stint||0)+'|'+comp;if(!cur||cur.key!==key){cur={key:key,compound:comp,from:lp.lap,to:lp.lap};segs.push(cur);}else{cur.to=lp.lap;}}return segs;}
 function stintSummary(c){const s=stintSegments(c);return s.length?s.map(x=>(x.compound[0]||'?')+(x.to-x.from+1)).join(' '):'—';}
-function wearColour(w){return w<55?'#4ade80':w<80?'#f5c33b':'#ff5c5c';}
+function wearColour(w){return w<55?'#3ecf8e':w<80?'#f5b843':'#ff5c5c';}
 function currentSet(c,curLap){const segs=stintSegments(c);if(!segs.length)return null;
   let i=segs.findIndex(s=>curLap>=s.from&&curLap<=s.to);
   if(i<0)i=(curLap<segs[0].from)?0:segs.length-1;
@@ -6602,7 +6603,7 @@ function tyreHud(c,curLap){
 var EV=(data.events||[]).filter(function(e){return e&&isFinite(e.t);});
 var evBuilt=false, evLastKey='';
 function seekTo(t){ time=Math.max(0,Math.min(t,data.total_seconds||0)); playing=false;
-  var pb=document.getElementById('play'); if(pb) pb.textContent='▶ Oynat';
+  var pb=document.getElementById('play'); if(pb) pb.textContent='Oynat';
   lastHud=0; draw(); update(); }
 function buildEvents(){
   if(evBuilt || !EV.length) return; evBuilt=true;
@@ -6636,7 +6637,7 @@ function syncEvents(){
   } else { now.textContent=''; }
 }
 function update(){const now=performance.now();if(now-lastHud<220)return;lastHud=now;const list=order(),key=list.map(c=>c.code+state(c,time).pos+state(c,time).lap+((c.pit_events||[]).filter(x=>x.end<=time).length)).join('|')+selected;if(key!==lastKey){lastKey=key;document.getElementById('strip').innerHTML='<div class="striphd" title="Aralık tur ve pozisyon verisinden tahmin edilir. Yarış başında araçlar henüz açılmadığı için ≈ görünür; lap verisi olmayan araçta —.">CANLI SIRALAMA · P · PİLOT · ÖNDEKİNE ARALIK (TAHMİNİ) · LASTİK</div>'+list.map((c,i)=>{const s=state(c,time);let gap='LİDER';if(i>0){const a=list[i-1],sa=state(a,time);if(s.lap<1||sa.lap<1){gap='—';}else{const dp=((sa.lap-1)+(sa.frac||0))-((s.lap-1)+(s.frac||0));gap=(dp>=0.9&&time>avgLap)?'+'+Math.round(dp)+' tur':(dp>0&&dp<0.9&&dp*avgLap>=0.1)?'+'+(dp*avgLap).toFixed(1)+'s':'≈';}}const flm=(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">FL</s>':'';const l=lap(c,time),comp=((l&&l.compound)||'').toUpperCase(),cl=comp.slice(0,1)||'–',tcol=tyres[comp]||'#5a6b7e';const np=(c.pit_events||[]).filter(x=>x.end<=time).length;return`<button class="pilot ${c.code===selected?'active':''} ${s.pit?'inpit':''}" style="--team:${c.colour}" data-c="${c.code}"><span class="pp">${s.pos}</span><span class="pc">${c.code}${flm}<small>${np} pit</small></span><span class="pg ${s.pit?'pit':''}">${s.pit?'PIT':gap}<i class="pt" style="background:${tcol}">${cl}</i></span></button>`}).join('');document.querySelectorAll('.pilot').forEach(b=>b.onclick=()=>{selected=b.dataset.c;lastKey='';lastHud=0;update()})}const c=cars.find(x=>x.code===selected)||cars[0],s=state(c,time),l=lap(c,time),compound=(l?.compound||'—').toUpperCase(),p=pitEvent(c,time),move=(c.grid&&s.pos)?c.grid-s.pos:0,wear=Math.max(8,100-Math.round(100*(s.frac||0)));const profile=c.profile||{},photo=profile.photo?`<img src="${esc(profile.photo)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';document.getElementById('panel').style.setProperty('--team',c.colour);document.getElementById('panel').style.setProperty('--tyre',tyres[compound]||'#9db1c8');document.getElementById('panel').innerHTML=`<div class="hero">${photo}<b>${esc(profile.name||c.code)} · P${s.pos}</b><small>${esc(c.team)} · ${esc(profile.flag||'')} ${esc(c.code)}</small></div><div class="stat"><span>Tur</span><b>${s.lap} / ${data.total_laps}</b></div><div class="stat"><span>Başlangıç → bitiş</span><b>P${c.grid||'—'} → P${c.final_position||'—'}</b></div><div class="stat"><span>Pozisyon değişimi</span><b>${move>0?'↑ '+move:move<0?'↓ '+Math.abs(move):'→ 0'} sıra</b></div>${tyreHud(c,s.lap)}<div class="stat"><span>En hızlı tur</span><b>${c.fastest?fmtLap(c.fastest.seconds)+' · T'+c.fastest.lap:'—'}${(data.fastest_lap&&data.fastest_lap.code===c.code)?' <s class="flm">MOR</s>':''}</b></div><div class="stat"><span>Son pit</span><b>${lastPit(c)}</b></div><div class="stat"><span>Pit durumu</span><b class="${p?'pit':'on'}">${p?'PIT LANE':'PİSTTE'}</b></div>`;document.getElementById('range').value=Math.round(1000*time/(data.total_seconds||1));document.getElementById('clock').textContent=fmt(time)+' / '+fmt(data.total_seconds);syncEvents()}
-let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}function frame(now){raf=0;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!playing)return;time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='↻ Baştan'}if(now-lastPaint>=33||!playing){lastPaint=now;draw();update()}if(playing)raf=requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(1.5,devicePixelRatio||1);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'❚❚ Duraklat':'▶ Oynat';if(playing)startLoop();else{draw();update()}};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;playing=false;document.getElementById('play').textContent='▶ Oynat';lastHud=0;draw();update()};document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;document.getElementById('play').textContent='▶ Oynat'}});document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · doğrulanmış yarış saati';window.addEventListener('resize',resize);buildEvents();resize();startLoop();
+let raf=0,lastPaint=0;function startLoop(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}function frame(now){raf=0;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;if(!playing)return;time+=dt*speed;if(time>=data.total_seconds){time=data.total_seconds;playing=false;document.getElementById('play').textContent='Baştan'}if(now-lastPaint>=33||!playing){lastPaint=now;draw();update()}if(playing)raf=requestAnimationFrame(frame)}function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(1.5,devicePixelRatio||1);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);view=transform();draw();lastHud=0;update()}document.getElementById('play').onclick=()=>{if(time>=data.total_seconds)time=0;playing=!playing;document.getElementById('play').textContent=playing?'Duraklat':'Oynat';if(playing)startLoop();else{draw();update()}};document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=Number(b.dataset.speed);document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b))});document.getElementById('range').oninput=e=>{time=Number(e.target.value)/1000*data.total_seconds;playing=false;document.getElementById('play').textContent='Oynat';lastHud=0;draw();update()};document.addEventListener('visibilitychange',()=>{if(document.hidden){playing=false;document.getElementById('play').textContent='Oynat'}});document.getElementById('sub').textContent=(data.event||'Formula 1')+' · '+data.total_laps+' tur · doğrulanmış yarış saati';window.addEventListener('resize',resize);buildEvents();resize();startLoop();
 setInterval(function(){if(playing&&performance.now()-last>120){frame(performance.now());}},50);
 (function(){
   var STEPS=[
@@ -6730,7 +6731,7 @@ section[data-testid="stSidebar"] div[data-testid="stButton"]>button{width:100%!i
 section[data-testid="stSidebar"] div[data-testid="stButton"]>button:hover{border-left-color:#6ee7ff!important;background:linear-gradient(90deg,#142b49,#101e33)!important;transform:translateX(1px)}
 section[data-testid="stSidebar"] [data-testid="stExpander"]{margin:0 0 9px!important;border:1px solid #315578!important;border-radius:10px!important;background:#0f1d30!important;overflow:hidden}
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary{min-height:50px!important;padding:0 16px!important;display:flex!important;align-items:center!important;font-weight:850!important}
-.hud-card.game-stat-v24,.hud-card.game-brief-v24,.hud-card.game-result-v24,.hud-card.draft-driver-v22{box-shadow:0 14px 28px rgba(0,0,0,.18)!important;border-radius:14px!important;background:linear-gradient(145deg,#111d31,#11161f)!important}
+.hud-card.game-stat-v24,.hud-card.game-brief-v24,.hud-card.game-result-v24,.hud-card.draft-driver-v22{box-shadow:0 14px 28px rgba(0,0,0,.18)!important;border-radius:14px!important;background:linear-gradient(145deg,#111d31,#141a24)!important}
 </style>
 """, unsafe_allow_html=True)
 
@@ -6808,7 +6809,7 @@ st.markdown(r"""
 /* Career Comparison 2.7: equal visual columns with career-only data. */
 .career-panel-v27{min-height:492px;border:1px solid #2b4664;border-top:5px solid var(--team);border-radius:16px;padding:18px;background:linear-gradient(145deg,#111d31,#0b1524);box-shadow:0 14px 30px rgba(0,0,0,.18)}
 .career-hero-v27{min-height:118px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2a4059;padding-bottom:13px}.career-hero-v27 img{width:92px;height:116px;object-fit:contain;object-position:center bottom;flex:0 0 auto}.career-hero-v27 h3{margin:5px 0 4px;color:var(--team);font-size:1.45rem;line-height:1.15}.career-hero-v27 p{margin:0;color:#a8c0d7;font-size:.86rem}
-.career-metrics-v27{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}.career-metric-v27{min-height:70px;padding:10px;border:1px solid #29435f;border-radius:10px;background:#0d1829}.career-metric-v27 span,.career-teams-v27 small{display:block;color:#91abd0;font-size:.63rem;font-weight:900;letter-spacing:1.05px}.career-metric-v27 b{display:block;color:#f2f5f8;font-size:1.16rem;margin-top:7px}
+.career-metrics-v27{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}.career-metric-v27{min-height:70px;padding:10px;border:1px solid #29435f;border-radius:10px;background:#0d1829}.career-metric-v27 span,.career-teams-v27 small{display:block;color:#91abd0;font-size:.63rem;font-weight:900;letter-spacing:1.05px}.career-metric-v27 b{display:block;color:#eef2f7;font-size:1.16rem;margin-top:7px}
 .career-teams-v27{margin-top:14px;padding-top:12px;border-top:1px solid #2a4059}.career-teams-v27>div{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.career-teams-v27 span{border:1px solid color-mix(in srgb,var(--team) 48%,#2e4a68);border-left:3px solid var(--team);border-radius:99px;padding:5px 8px;color:#c9d9e7;background:#122137;font-size:.74rem;font-weight:760}.career-source-v27{margin-top:13px;color:#83a0bd;font-size:.72rem}
 @media(max-width:800px){.career-panel-v27{min-height:0;margin-bottom:12px}.career-hero-v27 img{width:76px;height:98px}.career-metrics-v27{grid-template-columns:repeat(2,minmax(0,1fr))}.career-metric-v27{min-height:63px}}
 </style>
@@ -7240,7 +7241,7 @@ def driver_profile_header_html(name, code, nation, number, prof, colour, titles=
         _msg = ("Bu pilotun henüz doğrulanmış bir Formula 1 yarış başlangıcı yok."
                 if prof.get('empty') else
                 "Bu pilot için doğrulanmış kariyer kaydı şu an alınamadı. Birazdan tekrar dene.")
-        grid = f"<div style='padding:16px;color:#9fb0c0'>{_msg}</div>"
+        grid = f"<div style='padding:16px;color:#9aa7b8'>{_msg}</div>"
     else:
         best = f"P{prof['best']}" if prof.get('best') else '—'
         worst = f"P{prof['worst']}" if prof.get('worst') else '—'
@@ -7254,22 +7255,22 @@ def driver_profile_header_html(name, code, nation, number, prof, colour, titles=
 
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ph{{border:1px solid #26313f;border-radius:6px;background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
-      .pt{{display:flex;align-items:center;gap:16px;padding:18px 20px;border-bottom:1px solid #26313f;border-left:4px solid {colour}}}
-      .pt .c{{font-family:'Antonio','Saira Condensed',sans-serif;font-weight:700;font-size:40px;color:{colour};line-height:1}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .ph{{border:1px solid #232c3a;border-radius:6px;background:linear-gradient(160deg,#141a24,#141a24);overflow:hidden}}
+      .pt{{display:flex;align-items:center;gap:16px;padding:18px 20px;border-bottom:1px solid #232c3a;border-left:4px solid {colour}}}
+      .pt .c{{font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:40px;color:{colour};line-height:1}}
       .pt .w{{flex:1;min-width:0}}
-      .pt .w b{{font:800 22px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
-      .pt .w span{{display:block;font-size:12px;color:#9fb0c0;margin-top:3px}}
+      .pt .w b{{font:800 22px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
+      .pt .w span{{display:block;font-size:12px;color:#9aa7b8;margin-top:3px}}
       .pt .no{{font-family:'JetBrains Mono',monospace;font-weight:700;color:{colour};font-size:16px}}
       .pg{{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#1b2330}}
-      .pg > div{{background:#11161f;padding:12px 14px}}
-      .pg s{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
+      .pg > div{{background:#141a24;padding:12px 14px}}
+      .pg s{{font:700 9.5px 'Inter',system-ui,sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
       .pg b{{display:block;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:17px;margin-top:6px}}
-      .pg b.g{{color:#38e1d0}} .pg b.r{{color:#e10600}}
+      .pg b.g{{color:#33d6c8}} .pg b.r{{color:#e10600}}
       @media(max-width:640px){{.pg{{grid-template-columns:repeat(3,1fr)}}}}
       @media(max-width:400px){{.pg{{grid-template-columns:repeat(2,1fr)}}}}
-      .ph .cap{{font:700 9.5px 'JetBrains Mono',monospace;letter-spacing:.18em;text-transform:uppercase;color:#63748a;padding:12px 16px 0}}
+      .ph .cap{{font:700 9.5px 'JetBrains Mono',monospace;letter-spacing:.18em;text-transform:uppercase;color:#6d7a8c;padding:12px 16px 0}}
     </style>
     <div class="ph">
       <div class="cap">Doğrulanmış kariyer · {html_lib.escape(span)}</div>
@@ -7291,17 +7292,17 @@ def _pos_chip_v33(pos_text, dnf):
         return ('#2a1418', '#ff5f6d', 'DNF')
     t = str(pos_text or '').strip()
     if not t or t in ('—', '-'):
-        return ('#161d28', '#9fb0c0', '—')
+        return ('#141a24', '#9aa7b8', '—')
     if t.isdigit():
         p = int(t)
         if p == 1:
             return ('#3a2f00', '#ffd100', 'P1')
         if p <= 3:
-            return ('#08301f', '#38e1d0', 'P%d' % p)
+            return ('#08301f', '#33d6c8', 'P%d' % p)
         if p <= 10:
             return ('#0c2036', '#5cc8ff', 'P%d' % p)
-        return ('#161d28', '#c9d6e2', 'P%d' % p)
-    return ('#161d28', '#c9d6e2', html_lib.escape(t))
+        return ('#141a24', '#c9d6e2', 'P%d' % p)
+    return ('#141a24', '#c9d6e2', html_lib.escape(t))
 
 
 def driver_seasons_hud_html(seasons, colour):
@@ -7326,18 +7327,18 @@ def driver_seasons_hud_html(seasons, colour):
         )
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .tt{{border:1px solid #26313f;border-radius:6px;overflow:hidden;background:#11161f}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .tt{{border:1px solid #232c3a;border-radius:6px;overflow:hidden;background:#141a24}}
       .hd,.row{{display:grid;grid-template-columns:60px 1.5fr 40px 1.1fr 42px 50px;gap:10px;align-items:center;padding:9px 15px}}
-      .hd{{background:#161d28;border-bottom:1px solid #26313f}}
-      .hd span{{font:700 9.5px 'Saira Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8a9bb0}}
+      .hd{{background:#141a24;border-bottom:1px solid #232c3a}}
+      .hd span{{font:700 9.5px 'Inter',system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#8a9bb0}}
       .row{{border-bottom:1px solid #1b2330}}
       .row:last-child{{border-bottom:0}}
       .row:nth-child(odd){{background:#131a24}}
       .yr{{font:700 13px 'JetBrains Mono',monospace;color:{colour}}}
-      .tm{{font:600 12px 'Saira',sans-serif;color:#c9d6e2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .tm{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d6e2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .n{{font:700 12px 'JetBrains Mono',monospace;text-align:right}}
-      .n.g{{color:#38e1d0}}
+      .n.g{{color:#33d6c8}}
       .bw{{position:relative;height:16px;background:#07090d;border-radius:3px;overflow:hidden}}
       .bw i{{position:absolute;left:0;top:0;bottom:0;background:{colour};opacity:.45}}
       .bw em{{position:absolute;right:6px;top:0;line-height:16px;font:700 10px 'JetBrains Mono',monospace;font-style:normal}}
@@ -7358,7 +7359,7 @@ def driver_races_hud_height(races):
 def driver_races_hud_html(races, colour):
     """Bir sezonun yarış-yarış sonuçları — sezon özeti bandı + okunur yarış kartları."""
     if not races:
-        return ("<div style='font-family:Saira,system-ui,sans-serif;color:#8a9bb0;"
+        return ("<div style='font-family:'Inter',system-ui,sans-serif;color:#8a9bb0;"
                 "padding:22px;text-align:center'>Bu sezon için doğrulanmış yarış kaydı yok.</div>")
 
     def _p(r):
@@ -7379,7 +7380,7 @@ def driver_races_hud_html(races, colour):
             ("Yarış", len(races), "#e8eef4"),
             ("Puan", _num_v33(total_pts), colour),
             ("Galibiyet", wins, "#ffd100" if wins else "#e8eef4"),
-            ("Podyum", podiums, "#38e1d0" if podiums else "#e8eef4"),
+            ("Podyum", podiums, "#33d6c8" if podiums else "#e8eef4"),
             ("Puan biten", points_races, "#e8eef4"),
             ("Yarış dışı", dnfs, "#ff5f6d" if dnfs else "#e8eef4"),
             ("En iyi", f"P{best}" if best else "—", "#e8eef4"),
@@ -7420,35 +7421,35 @@ def driver_races_hud_html(races, colour):
     return f"""
     <style>
       *{{box-sizing:border-box}}
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .wrap{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
-      .sum{{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#1b2330;border-bottom:1px solid #26313f}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .wrap{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
+      .sum{{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#1b2330;border-bottom:1px solid #232c3a}}
       .sum>div{{background:#141b26;padding:11px 12px}}
-      .sum s{{display:block;font:700 8.5px 'Saira Condensed',sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
+      .sum s{{display:block;font:700 8.5px 'Inter',system-ui,sans-serif;letter-spacing:.11em;text-transform:uppercase;color:#8a9bb0;text-decoration:none}}
       .sum b{{display:block;font:700 16px 'JetBrains Mono',monospace;margin-top:5px}}
       .list{{display:flex;flex-direction:column;gap:6px;padding:10px}}
       .card{{display:grid;grid-template-columns:40px 1fr auto;gap:13px;align-items:center;
-        padding:10px 13px;background:#131a24;border:1px solid #222c39;border-left:3px solid var(--tier);
+        padding:10px 13px;background:#131a24;border:1px solid #232c3a;border-left:3px solid var(--tier);
         border-radius:9px;transition:background .12s ease}}
       .card:hover{{background:#182130}}
       .rnd{{width:32px;height:32px;border-radius:50%;background:#0d1520;border:1px solid #263241;
-        display:flex;align-items:center;justify-content:center;font:700 12px 'JetBrains Mono',monospace;color:#7c8ea0}}
+        display:flex;align-items:center;justify-content:center;font:700 12px 'JetBrains Mono',monospace;color:#6d7a8c}}
       .mid{{min-width:0}}
-      .mid b{{display:block;font:700 14.5px 'Saira Condensed',sans-serif;text-transform:uppercase;
-        letter-spacing:.01em;color:#f2f5f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .mid .ci{{display:block;font:500 11px 'Saira',sans-serif;color:#7f8ea0;margin-top:2px;
+      .mid b{{display:block;font:700 14.5px 'Inter',system-ui,sans-serif;text-transform:uppercase;
+        letter-spacing:.01em;color:#eef2f7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .mid .ci{{display:block;font:500 11px 'Inter',system-ui,sans-serif;color:#7f8ea0;margin-top:2px;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .right{{display:flex;align-items:center;gap:12px;justify-content:flex-end;flex-wrap:wrap}}
-      .mv{{font:600 11px 'JetBrains Mono',monospace;color:#9fb0c0;white-space:nowrap}}
+      .mv{{font:600 11px 'JetBrains Mono',monospace;color:#9aa7b8;white-space:nowrap}}
       .mv i{{color:#55657a;font-style:normal;padding:0 2px}}
       .mv em{{font-style:normal;font-weight:700;margin-left:3px}}
-      .mv .up{{color:#38e1d0}} .mv .dn{{color:#ff8b78}} .mv .eq{{color:#6b7a8c}}
+      .mv .up{{color:#33d6c8}} .mv .dn{{color:#ff8a70}} .mv .eq{{color:#6b7a8c}}
       .chip{{min-width:46px;text-align:center;font:800 12px 'JetBrains Mono',monospace;
         padding:5px 9px;border-radius:6px;letter-spacing:.02em}}
       .pt{{font:700 14px 'JetBrains Mono',monospace;color:{colour};display:flex;align-items:baseline;gap:4px}}
-      .pt i{{font:700 8px 'Saira Condensed',sans-serif;font-style:normal;letter-spacing:.08em;color:#8a9bb0}}
+      .pt i{{font:700 8px 'Inter',system-ui,sans-serif;font-style:normal;letter-spacing:.08em;color:#8a9bb0}}
       .pt.zero{{color:#55657a}}
-      .st{{font:500 10.5px 'Saira',sans-serif;color:#c98a3f;white-space:nowrap}}
+      .st{{font:500 10.5px 'Inter',system-ui,sans-serif;color:#c98a3f;white-space:nowrap}}
       @media(max-width:620px){{
         .sum{{grid-template-columns:repeat(4,1fr)}}
         .card{{grid-template-columns:32px 1fr;row-gap:8px}}
@@ -7470,13 +7471,13 @@ def _driver_deep_skeleton_html(colour):
            "<span class='sk-c' style='width:38px'></span></div>")
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#8a9bb0}}
-      .sk{{border:1px solid #26313f;border-radius:12px;background:#11161f;padding:16px;overflow:hidden}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#8a9bb0}}
+      .sk{{border:1px solid #232c3a;border-radius:12px;background:#141a24;padding:16px;overflow:hidden}}
       .sk-hd{{display:flex;align-items:center;gap:10px;font:700 10px 'JetBrains Mono',monospace;
         letter-spacing:.16em;text-transform:uppercase;color:{colour};margin-bottom:14px}}
       .sk-dot{{width:9px;height:9px;border-radius:50%;background:{colour};animation:sk-pulse 1s ease-in-out infinite}}
       .sk-c{{display:inline-block;height:13px;border-radius:4px;
-        background:linear-gradient(90deg,#161d28 25%,#212c3a 50%,#161d28 75%);background-size:200% 100%;
+        background:linear-gradient(90deg,#141a24 25%,#212c3a 50%,#141a24 75%);background-size:200% 100%;
         animation:sk-shine 1.3s linear infinite}}
       .sk-row{{display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid #1b2330}}
       .sk-row:first-of-type{{border-top:0}}
@@ -7529,7 +7530,7 @@ def _render_driver_deep_v39(api, name, code, nation, number, team, colour, title
             _top = prof['circuit_wins'][0][1] or 1
             _bars = ''.join(
                 f"<div style='display:grid;grid-template-columns:150px 1fr 34px;gap:9px;align-items:center;padding:5px 0'>"
-                f"<span style='font:600 12px Saira,sans-serif;color:#9fb0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{html_lib.escape(c)}</span>"
+                f"<span style='font:600 12px 'Inter',system-ui,sans-serif;color:#9aa7b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>{html_lib.escape(c)}</span>"
                 f"<span style='height:6px;background:#07090d;border-radius:99px;overflow:hidden'>"
                 f"<i style='display:block;height:100%;width:{round(n / _top * 100)}%;background:{colour}'></i></span>"
                 f"<span style='font:700 12px JetBrains Mono,monospace;text-align:right'>×{n}</span></div>"
@@ -7543,8 +7544,8 @@ def _render_driver_deep_v39(api, name, code, nation, number, team, colour, title
             fp_ui.section_title(T("drivers.teams"))
             _tg = ''.join(
                 f"<div style='display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #1b2330'>"
-                f"<b style='font:700 13px Saira Condensed,sans-serif;text-transform:uppercase;color:{team_colour(tn)}'>{html_lib.escape(tn)}</b>"
-                f"<span style='font:12px JetBrains Mono,monospace;color:#9fb0c0'>{y0}{'–' + str(y1) if y1 != y0 else ''}</span></div>"
+                f"<b style='font:700 13px Inter,system-ui,sans-serif;text-transform:uppercase;color:{team_colour(tn)}'>{html_lib.escape(tn)}</b>"
+                f"<span style='font:12px JetBrains Mono,monospace;color:#9aa7b8'>{y0}{'–' + str(y1) if y1 != y0 else ''}</span></div>"
                 for tn, y0, y1 in prof['teams']
             )
             st.markdown(f"<div class='hud-card' style='padding:14px 16px'>{_tg}</div>", unsafe_allow_html=True)
@@ -7568,7 +7569,7 @@ def _drivers_directory_v33():
         _db = {}
     out, seen = [], set()
     for team_name, team in TEAM_DIRECTORY_2026.items():
-        colour = team.get('color', '#63748a')
+        colour = team.get('color', '#6d7a8c')
         for name, code, number, _img in team['drivers']:
             api = STEWARDLE_ACTIVE_API_IDS_V24.get(code, str(code).lower())
             nation = str((_db.get(api) or {}).get('nation', '')).strip()
@@ -7598,7 +7599,7 @@ def render_drivers_page_v33():
             st.rerun()
         if code in _DRIVER_NAME_BY_CODE:
             _following = code in _follow_list()
-            if _dbcols[1].button("★ Takipten çık" if _following else "☆ Takip et",
+            if _dbcols[1].button("Takibi bırak" if _following else "Takip et",
                                  key=f"drv_follow_{code}", width='stretch'):
                 _fl = list(_follow_list())
                 _set_follow_list([c for c in _fl if c != code] if _following else _fl + [code])
@@ -7622,7 +7623,7 @@ def render_drivers_page_v33():
                 ("Yarış-Yarış", "sezon seç; her kart bir yarış. Sol rakam = tur (round). Renkli rozet = bitiş sırası. 'P3 → P1 ▲2' = gridden bitişe kazanılan sıra."),
             ],
             legend=[
-                ("#ffd100", "P1 galibiyet"), ("#38e1d0", "podyum (P2–P3)"),
+                ("#ffd100", "P1 galibiyet"), ("#33d6c8", "podyum (P2–P3)"),
                 ("#5cc8ff", "puan bölgesi (P4–P10)"), ("#c9d6e2", "puan dışı"),
                 ("#ff5f6d", "yarış dışı (DNF)"),
             ],
@@ -7648,7 +7649,7 @@ def render_drivers_page_v33():
             with col:
                 st.markdown(
                     f"<div class='hud-card' style='border-left:3px solid {team_colour(team) if team else colour};padding:11px 13px;min-height:74px'>"
-                    f"<div style='font:800 15px Saira Condensed,sans-serif;text-transform:uppercase;letter-spacing:.03em'>{html_lib.escape(name)}</div>"
+                    f"<div style='font:800 15px Inter,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.03em'>{html_lib.escape(name)}</div>"
                     f"<div class='driver-meta'>{html_lib.escape(code)} · {html_lib.escape(team or '—')}{' · 2026' if is_2026 else ''}</div></div>",
                     unsafe_allow_html=True,
                 )
@@ -7779,9 +7780,9 @@ def _circuit_options_v41(prof_a, prof_b):
 
 def circuit_h2h_html(h, name_a, name_b, colour_a, colour_b):
     if not h.get('ok'):
-        return ("<div style='padding:20px;color:#8a9bb0;font-family:Saira,sans-serif'>"
+        return ("<div style='padding:20px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>"
                 "Bu pistte iki pilottan da doğrulanmış yarış kaydı yok.</div>")
-    ca, cb = colour_a or '#e10600', colour_b or '#38e1d0'
+    ca, cb = colour_a or '#e10600', colour_b or '#33d6c8'
     name_a, name_b = str(name_a), str(name_b)
 
     def stat_col(code, s, col, right=False):
@@ -7817,31 +7818,31 @@ def circuit_h2h_html(h, name_a, name_b, colour_a, colour_b):
 
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .cc{{border:1px solid #26313f;border-radius:12px;overflow:hidden;background:#11161f}}
-      .cc-hd{{padding:13px 16px;border-bottom:1px solid #26313f;font:800 14px 'Saira Condensed',sans-serif;
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .cc{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
+      .cc-hd{{padding:13px 16px;border-bottom:1px solid #232c3a;font:800 14px 'Inter',system-ui,sans-serif;
         text-transform:uppercase;letter-spacing:.03em}}
-      .cc-hd small{{display:block;font:600 11px 'JetBrains Mono',monospace;color:#8090a2;letter-spacing:.08em;margin-top:3px}}
+      .cc-hd small{{display:block;font:600 11px 'JetBrains Mono',monospace;color:#6d7a8c;letter-spacing:.08em;margin-top:3px}}
       .cc-cols{{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1b2330}}
       .cc-col{{background:#131a24;padding:13px 14px;border-top:3px solid var(--c)}}
       .cc-col.r{{text-align:right}}
-      .cc-name{{font:800 16px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
+      .cc-name{{font:800 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
       .cc-grid{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
       .cc-col.r .cc-grid{{direction:rtl}}
-      .cc-grid s{{display:block;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.06em;color:#8090a2;text-decoration:none}}
+      .cc-grid s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.06em;color:#6d7a8c;text-decoration:none}}
       .cc-grid b{{font:700 15px 'JetBrains Mono',monospace;margin-top:2px;display:block}}
       .cc-tally{{display:grid;grid-template-columns:1fr 2fr 1fr;gap:9px;align-items:center;padding:13px 16px 4px}}
-      .tl{{font:700 12px 'Saira Condensed',sans-serif;text-transform:uppercase;color:var(--c)}}
+      .tl{{font:700 12px 'Inter',system-ui,sans-serif;text-transform:uppercase;color:var(--c)}}
       .tl.r{{text-align:right}} .tl b{{font-family:'JetBrains Mono',monospace;font-size:15px}}
       .tbar{{height:12px;background:#0a111b;border-radius:3px;overflow:hidden}} .tbar i{{display:block;height:100%}}
-      .cc-sub{{text-align:center;font:600 11px 'Saira',sans-serif;color:#93a3b6;padding:0 16px 10px}}
+      .cc-sub{{text-align:center;font:600 11px 'Inter',system-ui,sans-serif;color:#9aa7b8;padding:0 16px 10px}}
       .cc-duel{{padding:6px 16px 14px}}
       .cc-drow{{display:grid;grid-template-columns:52px 1fr 34px 1fr;gap:8px;align-items:center;
         padding:6px 0;border-top:1px solid #1b2330;font:700 12px 'JetBrains Mono',monospace}}
-      .cc-drow .yr{{color:#8090a2;font-size:11px}}
-      .cc-drow .dp{{text-align:right;color:#9fb0c0}} .cc-drow .dp.w{{color:#f2f5f8}}
+      .cc-drow .yr{{color:#6d7a8c;font-size:11px}}
+      .cc-drow .dp{{text-align:right;color:#9aa7b8}} .cc-drow .dp.w{{color:#eef2f7}}
       .cc-drow .vs{{text-align:center;color:#6a7a8c;font-size:12px}}
-      .cc-empty,.cc-duel .cc-empty{{padding:12px 0;color:#8a9bb0;font:500 12px 'Saira',sans-serif}}
+      .cc-empty,.cc-duel .cc-empty{{padding:12px 0;color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif}}
       @media(max-width:560px){{.cc-grid{{grid-template-columns:1fr 1fr}}.cc-name{{font-size:14px}}}}
     </style>
     <div class="cc">
@@ -7849,7 +7850,7 @@ def circuit_h2h_html(h, name_a, name_b, colour_a, colour_b):
       <div class="cc-cols">{stat_col(name_a, h['a'], ca)}{stat_col(name_b, h['b'], cb, right=True)}</div>
       {tally}
       <div class="cc-duel">
-        <div class="cc-drow" style="border-top:0;color:#63748a"><span class="yr">YIL</span>
+        <div class="cc-drow" style="border-top:0;color:#6d7a8c"><span class="yr">YIL</span>
           <span class="dp">{html_lib.escape(name_a)}</span><span class="vs"></span>
           <span class="dp" style="text-align:left">{html_lib.escape(name_b)}</span></div>
         {duel_rows}
@@ -7906,8 +7907,8 @@ def render_driver_comparison_centre():
     )
     summary = st.columns(2)
     summaries = [
-        ('GALİBİYET LİDERİ', leader, '#2ee6c9'),
-        ('VERİ DURUMU', 'Doğrulandı' if stats_a.get('verified') and stats_b.get('verified') else 'Kaynak bekleniyor', '#f7c948'),
+        ('GALİBİYET LİDERİ', leader, '#33d6c8'),
+        ('VERİ DURUMU', 'Doğrulandı' if stats_a.get('verified') and stats_b.get('verified') else 'Kaynak bekleniyor', '#f5b843'),
     ]
     for column, (label, value, colour) in zip(summary, summaries):
         with column:
@@ -7943,7 +7944,7 @@ def render_driver_comparison_centre():
                 break
         _circuit = st.selectbox(
             'Pist', _circuits, index=_default_idx,
-            format_func=lambda c: (('★ ' if c in _shared_circuits else '') + c),
+            format_func=lambda c: (('• ' if c in _shared_circuits else '   ') + c),
             key='compare_circuit_v41',
         )
         _ch2h = circuit_h2h_v41(_prof_a, _prof_b, _circuit)
@@ -7952,14 +7953,14 @@ def render_driver_comparison_centre():
             height=circuit_h2h_component_height(_ch2h),
             scrolling=True,
         )
-        st.caption('★ = iki pilotun da yarıştığı pist. Kafa-kafaya sayacı yalnızca ikisinin aynı sezon birlikte yarıştığı yılları sayar.')
+        st.caption('İşaretli (•) = iki pilotun da yarıştığı pist. Kafa-kafaya sayacı yalnızca ikisinin aynı sezon birlikte yarıştığı yılları sayar.')
 
 
 st.markdown(r"""
 <style>
 .career-panel-v28{min-height:492px;border:1px solid #2b4664;border-top:5px solid var(--team);border-radius:16px;padding:18px;background:linear-gradient(145deg,#111d31,#0b1524);box-shadow:0 14px 30px rgba(0,0,0,.18)}
 .career-hero-v28{min-height:118px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #2a4059;padding-bottom:13px}.career-hero-v28 img{width:92px;height:116px;object-fit:contain;object-position:center bottom;flex:0 0 auto}.career-hero-v28 h3{margin:5px 0 4px;color:var(--team);font-size:1.45rem;line-height:1.15}.career-hero-v28 p{margin:0;color:#a8c0d7;font-size:.86rem}
-.career-metrics-v28{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}.career-metric-v28{min-height:70px;padding:10px;border:1px solid #29435f;border-radius:10px;background:#0d1829}.career-metric-v28 span,.career-teams-v28 small{display:block;color:#91abd0;font-size:.63rem;font-weight:900;letter-spacing:1.05px}.career-metric-v28 b{display:block;color:#f2f5f8;font-size:1.16rem;margin-top:7px}
+.career-metrics-v28{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}.career-metric-v28{min-height:70px;padding:10px;border:1px solid #29435f;border-radius:10px;background:#0d1829}.career-metric-v28 span,.career-teams-v28 small{display:block;color:#91abd0;font-size:.63rem;font-weight:900;letter-spacing:1.05px}.career-metric-v28 b{display:block;color:#eef2f7;font-size:1.16rem;margin-top:7px}
 .career-teams-v28{margin-top:14px;padding-top:12px;border-top:1px solid #2a4059}.career-teams-v28>div{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.career-teams-v28 span{border:1px solid #2e4a68;border-left:3px solid var(--team);border-radius:99px;padding:5px 8px;color:#c9d9e7;background:#122137;font-size:.74rem;font-weight:760}.career-source-v28{margin-top:13px;color:#83a0bd;font-size:.72rem}
 @media(max-width:800px){.career-panel-v28{min-height:0;margin-bottom:12px}.career-hero-v28 img{width:76px;height:98px}.career-metrics-v28{grid-template-columns:repeat(2,minmax(0,1fr))}.career-metric-v28{min-height:63px}}
 </style>
@@ -8209,16 +8210,16 @@ def _prediction_history_html(plog):
     avg = round(sum(r.get('p', 0) for r in rows) / len(rows), 1)
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ph{{border:1px solid #26313f;border-left:3px solid #f7c948;border-radius:12px;background:#11161f;padding:13px 15px}}
-      .ph-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin-bottom:10px}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .ph{{border:1px solid #232c3a;border-left:3px solid #f5b843;border-radius:12px;background:#141a24;padding:13px 15px}}
+      .ph-hd{{font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6d7a8c;margin-bottom:10px}}
       .ph-chart{{display:flex;align-items:flex-end;gap:4px;height:96px}}
       .ph-bar{{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}}
-      .ph-bar i{{display:block;width:100%;max-width:22px;background:linear-gradient(180deg,#f7c948,#e8862b);border-radius:3px 3px 0 0}}
-      .ph-bar s{{font:600 8.5px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none;margin-top:4px;
+      .ph-bar i{{display:block;width:100%;max-width:22px;background:linear-gradient(180deg,#f5b843,#e8862b);border-radius:3px 3px 0 0}}
+      .ph-bar s{{font:600 8.5px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;margin-top:4px;
         white-space:nowrap;overflow:hidden;max-width:100%}}
-      .ph-ft{{display:flex;justify-content:space-between;gap:10px;margin-top:11px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
-      .ph-ft b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
+      .ph-ft{{display:flex;justify-content:space-between;gap:10px;margin-top:11px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
+      .ph-ft b{{color:#eef2f7;font-family:'JetBrains Mono',monospace}}
     </style>
     <div class="ph">
       <div class="ph-hd">Sezon boyu tahmin puanların</div>
@@ -8264,7 +8265,7 @@ def _prediction_form_guide_render_v8(year):
     if not guide:
         return
     rows = "".join(
-        f"<li style='--bl:#f7c948'><span>{html_lib.escape(g['gp'])}"
+        f"<li style='--bl:#f5b843'><span>{html_lib.escape(g['gp'])}"
         + (f" · pole {html_lib.escape(g['pole'])}" if g['pole'] else "")
         + f"</span><b>{' · '.join(html_lib.escape(c) for c in g['podium'])}</b></li>"
         for g in guide)
@@ -8316,7 +8317,7 @@ def _prediction_primer_v65(year):
 
 
 def render_prediction_game_v55():
-    _game_shell("Hafta Sonu Tahmini", "Pole + podyum tahmin et, yarıştan sonra puanla.", colour="#f7c948")
+    _game_shell("Hafta Sonu Tahmini", "Pole + podyum tahmin et, yarıştan sonra puanla.", colour="#f5b843")
     if _game_intro_gate_v8('predict'):
         return
     year = datetime.datetime.now(datetime.timezone.utc).year
@@ -8515,7 +8516,7 @@ def _game_shell(title, subtitle="", colour="#e10600"):
 # ile geçilir (prefs 'gi' — görülenler listesi); sonra küçük bir "Nasıl oynanır?"
 # düğmesiyle tekrar açılır. (label, colour, [kural…], [F1 kavramı "ad: açıklama"…])
 _GAME_INTRO_V8 = {
-    'stratwall': ("Strateji Duvarı", "#f5b942", [
+    'stratwall': ("Strateji Duvarı", "#f5b843", [
         "Gerçek bir yarışın pit duvarındasın: brifingi oku, sonra tek bir strateji kur.",
         "Başlangıç lastiğini ve 1–3 pit turunu seç; en az iki farklı bileşik kullan.",
         "Simülasyonu tur tur izle — Safety Car ucuz pit fırsatı, lastik uçurumu tur sürelerini patlatır.",
@@ -8532,7 +8533,7 @@ _GAME_INTRO_V8 = {
         "Doğru pilot ama yanlış sıra puan getirir; sıra da tamsa tam puan.",
         "Üst üste tutturarak seriyi uzat.",
     ], None),
-    'stewarlde': ("Stewardle", "#ff385c", [
+    'stewarlde': ("Stewardle", "#ff5a4d", [
         "2010–2026 arasında yarışmış gizli bir pilot var; 6 tahmin hakkın var.",
         "Her tahminden sonra ipuçları: yeşil = doğru, sarı = yakın (↑/↓ yön), gri = eşleşme yok.",
         "İpuçları takım, ülke, galibiyet, şampiyonluk, GP sayısı ve ilk yıl için ayrı ayrı gelir.",
@@ -8540,11 +8541,11 @@ _GAME_INTRO_V8 = {
     ], None),
     'cards': ("Sıralama Kartları", "var(--fp-cyan)", [
         "Gerçek kariyer istatistikleriyle Top Trumps: 2018'den bugüne pilotların kartları.",
-        "Her elde istatistiği SEN seçersin (galibiyet, pole, puan/yarış…). ★ = o turda en iyi şansın.",
+        "Her elde istatistiği SEN seçersin (galibiyet, pole, puan/yarış…). İşaretli = o turda en iyi şansın.",
         "Yüksek olan turu ve iki kartı da alır; beraberlikte kartlar ortada bekler.",
         "Rakip deste hiç tahmin etmez — sadece kart tutar. Bütün desteyi topla.",
     ], None),
-    'predict': ("Hafta Sonu Tahmini", "#f7c948", [
+    'predict': ("Hafta Sonu Tahmini", "#f5b843", [
         "Sıradaki GP'den önce pole ve podyumu (ilk 3) tahmin et.",
         "Sprint hafta sonuysa ayrıca sprint galibini seç.",
         "Yarış bitince tahminin otomatik puanlanır ve sezon puanına eklenir.",
@@ -8772,7 +8773,7 @@ def _tt_stat_max_v8(stat):
 def render_top_trumps_v66():
     _game_shell("Sıralama Kartları",
                 "Gerçek kariyer istatistikleriyle Top Trumps. Daha yüksek stat turu kazanır; "
-                "hedefin bütün desteyi toplamak.", "#38e1d0")
+                "hedefin bütün desteyi toplamak.", "#33d6c8")
     if _game_intro_gate_v8('cards'):
         return
     year = datetime.datetime.now(datetime.timezone.utc).year
@@ -8825,10 +8826,10 @@ def render_top_trumps_v66():
         best_k = max((k for k, _l in _TT_STATS_V66),
                      key=lambda k: my_card[k] / _tt_stat_max_v8(k))
         st.caption("Bir stat seç — rakip kartındaki aynı statla karşılaştırılır. "
-                   "★ = bu turda en iyi şansın.")
+                   "En iyi şansın işaretlendi.")
         cols = st.columns(3)
         for i, (k, lbl) in enumerate(_TT_STATS_V66):
-            star = " ★" if k == best_k else ""
+            star = "  —  en iyi" if k == best_k else ""
             if cols[i % 3].button(f"{lbl} · {my_card[k]}{star}", key=f"tt_pick_{k}", width='stretch'):
                 _tt_compare_v66(g, deck, k)
                 st.rerun()
@@ -9123,7 +9124,7 @@ def _podium_of_race_v67(year, gp):
         names[code] = full or code
         teams[code] = str(row.get('TeamName', '') or '').strip()
         tc = str(row.get('TeamColor', '') or '').strip().lstrip('#')
-        colors[code] = ('#' + tc) if re.fullmatch(r'[0-9A-Fa-f]{6}', tc) else '#8b98a8'
+        colors[code] = ('#' + tc) if re.fullmatch(r'[0-9A-Fa-f]{6}', tc) else '#6d7a8c'
         hs = str(row.get('HeadshotUrl', '') or '').strip()
         photos[code] = (_season_headshot_url_v35(year, names[code])
                         or _season_headshot_url_v35(2019, names[code])  # <2019 → ilk destekli sezon
@@ -9137,7 +9138,7 @@ def _podium_of_race_v67(year, gp):
     return {'ok': True, 'year': int(year), 'gp': str(gp),
             'podium': codes[:3], 'pool': keep, 'names': names, 'pole': pole,
             'teams': {c: teams.get(c, '') for c in keep},
-            'colors': {c: colors.get(c, '#8b98a8') for c in keep},
+            'colors': {c: colors.get(c, '#6d7a8c') for c in keep},
             'photos': {c: photos.get(c, '') for c in keep}}
 
 
@@ -9173,7 +9174,7 @@ def _podium_stage_html_v8(r):
         if idx >= len(podium):
             continue
         c = podium[idx]
-        col = colors.get(c) or '#8b98a8'
+        col = colors.get(c) or '#6d7a8c'
         ph = safe_external_url(photos.get(c, ''))
         code_e = html_lib.escape(c)
         img = (f"<img src='{html_lib.escape(ph, quote=True)}' alt='' loading='lazy' "
@@ -9334,7 +9335,7 @@ _GAME_HUD_CSS_V68 = """<style>
 .sws-lb li{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:11px;
   padding:7px 11px;border-radius:var(--fp-r-md);background:var(--fp-bg-3);border:1px solid var(--fp-line)}
 .sws-lb li .r{font:800 12px 'JetBrains Mono',monospace;color:var(--fp-text-mute);text-align:right;font-variant-numeric:tabular-nums}
-.sws-lb li .n{font:700 13px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--fp-text-dim);
+.sws-lb li .n{font:700 13px 'Inter',system-ui,sans-serif;color:var(--fp-text-dim);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sws-lb li b{font:800 14px 'JetBrains Mono',monospace;color:var(--fp-text);font-variant-numeric:tabular-nums}
 .sws-lb li.me{background:color-mix(in srgb,var(--fp-cyan) 13%,transparent);border-color:color-mix(in srgb,var(--fp-cyan) 45%,transparent)}
@@ -9428,8 +9429,8 @@ def _render_games_week_v8():
         f"<div class='sws-eb'>Bu Hafta · {html_lib.escape(w['w'])}</div>"
         f"<div class='sws-row' style='align-items:baseline;gap:12px'>"
         f"<span class='sws-score' style='font-size:27px'>{x}<s>xp</s></span>"
-        f"<span style='color:{tcol};font:800 11px \"Saira Condensed\",\"Arial Narrow\",sans-serif;"
-        f"letter-spacing:.08em;text-transform:uppercase'>{html_lib.escape(trend)}</span>"
+        f"<span style='color:{tcol};font:600 11px var(--fp-f-mono);"
+        f"letter-spacing:.05em;text-transform:uppercase'>{html_lib.escape(trend)}</span>"
         f"<span class='sws-sub' style='margin:0'>geçen hafta {px} XP</span>"
         f"</div></div>",
         unsafe_allow_html=True)
@@ -10124,37 +10125,37 @@ def strategy_wall_sim_html(sim):
     packed = fp_ui.json_for_script(sim)
     _html = r'''<!doctype html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0}
-:root{--bg:#080b12;--p1:#0f1521;--p2:#131c2c;--ln:#20293e;--tx:#eef2f8;--dim:#7f8da3;--teal:#2ee6d6;--yel:#ffcd3c;--red:#ff5964;--grn:#37d67a}
+:root{--bg:#0a0e14;--p1:#10151d;--p2:#141a24;--ln:#20293e;--tx:#eef2f8;--dim:#6d7a8c;--teal:#33d6c8;--yel:#f5b843;--red:#ff5a4d;--grn:#3ecf8e}
 html,body{background:transparent}
-body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,sans-serif;color:var(--tx)}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--tx)}
 .mono{font-family:'JetBrains Mono','Consolas',ui-monospace,monospace;font-variant-numeric:tabular-nums}
 .fm{position:relative;overflow:hidden;border:1px solid var(--ln);border-radius:14px;color:var(--tx);
-  background:linear-gradient(180deg,#0c111c,#080b12);padding:11px}
+  background:linear-gradient(180deg,#0a0e14,#0a0e14);padding:11px}
 /* üst durum çubuğu */
 .bar{display:flex;align-items:center;gap:14px;padding:0 4px 10px;border-bottom:1px solid var(--ln)}
-.live{display:flex;align-items:center;gap:6px;font:700 10px/1 'Saira Condensed';letter-spacing:.18em;color:var(--teal)}
+.live{display:flex;align-items:center;gap:6px;font:700 10px/1 'Inter';letter-spacing:.18em;color:var(--teal)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px var(--teal);animation:pl 1.4s infinite}
 @keyframes pl{50%{opacity:.25}}
 .lap{display:flex;align-items:baseline;gap:5px}
-.lap b{font:800 21px/1 'Saira Condensed';font-variant-numeric:tabular-nums}
-.lap span{font:700 10px 'Saira Condensed';letter-spacing:.12em;color:var(--dim)}
-.gp{flex:1;text-align:center;font:700 12px 'Saira Condensed';letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
+.lap b{font:800 21px/1 'Inter';font-variant-numeric:tabular-nums}
+.lap span{font:700 10px 'Inter';letter-spacing:.12em;color:var(--dim)}
+.gp{flex:1;text-align:center;font:700 12px 'Inter';letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
 .spd{display:flex;gap:4px}
 .spd button{border:1px solid var(--ln);background:var(--p1);color:var(--tx);border-radius:6px;
-  font:800 10px 'Saira Condensed';letter-spacing:.04em;padding:5px 8px;cursor:pointer;min-width:26px}
+  font:800 10px 'Inter';letter-spacing:.04em;padding:5px 8px;cursor:pointer;min-width:26px}
 .spd button.on{border-color:var(--teal);color:var(--teal);background:rgba(46,230,214,.09)}
 .pitnow{border:1px solid var(--yel);background:rgba(255,205,60,.12);color:var(--yel);border-radius:6px;
-  font:800 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;padding:5px 10px;cursor:pointer;white-space:nowrap}
+  font:800 9.5px 'Inter',system-ui,sans-serif;letter-spacing:.1em;padding:5px 10px;cursor:pointer;white-space:nowrap}
 .pitnow:hover{background:rgba(255,205,60,.22)}
 .pitnow:disabled{opacity:.32;cursor:default;border-color:var(--ln);color:var(--dim);background:var(--p1)}
 .pitnow.lit{animation:ucp .9s infinite;box-shadow:0 0 10px rgba(255,205,60,.5)}
 .flag{overflow:hidden;max-height:0;transition:max-height .25s}
 .flag.show{max-height:34px}
 .flag div{margin-top:9px;padding:6px;text-align:center;border-radius:6px;
-  font:800 11px 'Saira Condensed';letter-spacing:.2em;text-transform:uppercase}
+  font:800 11px 'Inter';letter-spacing:.2em;text-transform:uppercase}
 .flag.sc div{background:var(--yel);color:#1a1400}
 .flag.vsc div{background:#2f7fd8;color:#001325}
 .flag.grn div{background:var(--grn);color:#00220f}
@@ -10172,19 +10173,19 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
 .tw-row.pit{background:rgba(255,205,60,.12);border-color:rgba(255,205,60,.35)}
 .tw-row.enter{animation:tw .4s}
 @keyframes tw{from{opacity:0;transform:translateX(-8px)}}
-.tw-p{font:800 12px 'Saira Condensed';font-variant-numeric:tabular-nums;text-align:center;color:var(--dim);
+.tw-p{font:800 12px 'Inter';font-variant-numeric:tabular-nums;text-align:center;color:var(--dim);
   background:#0b1018;border-radius:4px;padding:3px 0;align-self:center;height:22px;line-height:16px}
 .tw-row.me .tw-p{color:#03120f;background:var(--teal)}
-.tw-bar{width:3px;height:20px;border-radius:2px;background:var(--c,#55617a)}
-.tw-c{font:800 13px 'Saira Condensed';letter-spacing:.03em}
+.tw-bar{width:3px;height:20px;border-radius:2px;background:var(--c,#6d7a8c)}
+.tw-c{font:800 13px 'Inter';letter-spacing:.03em}
 .tw-i{font:700 11.5px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:var(--dim);text-align:right}
 .tw-i.pit{color:var(--yel);font-weight:700}
 .tw-t{display:flex;align-items:center;justify-content:flex-end;gap:3px}
 .tw-t .d{width:19px;height:19px;border-radius:50%;border:2px solid var(--tc,#888);
-  display:grid;place-items:center;font:800 9px 'Saira Condensed';color:var(--tc,#888)}
+  display:grid;place-items:center;font:800 9px 'Inter';color:var(--tc,#888)}
 .tw-t .a{font:700 9px 'JetBrains Mono',monospace;color:var(--dim)}
 .rc{background:var(--p1);border:1px solid var(--ln);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;height:262px}
-.rc-h{padding:7px 10px;font:800 9px 'Saira Condensed';letter-spacing:.18em;text-transform:uppercase;
+.rc-h{padding:7px 10px;font:800 9px 'Inter';letter-spacing:.18em;text-transform:uppercase;
   color:var(--dim);border-bottom:1px solid var(--ln);background:#0b101a}
 .rc-list{flex:1;padding:5px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
 .rc-i{display:flex;gap:7px;font-size:11px;line-height:1.35;padding:4px 6px;border-radius:5px;
@@ -10198,34 +10199,34 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
   background:linear-gradient(120deg,var(--p2),var(--p1))}
 .car-pos{display:flex;flex-direction:column;align-items:center;border-left:3px solid var(--pc,var(--teal));
   border-right:1px solid var(--ln);padding:0 14px}
-.car-pos .pl{font:700 8.5px 'Saira Condensed';letter-spacing:.18em;color:var(--dim)}
-.car-pos b{font:800 30px/1 'Saira Condensed';font-variant-numeric:tabular-nums}
-.car-pos .pp{font:700 8.5px 'Saira Condensed';letter-spacing:.05em;color:var(--yel);margin-top:3px;text-align:center;min-height:10px}
+.car-pos .pl{font:700 8.5px 'Inter';letter-spacing:.18em;color:var(--dim)}
+.car-pos b{font:800 30px/1 'Inter';font-variant-numeric:tabular-nums}
+.car-pos .pp{font:700 8.5px 'Inter';letter-spacing:.05em;color:var(--yel);margin-top:3px;text-align:center;min-height:10px}
 .car-tyre{display:flex;align-items:center;gap:11px}
 .car-tyre .tw{width:38px;height:38px;border-radius:50%;border:3px solid var(--tc,#888);
-  display:grid;place-items:center;font:800 15px 'Saira Condensed';color:var(--tc,#888);flex:none}
+  display:grid;place-items:center;font:800 15px 'Inter';color:var(--tc,#888);flex:none}
 .tinfo{min-width:0}
-.tname{font:800 12px 'Saira Condensed';letter-spacing:.06em}
-.tbar{height:8px;border-radius:4px;background:#0a0f18;overflow:hidden;margin:6px 0 5px;border:1px solid var(--ln)}
+.tname{font:800 12px 'Inter';letter-spacing:.06em}
+.tbar{height:8px;border-radius:4px;background:#0a0e14;overflow:hidden;margin:6px 0 5px;border:1px solid var(--ln)}
 .tbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--grn),var(--yel) 55%,var(--red));transition:width .3s}
 .tbar.cliff i{background:var(--red);animation:pl 1s infinite}
-.tsub{font:700 9.5px 'Saira Condensed';letter-spacing:.05em;color:var(--dim)}
+.tsub{font:700 9.5px 'Inter';letter-spacing:.05em;color:var(--dim)}
 .car-gaps{display:flex;gap:15px;text-align:right}
 .car-gaps>div{display:flex;flex-direction:column}
-.car-gaps span{font:700 8px 'Saira Condensed';letter-spacing:.14em;color:var(--dim)}
+.car-gaps span{font:700 8px 'Inter';letter-spacing:.14em;color:var(--dim)}
 .car-gaps b{font:700 13px 'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;margin-top:2px}
 /* strateji zaman çizgisi + gezinme */
 .strat{margin-top:10px;padding:9px 4px 2px}
-.strat-h{display:flex;justify-content:space-between;font:800 9px 'Saira Condensed';letter-spacing:.16em;
+.strat-h{display:flex;justify-content:space-between;font:800 9px 'Inter';letter-spacing:.16em;
   text-transform:uppercase;color:var(--dim);margin-bottom:6px}
 .strat-h span{color:#aeb9cc;letter-spacing:.04em}
-.tl{position:relative;height:15px;border-radius:4px;background:#0a0f18;border:1px solid var(--ln);overflow:hidden}
+.tl{position:relative;height:15px;border-radius:4px;background:#0a0e14;border:1px solid var(--ln);overflow:hidden}
 .tl-seg{position:absolute;top:0;bottom:0;opacity:.55}
 .tl-sc{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(255,205,60,.4),rgba(255,205,60,.4) 4px,transparent 4px,transparent 8px)}
 .tl-pit{position:absolute;top:-2px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--tx)}
 .tl-head{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}
 #rng{width:100%;margin-top:5px;accent-color:var(--teal);cursor:pointer;height:14px}
-.uc{position:absolute;right:11px;top:-8px;z-index:3;font:800 8px 'Saira Condensed','Arial Narrow',sans-serif;
+.uc{position:absolute;right:11px;top:-8px;z-index:3;font:800 8px 'Inter',system-ui,sans-serif;
   letter-spacing:.12em;padding:3px 9px;border-radius:99px;background:var(--teal);color:#06120f;
   display:none;animation:ucp 1s infinite}
 .uc.on{display:block}
@@ -10237,17 +10238,17 @@ body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,s
 .fin{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   background:linear-gradient(180deg,rgba(8,11,18,.96),rgba(8,11,18,.99));opacity:0;pointer-events:none;transition:opacity .45s}
 .fin.on{opacity:1}
-.fin .fl{font:700 10px 'Saira Condensed';letter-spacing:.26em;text-transform:uppercase;color:var(--dim)}
-.fin .fp{font:800 62px/1 'Saira Condensed';font-variant-numeric:tabular-nums}
-.fin .fs{font:800 13px 'Saira Condensed';letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.fin .fl{font:700 10px 'Inter';letter-spacing:.26em;text-transform:uppercase;color:var(--dim)}
+.fin .fp{font:800 62px/1 'Inter';font-variant-numeric:tabular-nums}
+.fin .fs{font:800 13px 'Inter';letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
 </style></head><body>
 <div class="fm" id="fm">
   <div class="bar">
     <div class="live"><i></i>CANLI</div>
     <div class="lap"><b id="lap">1</b><span>/ <span id="laps">--</span> TUR</span></div>
     <div class="gp" id="gp">—</div>
-    <button id="pitnow" class="pitnow" disabled>PİT ▸ ŞİMDİ</button>
-    <div class="spd"><button id="pp">❙❙</button>
+    <button id="pitnow" class="pitnow" disabled>PİT — ŞİMDİ</button>
+    <div class="spd"><button id="pp"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5v14M15 5v14"/></svg></button>
       <button data-x="1" class="on">1×</button><button data-x="2">2×</button><button data-x="4">4×</button></div>
   </div>
   <div class="flag" id="flag"><div id="flagt"></div></div>
@@ -10290,7 +10291,7 @@ const L1={SOFT:'S',MEDIUM:'M',HARD:'H',INTERMEDIATE:'I',WET:'W'};
 let i=0,playing=true,speed=1,last=0,raf=0,prevPos=M.grid;const LAP_MS=170;
 const $=id=>document.getElementById(id);
 $('rng').max=N-1; $('laps').textContent=M.laps; $('gp').textContent=M.year+' '+M.gp;
-document.querySelector('.car').style.setProperty('--pc', M.driverCol||'#2ee6d6');
+document.querySelector('.car').style.setProperty('--pc', M.driverCol||'#33d6c8');
 if(M.resumeLap){ const ri=F.findIndex(f=>f.lap>=M.resumeLap); if(ri>0) i=ri; }
 
 // --- strateji zaman çizgisi: stint segmentleri + SC bölgeleri + pit oklari ---
@@ -10298,7 +10299,7 @@ if(M.resumeLap){ const ri=F.findIndex(f=>f.lap>=M.resumeLap); if(ri>0) i=ri; }
   const tl=$('tl'); let seg0=1, segC=F[0].compound;
   const put=(a,b,comp)=>{ const s=document.createElement('div'); s.className='tl-seg';
     s.style.left=((a-1)/M.laps*100)+'%'; s.style.width=((b-a+1)/M.laps*100)+'%';
-    s.style.background=TCOL[comp]||'#55617a'; tl.appendChild(s); };
+    s.style.background=TCOL[comp]||'#6d7a8c'; tl.appendChild(s); };
   for(let k=1;k<F.length;k++){ if(F[k].compound!==segC){ put(seg0,F[k-1].lap,segC);
     const p=document.createElement('div'); p.className='tl-pit'; p.style.left=((F[k].lap-1)/M.laps*100)+'%'; tl.appendChild(p);
     seg0=F[k].lap; segC=F[k].compound; } }
@@ -10369,7 +10370,7 @@ function tower(f){
   rows.forEach((r,k)=>{
     const d=T.children[k];
     d.className='tw-row'+(r.me?' me':'')+(r.pit?' pit':'');
-    d.style.setProperty('--c', r.col||'#55617a');
+    d.style.setProperty('--c', r.col||'#6d7a8c');
     d.style.setProperty('--tc', TCOL[r.comp]||'#888');
     d.children[0].textContent=Math.max(1,r.pos)+'.';
     d.children[2].textContent=r.me?'SEN':r.code;
@@ -10433,8 +10434,11 @@ function step(t){
   }
   raf=requestAnimationFrame(step);
 }
-$('pp').onclick=function(){ playing=!playing; this.textContent=playing?'❙❙':'▶'; if(playing) last=performance.now(); };
-$('rng').oninput=function(e){ i=+e.target.value; playing=false; $('pp').textContent='▶';
+var _svgAttr='width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+var IC_PP='<svg '+_svgAttr+'><path d="M9 5v14M15 5v14"/></svg>';
+var IC_PL='<svg '+_svgAttr+'><path d="M8 5v14l11-7z"/></svg>';
+$('pp').onclick=function(){ playing=!playing; this.innerHTML=playing?IC_PP:IC_PL; if(playing) last=performance.now(); };
+$('rng').oninput=function(e){ i=+e.target.value; playing=false; $('pp').innerHTML=IC_PL;
   $('fin').classList.remove('on'); $('flag').className='flag';
   render(F[Math.min(i,N-1)]); };
 document.querySelectorAll('[data-x]').forEach(b=>b.onclick=function(){ speed=+b.dataset.x;
@@ -10444,7 +10448,7 @@ document.querySelectorAll('[data-x]').forEach(b=>b.onclick=function(){ speed=+b.
 let pitSent=false;
 $('pitnow').onclick=function(){
   if(this.disabled||pitSent) return;
-  pitSent=true; playing=false; $('pp').textContent='▶';
+  pitSent=true; playing=false; $('pp').innerHTML=IC_PL;
   const L=F[Math.min(i,N-1)].lap;
   const payload=JSON.stringify({action:'pit',lap:L,nonce:Date.now()});
   try{
@@ -10480,53 +10484,53 @@ def strategy_planner_html(m):
         'life': {k: m['compounds'][k]['cliff'] for k in ('SOFT', 'MEDIUM', 'HARD')},
     })
     _html = r'''<!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0}
-:root{--bg:#080b12;--p1:#0f1521;--p2:#131c2c;--ln:#20293e;--tx:#eef2f8;--dim:#7f8da3;--teal:#2ee6d6}
+:root{--bg:#0a0e14;--p1:#10151d;--p2:#141a24;--ln:#20293e;--tx:#eef2f8;--dim:#6d7a8c;--teal:#33d6c8}
 html,body{background:transparent}
-body{font-family:'Saira Condensed','Barlow Condensed','Arial Narrow',system-ui,sans-serif;color:var(--tx)}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--tx)}
 .sp{border:1px solid var(--ln);border-radius:14px;color:var(--tx);padding:15px 16px;
-  background:linear-gradient(180deg,#0c111c,#080b12)}
+  background:linear-gradient(180deg,#0a0e14,#0a0e14)}
 .sp-hd{border-bottom:1px solid var(--ln);padding-bottom:10px}
-.sp-eb{font:700 10px/1 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
-.sp-h{font:800 19px/1.1 'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;margin-top:4px}
+.sp-eb{font:700 10px/1 'Inter',system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.sp-h{font:800 19px/1.1 'Inter',system-ui,sans-serif;text-transform:uppercase;margin-top:4px}
 .sp-sub{font:700 11px 'JetBrains Mono','Consolas',monospace;color:var(--dim);margin-top:3px}
 .sec{margin-top:14px}
-.sec-t{font:700 9.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.sec-t{font:700 9.5px 'Inter',system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
 .discs{display:flex;gap:12px}
 .tdisc{flex:1;max-width:118px;cursor:pointer;text-align:center;padding:9px 4px 7px;border:1px solid var(--ln);
   border-radius:11px;background:var(--p1);transition:border-color .15s,background .15s}
 .tdisc:hover{border-color:#39485f}
 .tdisc.on{border-color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,var(--p1))}
 .tdisc .ring{width:38px;height:38px;border-radius:50%;border:3px solid var(--tc);margin:0 auto;
-  display:grid;place-items:center;font:800 15px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--tc)}
-.tdisc .nm{font:800 11px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.06em;margin-top:6px;text-transform:uppercase}
+  display:grid;place-items:center;font:800 15px 'Inter',system-ui,sans-serif;color:var(--tc)}
+.tdisc .nm{font:800 11px 'Inter',system-ui,sans-serif;letter-spacing:.06em;margin-top:6px;text-transform:uppercase}
 .tdisc .lf{font:700 9px 'JetBrains Mono','Consolas',monospace;color:var(--dim);margin-top:1px}
 .segs{display:flex;gap:8px}
 .seg{cursor:pointer;padding:8px 20px;border:1px solid var(--ln);border-radius:9px;background:var(--p1);
-  font:800 13px 'Saira Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;transition:border-color .15s,color .15s}
+  font:800 13px 'Inter',system-ui,sans-serif;font-variant-numeric:tabular-nums;transition:border-color .15s,color .15s}
 .seg:hover{border-color:#39485f} .seg.on{border-color:var(--teal);color:var(--teal);background:rgba(46,230,214,.1)}
-.seg small{font:700 8px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;color:var(--dim);display:block;text-transform:uppercase}
+.seg small{font:700 8px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:var(--dim);display:block;text-transform:uppercase}
 .seg.on small{color:var(--teal)}
 .srow{display:grid;grid-template-columns:52px 1fr 62px auto;gap:11px;align-items:center;margin-top:9px}
-.slab{font:800 10px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.1em;color:var(--dim)}
+.slab{font:800 10px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:var(--dim)}
 .srow input[type=range]{width:100%;accent-color:var(--teal);cursor:pointer;height:16px}
 .slap{font:700 12px 'JetBrains Mono','Consolas',monospace;font-variant-numeric:tabular-nums;text-align:right}
 .sdiscs{display:flex;gap:5px}
 .mdisc{width:24px;height:24px;border-radius:50%;border:2px solid var(--tc);display:grid;place-items:center;
-  font:800 9px 'Saira Condensed','Arial Narrow',sans-serif;color:var(--tc);cursor:pointer;opacity:.4;transition:opacity .15s}
+  font:800 9px 'Inter',system-ui,sans-serif;color:var(--tc);cursor:pointer;opacity:.4;transition:opacity .15s}
 .mdisc.on{opacity:1;box-shadow:0 0 0 2px color-mix(in srgb,var(--tc) 40%,transparent)}
 .plan{margin-top:14px;border:1px solid var(--ln);border-radius:10px;background:var(--p1);padding:11px 13px}
-.tl{position:relative;height:16px;border-radius:4px;background:#0a0f18;border:1px solid var(--ln);overflow:hidden;margin-top:3px}
+.tl{position:relative;height:16px;border-radius:4px;background:#0a0e14;border:1px solid var(--ln);overflow:hidden;margin-top:3px}
 .tl>i{position:absolute;top:0;bottom:0}
 .tl>b{position:absolute;top:-2px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #eef2f8}
-.tl-k{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font:700 9px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.tl-k{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font:700 9px 'Inter',system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
 .tl-k span{display:inline-flex;align-items:center;gap:5px} .tl-k i{width:9px;height:9px;border-radius:2px}
 .stints{font:700 10px 'JetBrains Mono','Consolas',monospace;color:var(--dim);margin-top:7px}
-.hint{min-height:16px;font:700 10.5px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.03em;color:#ffb454;margin-top:11px}
+.hint{min-height:16px;font:700 10.5px 'Inter',system-ui,sans-serif;letter-spacing:.03em;color:#ffb454;margin-top:11px}
 .lock{width:100%;margin-top:5px;padding:13px;border:1px solid var(--teal);border-radius:10px;cursor:pointer;
-  background:var(--teal);color:#03120f;font:800 13px 'Saira Condensed','Arial Narrow',sans-serif;letter-spacing:.09em;text-transform:uppercase}
+  background:var(--teal);color:#03120f;font:800 13px 'Inter',system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase}
 .lock:disabled{background:var(--p1);border-color:var(--ln);color:var(--dim);cursor:not-allowed}
 </style></head><body>
 <div class="sp">
@@ -11000,7 +11004,7 @@ def _sw_analysis_html_v8(a, played_pos):
 def render_strategy_wall_v67():
     _game_shell("Strateji Duvarı",
                 "Gerçek bir yarışın pit duvarına geç. Kararını ver, yarışı tur tur izle.",
-                "#f5c33b")
+                "#f5b843")
     if _game_intro_gate_v8('stratwall'):
         return
     g = st.session_state.setdefault('sw67', {'phase': 'brief', 'race_key': None})
@@ -11089,19 +11093,19 @@ _GAMES_HUB_V8 = [
     # label, title, desc, colour, btn, page, zorluk, süre, F1 bilgisi
     ("PİT DUVARI", "Strateji Duvarı",
      "Gerçek bir yarışın pit duvarına geç: brifing, lastik planı, tur tur oynayan simülasyon.",
-     "#f5b942", "Duvara geç", "stratwall", "Zor", "~4 dk", "yardımcı"),
+     "#f5b843", "Duvara geç", "stratwall", "Zor", "~4 dk", "yardımcı"),
     ("TARİHE YOLCULUK", "Podyum Tahmini",
      "Rastgele bir tarihî yarışın ilk 3'ünü bil; üst üste tutturup seriyi uzat.",
      "#e10600", "Yarış getir", "podium", "Orta", "~1 dk", "yardımcı"),
     ("TARİHÎ BULMACA", "Stewardle",
      "Gerçek kariyer verisiyle gizli pilotu altı tahminde bul. Günlük bulmaca ve seri.",
-     "#ff385c", "Stewardle aç", "stewarlde", "Orta", "~3 dk", "yardımcı"),
+     "#ff5a4d", "Stewardle aç", "stewarlde", "Orta", "~3 dk", "yardımcı"),
     ("KART DÜELLOSU", "Sıralama Kartları",
      "2018'den bugüne pilotların kariyer kartları; statı sen seç, bütün desteyi kap.",
      "var(--fp-cyan)", "Deste dağıt", "cards", "Kolay", "~4 dk", "gerekmez"),
     ("HAFTA SONU", "Hafta Sonu Tahmini",
      "Sıradaki GP'nin pole ve podyumunu tahmin et; yarıştan sonra otomatik puanlanır.",
-     "#f7c948", "Tahmin yap", "predict", "Orta", "haftalık", "gerekli"),
+     "#f5b843", "Tahmin yap", "predict", "Orta", "haftalık", "gerekli"),
     ("SIRALAMA", "Kızgın Tur",
      "Pole zamanını gördün; gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.",
      "#7c5cff", "Tur ver", "hotlap", "Kolay", "~30 sn", "gerekmez"),
@@ -11216,14 +11220,14 @@ fp_ui.control_dock()
 
 def _home_quick_tiles_html(has_fav=False):
     tiles = [
-        ('telemetry', 'Telemetri', 'Hız · fren · delta · mini-sektör', '#45c8ff'),
+        ('telemetry', 'Telemetri', 'Hız · fren · delta · mini-sektör', '#33d6c8'),
         ('live', 'Yarış Tekrarı', 'Tam 2D pist kontrolü', '#ff5c5c'),
-        ('standings', 'Şampiyona', 'Puanlar + senaryolar', '#f5c33b'),
-        ('predict', 'Hafta Sonu Tahmini', 'Pole + podyum tahmin et, puanla', '#f7c948'),
-        ('favourites', 'Favori Paddock', 'Takip listen · sezon hikâyen · kimliğin', '#38e1d0'),
+        ('standings', 'Şampiyona', 'Puanlar + senaryolar', '#f5b843'),
+        ('predict', 'Hafta Sonu Tahmini', 'Pole + podyum tahmin et, puanla', '#f5b843'),
+        ('favourites', 'Favori Paddock', 'Takip listen · sezon hikâyen · kimliğin', '#33d6c8'),
         ('learn' if not has_fav else 'compare',
          'Başlangıç Garajı' if not has_fav else 'Karşılaştır',
-         'F1, beş dakikada' if not has_fav else 'İki pilot: kariyer + pist', '#7fe0a6'),
+         'F1, beş dakikada' if not has_fav else 'İki pilot: kariyer + pist', '#3ecf8e'),
     ]
     cells = "".join(
         f"<a class='hq' href='?p={p}' target='_top' style='--c:{c}'>"
@@ -11236,7 +11240,7 @@ def _home_quick_tiles_html(has_fav=False):
         ".hq{display:block;text-decoration:none;border:1px solid var(--fp-line);border-left:3px solid var(--c);"
         "border-radius:9px;background:var(--fp-bg-2);padding:13px 14px;transition:background .12s ease}"
         ".hq:hover{background:var(--fp-bg-3)}"
-        ".hq b{display:block;font:800 14px 'Saira Condensed',var(--fp-f-display),sans-serif;text-transform:uppercase;"
+        ".hq b{display:block;font:800 14px 'Inter',var(--fp-f-display),sans-serif;text-transform:uppercase;"
         "letter-spacing:.02em;color:var(--fp-text)}"
         ".hq span{display:block;font:500 11px var(--fp-f-body),sans-serif;color:var(--fp-text-dim);margin-top:3px}"
         "@media(max-width:760px){.hqwrap{grid-template-columns:1fr 1fr}}"
@@ -11270,19 +11274,19 @@ def _home_last_race_html(year, event, next_race, next_days):
         nxt = f"<div class='lr-next'>Sıradaki: <b>{html_lib.escape(next_race)}</b>{days}</div>"
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .lr{{border:1px solid #26313f;border-left:3px solid #e10600;border-radius:12px;
-        background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .lr{{border:1px solid #232c3a;border-left:3px solid #e10600;border-radius:12px;
+        background:linear-gradient(160deg,#141a24,#141a24);overflow:hidden}}
       .lr-hd{{padding:13px 15px 9px}}
-      .lr-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none;letter-spacing:.08em}}
-      .lr-hd b{{display:block;font:800 15px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .lr-hd s{{font:600 10px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none;letter-spacing:.08em}}
+      .lr-hd b{{display:block;font:800 15px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
       .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
         padding:7px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
-      .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#7c8ea0;text-align:center}}
-      .lr-d{{font:700 13px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-      .lr-d small{{display:block;font:500 10px 'Saira',sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
-      .lr-pt{{font:700 13px 'JetBrains Mono',monospace;color:#c4d2e0}}
-      .lr-next{{border-top:1px solid #26313f;padding:10px 15px;font:600 11.5px 'Saira',sans-serif;color:#9fb0c0}}
+      .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
+      .lr-d{{font:700 13px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .lr-d small{{display:block;font:500 10px 'Inter',system-ui,sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
+      .lr-pt{{font:700 13px 'JetBrains Mono',monospace;color:#c9d2de}}
+      .lr-next{{border-top:1px solid #232c3a;padding:10px 15px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
       .lr-next b{{color:#e8eef4}}
     </style>
     <div class="lr">
@@ -11320,16 +11324,16 @@ def _home_champ_top_html(driver_standings, constructor_standings, year):
 
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ct{{border:1px solid #26313f;border-radius:12px;background:#11161f;overflow:hidden}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .ct{{border:1px solid #232c3a;border-radius:12px;background:#141a24;overflow:hidden}}
       .ct-sec{{padding:11px 14px}}
-      .ct-sec + .ct-sec{{border-top:1px solid #26313f}}
-      .ct-sec s{{display:block;font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.12em;
-        text-transform:uppercase;color:#63748a;text-decoration:none;margin-bottom:7px}}
+      .ct-sec + .ct-sec{{border-top:1px solid #232c3a}}
+      .ct-sec s{{display:block;font:700 9px 'Inter',system-ui,sans-serif;letter-spacing:.12em;
+        text-transform:uppercase;color:#6d7a8c;text-decoration:none;margin-bottom:7px}}
       .ct-row{{display:grid;grid-template-columns:16px 1fr auto 42px;gap:8px;align-items:center;
         padding:5px 0 5px 8px;border-left:3px solid var(--c);margin-bottom:3px}}
-      .ct-n{{font:700 11px 'JetBrains Mono',monospace;color:#63748a}}
-      .ct-name{{font:700 12.5px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;
+      .ct-n{{font:700 11px 'JetBrains Mono',monospace;color:#6d7a8c}}
+      .ct-name{{font:700 12.5px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
       .ct-pt{{font:700 13px 'JetBrains Mono',monospace}}
       .ct-gap{{font:600 10px 'JetBrains Mono',monospace;color:#8a9bb0;text-align:right}}
@@ -11416,21 +11420,21 @@ def follow_board_html(board, year):
         )
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .fb{{border:1px solid #26313f;border-left:3px solid var(--fp-cyan,#2ee6c9);border-radius:12px;
-        background:#11161f;overflow:hidden}}
-      .fb-hd{{padding:12px 15px 8px;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;
-        text-transform:uppercase;color:#8090a2}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .fb{{border:1px solid #232c3a;border-left:3px solid var(--fp-cyan,#33d6c8);border-radius:12px;
+        background:#141a24;overflow:hidden}}
+      .fb-hd{{padding:12px 15px 8px;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;
+        text-transform:uppercase;color:#6d7a8c}}
       .fb-hd b{{color:#e8eef4}}
       .fb-row{{display:grid;grid-template-columns:40px 1fr auto auto;gap:10px;align-items:center;
         padding:8px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .fb-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
-      .fb-name{{font:600 12px 'Saira',sans-serif;color:#c4d2e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .fb-ch{{font:700 12px 'JetBrains Mono',monospace;color:#9fb0c0;white-space:nowrap}}
+      .fb-name{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .fb-ch{{font:700 12px 'JetBrains Mono',monospace;color:#9aa7b8;white-space:nowrap}}
       .fb-last{{font:700 12px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap;display:flex;align-items:center;gap:5px}}
       .fb-last i{{font-style:normal;font-size:11px}}
-      .fb-last .up{{color:#7fe0a6}} .fb-last .dn{{color:#ff8b78}} .fb-last .fl{{color:#8a9bb0}}
-      .fb-none{{color:#63748a;font:600 11px 'Saira',sans-serif}}
+      .fb-last .up{{color:#3ecf8e}} .fb-last .dn{{color:#ff8a70}} .fb-last .fl{{color:#8a9bb0}}
+      .fb-none{{color:#6d7a8c;font:600 11px 'Inter',system-ui,sans-serif}}
       @media(max-width:520px){{.fb-row{{grid-template-columns:38px 1fr;row-gap:2px}}.fb-ch,.fb-last{{grid-column:2;text-align:right}}}}
     </style>
     <div class="fb">
@@ -11468,15 +11472,15 @@ def _paddock_profile_html():
 
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .pp{{border:1px solid #26313f;border-left:3px solid var(--fp-cyan,#2ee6c9);border-radius:12px;
-        background:#11161f;overflow:hidden}}
-      .pp-hd{{padding:12px 15px 8px;font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;
-        text-transform:uppercase;color:#8090a2}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .pp{{border:1px solid #232c3a;border-left:3px solid var(--fp-cyan,#33d6c8);border-radius:12px;
+        background:#141a24;overflow:hidden}}
+      .pp-hd{{padding:12px 15px 8px;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;
+        text-transform:uppercase;color:#6d7a8c}}
       .pp-row{{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:8px 15px;
         border-top:1px solid #1b2330;font-size:13px}}
       .pp-k{{font:700 10.5px 'JetBrains Mono',monospace;letter-spacing:.04em;text-transform:uppercase;
-        color:#8090a2;padding-top:1px}}
+        color:#6d7a8c;padding-top:1px}}
       .pp-v{{color:#e8eef4}} .pp-v s{{color:#8a9bb0;text-decoration:none;font-size:12px}}
       @media(max-width:520px){{.pp-row{{grid-template-columns:1fr;gap:2px}}}}
     </style>
@@ -11588,7 +11592,7 @@ def season_story_html(story, colour_fav, colour_rival):
         return ''
     pr = story['per_round']
     n = len(pr)
-    cf, cr = colour_fav or '#38e1d0', colour_rival or '#e10600'
+    cf, cr = colour_fav or '#33d6c8', colour_rival or '#e10600'
     maxc = max([r['fav_cum'] for r in pr] + [r['rival_cum'] for r in pr] + [1])
 
     def _poly(field):
@@ -11617,22 +11621,22 @@ def season_story_html(story, colour_fav, colour_rival):
                 f"o hafta sonu {('+' if _sw > 0 else '')}{_sw} puanlık makas.</div>")
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ss{{border:1px solid #26313f;border-left:3px solid {cf};border-radius:12px;background:#11161f;padding:14px 15px}}
-      .ss-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .ss{{border:1px solid #232c3a;border-left:3px solid {cf};border-radius:12px;background:#141a24;padding:14px 15px}}
+      .ss-hd{{font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6d7a8c}}
       .ss-hd b{{color:#e8eef4}}
-      .ss-sum{{font:600 13px 'Saira',sans-serif;color:#c4d2e0;margin:6px 0 12px}}
-      .ss-sum b{{color:#f2f5f8;font-family:'JetBrains Mono',monospace}}
+      .ss-sum{{font:600 13px 'Inter',system-ui,sans-serif;color:#c9d2de;margin:6px 0 12px}}
+      .ss-sum b{{color:#eef2f7;font-family:'JetBrains Mono',monospace}}
       .ss-chart{{width:100%;height:130px;display:block}}
       .ss-leg{{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0 12px;font:700 10px 'JetBrains Mono',monospace}}
       .ss-leg i{{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:5px}}
       .ss-strip{{display:flex;flex-wrap:wrap;gap:4px}}
       .ss-chip{{flex:0 0 auto;text-align:center;border:1px solid #2a3a4d;border-top:3px solid var(--pc);
         border-radius:5px;padding:4px 6px;font:700 9px 'JetBrains Mono',monospace;color:#c9d6e2;min-width:34px}}
-      .ss-chip i{{display:block;font-style:normal;font-size:11px;color:#f2f5f8;margin-top:2px}}
-      .ss-turn{{margin-top:12px;border:1px solid #3a3320;border-left:3px solid #f7c948;border-radius:8px;
-        padding:9px 12px;font:600 12px 'Saira',sans-serif;color:#d9c9a0}}
-      .ss-turn s{{display:block;font:700 9px 'Saira Condensed',sans-serif;letter-spacing:.1em;color:#8a7a4a;text-decoration:none;margin-bottom:3px}}
+      .ss-chip i{{display:block;font-style:normal;font-size:11px;color:#eef2f7;margin-top:2px}}
+      .ss-turn{{margin-top:12px;border:1px solid #3a3320;border-left:3px solid #f5b843;border-radius:8px;
+        padding:9px 12px;font:600 12px 'Inter',system-ui,sans-serif;color:#d9c9a0}}
+      .ss-turn s{{display:block;font:700 9px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:#8a7a4a;text-decoration:none;margin-bottom:3px}}
     </style>
     <div class="ss">
       <div class="ss-hd"><b>{html_lib.escape(story['fav'])}</b> — {story['fav_total']} puan · {gap_txt} <b>({html_lib.escape(story['rival'])})</b></div>
@@ -11643,7 +11647,7 @@ def season_story_html(story, colour_fav, colour_rival):
       </svg>
       <div class="ss-leg"><span style="color:{cf}"><i style="background:{cf}"></i>{html_lib.escape(story['fav'])}</span>
         <span style="color:{cr}"><i style="background:{cr}"></i>{html_lib.escape(story['rival'])}</span>
-        <span style="color:#8090a2">kümülatif puan</span></div>
+        <span style="color:#6d7a8c">kümülatif puan</span></div>
       <div class="ss-strip">{strip}</div>
       {turn}
     </div>
@@ -11655,7 +11659,7 @@ def _pos_chip_colour_v57(pos):
     if p == '1':
         return '#ffd100'
     if p in ('2', '3'):
-        return '#38e1d0'
+        return '#33d6c8'
     if p.isdigit() and int(p) <= 10:
         return '#5cc8ff'
     if p.isdigit():
@@ -11786,18 +11790,18 @@ def champ_timeline_html(tl, colour_of):
         )
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .ct{{border:1px solid #26313f;border-left:3px solid var(--fp-cyan,#2ee6c9);border-radius:12px;
-        background:#11161f;padding:12px 14px}}
-      .ct-hd{{font:700 11px 'Saira Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#8090a2;margin-bottom:9px}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .ct{{border:1px solid #232c3a;border-left:3px solid var(--fp-cyan,#33d6c8);border-radius:12px;
+        background:#141a24;padding:12px 14px}}
+      .ct-hd{{font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6d7a8c;margin-bottom:9px}}
       .ct-scroll{{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}}
       .ct-card{{flex:0 0 auto;min-width:66px;border:1px solid #2a3a4d;border-top:3px solid var(--c);
         border-radius:7px;background:#0e1826;padding:7px 9px;text-align:center;position:relative}}
-      .ct-card s{{display:block;font:700 8.5px 'JetBrains Mono',monospace;color:#63748a;text-decoration:none}}
+      .ct-card s{{display:block;font:700 8.5px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none}}
       .ct-card b{{display:block;font:800 14px 'JetBrains Mono',monospace;color:var(--c);margin-top:3px}}
-      .ct-card i{{display:block;font:600 10px 'JetBrains Mono',monospace;font-style:normal;color:#9fb0c0;margin-top:2px}}
-      .ct-note{{display:block;margin-top:5px;font:700 8px 'Saira Condensed',sans-serif;letter-spacing:.02em;
-        color:#f7c948;line-height:1.25;white-space:normal}}
+      .ct-card i{{display:block;font:600 10px 'JetBrains Mono',monospace;font-style:normal;color:#9aa7b8;margin-top:2px}}
+      .ct-note{{display:block;margin-top:5px;font:700 8px 'Inter',system-ui,sans-serif;letter-spacing:.02em;
+        color:#f5b843;line-height:1.25;white-space:normal}}
     </style>
     <div class="ct">
       <div class="ct-hd">Sezonun gidişatı — her yarıştan sonra lider + arası</div>
@@ -12290,15 +12294,15 @@ def live_timing_tower_html(data, live):
                  if live else "kesin klasman")
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Saira',system-ui,sans-serif;color:#f2f5f8}}
-      .lt{{border:1px solid #26313f;border-left:3px solid {'#ff4757' if live else '#38e1d0'};
-        border-radius:12px;background:#11161f;overflow:hidden}}
-      .lt-hd{{padding:12px 15px 9px;border-bottom:1px solid #26313f}}
-      .lt-hd b{{font:800 13px 'Saira Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase}}
-      .lt-hd .ev{{color:#c4d2e0;font:600 12px 'Saira',sans-serif}}
-      .lt-hd s{{display:block;margin-top:4px;font:600 11px 'JetBrains Mono',monospace;color:#8090a2;text-decoration:none}}
+      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .lt{{border:1px solid #232c3a;border-left:3px solid {'#ff4757' if live else '#33d6c8'};
+        border-radius:12px;background:#141a24;overflow:hidden}}
+      .lt-hd{{padding:12px 15px 9px;border-bottom:1px solid #232c3a}}
+      .lt-hd b{{font:800 13px 'Inter',system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}}
+      .lt-hd .ev{{color:#c9d2de;font:600 12px 'Inter',system-ui,sans-serif}}
+      .lt-hd s{{display:block;margin-top:4px;font:600 11px 'JetBrains Mono',monospace;color:#6d7a8c;text-decoration:none}}
       .lt-hd .dot{{display:inline-block;width:8px;height:8px;border-radius:50%;
-        background:{'#ff4757' if live else '#38e1d0'};margin-right:7px;
+        background:{'#ff4757' if live else '#33d6c8'};margin-right:7px;
         {'animation:lt-pulse 1.6s ease-in-out infinite' if live else ''}}}
       @keyframes lt-pulse{{50%{{opacity:.3}}}}
       @media(prefers-reduced-motion:reduce){{.lt-hd .dot{{animation:none}}}}
@@ -12306,14 +12310,14 @@ def live_timing_tower_html(data, live):
         padding:7px 15px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
       .lt-row.out{{opacity:.55}}
       .lt-p{{font:700 13px 'JetBrains Mono',monospace;color:#8ea4bc;text-align:center}}
-      .lt-d{{font:700 13px 'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-      .lt-d small{{display:block;font:500 10px 'Saira',sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
+      .lt-d{{font:700 13px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .lt-d small{{display:block;font:500 10px 'Inter',system-ui,sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
       .lt-g{{font:700 12px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap;text-align:right}}
       .lt-g i{{font-style:normal;font-size:10px;margin-left:5px}}
-      .lt-g .up{{color:#7fe0a6}} .lt-g .dn{{color:#ff8b78}}
-      .lt-lead{{color:#f7c948}} .lt-out{{color:#ff8b78;font-size:11px}}
-      .lt-ft{{padding:9px 15px;border-top:1px solid #26313f;font:500 10.5px 'Saira',sans-serif;
-        color:#63748a;line-height:1.5}}
+      .lt-g .up{{color:#3ecf8e}} .lt-g .dn{{color:#ff8a70}}
+      .lt-lead{{color:#f5b843}} .lt-out{{color:#ff8a70;font-size:11px}}
+      .lt-ft{{padding:9px 15px;border-top:1px solid #232c3a;font:500 10.5px 'Inter',system-ui,sans-serif;
+        color:#6d7a8c;line-height:1.5}}
     </style>
     <div class="lt">
       <div class="lt-hd"><b><span class="dot"></span>{head_label}</b>
@@ -12470,7 +12474,7 @@ def _router_page_live():
                                 ("Lastik barı", "bu setin aşınması soldan sağa dolar; alttaki ince şerit tüm yarışın plan özeti (her blok bir stint, çizgi bir pit)."),
                                 ("Hız", "varsayılan 6×. 1× = gerçek yarış süresi (çok yavaş), 60× = tüm yarış birkaç dakikada."),
                             ], [
-                                ("#45c8ff", "Straight Mode (≈DRS)"), ("#71e6a1", "Overtake Mode (≈ERS)"),
+                                ("#33d6c8", "Straight Mode (≈DRS)"), ("#71e6a1", "Overtake Mode (≈ERS)"),
                                 ("#b79cff", "pit giriş/çıkış"), ("#ff3b3b", "Soft"), ("#ffd234", "Medium"), ("#f0f4f8", "Hard"),
                             ], key=f"howto_replay_{replay_year}")
                             render_html_hud(stable_race_replay_html(replay_payload), height=1010, scrolling=True)
@@ -12616,7 +12620,7 @@ def _router_page_telemetry():
             ("Oynat / hız", "turu 1×–8× hızda izle; alttaki çubukla istediğin ana atla."),
             ("Sektörler", "hangi pilotun hangi sektörde daha hızlı olduğu alttaki üç kutuda; hızlı olanın satırı kendi renginde ve koyu."),
             ("Mini-sektör Δ", "tur 20 dilime bölünür; çubuk yukarı = 1. pilot o dilimde hızlı, aşağı = 2. pilot. Zamanın tam nerede kaybedildiğini gösterir."),
-        ], [("#45c8ff", "SM (≈DRS)"), ("#71e6a1", "OM (≈ERS)"), ("#f4d35e", "sektör sınırı")]),
+        ], [("#33d6c8", "SM (≈DRS)"), ("#71e6a1", "OM (≈ERS)"), ("#f4d35e", "sektör sınırı")]),
         "Fren Analizi": ([
             ("Dört iz", "üstten alta: hız, gaz, fren, vites — hepsi pist mesafesine göre hizalı."),
             ("İmleç", "fareyi grafiğin veya pistin üzerinde gezdir; dört iz ve haritadaki nokta aynı anda o mesafeye kilitlenir. Soldaki panelde tam değerler."),
@@ -12638,7 +12642,7 @@ def _router_page_telemetry():
             ("Pist kazancı", "ilk dilimdeki en hızlı turdan son dilime kaç saniye düştüğü — yağmur yoksa bu tipik pist evrimidir."),
             ("Alt grafik", "pist °C (turuncu), hava °C (sarı), nem % (yeşil); mavi gölge = o anda yağış kaydı."),
             ("İmleç", "fareyi gezdir; alttaki satır o dakikadaki tur zamanı ve hava değerlerini verir."),
-        ], [("#45c8ff", "en hızlı tur"), ("#5b6b7e", "ortalama tur"), ("#ff7a45", "pist °C"), ("#ffd23f", "hava °C"), ("#4ea981", "nem %"), ("#3aa9ff", "yağış")]),
+        ], [("#33d6c8", "en hızlı tur"), ("#5b6b7e", "ortalama tur"), ("#ff7a45", "pist °C"), ("#ffd23f", "hava °C"), ("#4ea981", "nem %"), ("#3aa9ff", "yağış")]),
     }
     _ht = _HOWTO.get(_picked if _picked in _MODE_LABELS else "Pist Dominasyonu")
     if _ht:
@@ -13056,7 +13060,7 @@ def _router_page_calendar():
                 st.markdown(
                     f"<div class='hud-card' style='border-left:4px solid {tone};padding:10px 13px;margin:7px 0'>"
                     f"<span class='hud-label' style='color:{tone}'>{html_lib.escape(item['kind'])}</span>"
-                    f"<div style='font-weight:750;color:#f2f5f8;margin-top:4px'>{html_lib.escape(item['text'])}</div></div>",
+                    f"<div style='font-weight:750;color:#eef2f7;margin-top:4px'>{html_lib.escape(item['text'])}</div></div>",
                     unsafe_allow_html=True
                 )
         table, _ = get_session_results_table(calendar_year, selected_event['EventName'], selected_session['code'])
@@ -13145,23 +13149,23 @@ def team_driver_cards_html(team_name, team):
     return f"""
     <style>
       .tm-drv-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 4px;--tm-acc:{acc}}}
-      .tm-drv{{display:flex;flex-direction:column;border:1px solid #26313f;border-top:4px solid var(--tm-acc);
-        border-radius:9px;background:linear-gradient(160deg,#161d28,#11161f);overflow:hidden;padding-bottom:14px}}
+      .tm-drv{{display:flex;flex-direction:column;border:1px solid #232c3a;border-top:4px solid var(--tm-acc);
+        border-radius:9px;background:linear-gradient(160deg,#141a24,#141a24);overflow:hidden;padding-bottom:14px}}
       .tm-drv .stage{{height:180px;position:relative;display:flex;align-items:flex-end;justify-content:center;
         background:linear-gradient(180deg,rgba(15,30,47,.46),rgba(9,13,20,.02));overflow:hidden}}
       .tm-drv .stage .code{{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-        color:var(--tm-acc);opacity:.26;font:950 2.4rem/1 'Saira Condensed',sans-serif;letter-spacing:.1em}}
+        color:var(--tm-acc);opacity:.26;font:950 2.4rem/1 'Inter',system-ui,sans-serif;letter-spacing:.1em}}
       .tm-drv .stage img{{position:relative;height:170px;max-width:100%;object-fit:contain;object-position:center bottom}}
       .tm-drv .body{{padding:0 14px;display:flex;flex-direction:column;flex:1}}
-      .tm-drv .nm{{font:950 1.2rem 'Saira Condensed',sans-serif;color:#f2f5f8;margin-top:11px;line-height:1.1}}
+      .tm-drv .nm{{font:950 1.2rem 'Inter',system-ui,sans-serif;color:#eef2f7;margin-top:11px;line-height:1.1}}
       .tm-drv .nm span{{color:var(--tm-acc)}}
-      .tm-drv .mt{{font:600 .78rem 'Saira',sans-serif;color:#9fb0c0;margin-top:4px}}
-      .tm-drv .bio{{font:.83rem/1.5 'Saira',sans-serif;color:#b9c8d9;margin-top:9px;min-height:6em;
+      .tm-drv .mt{{font:600 .78rem 'Inter',system-ui,sans-serif;color:#9aa7b8;margin-top:4px}}
+      .tm-drv .bio{{font:.83rem/1.5 'Inter',system-ui,sans-serif;color:#b9c8d9;margin-top:9px;min-height:6em;
         display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}}
       .tm-drv .stats{{display:flex;gap:8px;margin-top:12px}}
-      .tm-drv .stats > div{{flex:1;background:#11161f;border:1px solid #2d415b;border-radius:8px;padding:8px}}
+      .tm-drv .stats > div{{flex:1;background:#141a24;border:1px solid #2d415b;border-radius:8px;padding:8px}}
       .tm-drv .stats b{{display:block;font:950 1.15rem 'JetBrains Mono',monospace;color:var(--tm-acc);margin-top:3px}}
-      .tm-drv .moment{{font:.82rem/1.5 'Saira',sans-serif;color:#b9c8d9;margin-top:11px}}
+      .tm-drv .moment{{font:.82rem/1.5 'Inter',system-ui,sans-serif;color:#b9c8d9;margin-top:11px}}
       @media(max-width:640px){{.tm-drv-grid{{grid-template-columns:1fr}}.tm-drv .bio{{min-height:0}}}}
     </style>
     <div class="tm-drv-grid">{''.join(cards)}</div>

@@ -29,15 +29,15 @@ _DEFAULT_SUB = (
 _TEMPLATE = r"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Saira:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
 :root{
-  --ink:#07090d;--ink-deep:#030405;--steel:#c9d5e2;--steel-dim:#8b9bad;--rush:#e10600;
-  --text:#f2f5f8;--text-dim:#9fb0c0;--text-mute:#7c8b9e;--line:#26313f;
-  --info:#38e1d0;--caution:#f5c33b;--go:#4ade80;
-  --f-display:'Antonio','Arial Narrow',sans-serif;--f-body:'Saira',system-ui,sans-serif;
+  --ink:#0a0e14;--ink-deep:#070a0f;--steel:#c9d5e2;--steel-dim:#8b9bad;--rush:#e10600;
+  --text:#eef2f7;--text-dim:#9aa7b8;--text-mute:#6d7a8c;--line:#232c3a;
+  --info:#33d6c8;--caution:#f5b843;--go:#3ecf8e;
+  --f-display:'Inter',system-ui,-apple-system,sans-serif;--f-body:'Inter',system-ui,sans-serif;
   --f-mono:'JetBrains Mono',ui-monospace,monospace;--px:0px;--py:0px;--ch:14px;
-  --dot:radial-gradient(rgba(125,145,165,.11) 1px,transparent 1.6px);--dot-size:13px 13px;
+  --dot:radial-gradient(rgba(125,145,165,.09) 1px,transparent 1.6px);--dot-size:13px 13px;
   --logo-home:translate(-50%,-50%) translate(calc(-50vw + 2rem + 88px), calc(-50vh + 1.1rem));
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -69,7 +69,7 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .circuit .pulse2{opacity:.5;stroke:var(--rush);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:80 3440;animation:fpChase 11s linear infinite reverse}
 @keyframes fpChase{to{stroke-dashoffset:-3520}}
 .circuit .grid{stroke:var(--info);opacity:.05;stroke-width:1}
-.circuit .sf{stroke:#f2f5f8;opacity:.3;stroke-width:5}
+.circuit .sf{stroke:#eef2f7;opacity:.3;stroke-width:5}
 .stage.play .circuit .draw{animation:fpDraw 3.4s ease-out .2s forwards}
 @keyframes fpDraw{to{stroke-dashoffset:0}}
 .stage.play .circuit{animation:circIn 1.5s ease-out 3.5s both}
@@ -99,11 +99,10 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 
 /* ---- merkezî pano (sıradaki seans) ---- */
 .dash{position:absolute;right:clamp(1rem,5vw,3.2rem);top:47%;transform:translateY(-50%);z-index:12;
-  width:min(360px,42vw);padding:20px 22px 18px;opacity:0;
-  background-color:rgba(12,16,22,.72);background-image:var(--dot);background-size:var(--dot-size);
-  -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
-  clip-path:polygon(var(--ch) 0,100% 0,100% calc(100% - var(--ch)),calc(100% - var(--ch)) 100%,0 100%,0 var(--ch));
-  box-shadow:inset 0 0 0 1px var(--line), inset 3px 0 0 var(--rush)}
+  width:min(360px,42vw);padding:20px 22px 18px;opacity:0;border-radius:14px;
+  background-color:rgba(10,14,20,.62);
+  -webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1);
+  box-shadow:inset 0 0 0 1px var(--line), inset 2px 0 0 var(--rush)}
 .dash-hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   font-family:var(--f-mono);font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--text-mute)}
 .dash-hd b{font-family:var(--f-display);font-weight:700;font-size:.95rem;letter-spacing:.05em;color:var(--text)}
@@ -133,8 +132,8 @@ body{background:var(--ink-deep);color:var(--text);font-family:var(--f-body);
 .tag-block{position:absolute;left:clamp(1.5rem,6vw,5rem);bottom:19vh;z-index:12;
   max-width:min(42rem,58vw);opacity:0}
 .tag{font-family:var(--f-display);font-weight:700;
-  font-size:min(clamp(3rem,9vw,8.2rem),13.5vh);line-height:.84;
-  letter-spacing:-.022em;text-transform:uppercase;color:var(--text);
+  font-size:min(clamp(2.6rem,7.6vw,6.6rem),12vh);line-height:.98;
+  letter-spacing:-.035em;text-transform:none;color:var(--text);
   text-shadow:0 2px 40px rgba(0,0,0,.55)}
 .tag span{display:block;color:var(--steel-dim)}
 .tag .p{color:var(--text);position:relative;width:max-content}

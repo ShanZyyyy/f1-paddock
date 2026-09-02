@@ -15,8 +15,8 @@ def render():
     terms = [
         ('2026 Teknolojisi', 'Active Aero', 'Ön ve arka kanadın sürüş koşuluna göre aktif açı değiştirmesidir.', True),
         ('2026 Teknolojisi', 'Corner Mode', 'Virajlarda daha fazla yere basma için kullanılan aktif aero ayarıdır. 2026 ile geldi.', True),
-        ('2026 Teknolojisi', 'Straight Mode', 'Düzlükte sürtünmeyi azaltan aktif aero ayarıdır. 📺 2024 ve öncesinde yayında buna **DRS** deniyordu; düzlükteki geçiş bölgelerinin karşılığıdır.', True),
-        ('2026 Teknolojisi', 'Overtake Mode', 'Öndeki araca yakın pilotun geçiş için kullanabildiği ek elektrik enerjisi desteğidir. 📺 Yayın diliyle **push-to-pass / ERS hücum** — eski "overtake button" mantığı.', True),
+        ('2026 Teknolojisi', 'Straight Mode', 'Düzlükte sürtünmeyi azaltan aktif aero ayarıdır. 2024 ve öncesinde yayında buna **DRS** deniyordu; düzlükteki geçiş bölgelerinin karşılığıdır.', True),
+        ('2026 Teknolojisi', 'Overtake Mode', 'Öndeki araca yakın pilotun geçiş için kullanabildiği ek elektrik enerjisi desteğidir. Yayın diliyle **push-to-pass / ERS hücum** — eski "overtake button" mantığı.', True),
         ('2026 Teknolojisi', 'Boost Mode', 'Pilotun savunma veya hücum için enerji dağıtımını kullandığı güç modudur.', True),
         ('2026 Teknolojisi', 'Recharge', 'Frenleme ve gaz kesme anlarında bataryanın yeniden enerji toplamasıdır.', True),
         ('2026 Teknolojisi', 'MGU-K', 'Fren enerjisini elektrik enerjisine çeviren ve güce katkı sağlayan motor-jeneratördür.', True),

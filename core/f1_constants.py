@@ -143,13 +143,17 @@ JUNIOR_TEAM_SLUGS = {
 }
 
 
+# Yayın Arayüzü (Faz 18): emoji bayraklar kaldırıldı. Standings tablosu zaten
+# flagcdn.com SVG/PNG plaka kullanıyor; kalan tek tüketici round_badge() artık
+# COUNTRY_CODES'tan 2-harf kod üretiyor. Bu eşleme geriye dönük uyumluluk için
+# duruyor ama artık ISO 2-harf kod döndürüyor (emoji değil).
 COUNTRY_FLAGS = {
-    'Australia': '🇦🇺', 'China': '🇨🇳', 'Japan': '🇯🇵', 'Bahrain': '🇧🇭',
-    'Saudi Arabia': '🇸🇦', 'United States': '🇺🇸', 'Italy': '🇮🇹',
-    'Monaco': '🇲🇨', 'Spain': '🇪🇸', 'Canada': '🇨🇦', 'Austria': '🇦🇹',
-    'Great Britain': '🇬🇧', 'Belgium': '🇧🇪', 'Hungary': '🇭🇺',
-    'Netherlands': '🇳🇱', 'Azerbaijan': '🇦🇿', 'Singapore': '🇸🇬',
-    'Mexico': '🇲🇽', 'Brazil': '🇧🇷', 'Qatar': '🇶🇦', 'United Arab Emirates': '🇦🇪',
+    'Australia': 'au', 'China': 'cn', 'Japan': 'jp', 'Bahrain': 'bh',
+    'Saudi Arabia': 'sa', 'United States': 'us', 'Italy': 'it',
+    'Monaco': 'mc', 'Spain': 'es', 'Canada': 'ca', 'Austria': 'at',
+    'Great Britain': 'gb', 'Belgium': 'be', 'Hungary': 'hu',
+    'Netherlands': 'nl', 'Azerbaijan': 'az', 'Singapore': 'sg',
+    'Mexico': 'mx', 'Brazil': 'br', 'Qatar': 'qa', 'United Arab Emirates': 'ae',
 }
 
 
