@@ -10,6 +10,8 @@ cache/
 assets/
 data/career_cache/
 data/news_tr_cache.json
+core/data/datahub/
+data/datahub/
 .streamlit/secrets.toml
 
 # OS / editor

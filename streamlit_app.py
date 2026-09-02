@@ -24,6 +24,7 @@ import openf1_fallback
 from core import paddock_ai
 from core import leaderboard as fp_lb
 from core import icons as fp_ic
+from core import datahub as fp_datahub
 
 # Yeniden yapilandirma (redesign) — tasarim sistemi
 from core import ui as fp_ui
@@ -5982,6 +5983,29 @@ def fetch_localised_news_catalog_v34(limit=30):
     return result
 
 
+# --- Veri merkezi: Haber akışı taze-iken-yenile (SWR) ------------------------
+# fetch_localised_news_catalog_v34 zaten @cache_data_safe (hata -> []). datahub
+# üstüne disk snapshot + arka plan tazeleme ekler: bayat akış ANINDA döner,
+# 15 dk'lık TTL dolduğunda kullanıcı beklemez.
+fp_datahub.hub.register(fp_datahub.SourceSpec(
+    "news_tr", fetch_localised_news_catalog_v34,
+    soft_ttl=900, hard_ttl=6 * 3600, disk=True,
+))
+
+
+def prewarm_news_feed():
+    """Bayat/eksik haber akışını arka planda hazırla — çağıranı bloke etmez."""
+    try:
+        fp_datahub.hub.prewarm("news_tr", 30)
+    except Exception:
+        pass
+
+
+if not st.session_state.get('_news_prewarmed'):
+    st.session_state['_news_prewarmed'] = True
+    prewarm_news_feed()
+
+
 def render_news_centre_v20():
     render_page_header(T('page.news.title'), T('page.news.sub'))
     teams = ['Genel F1'] + list(TEAM_DIRECTORY_2026.keys())
@@ -5990,8 +6014,14 @@ def render_news_centre_v20():
     _fav_news_team = st.session_state.get('favourite_team')
     _news_default = teams.index(_fav_news_team) if _fav_news_team in teams else 0
     selected = st.selectbox('\u0130zlemek istedi\u011fin ak\u0131\u015f', teams, index=_news_default, key='news_team_filter_v20')
-    with st.spinner('Haber akışı hazırlanıyor...'):
-        localized_catalog = fetch_localised_news_catalog_v34(30)
+    _news = fp_datahub.hub.get("news_tr", 30, block_if_cold=False)
+    if not _news.ok:
+        # gerçek soğuk başlangıç — elde hiç snapshot yok, bir kez bekle
+        with st.spinner('Haber akışı ilk kez hazırlanıyor…'):
+            _news = fp_datahub.hub.get("news_tr", 30)
+    localized_catalog = _news.value or []
+    if _news.stale and localized_catalog:
+        st.caption('Akış arka planda güncelleniyor — birkaç saniye içinde tazelenir.')
     localized = [item for item in localized_catalog if news_matches_team_v19(item, selected)]
     radar_title = 'Genel Formula 1 akışı' if selected == 'Genel F1' else selected + ' haberleri'
     _tr_count = sum(1 for i in localized if i.get('language') == 'tr')
