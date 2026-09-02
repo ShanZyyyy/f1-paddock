@@ -6,8 +6,11 @@
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
+
+_THIS_YEAR = datetime.date.today().year
 
 # core/paddock_ai/retrievers/careers.py -> repo kökü 4 seviye yukarı
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
@@ -30,22 +33,42 @@ _stewardle = {r["name"].lower(): r for r in (_load("stewardle_drivers.json") or 
               if isinstance(r, dict) and r.get("name")}
 
 
+def _nation_for(name_key: str) -> str | None:
+    """Uyruğu (İngilizce sıfat, ör. 'Spanish') Stewardle kaydından çek."""
+    r = _stewardle.get(name_key)
+    return r.get("nation") if r else None
+
+
+def _is_active(last_season) -> bool:
+    try:
+        return int(last_season) >= _THIS_YEAR - 1
+    except (TypeError, ValueError):
+        return False
+
+
 def career(name: str, api_code: str | None = None) -> dict | None:
-    """Görünen ada göre kariyer toplamları. Önce deste (2018+), sonra kariyer
-    seed (api_code ile), sonra Stewardle temel bilgisi."""
+    """Görünen ada göre kariyer profili — istatistik + biyografik alanlar
+    (uyruk, mevcut/son takım, aktiflik). Önce deste (2018+), sonra kariyer seed
+    (api_code ile), sonra Stewardle temel bilgisi."""
     key = name.lower()
     if key in _deck:
         c = _deck[key]
-        return {"name": c["name"], "team": c.get("team"), "wins": c["wins"],
-                "podiums": c["podiums"], "poles": c["poles"], "starts": c["starts"],
-                "titles": c["titles"], "ppr": c.get("ppr"),
-                "last_season": c.get("last"), "source": "cards_deck_v9.json"}
+        last = c.get("last")
+        return {"name": c["name"], "team": c.get("team"),
+                "nation": _nation_for(key), "active": _is_active(last),
+                "wins": c["wins"], "podiums": c["podiums"], "poles": c["poles"],
+                "starts": c["starts"], "titles": c["titles"], "ppr": c.get("ppr"),
+                "last_season": last, "source": "cards_deck_v9.json"}
     if api_code and api_code in _careers:
         p = _careers[api_code]
+        teams = p.get("teams") or []
+        last_team = teams[-1][0] if teams and isinstance(teams[-1], (list, tuple)) else None
         return {"name": name, "wins": p.get("wins"), "podiums": p.get("podiums"),
                 "poles": p.get("poles"), "starts": p.get("starts"),
                 "points": p.get("points"), "first_season": p.get("first_season"),
-                "last_season": p.get("last_season"), "teams": p.get("teams"),
+                "last_season": p.get("last_season"), "teams": teams,
+                "team": last_team, "nation": _nation_for(key),
+                "active": _is_active(p.get("last_season")),
                 "source": "driver_careers_seed.json"}
     if key in _stewardle:
         r = _stewardle[key]
@@ -54,6 +77,7 @@ def career(name: str, api_code: str | None = None) -> dict | None:
                 "starts": r.get("starts"),
                 "first_season": str(r.get("first_gp_date", ""))[:4] or None,
                 "last_season": r.get("latest_season"),
+                "active": _is_active(r.get("latest_season")),
                 "source": "stewardle_drivers.json"}
     return None
 

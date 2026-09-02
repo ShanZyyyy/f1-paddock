@@ -130,6 +130,11 @@ def _career_for(nm: str) -> dict | None:
         tc = history_db.title_count(res.get("name") or nm)
         if tc:
             res["titles"] = tc
+    # uyruk hâlâ yoksa: güncel grid için DRIVER_DISPLAY ISO kodundan
+    if res is not None and not res.get("nation") and code:
+        entry = DRIVER_DISPLAY.get(code)
+        if isinstance(entry, (list, tuple)) and entry:
+            res["nation"] = str(entry[0])          # 'gb', 'es', 'nl' …
     return res
 
 

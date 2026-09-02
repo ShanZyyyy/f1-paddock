@@ -53,6 +53,28 @@ def test_driver_career_from_bundle():
     assert "pole" in a.text and a.ok
 
 
+def test_driver_career_is_natural_biography():
+    a = answer("Fernando Alonso kimdir?")
+    assert a.intent == "DRIVER_CAREER" and a.ok
+    # doğal dil: uyruk + "Formula 1 pilotu" kimliği + istatistik cümlesi
+    assert "İspanyol" in a.text
+    assert "Formula 1 pilotudur" in a.text
+    assert "Kariyeri boyunca" in a.text and "şampiyonluk" in a.text
+    # ham "isim: rakam, rakam" formatı KALMAMALI
+    assert not a.text.startswith("Fernando Alonso:")
+    assert not a.text.startswith("Fernando Alonso (")
+
+
+def test_driver_career_historic_has_no_fake_nation():
+    from core.paddock_ai.retrievers import history_db
+    if not history_db.available():
+        return
+    a = answer("Jim Clark kimdir?")
+    assert a.intent == "DRIVER_CAREER" and a.ok
+    assert "Formula 1 pilotudur" in a.text
+    assert "Kariyeri boyunca" in a.text
+
+
 def test_tech_upgrade_lists_components():
     a = answer("McLaren en son hangi güncellemeyi getirdi?")
     assert a.intent == "TECH_UPGRADE"

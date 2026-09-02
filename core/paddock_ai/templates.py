@@ -99,18 +99,96 @@ def standings(rows, year) -> Answer:
         "Şampiyona Merkezi · FastF1 (tamamlanan yarışlar)", "STANDINGS")
 
 
+# Uyruk: İngilizce sıfat (Stewardle JSON) VE ISO 2-harf kod (DRIVER_DISPLAY) ->
+# Türkçe sıfat. Anahtarlar küçük harf.
+_NATION_TR = {
+    "american": "Amerikalı", "us": "Amerikalı",
+    "argentine": "Arjantinli", "argentinian": "Arjantinli", "ar": "Arjantinli",
+    "australian": "Avustralyalı", "au": "Avustralyalı",
+    "austrian": "Avusturyalı", "at": "Avusturyalı",
+    "belgian": "Belçikalı", "be": "Belçikalı",
+    "brazilian": "Brezilyalı", "br": "Brezilyalı",
+    "british": "İngiliz", "english": "İngiliz", "gb": "İngiliz",
+    "canadian": "Kanadalı", "ca": "Kanadalı",
+    "chinese": "Çinli", "cn": "Çinli",
+    "colombian": "Kolombiyalı", "co": "Kolombiyalı",
+    "czech": "Çek", "cz": "Çek",
+    "danish": "Danimarkalı", "dk": "Danimarkalı",
+    "dutch": "Hollandalı", "nl": "Hollandalı",
+    "finnish": "Finlandiyalı", "fi": "Finlandiyalı",
+    "french": "Fransız", "fr": "Fransız",
+    "german": "Alman", "de": "Alman",
+    "hungarian": "Macar", "hu": "Macar",
+    "indian": "Hintli", "in": "Hintli",
+    "indonesian": "Endonezyalı", "id": "Endonezyalı",
+    "irish": "İrlandalı", "ie": "İrlandalı",
+    "italian": "İtalyan", "it": "İtalyan",
+    "japanese": "Japon", "jp": "Japon",
+    "mexican": "Meksikalı", "mx": "Meksikalı",
+    "monegasque": "Monakolu", "mc": "Monakolu",
+    "new zealander": "Yeni Zelandalı", "nz": "Yeni Zelandalı",
+    "polish": "Polonyalı", "pl": "Polonyalı",
+    "portuguese": "Portekizli", "pt": "Portekizli",
+    "russian": "Rus", "ru": "Rus",
+    "south african": "Güney Afrikalı", "za": "Güney Afrikalı",
+    "spanish": "İspanyol", "es": "İspanyol",
+    "swedish": "İsveçli", "se": "İsveçli",
+    "swiss": "İsviçreli", "ch": "İsviçreli",
+    "thai": "Taylandlı", "th": "Taylandlı",
+    "venezuelan": "Venezuelalı", "ve": "Venezuelalı",
+}
+
+
+def _nation_tr(value) -> str | None:
+    if not value:
+        return None
+    return _NATION_TR.get(str(value).strip().lower())
+
+
+def _join_tr(items: list[str]) -> str:
+    """['a', 'b', 'c'] -> 'a, b ve c'."""
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    return ", ".join(items[:-1]) + " ve " + items[-1]
+
+
 def driver_career(d: dict) -> Answer:
-    bits = []
-    for label, key in (("galibiyet", "wins"), ("podyum", "podiums"),
-                       ("pole", "poles"), ("yarış", "starts"), ("şampiyonluk", "titles")):
-        if d.get(key) is not None:
-            bits.append(f"{d[key]} {label}")
-    span = ""
-    if d.get("first_season"):
-        last = "aktif" if str(d.get("last_season")) in ("2026", "2027") else d.get("last_season")
-        span = f" ({d['first_season']}–{last})"
-    return Answer(f"{d['name']}{span}: " + ", ".join(bits) + "." if bits else NO_DATA,
-                  d.get("source", "kariyer arşivi"), "DRIVER_CAREER", bool(bits))
+    stats = [f"{d[key]} {label}" for label, key in (
+        ("galibiyet", "wins"), ("podyum", "podiums"),
+        ("pole", "poles"), ("şampiyonluk", "titles")) if d.get(key)]
+    starts = d.get("starts")
+    if not stats and starts is None:
+        return Answer(NO_DATA, d.get("source", "kariyer arşivi"), "DRIVER_CAREER", ok=False)
+
+    name = d.get("name", "Bu pilot")
+    nat = _nation_tr(d.get("nation"))
+    active = bool(d.get("active"))
+    team = d.get("team")
+    fs, ls = d.get("first_season"), d.get("last_season")
+
+    lines = [f"{name}, {nat} bir Formula 1 pilotudur." if nat
+             else f"{name} bir Formula 1 pilotudur."]
+    if team:
+        lines.append(f"{team} takımı adına yarışmaktadır." if active
+                     else f"Son olarak {team} takımında yarıştı.")
+    if stats:
+        lines.append("Kariyeri boyunca " + _join_tr(stats) + " elde etti.")
+    elif starts:
+        lines.append("Henüz bir Grand Prix galibiyeti bulunmuyor.")
+    if fs and starts:
+        if active:
+            lines.append(f"{fs} yılından bu yana {starts} Grand Prix'de yer aldı.")
+        elif ls:
+            lines.append(f"{fs}–{ls} yılları arasında {starts} yarışa çıktı.")
+        else:
+            lines.append(f"Toplam {starts} yarışa çıktı.")
+    elif starts:
+        lines.append(f"Toplam {starts} yarışa çıktı.")
+
+    return Answer(" ".join(lines), d.get("source", "kariyer arşivi"),
+                  "DRIVER_CAREER", ok=bool(stats or starts))
 
 
 def _hh_num(v):

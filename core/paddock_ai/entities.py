@@ -147,10 +147,14 @@ class EntityExtractor:
             if v not in seen:
                 seen.add(v)
                 found.append(v)
-        covered = {v.lower().split()[-1] for v in found}
+        # tam ad eşleşmesinin HERHANGİ bir kelimesi çıplak soyadı hit'ini bastırır:
+        # "Lewis Hamilton" varken "Lewis" (Jackie Lewis) ikinci pilot sayılmasın.
+        covered = set()
+        for v in found:
+            covered.update(v.lower().split())
         for v in sur_hits:
             sn = v.lower().split()[-1]
-            if v not in seen and sn not in covered:   # tam ad zaten yakaladıysa çıplak soyadı atla
+            if v not in seen and sn not in covered:
                 seen.add(v)
                 found.append(v)
         if not found:  # yazım hatası toleransı — sadece 5+ harfli tek token'lar için
