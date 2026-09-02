@@ -27,6 +27,7 @@ from core import icons as fp_ic
 
 # Yeniden yapilandirma (redesign) — tasarim sistemi
 from core import ui as fp_ui
+from core import hud_kit as fp_kit
 from core import plot as fp_plot
 from core import i18n as fp_i18n
 from core import hero as fp_hero
@@ -3193,47 +3194,82 @@ def _telemetry_trace_payload_v38(entries, grid_n=480):
     }
 
 
+def telemetry_trace_component_height(payload=None):
+    """Telemetri HUD iframe yüksekliği — enstrüman kümesi + harita + 4 iz."""
+    return 700
+
+
 def telemetry_trace_html(payload):
     """Etkileşimli telemetri HUD'u: hız / gaz / fren / vites izleri ortak mesafe
-    ekseninde; fare imleci dördünü ve pist üzerindeki konumu eşzamanlı gösterir."""
+    ekseninde; fare imleci dördünü ve pist üzerindeki konumu eşzamanlı gösterir.
+    Sol enstrüman kümesi (yayın): odaklı pilotun HIZ / GAZ-FREN / VİTES + Δ."""
     packed = fp_ui.json_for_script(payload)
-    return r'''<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #232c3a;border-radius:13px;padding:12px;background:#141a24}
+    return (fp_kit.google_fonts_link() + r'''<style>
+''' + fp_kit.kit_css() + r'''
+.hud{border:1px solid var(--k-line);border-radius:var(--k-r-l);padding:12px;background:var(--k-panel)}
 .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
-.title{font-size:13px;font-weight:950;letter-spacing:.09em}
-.sub{font-size:10px;color:#9aa7b8;margin-top:5px;max-width:520px}
+.title{font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.sub{font-size:10px;color:var(--k-dim);margin-top:5px;max-width:520px;line-height:1.5}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
-.tag{border:1px solid #35506d;border-radius:7px;padding:5px 8px;font:900 11px Inter,Arial,sans-serif;color:var(--team)}
-.wrap{display:grid;grid-template-columns:290px minmax(0,1fr);gap:12px;margin-top:10px}
-.mapbox{border:1px solid #232c3a;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
-.mapbox canvas{width:100%;height:250px;display:block;cursor:crosshair}
-.readout{margin-top:8px;border:1px solid #232c3a;border-radius:9px;background:#0d131c;padding:9px 10px}
-.readout .rh{color:#8496a8;font:900 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;margin-bottom:5px}
-.readout .rd{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid #1b2531;font:800 12px ui-monospace,Consolas,monospace;color:#c7d6e6}
+.wrap{display:grid;grid-template-columns:288px minmax(0,1fr);gap:12px;margin-top:10px}
+.left{display:flex;flex-direction:column;gap:8px}
+
+/* --- enstrüman kümesi --- */
+.cluster{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-raised);
+  padding:12px 13px;display:flex;flex-direction:column;gap:11px}
+.ic-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.ic-lbl{font:600 9px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;color:var(--k-mute)}
+.ic-spd .n{font:700 34px/1 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+  color:var(--focus,var(--k-ink))}
+.ic-spd .u{font:600 9px var(--k-f-data);letter-spacing:.12em;color:var(--k-mute);margin-left:5px}
+.ic-gear{text-align:right;flex:0 0 auto}
+.ic-gear .gn{font:700 32px/1 var(--k-f-data);letter-spacing:-.02em;display:block;margin-top:3px}
+.gbar{display:flex;gap:2px;margin-top:6px;justify-content:flex-end}
+.gbar i{width:8px;height:12px;border-radius:1px;background:var(--k-hover)}
+.gbar i.on{background:var(--k-cyan)}
+.gbar i.red{background:var(--k-red-bright)}
+.ic-row{display:grid;grid-template-columns:34px 1fr 40px;align-items:center;gap:8px}
+.ic-row .k{font:600 9px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--k-mute)}
+.ic-row .v{font:700 11px var(--k-f-data);font-variant-numeric:tabular-nums;text-align:right;color:var(--k-dim)}
+.k-meter.g>i{background:var(--k-green)}
+.k-meter.b>i{background:var(--k-pink)}
+.ic-delta{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:.01em;
+  padding-top:9px;border-top:1px solid var(--k-line);display:flex;align-items:baseline;gap:7px}
+.ic-delta.pos{color:var(--k-green)} .ic-delta.neg{color:var(--k-pink)} .ic-delta.flat{color:var(--k-mute)}
+.ic-delta s{font:500 9px var(--k-f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--k-mute);text-decoration:none}
+
+.mapbox{border:1px solid var(--k-line);border-radius:var(--k-r-m);overflow:hidden;
+  background:radial-gradient(circle at 50% 45%,var(--k-panel),var(--k-void) 82%)}
+.mapbox canvas{width:100%;height:214px;display:block;cursor:crosshair}
+.readout{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-void);padding:9px 11px}
+.readout .rh{color:var(--k-mute);font:600 9px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;margin-bottom:5px}
+.readout .rd{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid var(--k-line-soft);
+  font:600 12px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-dim)}
 .readout .rd:first-of-type{border-top:0}
-.readout .rd span{color:#8fa2b4}
+.readout .rd span{color:var(--k-mute)}
 .charts{display:flex;flex-direction:column;gap:6px}
-.chart{position:relative;border:1px solid #212b38;border-radius:8px;background:#0c121b}
+.chart{position:relative;border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-void)}
 .chart canvas{width:100%;display:block;cursor:crosshair}
-.chart .lab{position:absolute;top:5px;left:9px;font:900 9px Inter,Arial,sans-serif;letter-spacing:.09em;color:#7c90a4;pointer-events:none}
+.chart .lab{position:absolute;top:5px;left:9px;font:600 9px var(--k-f-data);letter-spacing:.12em;
+  text-transform:uppercase;color:var(--k-mute);pointer-events:none}
 @media(max-width:640px){.wrap{grid-template-columns:1fr}}
 </style>
 <div class="hud">
   <div class="head">
-    <div><div class="title">ETKİLEŞİMLİ TELEMETRİ</div><div class="sub">Fareyi grafiğin veya pistin üzerinde gezdir — imleç dört izi ve pist noktasını eşzamanlı okur. Fren izindeki dikey sıçrama = fren noktası.</div></div>
+    <div><div class="title">Etkileşimli Telemetri</div><div class="sub">Fareyi grafiğin veya pistin üzerinde gezdir — imleç dört izi, pist noktasını ve sol enstrümanları eşzamanlı okur. Çipten odak pilotu değiştir; fren izindeki dikey sıçrama = fren noktası.</div></div>
     <div class="tags" id="tags"></div>
   </div>
   <div class="wrap">
-    <div>
+    <div class="left">
+      <div class="cluster" id="cluster"></div>
       <div class="mapbox"><canvas id="map"></canvas></div>
       <div class="readout" id="readout"></div>
     </div>
     <div class="charts" id="charts">
-      <div class="chart"><span class="lab">HIZ km/h</span><canvas data-k="speed"></canvas></div>
+      <div class="chart"><span class="lab">HIZ km/s</span><canvas data-k="speed"></canvas></div>
       <div class="chart"><span class="lab">GAZ %</span><canvas data-k="throttle"></canvas></div>
       <div class="chart"><span class="lab">FREN</span><canvas data-k="brake"></canvas></div>
-      <div class="chart"><span class="lab">VITES</span><canvas data-k="gear"></canvas></div>
+      <div class="chart"><span class="lab">VİTES</span><canvas data-k="gear"></canvas></div>
     </div>
   </div>
 </div>
@@ -3245,12 +3281,13 @@ const N=DIST.length;
 const $=function(s){return document.querySelector(s);};
 if(!N||!drv.length){ $('#readout').textContent='Telemetri izi yok.'; return; }
 let cursor=Math.floor(N*0.5);
+let focus=0;
 
 const specs={
-  speed:{h:132,min:0,max:340,fmt:function(v){return Math.round(v);}},
-  throttle:{h:74,min:0,max:100},
-  brake:{h:62,min:0,max:100},
-  gear:{h:70,min:0,max:8,step:true}
+  speed:{h:120,min:0,max:340,fmt:function(v){return Math.round(v);}},
+  throttle:{h:70,min:0,max:100},
+  brake:{h:58,min:0,max:100},
+  gear:{h:66,min:0,max:8,step:true}
 };
 (function(){ let mx=0; drv.forEach(function(c){ (c.speed||[]).forEach(function(v){ if(v>mx)mx=v; }); });
   specs.speed.max=Math.max(120,Math.ceil((mx+8)/20)*20); })();
@@ -3261,8 +3298,38 @@ const charts=[].slice.call(document.querySelectorAll('.chart canvas')).map(funct
 const mapCv=$('#map'), mapCtx=mapCv.getContext('2d');
 let MB=null;
 
-function tags(){ $('#tags').innerHTML=drv.map(function(c){
-  return '<span class="tag" style="--team:'+c.colour+'">'+c.code+(c.lap?' - '+c.lap:'')+'</span>'; }).join(''); }
+function tags(){ $('#tags').innerHTML=drv.map(function(c,i){
+  return '<button class="k-chip" aria-pressed="'+(i===focus)+'" data-i="'+i+'" style="--team:'+c.colour+'">'+c.code+(c.lap?' · '+c.lap:'')+'</button>'; }).join('');
+  [].forEach.call(document.querySelectorAll('#tags .k-chip'),function(b){
+    b.onclick=function(){ focus=+b.dataset.i; tags(); render(); }; });
+}
+
+function drawCluster(){
+  const c=drv[focus]||drv[0]; if(!c){ return; }
+  const other=drv[focus===0?1:0];
+  const sp=Math.round((c.speed||[])[cursor]||0);
+  const th=Math.max(0,Math.min(100,Math.round((c.throttle||[])[cursor]||0)));
+  const br=Math.max(0,Math.min(100,Math.round((c.brake||[])[cursor]||0)));
+  const gr=Math.max(0,Math.min(8,Math.round((c.gear||[])[cursor]||0)));
+  let cells='';
+  for(let i=1;i<=8;i++){ cells+='<i class="'+(i<=gr?(i>=7?'red':'on'):'')+'"></i>'; }
+  let delta='';
+  if(other){
+    const d=sp-Math.round((other.speed||[])[cursor]||0);
+    const cls=Math.abs(d)<1?'flat':(d>0?'pos':'neg');
+    const who=Math.abs(d)<1?'eşit tempo':((d>0?c.code:other.code)+' önde');
+    delta='<div class="ic-delta '+cls+'">'+(d>0?'+':'')+d+' km/s <s>'+who+'</s></div>';
+  }
+  $('#cluster').style.setProperty('--focus',c.colour);
+  $('#cluster').innerHTML=
+    '<div class="ic-top">'
+    +'<div class="ic-spd"><div class="ic-lbl">Hız · '+c.code+'</div><span class="n">'+sp+'</span><span class="u">KM/S</span></div>'
+    +'<div class="ic-gear"><div class="ic-lbl">Vites</div><span class="gn">'+gr+'</span><div class="gbar">'+cells+'</div></div>'
+    +'</div>'
+    +'<div class="ic-row"><span class="k">Gaz</span><div class="k-meter g"><i style="width:'+th+'%"></i></div><span class="v">'+th+'%</span></div>'
+    +'<div class="ic-row"><span class="k">Fren</span><div class="k-meter b"><i style="width:'+br+'%"></i></div><span class="v">'+br+'%</span></div>'
+    +delta;
+}
 
 function fitMap(){
   const r=mapCv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1);
@@ -3326,8 +3393,8 @@ function drawMap(){
 
 function readout(){
   const d=DIST[cursor]||0;
-  let html='<div class="rh">MESAFE '+Math.round(d)+' m — imleç '+(Math.round((cursor/(N-1))*100))+'% tur</div>';
-  [['Hız','speed',' km/h'],['Gaz','throttle',' %'],['Fren','brake',''],['Vites','gear','']].forEach(function(r){
+  let html='<div class="rh">MESAFE '+Math.round(d)+' m — imleç %'+(Math.round((cursor/(N-1))*100))+' tur</div>';
+  [['Hız','speed',' km/s'],['Gaz','throttle',' %'],['Fren','brake',''],['Vites','gear','']].forEach(function(r){
     html+='<div class="rd"><span>'+r[0]+'</span><b>'+drv.map(function(c){
       const v=(c[r[1]]||[])[cursor];
       return '<span style="color:'+c.colour+'">'+(v==null?'-':Math.round(v))+'</span>';
@@ -3335,12 +3402,12 @@ function readout(){
   });
   if(drv.length>=2){
     const ds=((drv[0].speed||[])[cursor]||0)-((drv[1].speed||[])[cursor]||0);
-    html+='<div class="rd"><span>&Delta; hız</span><b>'+(ds>0?'+':'')+Math.round(ds)+' km/h — '+(Math.abs(ds)<1?'eşit':(ds>0?drv[0].code:drv[1].code)+' hızlı')+'</b></div>';
+    html+='<div class="rd"><span>&Delta; hız</span><b>'+(ds>0?'+':'')+Math.round(ds)+' km/s — '+(Math.abs(ds)<1?'eşit':(ds>0?drv[0].code:drv[1].code)+' hızlı')+'</b></div>';
   }
   $('#readout').innerHTML=html;
 }
 
-function render(){ charts.forEach(drawChart); drawMap(); readout(); }
+function render(){ charts.forEach(drawChart); drawMap(); readout(); drawCluster(); }
 
 function seekFromClientX(clientX, el){
   const r=el.getBoundingClientRect();
@@ -3366,7 +3433,7 @@ let rz=0; window.addEventListener('resize',function(){ clearTimeout(rz); rz=setT
 tags(); fitAll();
 setTimeout(fitAll,60);
 })();
-</script>'''.replace('__PAYLOAD__', packed)
+</script>''').replace('__PAYLOAD__', packed)
 
 
 def dominance_map_html(payload):
@@ -4110,13 +4177,88 @@ def _pit_move_notes_v37(payload):
     return notes
 
 
+_STRAT_WALL_CSS = r"""
+.wall{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);overflow:hidden}
+.hd{padding:12px 15px;border-bottom:1px solid var(--k-line)}
+.hd .t{font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.hd .s{font-size:10px;color:var(--k-dim);margin-top:5px;line-height:1.5}
+.lg{display:flex;gap:13px;flex-wrap:wrap;margin-top:9px;font:600 8.5px var(--k-f-data);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--k-mute)}
+.lg i{width:9px;height:9px;border-radius:2px;display:inline-block;vertical-align:-1px;margin-right:5px}
+.lg .bar{width:2px;height:11px;border-radius:1px;background:var(--k-ink);vertical-align:-2px}
+
+.ln{position:relative;display:grid;grid-template-columns:128px 1fr 52px;gap:12px;align-items:center;
+  min-height:42px;padding:9px 14px 7px 12px;border-top:1px solid var(--k-line-soft);
+  border-left:var(--k-edge) solid var(--team)}
+.ln:hover{background:color-mix(in srgb,var(--k-hover) 38%,transparent)}
+.who{display:flex;flex-direction:column;gap:1px;min-width:0}
+.who .r1{display:flex;align-items:baseline;gap:6px}
+.who b{font:700 10.5px var(--k-f-data);color:var(--k-dim);font-variant-numeric:tabular-nums}
+.who .cd{font:700 13px var(--k-f-ui);color:var(--team);letter-spacing:.02em}
+.who s{font:500 8px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--k-mute);
+  text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt{position:relative;height:22px;border-radius:var(--k-r-s);background:var(--k-void);overflow:visible}
+.st{position:absolute;top:2px;height:18px;border-radius:3px;display:flex;align-items:center;
+  padding-left:5px;font:700 9px var(--k-f-data);color:var(--c);letter-spacing:.03em;overflow:hidden;
+  border:1px solid color-mix(in srgb,var(--c) 55%,transparent);
+  background:linear-gradient(90deg,color-mix(in srgb,var(--c) 30%,var(--k-panel)),color-mix(in srgb,var(--c) 9%,var(--k-panel)));
+  transition:transform .2s ease,box-shadow .2s ease}
+.st:hover{transform:translateY(-1px);box-shadow:0 7px 16px -8px color-mix(in srgb,var(--c) 55%,transparent);z-index:5}
+.st::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,transparent 44%,color-mix(in srgb,#04070c 42%,transparent))}
+.st s{margin-left:4px;font-weight:500;color:color-mix(in srgb,var(--c) 62%,var(--k-dim));
+  text-decoration:none;position:relative;z-index:1}
+.pm{position:absolute;top:-2px;height:26px;width:2px;background:var(--k-ink);opacity:.72;z-index:3}
+.pm::after{content:attr(data-t);position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+  font:600 8px var(--k-f-data);color:var(--k-dim);white-space:nowrap}
+.fl{position:absolute;bottom:-3px;width:6px;height:6px;border-radius:50%;background:var(--k-mute);
+  transform:translateX(-50%);z-index:3}
+.fl.ov{background:var(--k-violet);box-shadow:0 0 0 2px color-mix(in srgb,var(--k-violet) 30%,transparent)}
+.uc{position:absolute;top:-14px;transform:translateX(-50%);z-index:4;
+  font:700 7.5px var(--k-f-data);letter-spacing:.06em;color:var(--k-green);
+  background:color-mix(in srgb,var(--k-green) 14%,var(--k-panel));
+  border:1px solid color-mix(in srgb,var(--k-green) 40%,transparent);
+  border-radius:3px;padding:1px 3px;white-space:nowrap}
+.fin{font:700 12px var(--k-f-data);color:var(--k-dim);text-align:right;font-variant-numeric:tabular-nums}
+.fin s{display:block;font:500 8px var(--k-f-data);letter-spacing:.1em;color:var(--k-mute);
+  text-decoration:none;margin-top:2px}
+.nt{grid-column:2/-1;font:500 9px var(--k-f-data);color:var(--k-mute);margin-top:6px;
+  line-height:1.45;letter-spacing:.02em}
+.axis{display:grid;grid-template-columns:128px 1fr 52px;gap:12px;padding:3px 14px 12px 12px}
+.axis .tk{grid-column:2;position:relative;height:15px;border-top:1px solid var(--k-line)}
+.axis .tk span{position:absolute;top:3px;transform:translateX(-50%);font:600 8.5px var(--k-f-data);color:var(--k-mute)}
+.axis .tk span::before{content:"";position:absolute;top:-5px;left:50%;width:1px;height:4px;background:var(--k-line-lit)}
+@media(max-width:720px){
+  .ln,.axis{grid-template-columns:86px 1fr 42px;gap:8px}
+  .who s{display:none}
+}
+"""
+
+
 def strategy_wall_html(payload):
-    """Stint tablosunu yarış mühendisliği strateji duvarı HUD'una dönüştürür."""
+    """Yarış tekrarı stint verisini tur eksenli yayın strateji duvarına (Gantt)
+    dönüştürür. Yalnız kayıtlı veri: stint blokları + aşınma koyulaşması, pit
+    işaretleri (pit-lane süresiyle), en hızlı tur, tespit edilen undercut/overcut.
+    Spekülasyon / senaryo yok."""
     total = max(1, int(payload.get('total_laps', 1)))
-    tyre = {'SOFT': '#ef3340', 'MEDIUM': '#ffd23f', 'HARD': '#eef2f7', 'INTERMEDIATE': '#36c96a', 'WET': '#39a9ff'}
     pit_notes = _pit_move_notes_v37(payload)
-    rows = []
-    for car in payload.get('cars', []):
+    fastest_overall = (payload.get('fastest_lap') or {}).get('code')
+
+    moves = {}
+    for event in payload.get('events') or []:
+        if event.get('kind') == 'undercut' and event.get('code'):
+            text = str(event.get('text', ''))
+            tag = text.split('—', 1)[1].strip() if '—' in text else 'undercut'
+            first_word = (tag.split() or ['UC'])[-1]
+            moves.setdefault(event['code'], []).append((int(event.get('lap', 0)), first_word))
+
+    cars = sorted(
+        payload.get('cars', []),
+        key=lambda c: (c.get('final_position') is None, c.get('final_position') or 999),
+    )
+
+    lanes = []
+    for car in cars:
         groups = []
         for lap in car.get('laps', []):
             compound, stint = lap.get('compound', 'UNKNOWN'), lap.get('stint', 0)
@@ -4124,19 +4266,82 @@ def strategy_wall_html(payload):
                 groups[-1]['end'] = lap['lap']
             else:
                 groups.append({'start': lap['lap'], 'end': lap['lap'], 'compound': compound, 'stint': stint})
-        blocks = ''.join(
-            f"<span class='stint' style='--tyre:{tyre.get(group['compound'], '#738197')};width:{max(2, (group['end']-group['start']+1)/total*100):.2f}%'><b>{group['compound'][:1]}</b><small>{group['start']}–{group['end']}</small></span>"
-            for group in groups
+
+        blocks = ''
+        for group in groups:
+            left = max(0.0, (group['start'] - 1) / total * 100)
+            width = max(1.4, (group['end'] - group['start'] + 1) / total * 100)
+            hexc = fp_kit.compound_hex(group['compound'])
+            span = html_lib.escape(f"{group['start']}–{group['end']}")
+            label = html_lib.escape(str(group['compound'])[:1] or '?')
+            inner = label + (f"<s>{span}</s>" if width > 9 else "")
+            blocks += f"<span class='st' style='--c:{hexc};left:{left:.2f}%;width:{width:.2f}%'>{inner}</span>"
+
+        pits = ''
+        for pit in car.get('pit_events', []) or []:
+            lap_no = int(pit.get('lap', 0))
+            lane_seconds = float(pit.get('end', 0)) - float(pit.get('start', 0))
+            x = min(100.0, lap_no / total * 100)
+            pits += f"<span class='pm' style='left:{x:.2f}%' data-t='{lane_seconds:.1f}s'></span>"
+
+        fast = ''
+        car_fast = car.get('fastest')
+        if car_fast:
+            x = min(100.0, int(car_fast['lap']) / total * 100)
+            is_overall = fastest_overall == car.get('code')
+            fast = f"<span class='fl{' ov' if is_overall else ''}' style='left:{x:.2f}%'></span>"
+
+        flags = ''
+        for lap_no, tag in moves.get(car.get('code'), [])[:2]:
+            x = min(100.0, lap_no / total * 100)
+            flags += f"<span class='uc' style='left:{x:.2f}%'>{html_lib.escape(tag.upper())}</span>"
+
+        note = pit_notes.get(car.get('code'), '')
+        note_html = f"<div class='nt'>{html_lib.escape(note)}</div>" if note else ""
+        pos = car.get('final_position')
+        pos_txt = f"P{pos}" if pos else '—'
+        lanes.append(
+            f"<div class='ln' style='--team:{html_lib.escape(str(car.get('colour', '#8a9bb0')), quote=True)}'>"
+            f"<div class='who'><div class='r1'><b>{pos_txt}</b>"
+            f"<span class='cd'>{html_lib.escape(car.get('code', ''))}</span></div>"
+            f"<s>{html_lib.escape(car.get('team', ''))}</s></div>"
+            f"<div class='gt'>{blocks}{pits}{fast}{flags}</div>"
+            f"<div class='fin'>{max(0, len(groups) - 1)}<s>PIT</s></div>"
+            f"{note_html}"
+            f"</div>"
         )
-        note = pit_notes.get(car['code'], '')
-        note_html = f"<div class='pitnote'>{html_lib.escape(note)}</div>" if note else ""
-        rows.append(f"<div class='row' style='--team:{car['colour']}'><div class='driver'>{html_lib.escape(car['code'])}<small>{html_lib.escape(car['team'])}</small></div><div class='stints'>{blocks}{note_html}</div><div class='finish'>P{car['final_position'] or '—'}<small>{len(groups)-1} PIT</small></div></div>")
-    return f"""<style>body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}.wall{{border:1px solid #2c425c;border-radius:13px;background:#141a24;overflow:hidden}}.head{{padding:13px 15px;border-bottom:1px solid #2b4058;font-size:13px;font-weight:950;letter-spacing:.08em}}.sub{{font-size:10px;color:#91a8bf;margin-top:5px}}.row{{display:grid;grid-template-columns:110px 1fr 58px;gap:10px;align-items:center;min-height:62px;padding:9px 12px;border-top:1px solid #23364b;border-left:4px solid var(--team)}}.driver{{font-weight:950;color:var(--team)}}.driver small,.finish small{{display:block;font-size:10px;color:#8fa6bd;margin-top:4px}}.stints{{display:flex;min-width:380px;height:29px;border-radius:6px;overflow:hidden;background:#0a111b;gap:2px}}.stint{{min-width:20px;display:flex;align-items:center;justify-content:center;gap:5px;background:color-mix(in srgb,var(--tyre) 23%,#141a24);border-top:3px solid var(--tyre);color:#eef2f7;font-size:11px;font-weight:950}}.stint small{{font-size:9px;color:#bdcadd}}.finish{{font-weight:950;text-align:right}}.stints{{flex-wrap:wrap}}.pitnote{{flex:1 0 100%;font:600 10px ui-monospace,Consolas,monospace;color:#9db3c7;margin-top:5px;line-height:1.4}}@media(max-width:700px){{.row{{grid-template-columns:84px 1fr 42px;padding:8px}}.stints{{min-width:220px}}.stint small{{display:none}}}}</style><div class='wall'><div class='head'>TYRE STRATEGY WALL<div class='sub'>HER BLOK BİR STINT • ALT SATIR: GRID→FİNİŞ SONUCU · İLK PİT · TESPİT EDİLEN UNDERCUT/OVERCUT (kayıtlı veriden) • TOPLAM {total} TUR</div></div><div class='scroll'>{''.join(rows)}</div></div>"""
+
+    step = 10 if total > 26 else 5
+    marks = list(range(0, total + 1, step))
+    if marks and marks[-1] != total:
+        marks.append(total)
+    ticks = ''.join(f"<span style='left:{m / total * 100:.2f}%'>{m}</span>" for m in marks)
+
+    return (
+        fp_kit.google_fonts_link()
+        + "<style>" + fp_kit.kit_css() + _STRAT_WALL_CSS + "</style>"
+        + "<div class='wall'><div class='hd'>"
+        + "<div class='t'>Lastik Strateji Duvarı</div>"
+        + f"<div class='s'>Her blok bir stint · blok soldan sağa koyulaşır = lastik aşınması · "
+        + f"dikey çentik = pit (üstünde pit-lane süresi) · nokta = en hızlı tur (mor = seansın en hızlısı) · "
+        + f"yeşil etiket = kayıtlı veriden tespit edilen undercut/overcut · toplam {total} tur</div>"
+        + "<div class='lg'>"
+        + "<span><i style='background:#ff5b5b'></i>Soft</span>"
+        + "<span><i style='background:#ffd23f'></i>Medium</span>"
+        + "<span><i style='background:#eef2f7'></i>Hard</span>"
+        + "<span><i style='background:#3ecf8e'></i>Inter</span>"
+        + "<span><i class='bar'></i>Pit</span>"
+        + "</div></div>"
+        + ''.join(lanes)
+        + f"<div class='axis'><div></div><div class='tk'>{ticks}</div><div></div></div>"
+        + "</div>"
+    )
 
 
 def strategy_wall_component_height(payload):
     """Lastik duvarının tüm 20+ pilotunu ana sayfada görünür tutar."""
-    return min(2000, max(320, 110 + len(payload.get('cars', [])) * 82))
+    lane_count = len(payload.get('cars', []))
+    return min(2800, max(320, 150 + lane_count * 74))
 
 
 def stint_pace_html(payload):
@@ -12880,7 +13085,7 @@ def _router_page_telemetry():
                             (d2, trace_c2, format_time(lap2['LapTime']), tel2),
                         ])
                         if trace_payload.get('ok'):
-                            render_html_hud(telemetry_trace_html(trace_payload), height=560, scrolling=True)
+                            render_html_hud(telemetry_trace_html(trace_payload), height=telemetry_trace_component_height(trace_payload), scrolling=True)
                         else:
                             st.warning("Bu turlar için telemetri izi çıkarılamadı (konum/mesafe verisi eksik).")
                         fp_ui.data_state("GEÇ FRENLEME İPUCU", "Fren izindeki dikey sıçrama fren noktasıdır; hangi pilotunki daha sağdaysa o pilot viraja daha geç fren yapmıştır. Hız izinde çizgiler ayrışan yerde bir pilot belirgin hızlıdır.", "info")
