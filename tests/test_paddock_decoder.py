@@ -38,7 +38,8 @@ def test_normalize_folds_turkish_and_punct():
 
 def test_typo_is_accepted():
     ferrari = deco.TARGETS["teams"][0]
-    assert deco.is_correct("ferari", ferrari)
+    assert deco.is_correct("ferari", ferrari)       # alias
+    assert deco.is_correct("ferrai", ferrari)       # fuzzy (aliaslarda yok)
     assert deco.is_correct("Ferrari", ferrari)
     assert deco.is_correct("scuderia ferrari", ferrari)
     assert not deco.is_correct("mercedes", ferrari)
@@ -78,7 +79,7 @@ def test_seed_is_deterministic():
 def test_correct_guess_solves_and_stops_countdown():
     r = deco.new_round("teams", target_index=0)   # Ferrari
     assert r.remaining == 5
-    res = deco.submit_guess(r, "ferari")
+    res = deco.submit_guess(r, "ferrai")          # fuzzy → kanonik cevaba eşleşir
     assert res["correct"] and res["solved"]
     assert res["matched_on"] == "Ferrari"
     assert r.solved and r.over
@@ -119,7 +120,7 @@ def test_empty_guess_not_counted():
 
 def test_distance_and_similarity_reported():
     r = deco.new_round("teams", target_index=0)
-    res = deco.submit_guess(r, "ferari")
+    res = deco.submit_guess(r, "ferrai")
     assert res["distance"] == 1
     assert res["similarity"] >= 0.78
 
@@ -175,7 +176,7 @@ def test_public_state_exposes_remaining_for_ui():
     assert view["remaining"] == 4
     assert view["attempts_used"] == 1
     assert view["max_guesses"] == 5
-    assert view["image"].endswith("monaco.png")
+    assert view["image"].startswith("https://") and "Monaco" in view["image"]
 
 
 # ---- serileştirme (Streamlit session_state) ----------------------

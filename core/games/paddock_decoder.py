@@ -77,50 +77,57 @@ class DecoderTarget:
         return (self.answer, *self.aliases)
 
 
-# Her kategori için 3'er mock hedef. image yolları placeholder — UI gerçek
-# varlıkla değiştirir (assets/decoder/... veya CDN).
+# Her kategori için 3'er hedef. image = gerçek F1.com / Wikimedia görseli
+# (UI bunu bulanıklaştırarak gösterir; 404 olursa UI kendi silüet-placeholder'ına düşer).
+_F1_LOGO = ("https://media.formula1.com/image/upload/c_fit%2Ch_256/q_auto/"
+            "v1740000001/common/f1/2025/{slug}/2025{slug}logowhite.webp")
+_F1_HEAD = ("https://www.formula1.com/content/dam/fom-website/drivers/"
+            "2025Drivers/{sur}.jpg.transform/2col/image.jpg")
+_F1_MAP = ("https://media.formula1.com/image/upload/f_auto,c_limit,w_1320,q_auto/"
+           "content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/{map}_Circuit")
+
 TARGETS: Dict[str, List[DecoderTarget]] = {
     "teams": [
         DecoderTarget("teams", "Ferrari",
-                      "assets/decoder/teams/ferrari.png",
-                      aliases=("scuderia ferrari", "scuderia", "sf"),
+                      _F1_LOGO.format(slug="ferrari"),
+                      aliases=("scuderia ferrari", "scuderia", "sf", "ferari"),
                       hint="Maranello merkezli, tarihin en köklü takımı."),
         DecoderTarget("teams", "Red Bull Racing",
-                      "assets/decoder/teams/red_bull.png",
+                      _F1_LOGO.format(slug="redbullracing"),
                       aliases=("red bull", "redbull", "rbr", "red bull racing honda"),
                       hint="Milton Keynes; 2010–2013 ve 2021–2023 hâkimiyeti."),
         DecoderTarget("teams", "McLaren",
-                      "assets/decoder/teams/mclaren.png",
+                      _F1_LOGO.format(slug="mclaren"),
                       aliases=("mclaren f1 team", "maclaren", "mclaren mercedes"),
                       hint="Woking; papaya turuncusu."),
     ],
     "drivers": [
         DecoderTarget("drivers", "Lewis Hamilton",
-                      "assets/decoder/drivers/hamilton.png",
+                      _F1_HEAD.format(sur="hamilton"),
                       aliases=("hamilton", "lewis", "ham", "sir lewis hamilton"),
                       hint="Yedi kez dünya şampiyonu, 44 numara."),
         DecoderTarget("drivers", "Max Verstappen",
-                      "assets/decoder/drivers/verstappen.png",
+                      _F1_HEAD.format(sur="verstappen"),
                       aliases=("verstappen", "max", "ver", "verstapen"),
                       hint="Hollandalı; en genç GP kazananı."),
-        DecoderTarget("drivers", "Ayrton Senna",
-                      "assets/decoder/drivers/senna.png",
-                      aliases=("senna", "ayrton", "sen"),
-                      hint="Brezilyalı; 1988/1990/1991 şampiyonu, Monaco ustası."),
+        DecoderTarget("drivers", "Charles Leclerc",
+                      _F1_HEAD.format(sur="leclerc"),
+                      aliases=("leclerc", "charles", "lec", "leclrc"),
+                      hint="Monakolu; Ferrari'nin baş pilotu, sıralama uzmanı."),
     ],
     "tracks": [
         DecoderTarget("tracks", "Circuit de Monaco",
-                      "assets/decoder/tracks/monaco.png",
+                      _F1_MAP.format(map="Monaco"),
                       aliases=("monaco", "monako", "monte carlo", "montekarlo",
                                "circuit de monte-carlo"),
                       hint="Sokak pisti; en düşük ortalama hız, Loews virajı."),
         DecoderTarget("tracks", "Silverstone Circuit",
-                      "assets/decoder/tracks/silverstone.png",
+                      _F1_MAP.format(map="Great_Britain"),
                       aliases=("silverstone", "silverston", "british gp",
                                "britanya", "ingiltere"),
                       hint="İlk F1 yarışının (1950) ev sahibi; Maggotts–Becketts."),
         DecoderTarget("tracks", "Suzuka Circuit",
-                      "assets/decoder/tracks/suzuka.png",
+                      _F1_MAP.format(map="Japan"),
                       aliases=("suzuka", "suzuca", "japan", "japonya", "japanese gp"),
                       hint="Tek '8' şeklindeki pist; 130R ve esler."),
     ],
