@@ -116,6 +116,44 @@ def test_english_gp_alias_resolves():
     assert a.intent == "RACE_RESULT" and a.ok and "kazandı" in a.text
 
 
+def test_bare_team_name_routes_to_tech_not_race():
+    # "Racing Bulls" — 'cin' (China) 'raCINg' içinde eşleşip RACE_RESULT'a
+    # kaçmamalı; çıplak takım adı TECH_UPGRADE'e gitmeli.
+    a = answer("Racing Bulls")
+    assert a.intent == "TECH_UPGRADE"
+
+
+def test_team_titles_counts_driver_championships():
+    from core.paddock_ai.retrievers import history_db
+    if not history_db.available():
+        return
+    a = answer("Red Bull kaç kere şampiyon oldu?")
+    assert a.intent == "TEAM_TITLES" and a.ok
+    assert "8" in a.text and "2010" in a.text
+
+
+def test_team_titles_honest_when_none():
+    a = answer("Aston Martin kaç kere şampiyon oldu?")
+    assert a.intent == "TEAM_TITLES" and not a.ok
+
+
+def test_driver_season_is_single_year_not_career():
+    from core.paddock_ai.retrievers import history_db
+    if not history_db.available():
+        return
+    a = answer("2004 Michael Schumacher")
+    assert a.intent == "DRIVER_SEASON" and a.ok
+    assert "2004" in a.text and "13 galibiyet" in a.text
+
+
+def test_gp_alias_needs_word_boundary():
+    from core.paddock_ai.normalize import parse
+    from core.paddock_ai.entities import EntityExtractor
+    ex = EntityExtractor(driver_names={}, team_names={})
+    assert ex.extract(parse("racing bulls guncelleme")).gp is None
+    assert ex.extract(parse("Monza'daki yarış")).gp == "Italian"
+
+
 def test_season_calendar_from_db_if_present():
     from core.paddock_ai.retrievers import history_db
     if not history_db.available():

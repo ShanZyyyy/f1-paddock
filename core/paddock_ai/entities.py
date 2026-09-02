@@ -126,10 +126,12 @@ class EntityExtractor:
         return int(m.group(1)) if m else None
 
     def _gp(self, u: Utterance):
-        # en uzun eşleşen anahtar kazanır ("las vegas" > "vegas" değil ama "sao paulo" tek parça)
+        # Sol sınır şart (kelime başı) — Türkçe ekler sağdan serbest ("Monza'daki").
+        # Böylece "cin" (China) "raCINg" içinde eşleşmez. En uzun anahtar kazanır.
         best = None
         for key, canon in self.gp.items():
-            if key in u.text and (best is None or len(key) > len(best[0])):
+            if re.search(r"(?:^|\s)" + re.escape(key), u.text) and (
+                    best is None or len(key) > len(best[0])):
                 best = (key, canon)
         return best[1] if best else None
 
@@ -178,13 +180,25 @@ class EntityExtractor:
         return [m for m, hints in _METRIC_HINTS.items()
                 if u.has_any(*(fold(h) for h in hints))]
 
+    def _mask_team(self, u: Utterance, team: str) -> Utterance:
+        """Takım adının kelimelerini metinden çıkar — 'Aston Martin' pilot
+        aramasında 'Aston' + 'Martin' diye iki pilota bölünmesin."""
+        masked = u.text
+        aliases = [team.lower()] + [k for k, v in self.teams.items() if v == team]
+        for a in sorted(set(aliases), key=len, reverse=True):
+            if a:
+                masked = masked.replace(a, " ")
+        return Utterance(raw=u.raw, text=masked, tokens=masked.split())
+
     # -- kamuya açık -----------------------------------------------------
     def extract(self, u: Utterance) -> Entities:
+        team = self._team(u)
+        du = self._mask_team(u, team) if team else u   # takım adı pilot/GP'ye bölünmesin
         return Entities(
             year=self._year(u),
-            gp=self._gp(u),
-            drivers=self._drivers(u),
-            team=self._team(u),
+            gp=self._gp(du),
+            drivers=self._drivers(du),
+            team=team,
             session=self._session(u),
             metrics=self._metrics(u),
         )

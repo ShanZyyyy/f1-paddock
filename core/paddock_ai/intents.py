@@ -48,9 +48,11 @@ CATALOG: list[IntentDef] = [
               keywords=("klasman", "puan durumu", "lider", "kim onde", "sirala"),
               strong=("kim lider", "sampiyonada lider", "puan durumu ne")),
     IntentDef("DRIVER_SEASON",
-              keywords=("bu sezon", "sezonu", "formda", "nasil gidiyor", "gidisat"),
-              strong=("bu sezon nasil",),
-              needs=("driver",)),
+              keywords=("bu sezon", "sezonu", "sezonunda", "sezondaki", "formda",
+                        "nasil gidiyor", "gidisat", "o yil", "o sezon"),
+              strong=("bu sezon nasil", "sezonu nasil", "sezonunda ne yapti"),
+              needs=("driver",),
+              boost_if=("year",)),
     IntentDef("DRIVER_CAREER",
               keywords=("kariyer", "toplam", "kac galibiyet", "kac pole", "kac podyum",
                         "kac yaris", "ne zaman basladi", "ilk yaris"),
@@ -69,6 +71,12 @@ CATALOG: list[IntentDef] = [
               keywords=("guncelleme", "upgrade", "yeni parca", "gelistirme", "paket",
                         "aero", "kanat", "zemin", "difuzor", "getirdi"),
               strong=("hangi guncelleme", "son guncelleme", "ne getirdi"),
+              needs=("team",)),
+    IntentDef("TEAM_TITLES",
+              keywords=("kac kere sampiyon", "kac kez sampiyon", "kac defa sampiyon",
+                        "kac sampiyonluk", "sampiyonluk sayisi", "kac dunya sampiyon",
+                        "kac wdc"),
+              strong=("kac kere sampiyon", "kac kez sampiyon", "kac sampiyonluk"),
               needs=("team",)),
     IntentDef("NEXT_RACE",
               keywords=("siradaki yaris", "gelecek yaris", "ne zaman", "takvim",
@@ -120,6 +128,8 @@ def classify(u: Utterance, ent: Entities) -> Classification:
             return Classification("SEASON_CHAMPION", 1, scores)
         if len(ent.drivers) >= 2:
             return Classification("HEAD_TO_HEAD", 2, scores)
+        if ent.drivers and ent.year:
+            return Classification("DRIVER_SEASON", 1, scores)
         if ent.team:
             return Classification("TECH_UPGRADE", 1, scores)
         if ent.drivers:

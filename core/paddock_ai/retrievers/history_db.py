@@ -18,7 +18,7 @@ import sqlite3
 
 try:
     from core.f1_constants import F1_WORLD_CHAMPIONS
-except Exception:  # bağımsız kullanımda
+except ImportError:  # bağımsız kullanımda
     F1_WORLD_CHAMPIONS = {}
 
 _DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
@@ -48,6 +48,81 @@ def available() -> bool:
 
 
 # -- sorgular -----------------------------------------------------------------
+
+def constructor_titles(team_name: str) -> dict | None:
+    """Bir takımın renkleriyle kaç kez Dünya Pilotlar Şampiyonu çıktığı.
+    (champions tablosu WDC odaklıdır — Constructors' Championship'ten ayrıdır.)
+    `team_name` kanonik ad olabilir ('Red Bull Racing'); tabloda 'Red Bull' geçse
+    de eşleşir."""
+    conn = _db()
+    if conn is None:
+        return None
+    try:
+        rows = conn.execute(
+            "SELECT season, driver FROM champions "
+            "WHERE ? LIKE '%' || constructor || '%' OR constructor LIKE ? "
+            "ORDER BY season",
+            (team_name, f"%{team_name}%"),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    if not rows:
+        return {"team": team_name, "count": 0, "seasons": [],
+                "source": "f1_history.sqlite"}
+    return {
+        "team": team_name,
+        "count": len(rows),
+        "seasons": [{"season": r["season"], "driver": r["driver"]} for r in rows],
+        "source": "f1_history.sqlite",
+    }
+
+
+def driver_season(season: int, name_or_code: str) -> dict | None:
+    """Bir pilotun TEK bir sezondaki performansı — yarış sayısı, galibiyet,
+    podyum, pole, puan, en iyi bitiş ve o yıl şampiyon olup olmadığı."""
+    conn = _db()
+    if conn is None:
+        return None
+    like = f"%{name_or_code}%"
+    try:
+        rows = conn.execute(
+            "SELECT r.round, r.position, r.grid, r.points, ra.name AS race "
+            "FROM results r JOIN races ra "
+            "  ON ra.season = r.season AND ra.round = r.round "
+            "WHERE r.season = ? AND (r.driver LIKE ? OR r.code = ?) "
+            "ORDER BY r.round",
+            (season, like, name_or_code.upper()),
+        ).fetchall()
+    except sqlite3.Error:
+        return None
+    if not rows:
+        return None
+    positions = [r["position"] for r in rows if r["position"]]
+    champ = conn.execute(
+        "SELECT driver FROM champions WHERE season = ? AND driver LIKE ?",
+        (season, like),
+    ).fetchone()
+    # görünen ad: sonuç satırlarındaki tam ad (varsa)
+    disp = None
+    row0 = conn.execute(
+        "SELECT driver FROM results WHERE season = ? AND (driver LIKE ? OR code = ?) LIMIT 1",
+        (season, like, name_or_code.upper()),
+    ).fetchone()
+    if row0:
+        disp = row0["driver"]
+    return {
+        "season": season,
+        "name": disp or name_or_code,
+        "starts": len(rows),
+        "wins": sum(1 for p in positions if p == 1),
+        "podiums": sum(1 for p in positions if p <= 3),
+        "poles": sum(1 for r in rows if r["grid"] == 1),
+        "points": round(sum((r["points"] or 0) for r in rows), 1),
+        "best_finish": min(positions) if positions else None,
+        "champion": champ is not None,
+        "source": "f1_history.sqlite",
+    }
+
 
 def title_count(driver_name: str) -> int | None:
     """Bir pilotun dünya şampiyonluğu sayısı (champions tablosu). DB yoksa None."""

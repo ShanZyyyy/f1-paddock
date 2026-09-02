@@ -145,6 +145,37 @@ def head_to_head(a: dict, b: dict) -> Answer:
     return Answer(body, a.get("source", "kariyer arşivi"), "HEAD_TO_HEAD", items=rows)
 
 
+def team_titles(d: dict) -> Answer:
+    team = d.get("team", "Bu takım")
+    if not d.get("count"):
+        return Answer(
+            f"{team} renkleriyle kazanılmış bir Dünya Pilotlar Şampiyonluğu kaydım yok.",
+            d.get("source", "f1_history.sqlite"), "TEAM_TITLES", ok=False)
+    yrs = ", ".join(str(s["season"]) for s in d["seasons"])
+    return Answer(
+        f"{team} renkleriyle {d['count']} kez Dünya Pilotlar Şampiyonu çıktı ({yrs}). "
+        "Not: bu, Takımlar Şampiyonası sayısından farklıdır.",
+        d.get("source", "f1_history.sqlite"), "TEAM_TITLES")
+
+
+def driver_season(d: dict) -> Answer:
+    bits = []
+    for label, key in (("galibiyet", "wins"), ("podyum", "podiums"), ("pole", "poles")):
+        if d.get(key) is not None:
+            bits.append(f"{d[key]} {label}")
+    tail = ""
+    if d.get("best_finish") and not d.get("wins"):
+        tail = f", en iyi bitiş {d['best_finish']}."
+    elif d.get("points") is not None:
+        tail = f", {d['points']:g} puan."
+    champ = " O sezon Dünya Şampiyonu oldu." if d.get("champion") else ""
+    return Answer(
+        f"{d['name']} {d['season']} sezonu: {d['starts']} yarışta "
+        + ", ".join(bits) + (tail or ".") + champ,
+        d.get("source", "f1_history.sqlite"), "DRIVER_SEASON",
+        ok=bool(d.get("starts")))
+
+
 def tech_upgrade(d: dict) -> Answer:
     lines = []
     for u in d["updates"]:

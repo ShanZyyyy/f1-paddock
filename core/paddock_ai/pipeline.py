@@ -15,16 +15,19 @@ repoda paketli SQLite/JSON.
 from __future__ import annotations
 
 import datetime
+import logging
 
 from . import guard, intents, templates
 from .entities import EntityExtractor
 from .normalize import parse
 from .retrievers import careers, history_db, live_data, tech
 
+_log = logging.getLogger(__name__)
+
 try:
     from core.f1_constants import (DRIVER_DISPLAY, F1_WORLD_CHAMPIONS,
                                    TEAM_NAME_ALIASES)
-except Exception:
+except ImportError:
     DRIVER_DISPLAY, F1_WORLD_CHAMPIONS, TEAM_NAME_ALIASES = {}, {}, {}
 
 _CANON_TEAMS_2026 = ("Red Bull Racing", "Ferrari", "Mercedes", "McLaren",
@@ -60,8 +63,8 @@ def _build_extractor() -> EntityExtractor:
             parts = low.split()
             if len(parts) > 1 and len(parts[-1]) >= 4 and parts[-1].isalpha():
                 drivers.setdefault(parts[-1], full)
-    except Exception:
-        pass
+    except (OSError, ValueError, TypeError) as err:   # DB/veri bozuk -> modern isimlerle devam
+        _log.warning("paddock_ai: tarihî pilot adları yüklenemedi (%s)", err)
     for code, entry in DRIVER_DISPLAY.items():
         disp = _display_name(entry)                     # "L. Hamilton"
         surname = disp.split()[-1].lower()
@@ -74,7 +77,8 @@ def _build_extractor() -> EntityExtractor:
     teams = {t.lower(): t for t in _CANON_TEAMS_2026}
     try:
         gp_names = history_db.all_race_names()
-    except Exception:
+    except (OSError, ValueError, TypeError) as err:
+        _log.warning("paddock_ai: yarış adları yüklenemedi (%s)", err)
         gp_names = []
     return EntityExtractor(driver_names=drivers, team_names=teams,
                            team_aliases=TEAM_NAME_ALIASES, gp_names=gp_names)
@@ -110,7 +114,7 @@ def _career_for(nm: str) -> dict | None:
     try:
         from core.f1_constants import STEWARDLE_ACTIVE_API_IDS_V24
         api = STEWARDLE_ACTIVE_API_IDS_V24.get(code)
-    except Exception:
+    except ImportError:
         pass
     primary = careers.career(nm, api)
     hist = history_db.driver_career(nm)
@@ -183,9 +187,21 @@ def _retrieve(name, ent, u, live, this_year):
             return templates.standings(named, ent.year or this_year)
         return None
 
+    if name == "DRIVER_SEASON" and ent.drivers and ent.year and ent.year < this_year:
+        d = history_db.driver_season(ent.year, ent.drivers[0])
+        if d:
+            return templates.driver_season(d)
+        # o sezona ait satır yok -> kariyer toplamına düş (uydurma yok)
+        c = _career_for(ent.drivers[0])
+        return templates.driver_career(c) if c else None
+
     if name in ("DRIVER_SEASON", "DRIVER_CAREER") and ent.drivers:
         d = _career_for(ent.drivers[0])
         return templates.driver_career(d) if d else None
+
+    if name == "TEAM_TITLES" and ent.team:
+        d = history_db.constructor_titles(ent.team)
+        return templates.team_titles(d) if d else None
 
     if name == "HEAD_TO_HEAD" and len(ent.drivers) >= 2:
         da, db = _career_for(ent.drivers[0]), _career_for(ent.drivers[1])
@@ -210,7 +226,7 @@ def _retrieve(name, ent, u, live, this_year):
     if name == "RECORD":
         try:
             from core.f1_constants import F1_RECORD_FACTS_V19
-        except Exception:
+        except ImportError:
             F1_RECORD_FACTS_V19 = {}
         t = u.text
         if "genc" in t and "sampiyon" in t:
@@ -247,7 +263,8 @@ def answer(question: str, *, live: live_data.LiveData = live_data.NULL,
 
     try:
         out = _retrieve(cls.name, ent, u, live, this_year)
-    except Exception:
+    except Exception:   # retriever hatası kullanıcıya çökme değil "veri yok" olarak yansır
+        _log.exception("paddock_ai retrieve başarısız: intent=%s soru=%r", cls.name, question)
         out = None
     if out is not None:
         out.intent = out.intent or cls.name
