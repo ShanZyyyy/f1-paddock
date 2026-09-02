@@ -39,6 +39,9 @@ __all__ = [
     "public_state",
     "blur_px",
     "reveal_hint",
+    "score_round",
+    "DecoderSession",
+    "new_session",
 ]
 
 CATEGORIES: Tuple[str, ...] = ("teams", "drivers", "tracks")
@@ -367,4 +370,122 @@ def public_state(state: DecoderRound) -> dict:
         "hint": reveal_hint(state),
         "answer": state.target.answer if state.over else None,
         "matched_on": state.matched_on,
+        "score": score_round(state) if state.over else 0,
     }
+
+
+# ===========================================================================
+# 5) PUANLAMA
+# ===========================================================================
+
+_SOLVE_BASE = 50        # 1. denemede bilme
+_SOLVE_STEP = 10        # her fazladan deneme -kaybı
+_SOLVE_FLOOR = 8        # 5. denemede bile en az
+_FAIL_XP = 2            # teselli
+_SWEEP_BONUS = 25       # 3 kategoriyi de bilme
+
+
+def score_round(state: DecoderRound) -> int:
+    """Bir turun XP değeri. Oyun bitmediyse 0.
+
+    1. deneme 50 · 2. 40 · 3. 30 · 4. 20 · 5. 10 · bilemedi 2.
+    (stewardle/predict oyunlarıyla aynı ~5–50 bandı.)
+    """
+    if not state.over:
+        return 0
+    if not state.solved:
+        return _FAIL_XP
+    return max(_SOLVE_FLOOR, _SOLVE_BASE - _SOLVE_STEP * (state.attempts_used - 1))
+
+
+# ===========================================================================
+# 6) OTURUM — 3 KATEGORİLİK OYNANIŞ
+# ===========================================================================
+
+
+@dataclass
+class DecoderSession:
+    """teams → drivers → tracks sırasıyla üç turluk tam oyun."""
+
+    order: List[str] = field(default_factory=lambda: list(CATEGORIES))
+    rounds: List[DecoderRound] = field(default_factory=list)
+    index: int = 0
+    _seed: Optional[str] = None
+
+    # -- erişim ------------------------------------------------------
+    @property
+    def current(self) -> Optional[DecoderRound]:
+        if 0 <= self.index < len(self.rounds):
+            return self.rounds[self.index]
+        return None
+
+    @property
+    def done(self) -> bool:
+        return len(self.rounds) == len(self.order) and all(r.over for r in self.rounds)
+
+    @property
+    def solved_count(self) -> int:
+        return sum(1 for r in self.rounds if r.solved)
+
+    @property
+    def swept(self) -> bool:
+        return self.done and self.solved_count == len(self.order)
+
+    @property
+    def total_score(self) -> int:
+        base = sum(score_round(r) for r in self.rounds if r.over)
+        return base + (_SWEEP_BONUS if self.swept else 0)
+
+    # -- ilerleme --------------------------------------------------
+    def advance(self) -> Optional[DecoderRound]:
+        """Sıradaki kategoriye geç. Aktif tur bitmemişse dokunmaz."""
+        if self.current is not None and not self.current.over:
+            return self.current
+        if self.index + 1 < len(self.order):
+            self.index += 1
+            if self.index >= len(self.rounds):
+                self.rounds.append(new_round(self.order[self.index], seed=self._seed))
+        return self.current
+
+    # -- serileştirme --------------------------------------------
+    def to_dict(self) -> dict:
+        return {
+            "order": list(self.order),
+            "index": self.index,
+            "seed": self._seed,
+            "rounds": [r.to_dict() for r in self.rounds],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "DecoderSession":
+        s = cls(
+            order=list(data.get("order", CATEGORIES)),
+            index=int(data.get("index", 0)),
+            rounds=[DecoderRound.from_dict(d) for d in data.get("rounds", [])],
+        )
+        s._seed = data.get("seed")
+        return s
+
+    def public_state(self) -> dict:
+        cur = self.current
+        return {
+            "category_order": list(self.order),
+            "index": self.index,
+            "step": f"{self.index + 1}/{len(self.order)}",
+            "round": public_state(cur) if cur is not None else None,
+            "done": self.done,
+            "solved_count": self.solved_count,
+            "swept": self.swept,
+            "total_score": self.total_score,
+        }
+
+
+def new_session(*, seed=None, order: Optional[List[str]] = None) -> DecoderSession:
+    """Yeni tam oyun. `seed` verilirse (günlük mod) üç hedef de deterministik."""
+    order = list(order or CATEGORIES)
+    for cat in order:
+        if cat not in TARGETS:
+            raise ValueError(f"bilinmeyen kategori: {cat!r}")
+    s = DecoderSession(order=order, rounds=[new_round(order[0], seed=seed)], index=0)
+    s._seed = None if seed is None else str(seed)
+    return s

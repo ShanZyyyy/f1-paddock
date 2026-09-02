@@ -190,3 +190,85 @@ def test_round_roundtrips_through_dict():
     assert restored.guesses == ["wrong one", "verstappen"]
     assert restored.solved is True
     assert restored.remaining == r.remaining
+
+
+# ---- puanlama ------------------------------------------------------
+
+def test_score_scales_with_attempts():
+    r = deco.new_round("teams", target_index=0)
+    deco.submit_guess(r, "ferrari")
+    assert deco.score_round(r) == 50            # 1. deneme
+
+    r2 = deco.new_round("teams", target_index=0)
+    deco.submit_guess(r2, "x"); deco.submit_guess(r2, "x"); deco.submit_guess(r2, "ferrari")
+    assert deco.score_round(r2) == 30           # 3. deneme
+
+
+def test_score_zero_while_playing_small_on_fail():
+    r = deco.new_round("teams", target_index=0)
+    assert deco.score_round(r) == 0
+    for _ in range(5):
+        deco.submit_guess(r, "nope")
+    assert deco.score_round(r) == 2
+
+
+# ---- oturum (3 kategori) -----------------------------------------
+
+def test_session_runs_three_categories_in_order():
+    s = deco.new_session()
+    assert [s.order[0]] == ["teams"]
+    assert s.current.category == "teams"
+    deco.submit_guess(s.current, s.current.target.answer)
+    s.advance()
+    assert s.current.category == "drivers"
+    deco.submit_guess(s.current, s.current.target.answer)
+    s.advance()
+    assert s.current.category == "tracks"
+    deco.submit_guess(s.current, s.current.target.answer)
+    assert s.done and s.swept
+
+
+def test_session_advance_blocked_until_round_over():
+    s = deco.new_session()
+    deco.submit_guess(s.current, "wrong")
+    same = s.advance()
+    assert same.category == "teams"            # tur bitmedi, ilerlemedi
+    assert s.index == 0
+
+
+def test_session_total_score_includes_sweep_bonus():
+    s = deco.new_session()
+    for _ in range(3):
+        deco.submit_guess(s.current, s.current.target.answer)
+        s.advance()
+    assert s.swept
+    assert s.total_score == 50 * 3 + 25        # üç kez 1. deneme + sweep
+
+
+def test_session_no_sweep_bonus_if_one_missed():
+    s = deco.new_session()
+    deco.submit_guess(s.current, s.current.target.answer); s.advance()
+    for _ in range(5):
+        deco.submit_guess(s.current, "nope")
+    s.advance()
+    deco.submit_guess(s.current, s.current.target.answer)
+    assert s.done and not s.swept
+    assert s.total_score == 50 + 2 + 50        # sweep yok
+
+
+def test_session_roundtrips_and_seed_deterministic():
+    s = deco.new_session(seed="2026-07-04")
+    deco.submit_guess(s.current, "wrong");
+    restored = deco.DecoderSession.from_dict(s.to_dict())
+    assert restored.index == s.index
+    assert restored.current.guesses == ["wrong"]
+    s2 = deco.new_session(seed="2026-07-04")
+    assert s2.current.target_index == s.current.target_index
+
+
+def test_session_public_state_shape():
+    s = deco.new_session()
+    v = s.public_state()
+    assert v["step"] == "1/3"
+    assert v["round"]["category"] == "teams"
+    assert v["total_score"] == 0 and not v["done"]
