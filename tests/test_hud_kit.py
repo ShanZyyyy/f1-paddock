@@ -244,3 +244,85 @@ def test_two_driver_duel_html_uses_kit():
     assert "__PAYLOAD__" not in html
     assert html.count("<script>") == 1 and html.count("</script>") == 1
     assert app.two_driver_duel_html_repaired is not None
+
+
+# --------------------------------------------------------------------------
+# Şampiyona + hafta sonu HUD'ları — kit göçü / elevasyon
+# --------------------------------------------------------------------------
+def _kit_ok(html):
+    return (
+        "--k-panel" in html
+        and "fonts.googleapis.com" in html
+        and html.count("color-scheme:dark") == 1
+        and html.count("{") == html.count("}")
+    )
+
+
+def test_weekend_overview_hud_uses_kit():
+    import datetime
+    import pandas as pd
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    def sess(title, code, off_h):
+        t = now + datetime.timedelta(hours=off_h)
+        return {"title": title, "code": code,
+                "time": pd.Timestamp(t).tz_convert("UTC"),
+                "estimated_end": t + datetime.timedelta(hours=1.5), "status": ""}
+
+    sessions = [sess("Antrenman 1", "FP1", -50), sess("Sıralama", "Q", -26), sess("Yarış", "R", 5)]
+    html = app.weekend_overview_hud({"EventName": "Japonya GP", "Location": "Suzuka", "RoundNumber": 17}, sessions)
+    assert _kit_ok(html)
+    assert "Japonya GP" in html and "wk-rail" in html
+    assert isinstance(app.weekend_overview_component_height(sessions), int)
+
+
+def test_championship_snapshot_hud_uses_kit():
+    import pandas as pd
+    ds = pd.DataFrame([{"Pilot": "Lando Norris", "Takım": "McLaren", "Puan": 331},
+                       {"Pilot": "Max Verstappen", "Takım": "Red Bull Racing", "Puan": 312}])
+    cs = pd.DataFrame([{"Takım": "McLaren", "Sıra": 1, "Puan": 623},
+                       {"Takım": "Ferrari", "Sıra": 2, "Puan": 540}])
+    html = app.championship_snapshot_hud(ds, cs, list(range(1, 18)), 2026)
+    assert _kit_ok(html)
+    assert "Lando Norris" in html and "ss-hero" in html
+    assert app.championship_snapshot_hud(pd.DataFrame(), cs, [], 2026) == ""
+
+
+def test_championship_matrix_html_uses_kit():
+    import pandas as pd
+    rounds = [{"key": f"r{i}", "event_name": f"GP {i}", "country_code": "jp"} for i in range(1, 5)]
+    mx = pd.DataFrame([{"Pilot": "NOR", "Takım": "McLaren", "Puan": 331, **{f"r{i}": 25 for i in range(1, 5)}}])
+    html = app.championship_matrix_html(mx, rounds)
+    assert _kit_ok(html)
+    assert "matrix-wrap" in html and "sticky-driver" in html
+    assert app.championship_matrix_html(pd.DataFrame(), rounds) == ""
+
+
+def test_constructor_hud_html_uses_kit():
+    import pandas as pd
+    cs = pd.DataFrame([{"Takım": "McLaren", "Sıra": 1, "Puan": 623},
+                       {"Takım": "Ferrari", "Sıra": 2, "Puan": 540},
+                       {"Takım": "Red Bull Racing", "Sıra": 3, "Puan": 511},
+                       {"Takım": "Mercedes", "Sıra": 4, "Puan": 468}])
+    html = app.constructor_hud_html(cs)
+    assert _kit_ok(html)
+    assert "podium-wrap" in html
+
+
+def test_championship_scenarios_html_uses_kit():
+    scn = {"ok": True, "races": 4, "sprints": 1, "swing": 108, "leader": "NOR",
+           "clinched": False, "still_alive": 2,
+           "contenders": [
+               {"code": "NOR", "team": "McLaren", "points": 331, "rank": 1, "ceiling": 439, "gap": 0, "alive": True},
+               {"code": "VER", "team": "Red Bull Racing", "points": 312, "rank": 2, "ceiling": 420, "gap": 19, "alive": True},
+           ]}
+    html = app.championship_scenarios_html(scn, lambda t: "#3671c6")
+    assert _kit_ok(html)
+    assert "scn-list" in html and "YARIŞTA" in html
+    assert "yeterli puan verisi yok" in app.championship_scenarios_html({"ok": False}, lambda t: "#fff")
+
+
+def test_championship_projection_html_uses_kit():
+    html = app.championship_projection_html("NOR", "VER", 331, 312, 2, 1, 4, 1, "#ff8000", "#3671c6")
+    assert _kit_ok(html)
+    assert "pj-verdict" in html and "--pjc:" in html

@@ -1834,25 +1834,36 @@ def championship_matrix_html(matrix, rounds):
             f"<tr><td class='rank'>{index}</td><td class='driver'><span><img class='flag driver-flag' src='https://flagcdn.com/w40/{flag_code}.png' alt='{flag_code}'> {html_lib.escape(display_name)}</span><small style='color:{colour}'>{html_lib.escape(team)}</small></td>"
             f"<td class='points'>{html_lib.escape(str(row.get('Puan', '—')))}</td>{cell_html}</tr>"
         )
-    return f"""
-    <style>
-        body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}
-        /* Dikey kaydırma ana Streamlit sayfasında kalır: 13. pilotta ikinci bir
-           küçük kaydırma alanı oluşmaz. Yalnızca çok geniş yarış sütunları yatay kayar. */
-        .matrix-wrap{{overflow-x:auto;overflow-y:visible;max-height:none;border:1px solid #232c3a;border-radius:12px;background:#141a24}}
-        table{{border-collapse:separate;border-spacing:0;min-width:1180px;width:100%;font-size:14px}}
-        th{{position:sticky;top:0;background:#141a24;color:#9aa7b8;padding:13px 10px;text-align:center;font-size:11px;letter-spacing:.08em;border-bottom:1px solid #232c3a;z-index:2}}
-        td{{padding:12px 10px;text-align:center;border-bottom:1px solid #1b2330;color:#eef2f7;font-weight:700}}
-        tr:last-child td{{border-bottom:0}} tr:hover td{{background:#1b2330}}
-        .rank{{position:sticky;left:0;z-index:1;background:#141a24;width:42px;color:#9aa7b8}}
-        .driver{{position:sticky;left:42px;z-index:1;background:#141a24;text-align:left;min-width:165px}}
-        .driver span{{display:block;font-weight:900}} .driver small{{display:block;margin-top:4px;font-size:11px;font-weight:800}}
-        .flag{{width:22px;height:15px;object-fit:cover;border-radius:2px;vertical-align:middle;box-shadow:0 1px 4px rgba(0,0,0,.35)}} .driver-flag{{width:18px;height:12px;margin-right:4px}}
-        .points{{position:sticky;left:207px;z-index:1;background:#141a24;min-width:54px;color:#ffffff}}
-        th.sticky-rank{{left:0;z-index:3}} th.sticky-driver{{left:42px;z-index:3;text-align:left}} th.sticky-points{{left:207px;z-index:3}}
-    </style>
-    <div class='matrix-wrap'><table><thead><tr><th class='sticky-rank'>SIRA</th><th class='sticky-driver'>PİLOT</th><th class='sticky-points'>PUAN</th>{headers}</tr></thead><tbody>{''.join(rows)}</tbody></table></div>
-    """
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _CHAMP_MATRIX_CSS + "</style>"
+        + "<div class='matrix-wrap'><table><thead><tr>"
+        + "<th class='sticky-rank'>SIRA</th><th class='sticky-driver'>Pilot</th>"
+        + "<th class='sticky-points'>Puan</th>" + headers
+        + f"</tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+_CHAMP_MATRIX_CSS = r"""
+.matrix-wrap{overflow-x:auto;overflow-y:visible;border:1px solid var(--k-line);border-radius:var(--k-r-l);
+  background:var(--k-panel)}
+table{border-collapse:separate;border-spacing:0;min-width:1180px;width:100%;font-size:13px}
+th{position:sticky;top:0;background:var(--k-panel);color:var(--k-mute);padding:12px 10px;text-align:center;
+  font:600 9px var(--k-f-data);letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid var(--k-line);z-index:2}
+td{padding:11px 10px;text-align:center;border-bottom:1px solid var(--k-line-soft);color:var(--k-dim);
+  font:500 12px var(--k-f-data);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:color-mix(in srgb,var(--k-hover) 40%,transparent)}
+.rank{position:sticky;left:0;z-index:1;background:var(--k-panel);width:42px;color:var(--k-mute)}
+.driver{position:sticky;left:42px;z-index:1;background:var(--k-panel);text-align:left;min-width:165px}
+.driver span{display:block;font:700 12.5px var(--k-f-ui);letter-spacing:.01em;color:var(--k-ink)}
+.driver small{display:block;margin-top:3px;font:600 10px var(--k-f-data);letter-spacing:.06em;text-transform:uppercase}
+.flag{width:21px;height:14px;object-fit:cover;border-radius:2px;vertical-align:middle}
+.driver-flag{width:17px;height:11px;margin-right:5px}
+.points{position:sticky;left:207px;z-index:1;background:var(--k-panel);min-width:54px;color:var(--k-ink);font-weight:700}
+th.sticky-rank{left:0;z-index:3}
+th.sticky-driver{left:42px;z-index:3;text-align:left}
+th.sticky-points{left:207px;z-index:3}
+"""
 
 
 def championship_matrix_component_height(matrix):
@@ -1886,22 +1897,35 @@ def constructor_hud_html(standings):
     by_rank = {int(row['Sıra']): row for _, row in standings.iterrows()}
     podium = ''.join(card(by_rank[rank], podium=True) for rank in [2, 1, 3] if rank in by_rank)
     rest = ''.join(card(row) for _, row in standings.iterrows() if int(row['Sıra']) > 3)
-    return f"""
-    <style>
-        body{{margin:0;background:transparent;color:#eef2f7;font-family:'Inter',system-ui,sans-serif}}
-        .podium-wrap{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end;padding:2px 0 18px}}
-        .podium,.team-card{{position:relative;background:linear-gradient(160deg,#141a24,#141a24);border:1px solid #232c3a;
-          border-top:3px solid var(--team);border-radius:5px;padding:14px 16px;box-sizing:border-box;overflow:hidden}}
-        .podium{{min-height:172px;text-align:center}} .p1{{min-height:206px;order:0;box-shadow:0 12px 30px rgba(0,0,0,.35)}} .p2{{order:-1}} .p3{{order:1}}
-        .podium img{{height:60px;max-width:128px;object-fit:contain;margin:10px auto 8px;display:block}} .team-card img{{height:38px;max-width:92px;object-fit:contain;margin-bottom:6px;display:block}}
-        .place{{position:absolute;right:12px;top:10px;color:var(--team);font:800 13px 'JetBrains Mono',monospace}}
-        .team-name{{color:var(--team);font:800 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-        .team-points{{margin-top:6px;font:800 22px 'JetBrains Mono',monospace}} .team-points small{{font:700 9px 'Inter',system-ui,sans-serif;color:#6d7a8c;letter-spacing:.14em;margin-left:4px}}
-        .team-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}} .team-card{{min-height:108px}}
-        @media(max-width:440px){{.podium-wrap,.team-grid{{grid-template-columns:1fr}} .p1,.p2,.p3{{order:initial;min-height:132px}}}}
-    </style>
-    <div class='podium-wrap'>{podium}</div><div class='team-grid'>{rest}</div>
-    """
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _CONSTRUCTOR_CSS + "</style>"
+        + f"<div class='podium-wrap'>{podium}</div><div class='team-grid'>{rest}</div>"
+    )
+
+
+_CONSTRUCTOR_CSS = r"""
+.podium-wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end;padding:2px 0 16px}
+.podium,.team-card{position:relative;background:var(--k-panel);border:1px solid var(--k-line);
+  border-top:var(--k-edge) solid var(--team);border-radius:var(--k-r-m);padding:14px 16px;overflow:hidden}
+.podium{min-height:168px;text-align:center}
+.p1{min-height:200px;order:0}
+.p1::after{content:"";position:absolute;left:0;right:0;top:0;height:100%;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--team) 10%,transparent),transparent 55%);pointer-events:none}
+.p2{order:-1}.p3{order:1}
+.podium img{height:54px;max-width:120px;object-fit:contain;margin:12px auto 8px;display:block}
+.team-card img{height:34px;max-width:88px;object-fit:contain;margin-bottom:6px;display:block}
+.place{position:absolute;right:12px;top:10px;color:var(--team);font:700 12px var(--k-f-data);
+  font-variant-numeric:tabular-nums;z-index:1}
+.team-name{color:var(--team);font:700 15px var(--k-f-ui);text-transform:uppercase;letter-spacing:.02em;position:relative}
+.team-points{margin-top:6px;font:700 22px var(--k-f-data);font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em;position:relative}
+.team-points small{font:600 8.5px var(--k-f-data);color:var(--k-mute);letter-spacing:.14em;margin-left:5px}
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.team-card{min-height:104px;transition:border-color .18s ease}
+.team-card:hover{border-color:var(--k-line-lit)}
+@media(max-width:440px){.podium-wrap,.team-grid{grid-template-columns:1fr}
+  .p1,.p2,.p3{order:initial;min-height:128px}}
+"""
 
 
 def constructor_hud_component_height(standings):
@@ -1911,35 +1935,91 @@ def constructor_hud_component_height(standings):
     return min(1060, max(360, 255 + remaining_rows * 145))
 
 
+_WEEKEND_CSS = r"""
+.wk{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);padding:16px 18px;overflow:hidden}
+.wk-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.wk-eyebrow{font:600 9px var(--k-f-data);letter-spacing:.18em;text-transform:uppercase;color:var(--k-mute)}
+.wk-name{font:700 26px/1.05 var(--k-f-ui);letter-spacing:-.02em;margin-top:6px;text-wrap:balance}
+.wk-loc{font:500 11px var(--k-f-data);letter-spacing:.06em;color:var(--k-dim);margin-top:6px}
+.wk-next{flex:0 0 auto;min-width:180px;border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--k-cyan);
+  border-radius:var(--k-r-m);background:var(--k-void);padding:10px 13px}
+.wk-next.done{border-left-color:var(--k-green)}
+.wk-next s{display:block;font:600 8.5px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--k-mute);text-decoration:none}
+.wk-next b{display:block;font:600 14px var(--k-f-ui);letter-spacing:-.01em;margin-top:5px}
+.wk-next i{display:block;font:600 12px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-cyan);margin-top:3px;font-style:normal}
+.wk-next.done i{color:var(--k-green)}
+.wk-rail{position:relative;display:flex;justify-content:space-between;margin:26px 6px 4px}
+.wk-rail::before{content:"";position:absolute;left:0;right:0;top:5px;height:1px;background:var(--k-line-lit)}
+.wk-rail>i{position:absolute;left:0;top:5px;height:1px;background:var(--k-green);z-index:1}
+.wk-node{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:0;flex:1;min-width:0}
+.wk-node .dot{width:11px;height:11px;border-radius:50%;background:var(--k-panel);box-shadow:inset 0 0 0 2px var(--k-line-lit)}
+.wk-node.done .dot{background:var(--k-green);box-shadow:inset 0 0 0 2px var(--k-green)}
+.wk-node.now .dot{box-shadow:inset 0 0 0 2px var(--k-cyan);background:var(--k-cyan);
+  animation:wkpip 2s ease-out infinite}
+@keyframes wkpip{0%{box-shadow:inset 0 0 0 2px var(--k-cyan),0 0 0 0 color-mix(in srgb,var(--k-cyan) 55%,transparent)}
+  70%{box-shadow:inset 0 0 0 2px var(--k-cyan),0 0 0 7px transparent}100%{box-shadow:inset 0 0 0 2px var(--k-cyan),0 0 0 0 transparent}}
+.wk-node .lbl{font:600 9px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--k-dim);margin-top:9px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.wk-node.now .lbl{color:var(--k-cyan)}
+.wk-node .tm{font:500 9.5px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-mute);margin-top:3px;white-space:nowrap}
+@media(max-width:520px){.wk-name{font-size:21px}.wk-rail{flex-wrap:nowrap;overflow-x:auto;gap:18px;justify-content:flex-start}
+  .wk-rail::before,.wk-rail>i{display:none}.wk-node{min-width:64px}}
+"""
+
+
+def weekend_overview_component_height(sessions=None):
+    return 208
+
+
 def weekend_overview_hud(event, sessions):
-    """Alpha 0.9 yarış hafta sonu için tek bakışta program HUD'u."""
+    """Yarış hafta sonu program panosu — yayın dili: asimetrik başlık + yatay
+    seans zaman çizelgesi (tamamlanan / şu an / sıradaki)."""
     now = datetime.datetime.now(datetime.timezone.utc)
-    cards = []
+    done_count = 0
     upcoming = None
-    for item in sessions:
-        session_time = item['time']
+    nodes = []
+    n = len(sessions) or 1
+    for idx, item in enumerate(sessions):
         complete = item['estimated_end'] <= now
+        running = (not complete) and item['time'] <= now
+        if complete:
+            done_count += 1
         if not complete and upcoming is None:
             upcoming = item
-        local_time = session_time.tz_convert('Europe/Istanbul').strftime('%a %d %b · %H:%M')
-        colour = '#6ee7b7' if complete else '#f5b843'
-        status = 'TAMAMLANDI' if complete else 'SIRADA'
-        cards.append(
-            f"<div class='weekend-session' style='--accent:{colour}'><small>{html_lib.escape(item['title'].upper())}</small>"
-            f"<b>{html_lib.escape(local_time)}</b><span>{status}</span></div>"
+        cls = 'done' if complete else ('now' if running else '')
+        short = html_lib.escape(str(item.get('code') or item['title'])[:3].upper())
+        tm = html_lib.escape(item['time'].tz_convert('Europe/Istanbul').strftime('%a %H:%M'))
+        nodes.append(
+            f"<div class='wk-node {cls}'><span class='dot'></span>"
+            f"<span class='lbl'>{short}</span><span class='tm'>{tm}</span></div>"
         )
-    next_text = 'Hafta sonu tamamlandı' if upcoming is None else f"Sıradaki: {upcoming['title']} · İstanbul saatiyle {upcoming['time'].tz_convert('Europe/Istanbul').strftime('%d %b %H:%M')}"
-    return f"""
-    <style>
-      body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}
-      .weekend-hud{{border:1px solid #2a405a;border-radius:14px;padding:15px;background:linear-gradient(125deg,#111c2c,#0a0e14);overflow:hidden}}
-      .weekend-head{{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}}
-      .eyebrow{{color:#8ba2bc;font-weight:900;font-size:10px;letter-spacing:.12em}}.race-name{{font-size:22px;font-weight:950;margin-top:5px}}.next{{border:1px solid #36506e;background:#122137;border-radius:8px;padding:8px 10px;color:#b8c9db;font-size:11px;font-weight:800}}
-      .weekend-sessions{{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}}.weekend-session{{min-height:70px;padding:10px;border:1px solid #294057;border-top:3px solid var(--accent);border-radius:9px;background:#0d1724}}.weekend-session small,.weekend-session span{{display:block;color:#8da4bc;font-weight:900;font-size:10px;letter-spacing:.07em}}.weekend-session b{{display:block;color:#f3f8ff;margin:7px 0;font-size:12px}}.weekend-session span{{color:var(--accent)}}
-      @media(max-width:440px){{.race-name{{font-size:18px}}.weekend-sessions{{grid-template-columns:repeat(2,1fr)}}.weekend-session:last-child{{grid-column:span 2}}}}
-    </style>
-    <div class='weekend-hud'><div class='weekend-head'><div><div class='eyebrow'>RACE WEEKEND // İSTANBUL SAATİ</div><div class='race-name'>{html_lib.escape(str(event.get('EventName', 'Formula 1')))}</div></div><div class='next'>{html_lib.escape(next_text)}</div></div><div class='weekend-sessions'>{''.join(cards)}</div></div>
-    """
+    # ilerleme çizgisi: tamamlanan seans oranı
+    progress = 0 if n <= 1 else min(100, round((done_count - 0.5) / (n - 1) * 100)) if done_count else 0
+    progress = max(0, progress)
+    if upcoming is None:
+        next_block = (
+            "<div class='wk-next done'><s>Durum</s><b>Hafta sonu tamamlandı</b>"
+            "<i>Tüm sonuçlar kesin</i></div>"
+        )
+    else:
+        nt = html_lib.escape(upcoming['time'].tz_convert('Europe/Istanbul').strftime('%d %b · %H:%M'))
+        next_block = (
+            f"<div class='wk-next'><s>Sıradaki seans</s>"
+            f"<b>{html_lib.escape(str(upcoming['title']))}</b><i>{nt}</i></div>"
+        )
+    loc = html_lib.escape(str(event.get('Location', '') or event.get('Country', '')))
+    rnd = event.get('RoundNumber')
+    loc_line = (f"Tur {int(rnd)} · " if rnd else "") + loc if loc or rnd else ""
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _WEEKEND_CSS + "</style>"
+        + "<div class='wk'><div class='wk-top'><div>"
+        + "<div class='wk-eyebrow'>Race Weekend · İstanbul saati</div>"
+        + f"<div class='wk-name'>{html_lib.escape(str(event.get('EventName', 'Formula 1')))}</div>"
+        + (f"<div class='wk-loc'>{loc_line}</div>" if loc_line else "")
+        + f"</div>{next_block}</div>"
+        + f"<div class='wk-rail'><i style='width:{progress}%'></i>{''.join(nodes)}</div></div>"
+    )
 
 
 def championship_snapshot_hud(driver_standings, constructor_standings, rounds, year=None):
@@ -1965,33 +2045,57 @@ def championship_snapshot_hud(driver_standings, constructor_standings, rounds, y
         gap = ''
     remaining = max(0, 24 - len(rounds))
     _is_past = bool(year) and int(year) < datetime.datetime.now(datetime.timezone.utc).year
-    third_card = (
-        f"<div class='ss-c' style='--a:#f5b843'><s>Sezon</s><b>{html_lib.escape(str(year))}</b><i>{len(rounds)} yarış tamamlandı</i></div>"
-        if _is_past else
-        f"<div class='ss-c' style='--a:#f5b843'><s>Kalan Yarış</s><b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>"
+    if _is_past:
+        tile3 = (f"<div class='ss-t' style='--a:var(--k-amber)'><s>Sezon</s>"
+                 f"<b>{html_lib.escape(str(year))}</b><i>{len(rounds)} yarış tamamlandı</i></div>")
+    else:
+        tile3 = (f"<div class='ss-t' style='--a:var(--k-amber)'><s>Kalan Yarış</s>"
+                 f"<b>{remaining}</b><i>{len(rounds)} tamamlandı</i></div>")
+    d_label = 'Dünya Şampiyonu' if _is_past else 'Pilot Lideri'
+    t_label = 'Yapımcılar Şampiyonu' if _is_past else 'Takım Lideri'
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _CHAMP_SNAPSHOT_CSS + "</style>"
+        + "<div class='ss'>"
+        + f"<div class='ss-hero' style='--a:{dc}'>"
+        + f"<div class='eb'>{d_label}</div>"
+        + f"<div class='nm'>{d_name}</div>"
+        + f"<div class='pts'>{d_pts}<span>PUAN</span></div>"
+        + f"<div class='tm'><i></i>{html_lib.escape(driver_team)}</div>"
+        + "</div>"
+        + "<div class='ss-side'>"
+        + f"<div class='ss-t' style='--a:{tc}'><s>{t_label}</s><b>{t_name}</b>"
+        + f"<i>{t_pts} P{(' · ' + gap) if gap else ''}</i></div>"
+        + tile3
+        + "</div></div>"
     )
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .ss{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}}
-      .ss-c{{border:1px solid #232c3a;border-left:3px solid var(--a);border-radius:5px;
-        padding:14px 16px;background:linear-gradient(160deg,#141a24,#141a24);
-        min-height:118px;display:flex;flex-direction:column}}
-      .ss-c s{{font:700 9.5px 'Inter',system-ui,sans-serif;letter-spacing:.16em;
-        text-transform:uppercase;color:#6d7a8c;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .ss-c b{{font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:26px;
-        text-transform:uppercase;letter-spacing:.01em;color:var(--a);margin-top:9px;line-height:.95;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .ss-c i{{font:12px 'JetBrains Mono',monospace;color:#9aa7b8;margin-top:auto;padding-top:8px;font-style:normal;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      @media(max-width:430px){{.ss{{grid-template-columns:1fr}}.ss-c{{min-height:0}}}}
-    </style>
-    <div class='ss'>
-      <div class='ss-c' style='--a:{dc}'><s>{'Dünya Şampiyonu' if _is_past else 'Pilot Lideri'}</s><b>{d_name}</b><i>{d_pts} P · {html_lib.escape(driver_team)}</i></div>
-      <div class='ss-c' style='--a:{tc}'><s>{'Yapımcılar Şampiyonu' if _is_past else 'Takım Lideri'}</s><b>{t_name}</b><i>{t_pts} P{(' · ' + gap) if gap else ''}</i></div>
-      {third_card}
-    </div>
-    """
+
+
+_CHAMP_SNAPSHOT_CSS = r"""
+.ss{display:grid;grid-template-columns:1.55fr 1fr;gap:10px;align-items:stretch}
+.ss-hero{position:relative;border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--a);
+  border-radius:var(--k-r-m);background:var(--k-panel);padding:15px 18px;display:flex;flex-direction:column;
+  justify-content:center;gap:2px;overflow:hidden}
+.ss-hero::after{content:"";position:absolute;right:-50px;top:-50px;width:130px;height:130px;border-radius:50%;
+  background:color-mix(in srgb,var(--a) 8%,transparent);pointer-events:none}
+.ss-hero .eb{font:600 9.5px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;color:var(--k-mute)}
+.ss-hero .nm{font:700 25px/1.05 var(--k-f-ui);letter-spacing:-.02em;color:var(--a);margin-top:7px;text-wrap:balance}
+.ss-hero .pts{font:700 34px/1 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+  color:var(--k-ink);margin-top:11px;display:flex;align-items:baseline;gap:8px}
+.ss-hero .pts span{font:600 9px var(--k-f-data);letter-spacing:.14em;color:var(--k-mute)}
+.ss-hero .tm{display:flex;align-items:center;gap:8px;margin-top:9px;font:500 11px var(--k-f-data);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--k-dim)}
+.ss-hero .tm i{width:3px;height:13px;border-radius:1px;background:var(--a);flex:0 0 auto}
+.ss-side{display:flex;flex-direction:column;gap:10px}
+.ss-t{flex:1;border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--a);border-radius:var(--k-r-m);
+  background:var(--k-panel);padding:13px 15px;display:flex;flex-direction:column}
+.ss-t s{font:600 9px var(--k-f-data);letter-spacing:.14em;text-transform:uppercase;color:var(--k-mute);
+  text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-t b{font:700 19px/1.1 var(--k-f-ui);letter-spacing:-.01em;color:var(--a);margin-top:8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-t i{font:500 11px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-dim);margin-top:auto;
+  padding-top:7px;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:520px){.ss{grid-template-columns:1fr}.ss-hero .pts{font-size:32px}}
+"""
 
 
 # =========================================================
@@ -2137,7 +2241,7 @@ def championship_scenarios_v40(driver_standings, remaining):
 def championship_scenarios_html(scn, colour_of):
     """Matematiksel durum HUD'u — güncel puan, tavan, lidere fark, elendi/yarışta."""
     if not scn.get('ok'):
-        return "<div style='padding:18px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>Senaryo için yeterli puan verisi yok.</div>"
+        return "<div style=\"padding:18px;color:#63728a;font-family:system-ui,sans-serif\">Senaryo için yeterli puan verisi yok.</div>"
     head = (f"{scn['races']} yarış" + (f" · {scn['sprints']} sprint" if scn['sprints'] else "")
             + f" kaldı · sahadaki en yüksek kazanç <b>{int(scn['swing'])} puan</b>")
     if scn['races'] == 0:
@@ -2170,39 +2274,42 @@ def championship_scenarios_html(scn, colour_of):
             f"<span class='st'>{state}</span>"
             "</div>"
         )
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .scn{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
-      .scn-hd{{padding:13px 16px;border-bottom:1px solid #232c3a;font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de}}
-      .scn-hd b{{color:#eef2f7;font-family:'JetBrains Mono',monospace}}
-      .scn-ban{{margin:10px 12px 0;padding:9px 12px;border-radius:7px;background:#12212f;
-        border:1px solid #232c3a;font:600 12px 'Inter',system-ui,sans-serif;color:#9aa7b8;line-height:1.5}}
-      .scn-ban.win{{background:#12241a;border-color:#232c3a;color:#3ecf8e}}
-      .scn-list{{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}}
-      .scn-row{{display:grid;grid-template-columns:26px 1.6fr repeat(3,64px) 84px;gap:10px;align-items:center;
-        padding:9px 11px;background:#131a24;border:1px solid #232c3a;border-left:3px solid var(--c);border-radius:8px}}
-      .pos{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
-      .who b{{font:700 13px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;display:block}}
-      .who small{{font:500 11px 'Inter',system-ui,sans-serif;color:#9aa7b8;display:block;margin-top:1px;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .num{{text-align:right;font:700 13px 'JetBrains Mono',monospace}}
-      .num s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.06em;color:#6d7a8c;text-decoration:none;margin-bottom:2px}}
-      .st{{text-align:right}}
-      .pill{{display:inline-block;font:800 11px 'Inter',system-ui,sans-serif;letter-spacing:.05em;padding:4px 8px;border-radius:5px;white-space:nowrap}}
-      .pill.live{{background:#12241a;color:#3ecf8e}} .pill.out{{background:#241417;color:#ff8a70}}
-      .pill.done{{background:#151b25;color:#6d7a8c}}
-      @media(max-width:620px){{
-        .scn-row{{grid-template-columns:22px 1fr 56px 78px;row-gap:4px}}
-        .num:nth-of-type(3){{display:none}} .st{{grid-column:3/-1;text-align:left}}
-      }}
-    </style>
-    <div class="scn">
-      <div class="scn-hd">{head}</div>
-      {banner}
-      <div class="scn-list">{rows}</div>
-    </div>
-    """
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _CHAMP_SCEN_CSS + "</style>"
+        + f'<div class="scn"><div class="scn-hd">{head}</div>{banner}'
+        + f'<div class="scn-list">{rows}</div></div>'
+    )
+
+
+_CHAMP_SCEN_CSS = r"""
+.scn{border:1px solid var(--k-line);border-radius:var(--k-r-l);overflow:hidden;background:var(--k-panel)}
+.scn-hd{padding:13px 16px;border-bottom:1px solid var(--k-line);font:500 12px var(--k-f-ui);color:var(--k-dim);line-height:1.5}
+.scn-hd b{color:var(--k-ink);font-family:var(--k-f-data);font-weight:600}
+.scn-ban{margin:11px 12px 0;padding:9px 12px;border-radius:var(--k-r-s);background:var(--k-void);
+  border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--k-cyan);
+  font:500 12px var(--k-f-ui);color:var(--k-dim);line-height:1.5}
+.scn-ban.win{border-left-color:var(--k-green);color:var(--k-green)}
+.scn-list{padding:11px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.scn-row{display:grid;grid-template-columns:26px 1.6fr repeat(3,64px) 84px;gap:10px;align-items:center;
+  padding:9px 11px;background:var(--k-void);border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--c);
+  border-radius:var(--k-r-s)}
+.pos{font:700 13px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-mute);text-align:center}
+.who b{font:700 13px var(--k-f-ui);text-transform:uppercase;letter-spacing:.02em;display:block}
+.who small{font:500 11px var(--k-f-data);letter-spacing:.04em;color:var(--k-dim);display:block;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.num{text-align:right;font:600 13px var(--k-f-data);font-variant-numeric:tabular-nums}
+.num s{display:block;font:600 8.5px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;color:var(--k-mute);
+  text-decoration:none;margin-bottom:3px}
+.st{text-align:right}
+.pill{display:inline-block;font:700 10px var(--k-f-data);letter-spacing:.08em;padding:4px 8px;border-radius:4px;white-space:nowrap}
+.pill.live{background:color-mix(in srgb,var(--k-green) 13%,transparent);color:var(--k-green)}
+.pill.out{background:color-mix(in srgb,var(--k-pink) 13%,transparent);color:var(--k-pink)}
+.pill.done{background:var(--k-raised);color:var(--k-mute)}
+@media(max-width:620px){
+  .scn-row{grid-template-columns:22px 1fr 56px 78px;row-gap:4px}
+  .num:nth-of-type(3){display:none}.st{grid-column:3/-1;text-align:left}
+}
+"""
 
 
 def championship_projection_html(leader, challenger, leader_pts, challenger_pts,
@@ -2223,28 +2330,28 @@ def championship_projection_html(leader, challenger, leader_pts, challenger_pts,
             f"<span class='pj-bar'><i style='width:{round(val / top * 100)}%;background:{col}'></i></span>"
             f"<span class='pj-v'>{int(val)}</span></div>"
         )
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .pj{{border:1px solid #232c3a;border-radius:12px;background:#141a24;padding:15px 16px}}
-      .pj-v-hd{{font:700 10px 'Inter',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#6d7a8c}}
-      .pj-verdict{{font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em;
-        color:{champ_col};margin:6px 0 14px}}
-      .pj-row{{display:grid;grid-template-columns:120px 1fr 46px;gap:10px;align-items:center;padding:5px 0}}
-      .pj-n{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .pj-bar{{height:14px;background:#0a111b;border-radius:4px;overflow:hidden}}
-      .pj-bar i{{display:block;height:100%}}
-      .pj-v{{font:700 14px 'JetBrains Mono',monospace;text-align:right}}
-      .pj-note{{margin-top:12px;font:500 11px 'Inter',system-ui,sans-serif;color:#8a9bb0}}
-    </style>
-    <div class="pj">
-      <div class="pj-v-hd">Senaryo sonucu</div>
-      <div class="pj-verdict">{verdict}</div>
-      {bars}
-      <div class="pj-note">Varsayım: kalan {races} yarış (+{sprints} sprint) boyunca her ikisi de
-        sabit sırada bitiyor. Gerçek sonuçlar farklı olacaktır — bu yalnızca puan matematiğini gösterir.</div>
-    </div>
-    """
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _CHAMP_PROJ_CSS + "</style>"
+        + f'<div class="pj" style="--pjc:{champ_col}">'
+        + '<div class="pj-v-hd">Senaryo sonucu</div>'
+        + f'<div class="pj-verdict">{verdict}</div>{bars}'
+        + f'<div class="pj-note">Varsayım: kalan {races} yarış (+{sprints} sprint) boyunca her ikisi de '
+        + 'sabit sırada bitiyor. Gerçek sonuçlar farklı olacaktır — bu yalnızca puan matematiğini gösterir.</div>'
+        + '</div>'
+    )
+
+
+_CHAMP_PROJ_CSS = r"""
+.pj{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);padding:15px 16px}
+.pj-v-hd{font:600 9px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;color:var(--k-mute)}
+.pj-verdict{font:700 16px var(--k-f-ui);text-transform:uppercase;letter-spacing:-.01em;color:var(--pjc);margin:7px 0 15px}
+.pj-row{display:grid;grid-template-columns:120px 1fr 46px;gap:10px;align-items:center;padding:5px 0}
+.pj-n{font:500 12px var(--k-f-ui);color:var(--k-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj-bar{height:14px;background:var(--k-void);border-radius:3px;overflow:hidden}
+.pj-bar i{display:block;height:100%;transition:width .3s ease}
+.pj-v{font:700 14px var(--k-f-data);font-variant-numeric:tabular-nums;text-align:right}
+.pj-note{margin-top:13px;font:500 11px var(--k-f-ui);color:var(--k-mute);line-height:1.5}
+"""
 
 
 def season_h2h_v41(result_matrix, points_matrix, rounds, standings, code_a, code_b):
@@ -13308,7 +13415,7 @@ def _router_page_calendar():
         st.info("Bu yarış için seans takvimi henüz alınamadı.")
         st.stop()
 
-    render_html_hud(weekend_overview_hud(selected_event, sessions), height=245, scrolling=False)
+    render_html_hud(weekend_overview_hud(selected_event, sessions), height=weekend_overview_component_height(sessions), scrolling=False)
     st.caption("Program İstanbul saatine göre gösterilir. Tamamlanan seansların doğrulanmış sonuçlarını aşağıdan açabilirsin.")
 
     session_columns = st.columns(len(sessions))
@@ -13554,7 +13661,7 @@ def _router_page_standings():
     else:
         render_html_hud(
             championship_snapshot_hud(driver_standings, constructor_standings, completed_rounds, champ_year),
-            height=160,
+            height=196,
             scrolling=False,
         )
         st.write("")
