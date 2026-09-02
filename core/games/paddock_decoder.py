@@ -1,20 +1,20 @@
 # -*- coding: utf-8 -*-
 """Paddock Dekoder — bulanık resim tahmin oyunu, çekirdek state motoru.
 
-Oyuncuya bulanıklaştırılmış bir görsel (takım logosu / pilot / pist) gösterilir.
-Her yanlış tahminde bulanıklık azalır. 5 hak. Yazım hataları Levenshtein
-mesafesiyle tolere edilir ("ferari" → "Ferrari" sayılır).
+Oyuncuya gri-beyaz, bulanık ve kırpılmış bir görsel (2018+ takım logosu / pilot /
+pist) gösterilir; tahmin bir açılır listeden SEÇİLİR (Stewardle deseni, serbest
+yazı değil). 3 hak; her yanlışta kadraj biraz açılır ama görsel asla tam
+netleşmez. Pist haritaları çözülene dek döndürülüp aynalanır.
 
 Bu modül SAF: Streamlit/ağ yok. UI state sözlüğünü tutar ve şu akışı kullanır:
 
     from core.games import paddock_decoder as deco
 
     state = deco.new_round("teams", seed=day_seed)         # yeni tur
-    result = deco.submit_guess(state, "ferari")            # tahmin
+    options = deco.pool_options(state.category)            # açılır liste
+    result = deco.submit_guess(state, options[0])          # seçilen tahmin
     view = deco.public_state(state)                        # UI için görünüm
-    #   view["remaining"]  -> kalan hak (CSS blur bunun üstünden ayarlanır)
-    #   view["blur_px"]    -> önerilen blur (px)
-    #   view["image"], view["solved"], view["failed"], view["answer"?]
+    #   view["remaining"], view["orientation"] (deg, mirror), view["pool"], ...
 """
 
 from __future__ import annotations
@@ -37,23 +37,29 @@ __all__ = [
     "is_correct",
     "new_round",
     "submit_guess",
+    "pool_options",
     "public_state",
     "blur_px",
     "reveal_hint",
+    "image_orientation",
     "score_round",
     "DecoderSession",
     "new_session",
+    "ERA_START",
 ]
 
 CATEGORIES: Tuple[str, ...] = ("teams", "drivers", "tracks")
-MAX_GUESSES: int = 4
+MAX_GUESSES: int = 3
 
 # Kaç yanlıştan sonra metin ipucu açılır (yalnızca son hak kalınca)
-_HINT_AFTER_MISSES = 3
+_HINT_AFTER_MISSES = 2
 
-# Bulanık eşleşme eşiği (0..1 benzerlik). Yazım hatası affedilir ama yakın
-# tahmin yeterli değil: 'ferari'→'ferrari' = 6/7 ≈ 0.857 geçer; 'ferai' geçmez.
-_MATCH_THRESHOLD = 0.82
+# Tahmin artık bir açılır listeden SEÇİLİYOR (Stewardle gibi), serbest yazı değil.
+# Eşik yalnızca güvenlik amaçlı: seçim zaten kanonik ada birebir eşit gelir.
+_MATCH_THRESHOLD = 0.92
+
+# Kapsam: 2018 ve sonrası F1.
+ERA_START = 2018
 
 # Blur eğrisi: başta MAX, her denemede azalır, çözülünce/bitince taban
 _BLUR_START_PX = 22.0
@@ -79,60 +85,106 @@ class DecoderTarget:
         return (self.answer, *self.aliases)
 
 
-# Her kategori için 3'er hedef. image = gerçek F1.com / Wikimedia görseli
-# (UI bunu bulanıklaştırarak gösterir; 404 olursa UI kendi silüet-placeholder'ına düşer).
+# image = gerçek F1.com görseli (UI bulanıklaştırıp kırpar; 404 → silüet placeholder).
 _F1_LOGO = ("https://media.formula1.com/image/upload/c_fit%2Ch_256/q_auto/"
             "v1740000001/common/f1/2025/{slug}/2025{slug}logowhite.webp")
 _F1_HEAD = ("https://www.formula1.com/content/dam/fom-website/drivers/"
-            "2025Drivers/{sur}.jpg.transform/2col/image.jpg")
+            "{yr}Drivers/{sur}.jpg.transform/2col/image.jpg")
 _F1_MAP = ("https://media.formula1.com/image/upload/f_auto,c_limit,w_1320,q_auto/"
            "content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/{map}_Circuit")
 
-# Alias'lar dar tutulur: yazım hatası toleransı Levenshtein'de zaten var; burada
-# yalnızca tam ad + SOYAD + dil varyantı (Türkçe/İngilizce) kabul edilir.
-# Tek isim ("Max"), 3-harf kod ("VER"), gevşek kısaltma ("RB", "SF") YOK.
+
+def _team(name, slug, hint, aliases=()):
+    return DecoderTarget("teams", name, _F1_LOGO.format(slug=slug),
+                         aliases=aliases, hint=hint)
+
+
+def _driver(name, sur, yr, hint):
+    return DecoderTarget("drivers", name, _F1_HEAD.format(yr=yr, sur=sur), hint=hint)
+
+
+def _track(name, mp, hint, aliases=()):
+    return DecoderTarget("tracks", name, _F1_MAP.format(map=mp), aliases=aliases, hint=hint)
+
+
+# Tahmin bir açılır listeden seçildiği için alias'lara neredeyse hiç gerek yok;
+# yalnızca yaygın kısa adlar (Stewardle'da "de olsa" mantığı) tutuldu.
+# İpuçları cevabın adını İÇERMEZ (test ile doğrulanır) — yalnızca son hakta açılır.
 TARGETS: Dict[str, List[DecoderTarget]] = {
     "teams": [
-        DecoderTarget("teams", "Ferrari",
-                      _F1_LOGO.format(slug="ferrari"),
-                      aliases=("scuderia ferrari",),
-                      hint="Kuruluşundan bugüne kesintisiz yarışan tek takım."),
-        DecoderTarget("teams", "Red Bull Racing",
-                      _F1_LOGO.format(slug="redbullracing"),
-                      aliases=("red bull racing", "red bull"),
-                      hint="Enerji içeceği markasının Milton Keynes ekibi."),
-        DecoderTarget("teams", "McLaren",
-                      _F1_LOGO.format(slug="mclaren"),
-                      aliases=("mclaren f1 team", "mclaren racing"),
-                      hint="Woking; kurucusunun adını taşıyan Yeni Zelandalı ekip."),
+        _team("Ferrari", "ferrari", "Kuruluşundan bugüne kesintisiz yarışan tek takım."),
+        _team("Red Bull Racing", "redbullracing",
+              "Enerji içeceği markasının Milton Keynes ekibi.", ("red bull",)),
+        _team("McLaren", "mclaren",
+              "Woking; kurucusunun adını taşıyan Yeni Zelandalı ekip."),
+        _team("Mercedes", "mercedes",
+              "Brackley; hibrit çağının ilk yıllarına damga vuran marka."),
+        _team("Aston Martin", "astonmartin",
+              "Silverstone yanı; İngiliz spor otomobil markasının yeşil arabaları."),
+        _team("Williams", "williams",
+              "Grove; kurucusu Sir Frank olan, 9 yapımcı şampiyonluğu bulunan aile ekibi."),
+        _team("Alpine", "alpine",
+              "Enstone; bir Fransız üreticinin mavi-pembe arabaları."),
+        _team("Haas F1 Team", "haas",
+              "Kannapolis merkezli, tek Amerikan takımı; 2016'da katıldı."),
     ],
     "drivers": [
-        DecoderTarget("drivers", "Lewis Hamilton",
-                      _F1_HEAD.format(sur="hamilton"),
-                      aliases=("hamilton", "sir lewis hamilton"),
-                      hint="Rekor eşitleyen yedi kez dünya şampiyonu."),
-        DecoderTarget("drivers", "Max Verstappen",
-                      _F1_HEAD.format(sur="verstappen"),
-                      aliases=("verstappen",),
-                      hint="En genç GP galibi; babası da F1'de yarıştı."),
-        DecoderTarget("drivers", "Charles Leclerc",
-                      _F1_HEAD.format(sur="leclerc"),
-                      aliases=("leclerc",),
-                      hint="F2 ve GP3 şampiyonu; kırmızı arabayı sürüyor."),
+        _driver("Lewis Hamilton", "hamilton", 2025,
+                "Rekor eşitleyen yedi kez dünya şampiyonu."),
+        _driver("Max Verstappen", "verstappen", 2025,
+                "En genç GP galibi; babası da F1'de yarıştı."),
+        _driver("Charles Leclerc", "leclerc", 2025,
+                "F2 ve GP3 şampiyonu; kırmızı arabayı sürüyor."),
+        _driver("Lando Norris", "norris", 2025,
+                "Woking ekibinin genç İngiliz pilotu; Twitch yayınlarıyla tanınır."),
+        _driver("George Russell", "russell", 2025,
+                "F2 şampiyonu; 2020 Sakhir'de bir yarış vekâleten Mercedes sürdü."),
+        _driver("Carlos Sainz", "sainz", 2025,
+                "Babası iki kez ralli dünya şampiyonu; 2024'te Ferrari'yle kazandı."),
+        _driver("Oscar Piastri", "piastri", 2025,
+                "F3 ve F2'yi üst üste kazanan Avustralyalı; 2023'te F1'e çıktı."),
+        _driver("Fernando Alonso", "alonso", 2025,
+                "2005–2006 çift şampiyonu; gridin en deneyimli ismi."),
+        _driver("Sergio Perez", "perez", 2024,
+                "Meksikalı; 2020 Sakhir'de ilk galibiyetini aldı, Red Bull'da yarıştı."),
+        _driver("Valtteri Bottas", "bottas", 2024,
+                "Finli; uzun yıllar bir gümüş ekipte ikinci pilot oldu, sonra İsviçre ekibine geçti."),
+        _driver("Pierre Gasly", "gasly", 2025,
+                "Fransız; 2020 Monza'da sürpriz galibiyet, önce ana ekipte sonra kız ekipte."),
+        _driver("Esteban Ocon", "ocon", 2025,
+                "Fransız; 2021 Macaristan galibi, Mercedes gençlik programından geldi."),
+        _driver("Yuki Tsunoda", "tsunoda", 2025,
+                "Japon; Honda desteğiyle Faenza ekibinden F1'e çıktı."),
+        _driver("Nico Hulkenberg", "hulkenberg", 2025,
+                "Alman; en çok yarışa çıkıp podyum görmeme rekorunu uzun süre elinde tuttu."),
+        _driver("Daniel Ricciardo", "ricciardo", 2024,
+                "Avustralyalı; 'shoey' kutlaması ve geç frenlemeleriyle tanınır."),
+        _driver("Kevin Magnussen", "magnussen", 2024,
+                "Danimarkalı; babası da F1'de yarıştı, uzun süre Amerikan ekibinde."),
     ],
     "tracks": [
-        DecoderTarget("tracks", "Circuit de Monaco",
-                      _F1_MAP.format(map="Monaco"),
-                      aliases=("monaco", "monako", "monte carlo", "montekarlo"),
-                      hint="Takvimin en yavaş ortalama hızlı, en dar pisti."),
-        DecoderTarget("tracks", "Silverstone Circuit",
-                      _F1_MAP.format(map="Great_Britain"),
-                      aliases=("silverstone", "silverston"),
-                      hint="1950'de ilk F1 yarışının yapıldığı eski hava üssü."),
-        DecoderTarget("tracks", "Suzuka Circuit",
-                      _F1_MAP.format(map="Japan"),
-                      aliases=("suzuka", "suzuca"),
-                      hint="Dünyanın tek '8' şeklindeki pisti."),
+        _track("Circuit de Monaco", "Monaco",
+               "Takvimin en yavaş ortalama hızlı, en dar sokak pisti.",
+               ("monaco", "monako", "monte carlo", "montekarlo")),
+        _track("Silverstone Circuit", "Great_Britain",
+               "1950'de ilk F1 yarışının yapıldığı eski hava üssü.", ("silverstone",)),
+        _track("Suzuka Circuit", "Japan",
+               "Dünyanın tek '8' şeklindeki pisti.", ("suzuka",)),
+        _track("Autodromo Nazionale Monza", "Italy",
+               "'Hız tapınağı'; uzun düzlükleri ve eski banklı virajıyla ünlü.", ("monza",)),
+        _track("Circuit de Spa-Francorchamps", "Belgium",
+               "Ardennes ormanında; Eau Rouge–Raidillon tırmanışı burada.", ("spa",)),
+        _track("Circuit Zandvoort", "Netherlands",
+               "Kum tepeleri arasında; 2021'de bankinglerle takvime döndü.", ("zandvoort",)),
+        _track("Hungaroring", "Hungary",
+               "Budapeşte yakını; dar ve dönüşlü, 'pistte Monako' denir.", ("hungaroring",)),
+        _track("Bahrain International Circuit", "Bahrain",
+               "Çölde, gece yarışı; sezon açılışına sık ev sahipliği yapar.", ("sakhir", "bahrain")),
+        _track("Albert Park Circuit", "Australia",
+               "Melbourne'da bir göl çevresine kurulan geçici sokak-tarzı pist.",
+               ("albert park", "melbourne")),
+        _track("Marina Bay Street Circuit", "Singapore",
+               "İlk gece yarışı; nem ve duvarlar pilotları en çok yoran pist.", ("marina bay",)),
     ],
 }
 
@@ -292,46 +344,42 @@ def new_round(category: str, *, seed=None, target_index: Optional[int] = None) -
     return DecoderRound(category=category, target_index=idx)
 
 
-def submit_guess(state: DecoderRound, guess: str) -> dict:
-    """Bir tahmini işle, state'i günceller, sonucu döndürür.
+def pool_options(category: str) -> List[str]:
+    """Bu kategorinin açılır listesi — kanonik hedef adları (Stewardle deseni)."""
+    return [t.answer for t in TARGETS[category]]
 
-    Dönen: {
-        "accepted": bool,          # tahmin sayıldı mı (boş/oyun bitti değil)
-        "correct": bool,
-        "solved": bool,
-        "failed": bool,
-        "remaining": int,
-        "distance": int,           # normalize Levenshtein mesafesi (en yakın varyanta)
-        "similarity": float,       # 0..1
-        "matched_on": str | None,  # doğruysa hangi kabul-varyantı
-    }
+
+def submit_guess(state: DecoderRound, guess: str) -> dict:
+    """Seçilen bir tahmini işle, state'i günceller, sonucu döndürür.
+
+    ``guess`` açılır listeden gelen kanonik ad olmalı; güvenlik için çok yakın
+    yazımlar da kabul edilir (``_MATCH_THRESHOLD`` = 0.92).
+
+    Dönen: {accepted, correct, solved, failed, remaining}
     """
     guess = str(guess or "").strip()
     if state.over or not guess:
         return {
             "accepted": False, "correct": False,
             "solved": state.solved, "failed": state.failed,
-            "remaining": state.remaining, "distance": None, "similarity": 0.0,
-            "matched_on": state.matched_on,
+            "remaining": state.remaining,
         }
 
     state.guesses.append(guess)
-    score, on = match_score(guess, state.target)
-    correct = score >= _MATCH_THRESHOLD
+    accepted_norm = {normalize(a) for a in state.target.accepted}
+    correct = normalize(guess) in accepted_norm
+    if not correct:
+        correct = match_score(guess, state.target)[0] >= _MATCH_THRESHOLD
     if correct:
         state.solved = True
-        state.matched_on = on
+        state.matched_on = state.target.answer
 
-    ng, nt = normalize(guess), normalize(on)
     return {
         "accepted": True,
         "correct": correct,
         "solved": state.solved,
         "failed": state.failed,
         "remaining": state.remaining,
-        "distance": levenshtein(ng, nt),
-        "similarity": round(score, 3),
-        "matched_on": state.matched_on if correct else None,
     }
 
 
@@ -363,6 +411,21 @@ def reveal_hint(state: DecoderRound) -> Optional[str]:
     return None
 
 
+def image_orientation(state: DecoderRound) -> Tuple[int, bool]:
+    """Görselin (döndürme derecesi, yatay aynalama) durumu.
+
+    Yalnızca PİST haritaları için: bir pist silüeti taraftara çok tanıdık, bu
+    yüzden çözülene / son hak kalana dek 90/180/270° döndürülüp aynalanır.
+    Son hakta ve oyun bitince düz konuma döner. Diğer kategoriler her zaman düz.
+    """
+    if state.category != "tracks" or state.over or state.remaining <= 1:
+        return (0, False)
+    h = int(hashlib.sha256(state.target.answer.encode("utf-8")).hexdigest(), 16)
+    deg = (h % 3 + 1) * 90          # 90 | 180 | 270 — asla 0
+    mirror = bool((h >> 5) & 1)
+    return (deg, mirror)
+
+
 def public_state(state: DecoderRound) -> dict:
     """UI'nın ihtiyacı olan her şey — hiç 'spoiler' sızdırmadan.
 
@@ -380,6 +443,8 @@ def public_state(state: DecoderRound) -> dict:
         "over": state.over,
         "blur_px": blur_px(state.remaining, solved=state.solved),
         "hint": reveal_hint(state),
+        "orientation": image_orientation(state),
+        "pool": pool_options(state.category),
         "answer": state.target.answer if state.over else None,
         "matched_on": state.matched_on,
         "score": score_round(state) if state.over else 0,
@@ -391,17 +456,16 @@ def public_state(state: DecoderRound) -> dict:
 # ===========================================================================
 
 _SOLVE_BASE = 50        # 1. denemede bilme
-_SOLVE_STEP = 13        # her fazladan deneme -kaybı
-_SOLVE_FLOOR = 10       # son denemede bile en az
+_SOLVE_STEP = 20        # her fazladan deneme -kaybı
+_SOLVE_FLOOR = 15       # son denemede bile en az
 _FAIL_XP = 2            # teselli
-_SWEEP_BONUS = 30       # 3 kategoriyi de bilme (artık daha zor)
+_SWEEP_BONUS = 40       # 3 kategoriyi de bilme (3 hak → çok daha zor)
 
 
 def score_round(state: DecoderRound) -> int:
     """Bir turun XP değeri. Oyun bitmediyse 0.
 
-    1. deneme 50 · 2. 37 · 3. 24 · 4. 11 · bilemedi 2.
-    (stewardle/predict oyunlarıyla aynı ~5–50 bandı.)
+    1. deneme 50 · 2. 30 · 3. 15 · bilemedi 2.
     """
     if not state.over:
         return 0
