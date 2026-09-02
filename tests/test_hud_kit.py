@@ -203,3 +203,19 @@ def test_session_leaderboard_html_uses_kit():
     assert html.count("color-scheme:dark") == 1
     assert "SUZUKA // YARIŞ" in html and "Lando Norris" in html
     assert app.session_leaderboard_html(pd.DataFrame(), "x") == ""
+
+
+def test_race_intelligence_hud_uses_kit():
+    info = {
+        "ok": True, "weather": {"air": 22, "track": 38, "wind": 3},
+        "speed_trap": {"driver": "VER", "speed": 331},
+        "race_control": [{"time": "14:32", "text": "Pist limitleri izleniyor."}],
+        "pits": [{"driver": "NOR", "lap": 16, "compound": "HARD", "lane_time": 2.3}],
+        "weather_timeline": [{"time": "14:00", "air": 21, "track": 35, "rain": False}],
+        "pit_note": "İlk pit T12.",
+    }
+    html = app.race_intelligence_hud_html_v19(info)
+    assert "--k-panel" in html and "fonts.googleapis.com" in html
+    assert html.count("color-scheme:dark") == 1
+    assert html.count("{") == html.count("}")
+    assert "VER" in html and "Race Control" in html

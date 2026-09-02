@@ -3877,6 +3877,33 @@ def get_race_intelligence_v19(year, event_name):
         return {'ok': False, 'reason': f'Yarış istihbaratı henüz alınamadı: {error}'}
 
 
+_RACE_INTEL_CSS = r"""
+.hud{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);padding:13px}
+.head{font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.sub{font:600 9px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;color:var(--k-mute);margin-top:5px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:11px}
+.tile{border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--k-cyan);border-radius:var(--k-r-s);
+  background:var(--k-void);padding:9px}
+.tile small{display:block;color:var(--k-mute);font:600 9px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase}
+.tile b{display:block;color:var(--k-ink);margin-top:6px;font:600 13px var(--k-f-data);font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}
+.box{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-void);padding:10px;min-height:135px}
+.box h4{margin:0 0 8px;font:600 10px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;color:var(--k-mute)}
+.msg{border-left:var(--k-edge) solid var(--k-amber);padding:6px 8px;background:var(--k-raised);margin:5px 0;
+  font-size:11px;line-height:1.4}
+.msg b{color:var(--k-amber);margin-right:5px;font-family:var(--k-f-data)}
+.pit{display:grid;grid-template-columns:1fr 42px 72px 88px;gap:5px;border-top:1px solid var(--k-line-soft);
+  padding:7px 0;font:500 11px var(--k-f-data)}
+.pit b{color:var(--k-ink)}.pit span{color:var(--k-dim)}
+.timeline{display:flex;gap:7px;overflow:auto;padding-top:8px}
+.timeline span{white-space:nowrap;border:1px solid var(--k-line);background:var(--k-void);padding:6px 8px;
+  border-radius:var(--k-r-s);font:500 10px var(--k-f-data);color:var(--k-dim)}
+.muted{font-size:11px;color:var(--k-mute)}
+@media(max-width:440px){.tiles{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}
+  .pit{grid-template-columns:1fr 38px 58px 76px}}
+"""
+
+
 def race_intelligence_hud_html_v19(info):
     """Yarış tekrarının altına gelen hafif, kaydırılabilir gerçek veri HUD'u."""
     if not info.get('ok'):
@@ -3905,12 +3932,16 @@ def race_intelligence_hud_html_v19(info):
         f"<span>{html_lib.escape(str(item['time']))} · {item['air'] if pd.notna(item.get('air')) else '—'}°C / {item['track'] if pd.notna(item.get('track')) else '—'}°C{' · yağmur' if item.get('rain') else ''}</span>"
         for item in info.get('weather_timeline', [])
     ) or "<span>Hava zaman çizelgesi yok.</span>"
-    return f"""
-    <style>
-      body{{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}}.hud{{border:1px solid #2c425c;border-radius:13px;background:#141a24;padding:13px}}.head{{font-size:13px;font-weight:950;letter-spacing:.09em}}.sub{{font-size:10px;color:#91a9c0;margin-top:5px}}.tiles{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:11px}}.tile{{border:1px solid #2a405a;border-radius:8px;background:#0d1724;padding:9px}}.tile small{{display:block;color:#8ca3bb;font-weight:800;font-size:10px}}.tile b{{display:block;color:#f4f8ff;margin-top:5px;font-size:13px}}.grid{{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}}.box{{border:1px solid #293e56;border-radius:9px;background:#0d1623;padding:10px;min-height:135px}}.box h4{{margin:0 0 8px;font-size:11px;letter-spacing:.08em}}.msg{{border-left:3px solid #ffd168;padding:6px 7px;background:#19191a;margin:5px 0;font-size:11px;line-height:1.35}}.msg b{{color:#ffd168;margin-right:5px}}.pit{{display:grid;grid-template-columns:1fr 42px 72px 88px;gap:5px;border-top:1px solid #26394e;padding:7px 0;font-size:11px}}.pit b{{color:#eef2f7}}.pit span{{color:#a9bbcf}}.timeline{{display:flex;gap:7px;overflow:auto;padding-top:8px}}.timeline span{{white-space:nowrap;border:1px solid #2c4059;background:#0a0e14;padding:6px 8px;border-radius:6px;font-size:10px;color:#aec1d4}}.muted{{font-size:11px;color:#8da2b8}}@media(max-width:440px){{.tiles{{grid-template-columns:repeat(2,1fr)}}.grid{{grid-template-columns:1fr}}.pit{{grid-template-columns:1fr 38px 58px 76px}}}}
-    </style>
-    <div class='hud'><div class='head'>RACE INTELLIGENCE // VERIFIED DATA</div><div class='sub'>HAVA · RESMÎ SPEED TRAP · PİT-LANE GEÇİŞİ · FIA RACE CONTROL</div><div class='tiles'>{tile_html}</div><div class='timeline'>{timeline_html}</div><div class='grid'><div class='box'><h4>FIA RACE CONTROL — TÜRKÇE</h4>{control_html}</div><div class='box'><h4>PIT / LASTİK OLAYLARI</h4>{pit_html}<div class='muted' style='margin-top:8px'>{html_lib.escape(info.get('pit_note', ''))}</div></div></div></div>
-    """
+    pit_note = html_lib.escape(info.get('pit_note', ''))
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _RACE_INTEL_CSS + "</style>"
+        + f"<div class='hud'><div class='head'>Race Intelligence // Doğrulanmış Veri</div>"
+        + "<div class='sub'>Hava · resmî speed trap · pit-lane geçişi · FIA Race Control</div>"
+        + f"<div class='tiles'>{tile_html}</div><div class='timeline'>{timeline_html}</div>"
+        + f"<div class='grid'><div class='box'><h4>FIA Race Control — Türkçe</h4>{control_html}</div>"
+        + f"<div class='box'><h4>Pit / Lastik Olayları</h4>{pit_html}"
+        + f"<div class='muted' style='margin-top:8px'>{pit_note}</div></div></div></div>"
+    )
 
 
 def stewarlde_drivers():
