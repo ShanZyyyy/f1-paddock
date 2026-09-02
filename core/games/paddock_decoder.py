@@ -46,15 +46,16 @@ __all__ = [
 ]
 
 CATEGORIES: Tuple[str, ...] = ("teams", "drivers", "tracks")
-MAX_GUESSES: int = 5
+MAX_GUESSES: int = 4
 
-# Kaç yanlıştan sonra metin ipucu açılır
-_HINT_AFTER_MISSES = 2
+# Kaç yanlıştan sonra metin ipucu açılır (yalnızca son hak kalınca)
+_HINT_AFTER_MISSES = 3
 
-# Bulanık eşleşme eşiği (0..1 benzerlik). 'ferari'→'ferrari' = 6/7 ≈ 0.857 geçer.
-_MATCH_THRESHOLD = 0.78
+# Bulanık eşleşme eşiği (0..1 benzerlik). Yazım hatası affedilir ama yakın
+# tahmin yeterli değil: 'ferari'→'ferrari' = 6/7 ≈ 0.857 geçer; 'ferai' geçmez.
+_MATCH_THRESHOLD = 0.82
 
-# Blur eğrisi: başta MAX, her denemede azalır, çözülünce/bitince 0
+# Blur eğrisi: başta MAX, her denemede azalır, çözülünce/bitince taban
 _BLUR_START_PX = 22.0
 
 
@@ -87,50 +88,51 @@ _F1_HEAD = ("https://www.formula1.com/content/dam/fom-website/drivers/"
 _F1_MAP = ("https://media.formula1.com/image/upload/f_auto,c_limit,w_1320,q_auto/"
            "content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/{map}_Circuit")
 
+# Alias'lar dar tutulur: yazım hatası toleransı Levenshtein'de zaten var; burada
+# yalnızca tam ad + SOYAD + dil varyantı (Türkçe/İngilizce) kabul edilir.
+# Tek isim ("Max"), 3-harf kod ("VER"), gevşek kısaltma ("RB", "SF") YOK.
 TARGETS: Dict[str, List[DecoderTarget]] = {
     "teams": [
         DecoderTarget("teams", "Ferrari",
                       _F1_LOGO.format(slug="ferrari"),
-                      aliases=("scuderia ferrari", "scuderia", "sf", "ferari"),
-                      hint="Maranello merkezli, tarihin en köklü takımı."),
+                      aliases=("scuderia ferrari",),
+                      hint="Kuruluşundan bugüne kesintisiz yarışan tek takım."),
         DecoderTarget("teams", "Red Bull Racing",
                       _F1_LOGO.format(slug="redbullracing"),
-                      aliases=("red bull", "redbull", "rbr", "red bull racing honda"),
-                      hint="Milton Keynes; 2010–2013 ve 2021–2023 hâkimiyeti."),
+                      aliases=("red bull racing", "red bull"),
+                      hint="Enerji içeceği markasının Milton Keynes ekibi."),
         DecoderTarget("teams", "McLaren",
                       _F1_LOGO.format(slug="mclaren"),
-                      aliases=("mclaren f1 team", "maclaren", "mclaren mercedes"),
-                      hint="Woking; papaya turuncusu."),
+                      aliases=("mclaren f1 team", "mclaren racing"),
+                      hint="Woking; kurucusunun adını taşıyan Yeni Zelandalı ekip."),
     ],
     "drivers": [
         DecoderTarget("drivers", "Lewis Hamilton",
                       _F1_HEAD.format(sur="hamilton"),
-                      aliases=("hamilton", "lewis", "ham", "sir lewis hamilton"),
-                      hint="Yedi kez dünya şampiyonu, 44 numara."),
+                      aliases=("hamilton", "sir lewis hamilton"),
+                      hint="Rekor eşitleyen yedi kez dünya şampiyonu."),
         DecoderTarget("drivers", "Max Verstappen",
                       _F1_HEAD.format(sur="verstappen"),
-                      aliases=("verstappen", "max", "ver", "verstapen"),
-                      hint="Hollandalı; en genç GP kazananı."),
+                      aliases=("verstappen",),
+                      hint="En genç GP galibi; babası da F1'de yarıştı."),
         DecoderTarget("drivers", "Charles Leclerc",
                       _F1_HEAD.format(sur="leclerc"),
-                      aliases=("leclerc", "charles", "lec", "leclrc"),
-                      hint="Monakolu; Ferrari'nin baş pilotu, sıralama uzmanı."),
+                      aliases=("leclerc",),
+                      hint="F2 ve GP3 şampiyonu; kırmızı arabayı sürüyor."),
     ],
     "tracks": [
         DecoderTarget("tracks", "Circuit de Monaco",
                       _F1_MAP.format(map="Monaco"),
-                      aliases=("monaco", "monako", "monte carlo", "montekarlo",
-                               "circuit de monte-carlo"),
-                      hint="Sokak pisti; en düşük ortalama hız, Loews virajı."),
+                      aliases=("monaco", "monako", "monte carlo", "montekarlo"),
+                      hint="Takvimin en yavaş ortalama hızlı, en dar pisti."),
         DecoderTarget("tracks", "Silverstone Circuit",
                       _F1_MAP.format(map="Great_Britain"),
-                      aliases=("silverstone", "silverston", "british gp",
-                               "britanya", "ingiltere"),
-                      hint="İlk F1 yarışının (1950) ev sahibi; Maggotts–Becketts."),
+                      aliases=("silverstone", "silverston"),
+                      hint="1950'de ilk F1 yarışının yapıldığı eski hava üssü."),
         DecoderTarget("tracks", "Suzuka Circuit",
                       _F1_MAP.format(map="Japan"),
-                      aliases=("suzuka", "suzuca", "japan", "japonya", "japanese gp"),
-                      hint="Tek '8' şeklindeki pist; 130R ve esler."),
+                      aliases=("suzuka", "suzuca"),
+                      hint="Dünyanın tek '8' şeklindeki pisti."),
     ],
 }
 
@@ -190,10 +192,11 @@ def match_score(guess: str, target: DecoderTarget) -> Tuple[float, str]:
     for candidate in target.accepted:
         c = normalize(candidate)
         score = similarity(g, c)
-        # tahmin, çok kelimeli cevabın bir kelimesini tam tutuyorsa (ör. "monaco"
-        # -> "circuit de monaco") bunu güçlü kısmi eşleşme say
-        if g and g in c.split():
-            score = max(score, 0.9)
+        # tahmin, çok kelimeli cevabın AYIRT EDİCİ (4+ harf) bir kelimesini tam
+        # tutuyorsa (ör. "monaco" -> "circuit de monaco") kısmi eşleşme say —
+        # "de", "f1", "gp" gibi kısa/jenerik kelimeler saymaz
+        if len(g) >= 4 and g in c.split():
+            score = max(score, 0.86)
         if score > best:
             best, best_on = score, candidate
     return best, best_on
@@ -341,7 +344,8 @@ def blur_px(remaining: int, *, start: float = _BLUR_START_PX,
             solved: bool = False) -> float:
     """Kalan hakka göre önerilen CSS blur (px).
 
-    remaining=5 → tam blur; her yanlışta ~1/5 azalır; 0 veya çözüldü → 0.
+    remaining == MAX_GUESSES → tam blur; her yanlışta eşit azalır; 0/çözüldü → 0.
+    (UI kendi eğrisini kullanabilir; bu yalnızca basit bir yardımcı.)
     """
     if solved or remaining <= 0:
         return 0.0
@@ -387,16 +391,16 @@ def public_state(state: DecoderRound) -> dict:
 # ===========================================================================
 
 _SOLVE_BASE = 50        # 1. denemede bilme
-_SOLVE_STEP = 10        # her fazladan deneme -kaybı
-_SOLVE_FLOOR = 8        # 5. denemede bile en az
+_SOLVE_STEP = 13        # her fazladan deneme -kaybı
+_SOLVE_FLOOR = 10       # son denemede bile en az
 _FAIL_XP = 2            # teselli
-_SWEEP_BONUS = 25       # 3 kategoriyi de bilme
+_SWEEP_BONUS = 30       # 3 kategoriyi de bilme (artık daha zor)
 
 
 def score_round(state: DecoderRound) -> int:
     """Bir turun XP değeri. Oyun bitmediyse 0.
 
-    1. deneme 50 · 2. 40 · 3. 30 · 4. 20 · 5. 10 · bilemedi 2.
+    1. deneme 50 · 2. 37 · 3. 24 · 4. 11 · bilemedi 2.
     (stewardle/predict oyunlarıyla aynı ~5–50 bandı.)
     """
     if not state.over:
