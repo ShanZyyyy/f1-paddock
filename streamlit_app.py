@@ -5268,30 +5268,27 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
 
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .dg{{border:1px solid #232c3a;border-left:3px solid {colour_team};border-radius:12px;
-        background:#141a24;overflow:hidden}}
-      .dg-hd{{padding:16px 16px 12px}}
-      .dg-hd s{{display:block;margin:0 0 0.5rem;font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;
-        text-decoration:none;letter-spacing:.14em;text-transform:uppercase}}
-      .dg-hd b{{display:block;margin:0;font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
-        letter-spacing:-.005em}}
-      .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
-      .dg-body{{border-top:1px solid #232c3a;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
-      .dg-name{{font:800 20px 'Inter',system-ui,sans-serif;text-transform:uppercase}}
-      .dg-verdict{{font:700 13px 'JetBrains Mono',monospace;margin:3px 0 8px}}
-      .dg-line{{font:500 12px 'Inter',system-ui,sans-serif;color:#c9d2de;padding:2px 0}}
-      .dg-line b{{color:#eef2f7}}
-      .dg-sec s{{display:block;font:700 9px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:#6d7a8c;text-decoration:none;margin-bottom:6px}}
-      .dg-cars{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}}
-      .dg-car{{border:1px solid #2b3a4d;border-radius:6px;background:#131a24;padding:4px 8px;font:700 11px 'JetBrains Mono',monospace}}
-      .dg-empty{{color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif}}
-      .dg-next{{border-top:1px solid #232c3a;padding:11px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
-      .dg-next b{{color:#e8eef4}}
-      @media(max-width:560px){{.dg-body{{grid-template-columns:1fr}}}}
+      .fp-dg{{border:1px solid #232c3a;border-left:3px solid {colour_team};border-radius:12px;
+        background:#141a24;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .fp-dg .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
+      .fp-dg .dg-body{{border-top:1px solid #232c3a;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
+      .fp-dg .dg-name{{font:800 20px 'Inter',system-ui,sans-serif;text-transform:uppercase}}
+      .fp-dg .dg-verdict{{font:700 13px 'JetBrains Mono',monospace;margin:3px 0 8px}}
+      .fp-dg .dg-line{{font:500 12px 'Inter',system-ui,sans-serif;color:#c9d2de;padding:2px 0}}
+      .fp-dg .dg-line b{{color:#eef2f7}}
+      .fp-dg .dg-sec s{{display:block;font:700 9px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:#6d7a8c;text-decoration:none;margin-bottom:6px}}
+      .fp-dg .dg-cars{{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:5px}}
+      .fp-dg .dg-car{{border:1px solid #2b3a4d;border-radius:6px;background:#131a24;padding:4px 8px;font:700 11px 'JetBrains Mono',monospace}}
+      .fp-dg .dg-empty{{color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif}}
+      .fp-dg .dg-next{{border-top:1px solid #232c3a;padding:11px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
+      .fp-dg .dg-next b{{color:#e8eef4}}
+      @media(max-width:560px){{.fp-dg .dg-body{{grid-template-columns:1fr}}}}
     </style>
-    <div class="dg">
-      <div class="dg-hd"><s>SON YARIŞ · KİŞİSEL ÖZET</s><b>{html_lib.escape(d['event'])}</b></div>
+    <div class="fp-dg">
+      <div style="display:flex;flex-direction:column;padding:16px 16px 12px">
+        <s style="display:block;margin:0 0 15px 0;padding:0;font:600 9px 'JetBrains Mono',ui-monospace,monospace;color:#6d7a8c;text-decoration:none;letter-spacing:.14em;text-transform:uppercase;line-height:1">SON YARIŞ · KİŞİSEL ÖZET</s>
+        <b style="display:block;margin:0;padding:0;font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:-.005em;line-height:1.15">{html_lib.escape(d['event'])}</b>
+      </div>
       <div class="dg-pod">Podyum — {pod}</div>
       <div class="dg-body">
         <div><div class="dg-sec"><s>PİLOTUN</s></div>{drv_html}</div>
@@ -5366,8 +5363,7 @@ def render_favourites_centre():
         st.rerun()
     _fb = _follow_board_v51(_picked_follow or _follow_now, _cur_year, _last_race.get('last'))
     if _fb.get('ok'):
-        render_html_hud(follow_board_html(_fb, _cur_year),
-                        height=follow_board_component_height(_fb), scrolling=True)
+        st.markdown(follow_board_html(_fb, _cur_year), unsafe_allow_html=True)
     else:
         st.caption("Henüz kimseyi takip etmiyorsun. Yukarıdan pilot ekle.")
 
@@ -5377,11 +5373,10 @@ def render_favourites_centre():
         with st.spinner("Son yarışın kişisel özeti hazırlanıyor..."):
             _digest = personal_race_digest_v43(_cur_year, _last_race['last'], team_name, _fav_code)
         if _digest.get('ok'):
-            render_html_hud(
+            st.markdown(
                 personal_race_digest_html(_digest, team['color'],
                                           _last_race.get('next'), _last_race.get('next_in_days')),
-                height=personal_race_digest_height(_digest),
-                scrolling=True,
+                unsafe_allow_html=True,
             )
             fp_ui.share_panel(_digest_share_text_v59(_digest, _last_race['last']),
                               include_url=False, url_query=_fp_share_query_v65('favourites'))
@@ -11829,25 +11824,22 @@ def _home_last_race_html(year, event, next_race, next_days):
         nxt = f"<div class='lr-next'>Sıradaki: <b>{html_lib.escape(next_race)}</b>{days}</div>"
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .lr{{border:1px solid #232c3a;border-left:3px solid #e10600;border-radius:12px;
-        background:#141a24;overflow:hidden}}
-      .lr-hd{{padding:16px 16px 12px}}
-      .lr-hd s{{display:block;margin:0 0 0.5rem;font:600 9px 'JetBrains Mono',monospace;color:#6d7a8c;
-        text-decoration:none;letter-spacing:.14em;text-transform:uppercase}}
-      .lr-hd b{{display:block;margin:0;font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;
-        letter-spacing:-.005em}}
-      .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
+      .fp-lr{{border:1px solid #232c3a;border-left:3px solid #e10600;border-radius:12px;
+        background:#141a24;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .fp-lr .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
         padding:7px 16px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
-      .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
-      .lr-d{{font:700 13px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-      .lr-d small{{display:block;font:500 10px 'Inter',system-ui,sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
-      .lr-pt{{font:700 13px 'JetBrains Mono',monospace;color:#c9d2de}}
-      .lr-next{{border-top:1px solid #232c3a;padding:11px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
-      .lr-next b{{color:#e8eef4}}
+      .fp-lr .lr-p{{font:700 13px 'JetBrains Mono',monospace;color:#6d7a8c;text-align:center}}
+      .fp-lr .lr-d{{font:700 13px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
+      .fp-lr .lr-d small{{display:block;font:500 10px 'Inter',system-ui,sans-serif;color:#8a9bb0;text-transform:none;letter-spacing:0}}
+      .fp-lr .lr-pt{{font:700 13px 'JetBrains Mono',monospace;color:#c9d2de}}
+      .fp-lr .lr-next{{border-top:1px solid #232c3a;padding:11px 16px;font:600 11.5px 'Inter',system-ui,sans-serif;color:#9aa7b8}}
+      .fp-lr .lr-next b{{color:#e8eef4}}
     </style>
-    <div class="lr">
-      <div class="lr-hd"><s>SON YARIŞ · İLK 5</s><b>{html_lib.escape(event)}</b></div>
+    <div class="fp-lr">
+      <div style="display:flex;flex-direction:column;padding:16px 16px 12px">
+        <s style="display:block;margin:0 0 15px 0;padding:0;font:600 9px 'JetBrains Mono',ui-monospace,monospace;color:#6d7a8c;text-decoration:none;letter-spacing:.14em;text-transform:uppercase;line-height:1">SON YARIŞ · İLK 5</s>
+        <b style="display:block;margin:0;padding:0;font:700 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:-.005em;line-height:1.15">{html_lib.escape(event)}</b>
+      </div>
       {rows}
       {nxt}
     </div>
@@ -11975,28 +11967,25 @@ def follow_board_html(board, year):
             f"<span class='fb-ch'>{champ}</span>"
             f"<span class='fb-last'>{last}</span></div>"
         )
+    _hd_tail = f" · son yarış <b>{race_label}</b>" if race_label else ""
     return f"""
     <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .fb{{border:1px solid #232c3a;border-left:3px solid var(--fp-cyan,#33d6c8);border-radius:12px;
-        background:#141a24;overflow:hidden}}
-      .fb-hd{{padding:16px 16px 12px;font:600 9px 'JetBrains Mono',monospace;letter-spacing:.14em;
-        text-transform:uppercase;color:#6d7a8c;line-height:1.5}}
-      .fb-hd b{{color:#e8eef4;font-weight:600}}
-      .fb-row{{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:9px;align-items:center;
+      .fp-fb{{border:1px solid #232c3a;border-left:3px solid #33d6c8;border-radius:12px;
+        background:#141a24;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
+      .fp-fb>div:first-child b{{color:#e8eef4;font-weight:600}}
+      .fp-fb .fb-row{{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:9px;align-items:center;
         padding:9px 16px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
-      .fb-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
-      .fb-name{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .fb-ch{{font:700 12px 'JetBrains Mono',monospace;color:#9aa7b8;white-space:nowrap}}
-      .fb-last{{font:700 12px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap;display:flex;align-items:center;gap:5px}}
-      .fb-last i{{font-style:normal;font-size:11px}}
-      .fb-last .up{{color:#3ecf8e}} .fb-last .dn{{color:#ff8a70}} .fb-last .fl{{color:#8a9bb0}}
-      .fb-none{{color:#6d7a8c;font:600 11px 'Inter',system-ui,sans-serif}}
-      .fb-ch{{font-size:11px}}
-      @media(max-width:430px){{.fb-row{{grid-template-columns:34px 1fr;row-gap:2px}}.fb-ch,.fb-last{{grid-column:2;text-align:right}}}}
+      .fp-fb .fb-code{{font:800 13px 'JetBrains Mono',monospace;color:var(--c)}}
+      .fp-fb .fb-name{{font:600 12px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+      .fp-fb .fb-ch{{font:700 11px 'JetBrains Mono',monospace;color:#9aa7b8;white-space:nowrap}}
+      .fp-fb .fb-last{{font:700 12px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap;display:flex;align-items:center;gap:5px}}
+      .fp-fb .fb-last i{{font-style:normal;font-size:11px}}
+      .fp-fb .fb-last .up{{color:#3ecf8e}} .fp-fb .fb-last .dn{{color:#ff8a70}} .fp-fb .fb-last .fl{{color:#8a9bb0}}
+      .fp-fb .fb-none{{color:#6d7a8c;font:600 11px 'Inter',system-ui,sans-serif}}
+      @media(max-width:430px){{.fp-fb .fb-row{{grid-template-columns:34px 1fr;row-gap:2px}}.fp-fb .fb-ch,.fp-fb .fb-last{{grid-column:2;text-align:right}}}}
     </style>
-    <div class="fb">
-      <div class="fb-hd">Takip Panosu{f" · son yarış <b>{race_label}</b>" if race_label else ""}</div>
+    <div class="fp-fb">
+      <div style="display:block;padding:16px 16px 12px;font:600 9px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6d7a8c;line-height:1.5">Takip Panosu{_hd_tail}</div>
       {body}
     </div>
     """
@@ -12679,12 +12668,12 @@ def _home_cockpit_v44():
                 _html = personal_race_digest_html(
                     _dg, season_team_colour(fav_team, year), last.get('next'), last.get('next_in_days')
                 ) if _dg.get('ok') else None
-                _h = personal_race_digest_height(_dg) if _dg.get('ok') else 0
             else:
                 _html = _home_last_race_html(year, last['last'], last.get('next'), last.get('next_in_days'))
-                _h = 356
         if _html:
-            render_html_hud(_html, height=_h, scrolling=True)
+            # Raw HTML/CSS — st.components iframe DEĞİL: Streamlit varsayılan DOM'u
+            # bu kartın stiline karışmasın, inline style'lar tam kontrolde kalsın.
+            st.markdown(_html, unsafe_allow_html=True)
             if not fav_code:
                 st.caption("Favori pilot seçersen burası kişisel özete döner — Favori Paddock.")
         else:
@@ -12705,8 +12694,7 @@ def _home_cockpit_v44():
             _fbcol = st.columns([1.35, 1])[0]
             with _fbcol:
                 fp_ui.section_title("Takip Panosu")
-                render_html_hud(follow_board_html(_board, year),
-                                height=follow_board_component_height(_board), scrolling=True)
+                st.markdown(follow_board_html(_board, year), unsafe_allow_html=True)
                 if len(_follow) < 2:
                     st.caption("Favori Paddock'tan daha fazla pilot ekle — hepsi burada tek panoda görünür.")
     elif fav_code:
