@@ -50,7 +50,7 @@ def _root_vars():
     parts = [f"--k-{k}:{v}" for k, v in _SCALE.items()]
     parts.append(f"--k-f-ui:{F_UI}")
     parts.append(f"--k-f-data:{F_DATA}")
-    parts += ["--k-r-s:6px", "--k-r-m:9px", "--k-r-l:13px", "--k-edge:2px"]
+    parts += ["--k-r-s:6px", "--k-r-m:9px", "--k-r-l:13px", "--k-r-pill:999px", "--k-edge:2px"]
     return ";".join(parts)
 
 

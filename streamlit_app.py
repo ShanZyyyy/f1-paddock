@@ -2816,44 +2816,52 @@ def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, te
         {'code': str(driver_1), 'team': str(team_1), 'colour': colour_1, 'lap': str(lap_time_1), 'samples': first, 'sectors': sector_times_1 or []},
         {'code': str(driver_2), 'team': str(team_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': second, 'sectors': sector_times_2 or []},
     ], 'overlay': track_overlay or {}})
-    return r'''<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #232c3a;border-radius:13px;padding:12px;background:#141a24}
+    return (fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + r'''
+.hud{border:1px solid var(--k-line);border-radius:var(--k-r-l);padding:12px;background:var(--k-panel)}
 .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.title{font-size:13px;font-weight:950;letter-spacing:.09em}
-.sub{font-size:11px;color:#a8b8c8;margin-top:5px;line-height:1.5}
-.tag{border:1px solid #35506d;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:900;color:var(--team)}
+.title{font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.sub{font-size:10px;color:var(--k-dim);margin-top:5px;line-height:1.5}
+.tag{border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--team);border-radius:var(--k-r-s);
+  padding:6px 9px;font:700 11px var(--k-f-ui);color:var(--k-ink);background:var(--k-raised)}
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.legend span{border:1px solid #35506d;border-radius:99px;padding:4px 9px;font:800 11px Inter,Arial,sans-serif;color:#c2d4e6;background:#101f34}
+.legend span{border:1px solid var(--k-line);border-radius:var(--k-r-pill,999px);padding:4px 9px;
+  font:600 10px var(--k-f-data);letter-spacing:.04em;color:var(--k-dim);background:var(--k-void)}
 .legend span[title]{cursor:help}
-.map{margin-top:9px;border:1px solid #232c3a;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+.map{margin-top:9px;border:1px solid var(--k-line);border-radius:var(--k-r-m);overflow:hidden;
+  background:radial-gradient(circle at 50% 45%,var(--k-panel),var(--k-void) 82%)}
 canvas{width:100%;height:392px;display:block}
 .sectors{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
-.sector{border:1px solid #2b3a4d;border-top:3px solid var(--c);border-radius:8px;padding:8px;background:#141a24;font:800 12px ui-monospace,Consolas,monospace}
-.sector small{display:block;color:#a8b8c8;font-family:Inter,Arial,sans-serif;margin-bottom:6px;font-size:11px}
+.sector{border:1px solid var(--k-line);border-top:var(--k-edge) solid var(--c);border-radius:var(--k-r-s);
+  padding:8px;background:var(--k-void);font:600 12px var(--k-f-data);font-variant-numeric:tabular-nums}
+.sector small{display:block;color:var(--k-dim);font-family:var(--k-f-ui);margin-bottom:6px;font-size:11px}
 .sector .win{opacity:1}
 .sector .lose{opacity:.62}
 .sector .win::before{content:"\25B2 ";font-size:9px;vertical-align:1px}
 .sector .lose::before{content:"\2013 ";opacity:.6}
 .msec{margin-top:12px}
-.mslab{display:flex;justify-content:space-between;gap:8px;font:700 11px ui-monospace,Consolas,monospace;color:#8ea4bc;margin-bottom:5px}
-.mslab s{font-style:normal;font-weight:900}
+.mslab{display:flex;justify-content:space-between;gap:8px;font:600 11px var(--k-f-data);color:var(--k-mute);margin-bottom:5px}
+.mslab s{font-style:normal;font-weight:700}
 .msrow{position:relative;display:flex;align-items:stretch;gap:1px;height:48px}
-.msrow::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#3a4a5e;z-index:1}
+.msrow::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--k-line-lit);z-index:1}
 .msbar{flex:1;position:relative;cursor:help}
 .msbar i{position:absolute;left:0;right:0;display:block;border-radius:1px}
-.msbar.c0 i{bottom:50%;background:var(--mc0,#4ea981)}
-.msbar.c1 i{top:50%;background:var(--mc1,#d3576a)}
+.msbar.c0 i{bottom:50%;background:var(--mc0,var(--k-green))}
+.msbar.c1 i{top:50%;background:var(--mc1,var(--k-pink))}
 .msbar.big i{box-shadow:0 0 0 1px rgba(255,255,255,.4)}
 .dtrace{margin-top:12px}
-.dtlab{display:flex;justify-content:space-between;gap:8px;font:700 11px ui-monospace,Consolas,monospace;color:#8ea4bc;margin-bottom:5px;flex-wrap:wrap}
-.dtlab s{font-style:normal;font-weight:900}
-.dtrace canvas{width:100%;height:104px;display:block;border:1px solid #232c3a;border-radius:8px;background:#0d131c;cursor:crosshair}
+.dtlab{display:flex;justify-content:space-between;gap:8px;font:600 11px var(--k-f-data);color:var(--k-mute);
+  margin-bottom:5px;flex-wrap:wrap}
+.dtlab s{font-style:normal;font-weight:700}
+.dtrace canvas{width:100%;height:104px;display:block;border:1px solid var(--k-line);border-radius:var(--k-r-s);
+  background:var(--k-void);cursor:crosshair}
 .bottom{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
-.btn{border:1px solid #2b3a4d;border-radius:7px;background:#141a24;color:#eef2f7;font-weight:900;padding:7px 9px;cursor:pointer}
-.btn.active{border-color:#ff4757;background:#3a0f12}
-.slider{flex:1;min-width:130px;accent-color:#ff4051}
-.delta{font:900 12px ui-monospace,Consolas,monospace;margin-left:auto}
+.btn{border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-raised);color:var(--k-ink);
+  font:700 11px var(--k-f-ui);padding:7px 10px;cursor:pointer;transition:background .18s ease}
+.btn:hover{background:var(--k-hover)}
+.btn.active{border-color:color-mix(in srgb,var(--k-red) 60%,transparent);
+  background:color-mix(in srgb,var(--k-red) 16%,transparent)}
+.slider{flex:1;min-width:130px;accent-color:var(--k-red)}
+.delta{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums;margin-left:auto}
 @media(max-width:650px){canvas{height:320px}.sectors{grid-template-columns:1fr}.delta{width:100%;margin-left:0}}
 </style>
 <div class="hud">
@@ -3145,7 +3153,7 @@ buildStatic(); fit(); fitDT();
 raf=requestAnimationFrame(loop);
 setInterval(function(){ if(performance.now()-last>60) tick(); }, 40);
 })();
-</script>'''.replace('__PAYLOAD__', packed)
+</script>''').replace('__PAYLOAD__', packed)
 
 
 def two_driver_duel_html_repaired(*args, **kwargs):

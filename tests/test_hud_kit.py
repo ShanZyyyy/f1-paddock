@@ -219,3 +219,28 @@ def test_race_intelligence_hud_uses_kit():
     assert html.count("color-scheme:dark") == 1
     assert html.count("{") == html.count("}")
     assert "VER" in html and "Race Control" in html
+
+
+def test_two_driver_duel_html_uses_kit():
+    import numpy as np
+    import pandas as pd
+    n = 120
+    ang = np.linspace(0, 2 * np.pi, n)
+
+    def tel(off):
+        return pd.DataFrame({
+            "X": 500 * np.cos(ang) + 150 * np.cos(2 * ang + off), "Y": 350 * np.sin(ang),
+            "Distance": np.linspace(0, 5000, n), "Speed": 180 + 50 * np.sin(ang * 3 + off),
+            "Time": pd.to_timedelta(np.linspace(0, 88.0, n), unit="s"),
+        })
+
+    html = app.two_driver_duel_html_stable(
+        tel(0), tel(0.6), "VER", "NOR", "Red Bull Racing", "McLaren",
+        "#3671c6", "#ff8000", "1:28.2", "1:28.5", 88.2, 88.5,
+        {"straights": [], "sectors": []}, [27.1, 31.2, 29.9], [27.3, 31.0, 30.2],
+    )
+    assert "--k-panel" in html and "fonts.googleapis.com" in html
+    assert html.count("color-scheme:dark") == 1
+    assert "__PAYLOAD__" not in html
+    assert html.count("<script>") == 1 and html.count("</script>") == 1
+    assert app.two_driver_duel_html_repaired is not None
