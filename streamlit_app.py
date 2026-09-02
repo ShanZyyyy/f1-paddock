@@ -6880,6 +6880,138 @@ def build_stable_race_replay_payload(year, event_name):
         return {'ok': False, 'reason': str(error)}
 
 
+_REPLAY_CHROME_CSS = r"""
+/* 2D Yarış Tekrarı — yalnız arayüz katmanı (tur sayacı, sıralama bordu, HUD
+   çerçevesi). Hareket motoru / fizik / canvas çizimi <script>'te, dokunulmaz.
+   Tüm seçiciler .r köküne kapsanır ki theme.hud_iframe_style'ın bare-class
+   kurallarını (.r/.panel/.sub/.title...) yensin. */
+body>.r{border:1px solid var(--k-line);border-radius:var(--k-r-l);padding:14px;background:var(--k-panel)}
+.r .top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.r .title{font:600 13px var(--k-f-ui);letter-spacing:.02em;text-transform:none}
+.r s{text-decoration:none}
+.r .flm{color:var(--k-violet);font-style:normal;text-decoration:none}
+.r .sub{font:500 11px var(--k-f-data);letter-spacing:.04em;color:var(--k-dim);margin-top:5px}
+.r .badge{border:1px solid color-mix(in srgb,var(--k-green) 38%,transparent);border-radius:var(--k-r-s);
+  padding:6px 10px;color:var(--k-green);font:600 10px var(--k-f-data);letter-spacing:.06em;
+  background:color-mix(in srgb,var(--k-green) 12%,transparent)}
+.r .legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.r .key{border:1px solid var(--k-line);border-radius:var(--k-r-pill);padding:5px 9px;font:500 10px var(--k-f-data);
+  letter-spacing:.03em;color:var(--k-dim);background:var(--k-void)}
+.r .key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:baseline}
+.r .key[title]{cursor:help}
+.r .key em{font-style:normal;color:var(--k-mute);font-weight:500}
+.r .grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:12px;margin-top:12px}
+.r .map{border:1px solid var(--k-line);border-radius:var(--k-r-m);overflow:hidden;
+  background:radial-gradient(circle at 50% 45%,var(--k-panel),var(--k-void) 78%)}
+.r .map canvas{width:100%;height:510px;display:block}
+.r .panel{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-void);padding:12px}
+.r .hero{border-bottom:1px solid var(--k-line);padding:0 0 10px;margin-bottom:8px;min-height:74px}
+.r .hero b{font:700 20px var(--k-f-ui);letter-spacing:-.01em;color:var(--team)}
+.r .hero small{display:block;color:var(--k-dim);margin-top:5px;font:500 11px var(--k-f-data);letter-spacing:.04em}
+.r .hero img{float:right;width:64px;height:80px;object-fit:contain;object-position:right bottom;margin:-8px -4px -2px 8px}
+.r .stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--k-line-soft);
+  font:500 12px var(--k-f-data);gap:8px}
+.r .stat span{color:var(--k-mute)}
+.r .stat b{font-variant-numeric:tabular-nums}
+.r .pit{color:var(--k-amber)}
+.r .on{color:var(--k-green)}
+.r .tyrehud{margin:11px 0 3px}
+.r .tyrehud [title],.r .stat [title]{cursor:help}
+.r .tyrehead{display:flex;align-items:center;gap:9px}
+.r .tcompound{width:30px;height:30px;border-radius:var(--k-r-s);display:flex;align-items:center;justify-content:center;
+  font:700 14px var(--k-f-data);color:var(--k-void);flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.r .tmeta{flex:1;min-width:0}
+.r .tmeta b{font:700 13px var(--k-f-ui);letter-spacing:.02em}
+.r .tmeta small{display:block;color:var(--k-mute);font:500 10px var(--k-f-data);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .tpct{font:700 15px var(--k-f-data);font-variant-numeric:tabular-nums}
+.r .tprog{position:relative;height:13px;border-radius:5px;background:var(--k-void);
+  box-shadow:inset 0 0 0 1px var(--k-line);overflow:hidden;margin:9px 0 7px}
+.r .tprog i{display:block;height:100%;transition:width .25s linear}
+.r .tprog-lap{position:absolute;right:6px;top:50%;transform:translateY(-50%);font:600 8px var(--k-f-data);
+  color:var(--k-ink);mix-blend-mode:difference;pointer-events:none}
+.r .tstrip{display:flex;height:8px;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--k-line)}
+.r .tstripseg{border-right:1px solid var(--k-void);opacity:.45}
+.r .tstripseg.cur{opacity:1;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7)}
+.r .tstripseg:last-child{border-right:0}
+.r .tstriplab{display:flex;justify-content:space-between;gap:8px;font:600 8.5px var(--k-f-data);
+  color:var(--k-mute);margin-top:5px}
+.r .tstriplab span:last-child{color:var(--k-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .controls,.r .strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.r .evwrap{margin-top:12px}
+.r .evbar{position:relative;height:20px;margin:4px 0 2px}
+.r .evbar::before{content:"";position:absolute;left:0;right:0;top:9px;height:2px;background:var(--k-line-lit)}
+.r .evbar i{position:absolute;top:4px;width:11px;height:11px;margin-left:-5.5px;border-radius:50%;
+  background:var(--k-void);box-shadow:inset 0 0 0 2px currentColor;cursor:pointer;transition:transform .1s ease}
+.r .evbar i:hover{transform:scale(1.35)}
+.r .evbar i.hit{background:currentColor}
+.r .evbar i.play{box-shadow:inset 0 0 0 2px currentColor,0 0 0 3px rgba(255,255,255,.25)}
+.r .evbar .evhead{position:absolute;top:-2px;width:2px;height:22px;background:var(--k-ink);margin-left:-1px;
+  box-shadow:0 0 5px rgba(255,255,255,.6);z-index:3;pointer-events:none}
+.r .evnow{min-height:16px;font:600 11px var(--k-f-ui);color:var(--k-dim);letter-spacing:.01em}
+.r .evnow b{color:var(--k-amber);font-family:var(--k-f-data)}
+.r .evnow .lap{color:var(--k-mute);font-family:var(--k-f-data);font-size:10px;margin-right:6px}
+.r .evlist{margin-top:7px;max-height:96px;overflow-y:auto;font:500 10.5px var(--k-f-ui);line-height:1.5}
+.r .evlist button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--k-dim);
+  padding:2px 0;cursor:pointer;border-left:2px solid transparent;padding-left:7px}
+.r .evlist button:hover{color:var(--k-ink)}
+.r .evlist button.on{color:var(--k-ink);border-left-color:var(--k-amber)}
+.r .evlist button .lap{color:var(--k-mute);font-family:var(--k-f-data);margin-right:6px}
+.r .btn{border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-raised);color:var(--k-ink);
+  font:600 11px var(--k-f-ui);padding:7px 10px;cursor:pointer;transition:background .18s ease}
+.r .btn:hover{background:var(--k-hover)}
+.r .btn.active{border-color:color-mix(in srgb,var(--k-red) 55%,transparent);
+  background:color-mix(in srgb,var(--k-red) 15%,transparent)}
+.r .strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px;align-items:stretch}
+.r .striphd{grid-column:1/-1;font:600 8.5px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--k-mute);margin:2px 0 1px}
+.r .pilot{display:grid;grid-template-columns:20px 1fr auto;gap:7px;align-items:center;text-align:left;
+  border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--team);border-radius:var(--k-r-s);
+  background:var(--k-void);color:var(--k-ink);padding:5px 8px;cursor:pointer;font-family:var(--k-f-ui);
+  transition:background .16s ease}
+.r .pilot:hover{background:var(--k-panel)}
+.r .pilot.active{background:var(--k-raised);box-shadow:inset 0 0 0 1px var(--team)}
+.r .pilot.inpit{opacity:.65}
+.r .pilot .pp{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-mute);text-align:center}
+.r .pilot .pc{font:700 12px var(--k-f-ui);letter-spacing:.02em;min-width:0}
+.r .pilot .pc small{display:block;font:500 8.5px var(--k-f-data);color:var(--k-mute);margin-top:2px}
+.r .pilot .pc .flm{color:var(--k-violet);font-style:normal;font-size:8.5px;margin-left:4px}
+.r .pilot .pg{display:flex;align-items:center;gap:5px;font:600 10px var(--k-f-data);font-variant-numeric:tabular-nums;
+  color:var(--k-dim);white-space:nowrap}
+.r .pilot .pg .pt{width:15px;height:15px;border-radius:4px;font:700 9px var(--k-f-data);color:var(--k-void);
+  text-align:center;line-height:15px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.r .pilot .pg.pit{color:var(--k-amber)}
+.r .slider{accent-color:var(--k-red);flex:1;min-width:135px}
+.r .clock{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums}
+.r .note{font:500 10px var(--k-f-ui);color:var(--k-mute);line-height:1.45;margin-top:10px}
+@media(max-width:850px){.r .grid{grid-template-columns:1fr}.r .map canvas{height:390px}.r .strip{grid-template-columns:1fr 1fr}}
+.r .tourpill{border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-raised);color:var(--k-dim);
+  font:600 10px var(--k-f-ui);letter-spacing:.03em;padding:7px 10px;cursor:pointer;white-space:nowrap;transition:all .18s ease}
+.r .tourpill:hover{border-color:var(--k-cyan);color:var(--k-ink)}
+#tourblock{position:fixed;inset:0;z-index:50;display:none}
+#tourhi{position:fixed;z-index:51;border-radius:10px;
+  box-shadow:0 0 0 9999px color-mix(in srgb,var(--k-void) 86%,transparent),0 0 0 2px var(--k-cyan) inset;
+  pointer-events:none;display:none;transition:top .2s ease,left .2s ease,width .2s ease,height .2s ease}
+#tourcard{position:fixed;z-index:52;width:300px;max-width:calc(100vw - 24px);
+  background:color-mix(in srgb,var(--k-panel) 92%,transparent);backdrop-filter:blur(14px) saturate(1.2);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  border:1px solid var(--k-line-lit);border-radius:var(--k-r-l);padding:15px 16px;
+  box-shadow:0 24px 60px -12px rgba(0,0,0,.7);display:none}
+#tourcard .tstep{font:600 9px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;color:var(--k-cyan)}
+#tourcard h4{margin:6px 0 7px;font:700 15px var(--k-f-ui);letter-spacing:-.01em;color:var(--k-ink)}
+#tourcard p{margin:0;font:400 12px var(--k-f-ui);line-height:1.55;color:var(--k-dim)}
+#tourcard .trow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:14px}
+#tourcard .tskip{background:none;border:0;color:var(--k-mute);font:500 11px var(--k-f-ui);cursor:pointer;padding:4px}
+#tourcard .tskip:hover{color:var(--k-dim)}
+#tourcard .tnav{display:flex;gap:6px}
+#tourcard .tnav button{border:1px solid var(--k-line);border-radius:var(--k-r-s);background:var(--k-raised);
+  color:var(--k-ink);font:600 11px var(--k-f-ui);padding:6px 13px;cursor:pointer;transition:border-color .18s ease}
+#tourcard .tnav button:hover{border-color:var(--k-cyan)}
+#tourcard .tnav button.pri{background:var(--k-cyan);border-color:var(--k-cyan);color:var(--k-void)}
+@media(prefers-reduced-motion:reduce){#tourhi{transition:none}}
+"""
+
+
 def stable_race_replay_html(payload):
     """Canvas-only replay HUD with an explicit schematic pit lane.
 
@@ -6889,73 +7021,10 @@ def stable_race_replay_html(payload):
     *schematic* instead of being presented as GPS.
     """
     packed = fp_ui.json_for_script(_replay_overlay_v26(dict(payload)))
-    return r"""<!doctype html><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}.r{border:1px solid #2d435e;border-radius:14px;padding:14px;background:linear-gradient(135deg,#141a24,#09101a)}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.title{font-size:14px;font-weight:950;letter-spacing:.1em}.sub{font-size:11px;color:#91a8c0;margin-top:5px}.badge{border:1px solid #365170;border-radius:8px;padding:7px 10px;color:#79e7ae;font-size:11px;font-weight:900}.legend{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.key{border:1px solid #334d69;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:850;color:#bcd0e4;background:#101d2f}.key i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.key[title]{cursor:help}.key em{font-style:normal;color:#8ea4bc;font-weight:700}.grid{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:12px;margin-top:12px}.map{border:1px solid #29405a;border-radius:11px;background:radial-gradient(circle at 50% 45%,#17263d,#07090d 74%);overflow:hidden}.map canvas{width:100%;height:510px;display:block}.panel{border:1px solid #2c425d;border-radius:11px;background:#141a24;padding:12px}.hero{border-bottom:1px solid #2b4058;padding:0 0 10px;margin-bottom:8px;min-height:74px}.hero b{font-size:21px;color:var(--team)}.hero small{display:block;color:#a9bbcd;margin-top:5px}.hero img{float:right;width:65px;height:82px;object-fit:contain;object-position:right bottom;margin:-8px -4px -2px 8px}.stat{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #26394f;font-size:12px;gap:8px}.stat span{color:#92a7bc}.pit{color:#ffd46b}.on{color:#81e6ac}
-.tyrehud{margin:11px 0 3px}.tyrehud [title],.stat [title]{cursor:help}
-.tyrehead{display:flex;align-items:center;gap:9px}
-.tcompound{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font:900 14px ui-monospace,Consolas,monospace;color:#0a121c;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
-.tmeta{flex:1;min-width:0}.tmeta b{font:900 13px Inter,Arial,sans-serif;letter-spacing:.04em}
-.tmeta small{display:block;color:#8ea4bc;font-size:10px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tpct{font:900 15px ui-monospace,Consolas,monospace}
-.tprog{position:relative;height:13px;border-radius:6px;background:#0a121c;box-shadow:inset 0 0 0 1px #29405a;overflow:hidden;margin:9px 0 7px}
-.tprog i{display:block;height:100%;transition:width .25s linear}
-.tprog-lap{position:absolute;right:6px;top:50%;transform:translateY(-50%);font:800 8px ui-monospace,Consolas,monospace;color:#eef4fa;mix-blend-mode:difference;pointer-events:none}
-.tstrip{display:flex;height:8px;border-radius:3px;overflow:hidden;box-shadow:inset 0 0 0 1px #29405a}
-.tstripseg{border-right:1px solid rgba(6,10,16,.55);opacity:.45}
-.tstripseg.cur{opacity:1;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7)}
-.tstripseg:last-child{border-right:0}
-.tstriplab{display:flex;justify-content:space-between;gap:8px;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-top:5px}
-.tstriplab span:last-child{color:#c2d4e6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.controls,.strip{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:10px}
-.evwrap{margin-top:12px}
-.evbar{position:relative;height:20px;margin:4px 0 2px}
-.evbar::before{content:"";position:absolute;left:0;right:0;top:9px;height:2px;background:#26394f}
-.evbar i{position:absolute;top:4px;width:11px;height:11px;margin-left:-5.5px;border-radius:50%;
-  background:#0e1b2d;box-shadow:inset 0 0 0 2px currentColor;cursor:pointer;transition:transform .1s ease}
-.evbar i:hover{transform:scale(1.35)}
-.evbar i.hit{background:currentColor}
-.evbar i.play{box-shadow:inset 0 0 0 2px currentColor,0 0 0 3px rgba(255,255,255,.25)}
-.evbar .evhead{position:absolute;top:-2px;width:2px;height:22px;background:#fff;margin-left:-1px;
-  box-shadow:0 0 5px rgba(255,255,255,.7);z-index:3;pointer-events:none}
-.evnow{min-height:16px;font:700 11px Inter,Arial,sans-serif;color:#dbe6f0;letter-spacing:.01em}
-.evnow b{color:#f4d35e}.evnow .lap{color:#8ea4bc;font-family:ui-monospace,Consolas,monospace;font-size:10px;margin-right:6px}
-.evlist{margin-top:7px;max-height:96px;overflow-y:auto;font:600 10.5px Inter,Arial,sans-serif;line-height:1.5}
-.evlist button{display:block;width:100%;text-align:left;background:none;border:0;color:#9db1c8;padding:2px 0;cursor:pointer;border-left:2px solid transparent;padding-left:7px}
-.evlist button:hover{color:#eef4fa}
-.evlist button.on{color:#eef4fa;border-left-color:#f4d35e}
-.evlist button .lap{color:#7f97ac;font-family:ui-monospace,Consolas,monospace;margin-right:6px}.btn{border:1px solid #39516f;border-radius:7px;background:#142239;color:#eef2f7;font-weight:900;padding:7px 9px;cursor:pointer}.btn.active{border-color:#ff4757;background:#3b1822}
-.strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px;align-items:stretch}
-.striphd{grid-column:1/-1;font:700 9px ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#7f97ac;margin:2px 0 1px}
-.pilot{display:grid;grid-template-columns:20px 1fr auto;gap:7px;align-items:center;text-align:left;
-  border:1px solid #2a3d55;border-left:4px solid var(--team);border-radius:6px;background:#101c30;color:#eef2f7;
-  padding:5px 8px;cursor:pointer;font-family:Inter,Arial,sans-serif}
-.pilot.active{background:#1c3049;box-shadow:0 0 0 1px var(--team) inset}
-.pilot.inpit{opacity:.7}
-.pilot .pp{font:900 12px ui-monospace,Consolas,monospace;color:#8ea4bc;text-align:center}
-.pilot .pc{font:900 12px Inter,Arial,sans-serif;letter-spacing:.02em;min-width:0}
-.pilot .pc small{display:block;font:700 8.5px ui-monospace,Consolas,monospace;color:#7f97ac;margin-top:1px}
-.pilot .pc .flm{color:#c07bff;font-style:normal;font-size:8.5px;margin-left:4px}
-.pilot .pg{display:flex;align-items:center;gap:5px;font:800 10px ui-monospace,Consolas,monospace;color:#c2d4e6;white-space:nowrap}
-.pilot .pg .pt{width:15px;height:15px;border-radius:4px;font:900 9px ui-monospace,Consolas,monospace;color:#0a121c;text-align:center;line-height:15px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
-.pilot .pg.pit{color:#ffd46b}
-.slider{accent-color:#ff4051;flex:1;min-width:135px}.clock{font:900 12px ui-monospace,Consolas,monospace}.note{font-size:10px;color:#8ea4bc;line-height:1.45;margin-top:10px}@media(max-width:850px){.grid{grid-template-columns:1fr}.map canvas{height:390px}.strip{grid-template-columns:1fr 1fr}}
-.tourpill{border:1px solid #3a5675;border-radius:8px;background:#122238;color:#cfe0f2;font:800 10px Inter,Arial,sans-serif;letter-spacing:.05em;padding:7px 10px;cursor:pointer;white-space:nowrap}
-.tourpill:hover{border-color:#6ee7ff;color:#eef6ff}
-#tourblock{position:fixed;inset:0;z-index:50;display:none}
-#tourhi{position:fixed;z-index:51;border-radius:10px;box-shadow:0 0 0 9999px rgba(4,7,12,.82),0 0 0 2px #6ee7ff inset;pointer-events:none;display:none;transition:top .2s ease,left .2s ease,width .2s ease,height .2s ease}
-#tourcard{position:fixed;z-index:52;width:300px;max-width:calc(100vw - 24px);background:linear-gradient(150deg,#16273f,#0f1826);border:1px solid #37536f;border-radius:12px;padding:14px 15px;box-shadow:0 20px 46px rgba(0,0,0,.55);display:none}
-#tourcard .tstep{font:800 9.5px ui-monospace,Consolas,monospace;letter-spacing:.14em;color:#6ee7ff}
-#tourcard h4{margin:5px 0 6px;font:900 15px Inter,Arial,sans-serif;color:#f2f7fc}
-#tourcard p{margin:0;font:500 12px Inter,Arial,sans-serif;line-height:1.5;color:#bacadb}
-#tourcard .trow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:13px}
-#tourcard .tskip{background:none;border:0;color:#8ea4bc;font:600 11px Inter,Arial,sans-serif;cursor:pointer;padding:4px}
-#tourcard .tskip:hover{color:#cfe0f2}
-#tourcard .tnav{display:flex;gap:6px}
-#tourcard .tnav button{border:1px solid #3a5675;border-radius:7px;background:#182a44;color:#eef4fa;font:800 11px Inter,Arial,sans-serif;padding:6px 12px;cursor:pointer}
-#tourcard .tnav button:hover{border-color:#6ee7ff}
-#tourcard .tnav button.pri{background:#1f6feb;border-color:#1f6feb}
-@media(prefers-reduced-motion:reduce){#tourhi{transition:none}}
-</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="tourpill" id="tourbtn" type="button">REHBERLİ TUR</button><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div></div><div class="legend"><span class="key" title="Düzlükte düşük sürtünme bölgesi. 2024 ve öncesinde yayında buna DRS bölgesi deniyordu."><i style="background:#33d6c8"></i>Straight Mode <em>(≈ DRS)</em></span><span class="key" title="Öndeki araca yakınken ekstra elektrik gücü kullanılabilen bölge — geçiş şansı yüksek. Yayın diliyle push-to-pass / ERS hücum."><i style="background:#71e6a1"></i>Overtake Mode <em>(≈ ERS hücum)</em></span><span class="key" title="Pilotun pite girip çıktığı yaklaşık konum."><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key" title="Pit yolu koordinatı resmî olarak yayımlanmaz; bu çizgi yalnızca şematiktir."><i style="background:#ffd46b"></i>Pit şeridi (şematik)</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="evwrap"><div class="evnow" id="evnow"></div><div class="evbar" id="evbar"></div><div class="evlist" id="evlist"></div></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Olay çizgisi bu verilerden otomatik türetilir. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
+    return (
+        r"""<!doctype html><html><head><meta charset="utf-8">"""
+        + fp_kit.google_fonts_link()
+        + "<style>" + fp_kit.kit_css() + _REPLAY_CHROME_CSS + r"""</style></head><body><div class="r"><div class="top"><div><div class="title">RACE CONTROL // VERIFIED REPLAY</div><div class="sub" id="sub"></div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="tourpill" id="tourbtn" type="button">REHBERLİ TUR</button><div class="badge">● DOĞRULANMIŞ YARIŞ AKIŞI</div></div></div><div class="legend"><span class="key" title="Düzlükte düşük sürtünme bölgesi. 2024 ve öncesinde yayında buna DRS bölgesi deniyordu."><i style="background:#33d6c8"></i>Straight Mode <em>(≈ DRS)</em></span><span class="key" title="Öndeki araca yakınken ekstra elektrik gücü kullanılabilen bölge — geçiş şansı yüksek. Yayın diliyle push-to-pass / ERS hücum."><i style="background:#71e6a1"></i>Overtake Mode <em>(≈ ERS hücum)</em></span><span class="key" title="Pilotun pite girip çıktığı yaklaşık konum."><i style="background:#b79cff"></i>Pit giriş / çıkış</span><span class="key" title="Pit yolu koordinatı resmî olarak yayımlanmaz; bu çizgi yalnızca şematiktir."><i style="background:#ffd46b"></i>Pit şeridi (şematik)</span></div><div class="grid"><div><div class="map"><canvas id="track"></canvas></div><div class="controls"><button class="btn active" id="play">Duraklat</button><button class="btn" data-speed="1">1× Gerçek</button><button class="btn active" data-speed="6">6×</button><button class="btn" data-speed="20">20×</button><button class="btn" data-speed="60">60×</button><input id="range" class="slider" type="range" min="0" max="1000" value="0"><span class="clock" id="clock"></span></div><div class="strip" id="strip"></div><div class="evwrap"><div class="evnow" id="evnow"></div><div class="evbar" id="evbar"></div><div class="evlist" id="evlist"></div></div><div class="note">Pist: temiz FastF1 telemetrisi. Sıra, tur, lastik ve pit zamanları doğrulanmış kayıttır. Olay çizgisi bu verilerden otomatik türetilir. Pit şeridi koordinatı yayımlanmadığı için görsel şematiktir.</div></div><aside class="panel" id="panel"></aside></div></div><script>
 const data=__PAYLOAD__,cars=data.cars||[],route=data.track||[],overlay=data.overlay||{},canvas=document.getElementById('track'),ctx=canvas.getContext('2d');let selected=cars[0]?.code||'',playing=true,speed=6,time=0,last=performance.now(),lastHud=0,lastKey='',view=null;const tyres={SOFT:'#ff4655',MEDIUM:'#ffd344',HARD:'#f1f4f8',INTERMEDIATE:'#45dc78',WET:'#42a9ff'};
 /* perf: statik pist ayrı katman + kare başına tek sefer araç-durumu */
 let trk=null,trkCtx=null,_ft=-1;const _S=new Map();
@@ -7133,6 +7202,7 @@ setInterval(function(){if(playing&&performance.now()-last>120){frame(performance
   },500);
 })();
 </script></div></body></html>""".replace('__PAYLOAD__', packed)
+    )
 
 
 st.markdown(r"""

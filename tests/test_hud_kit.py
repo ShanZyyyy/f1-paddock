@@ -352,3 +352,31 @@ def test_career_h2h_html_uses_kit():
 def test_kit_css_neutralises_legacy_component_selectors():
     css = app.fp_kit.kit_css()
     assert ".r,.box,.tile,.panel,.card,.summary,.hud{background:transparent" in css
+
+
+def test_stable_race_replay_html_chrome_uses_kit():
+    import math
+    n = 60
+    track = [[math.cos(i / n * 6.28) * 100, math.sin(i / n * 6.28) * 80] for i in range(n)]
+    car = {"code": "VER", "team": "Red Bull Racing", "colour": "#3671c6", "grid": 1, "final_position": 1,
+           "pit_events": [{"lap": 14, "start": 1200.0, "end": 1222.0}],
+           "laps": [{"lap": lp, "position": 1, "compound": "SOFT" if lp <= 14 else "HARD",
+                     "stint": 0 if lp <= 14 else 1, "start": (lp - 1) * 90.0, "end": lp * 90.0}
+                    for lp in range(1, 31)],
+           "profile": {"name": "VER"}}
+    payload = {"ok": True, "event": "Test GP", "total_laps": 30, "total_seconds": 2700.0,
+               "track": track, "cars": [car]}
+    html = app.stable_race_replay_html(payload)
+    # chrome restyled to kit, engine untouched
+    assert "fonts.googleapis.com" in html and "--k-panel" in html
+    assert html.count("color-scheme:dark") == 1
+    assert "__PAYLOAD__" not in html
+    # motion engine markers still present (claude-a3's perf code)
+    assert "function states(t)" in html and "function frame(now)" in html
+    # every element id the JS writes to is preserved
+    for el_id in ('id="clock"', 'id="sub"', 'id="panel"', 'id="strip"',
+                  'id="evbar"', 'id="evnow"', 'id="evlist"', 'id="range"',
+                  'id="play"', 'id="track"', 'id="tourbtn"'):
+        assert el_id in html, el_id
+    # .r-scoped so it beats theme.hud_iframe_style bare selectors
+    assert "body>.r{" in html and ".r .pilot{" in html
