@@ -10105,7 +10105,8 @@ def render_paddock_decoder_v1():
 
         if not rnd['over']:
             used = set(rnd['guesses'])
-            options = [o for o in rnd['pool'] if o not in used]
+            _pool = rnd.get('pool') or [t.answer for t in fp_deco.TARGETS[cat]]
+            options = [o for o in _pool if o not in used]
             with st.container(key='deco_pickwrap'):
                 pick = st.selectbox(
                     "pick", options, label_visibility="collapsed",
