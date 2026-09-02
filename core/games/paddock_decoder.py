@@ -415,15 +415,14 @@ def image_orientation(state: DecoderRound) -> Tuple[int, bool]:
     """Görselin (döndürme derecesi, yatay aynalama) durumu.
 
     Yalnızca PİST haritaları için: bir pist silüeti taraftara çok tanıdık, bu
-    yüzden çözülene / son hak kalana dek 90/180/270° döndürülüp aynalanır.
-    Son hakta ve oyun bitince düz konuma döner. Diğer kategoriler her zaman düz.
+    yüzden çözülene / son hak kalana dek 180° döndürülüp (bazılarında ayrıca
+    aynalanıp) gösterilir — kadraj oranı bozulmaz, sadece "o şekli biliyorum"
+    anlık galibiyeti kalkar. Son hakta ve oyun bitince düz konuma döner.
     """
     if state.category != "tracks" or state.over or state.remaining <= 1:
         return (0, False)
     h = int(hashlib.sha256(state.target.answer.encode("utf-8")).hexdigest(), 16)
-    deg = (h % 3 + 1) * 90          # 90 | 180 | 270 — asla 0
-    mirror = bool((h >> 5) & 1)
-    return (deg, mirror)
+    return (180, bool(h & 1))
 
 
 def public_state(state: DecoderRound) -> dict:

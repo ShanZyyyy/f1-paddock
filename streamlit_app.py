@@ -9262,10 +9262,10 @@ _GAME_INTRO_V8 = {
         "İkisi de doğruysa seri uzar — her doğru +6 XP, ikisi birden +2 bonus.",
     ], None),
     'decoder': ("Paddock Dekoder", "#9aa1ab", [
-        "Gri-beyaz, bulanık bir görsel: sırayla bir takım, bir pilot, bir pist. Renk ipucu yok.",
-        "5 tahmin hakkın var; her yanlışta görsel biraz netleşir — ama asla tam açılmaz.",
-        "Ufak yazım hataları affedilir (\"ferari\" → Ferrari). 2 yanlıştan sonra metin ipucu gelir.",
-        "Puan: 1. denemede 50, her denemede düşer; üç kategoriyi de bil, +25 bonus.",
+        "Gri-beyaz, bulanık ve kırpılmış bir görsel (2018 sonrası): sırayla bir takım, bir pilot, bir pist.",
+        "Cevabı açılır listeden seç — 3 hak. Her yanlışta kadraj biraz açılır ama görsel asla tam netleşmez.",
+        "Pist haritaları çözülene dek ters/aynalı gösterilir. Son hakta metin ipucu gelir.",
+        "Puan: 1. denemede 50, sonra 30, sonra 15; üç kategoriyi de bil, +40 bonus.",
     ], [
         "Dekoder: yayın öncesi kapalı devre kamerada silüetten tanıma alıştırması",
     ]),
@@ -9874,34 +9874,34 @@ _DECODER_CSS = r"""
 .dcx-pl .c{color:var(--fp-text)}
 
 /* girdi — Streamlit text_input + form button tamamen yeniden giydirildi */
-.stApp div[class*="st-key-deco_inwrap"]{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-md);
-  background:var(--fp-bg-2);padding:5px;margin-top:12px}
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stForm"]{
-  border:0!important;padding:0!important;background:none!important;box-shadow:none!important}
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stTextInput"]{margin:0!important}
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stTextInput"] label,
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stWidgetLabel"]{display:none!important}
-.stApp div[class*="st-key-deco_inwrap"] [data-baseweb="input"],
-.stApp div[class*="st-key-deco_inwrap"] [data-baseweb="base-input"]{
-  background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}
-.stApp div[class*="st-key-deco_inwrap"] input{
-  background:transparent!important;border:0!important;box-shadow:none!important;color:var(--fp-text)!important;
-  font:600 15px var(--fp-f-mono)!important;letter-spacing:.03em!important;padding:11px 13px!important;
-  caret-color:#e6e9ee!important}
-.stApp div[class*="st-key-deco_inwrap"] input:focus{outline:0!important}
-.stApp div[class*="st-key-deco_inwrap"] input::placeholder{
-  color:var(--fp-text-mute)!important;letter-spacing:.14em!important;font-weight:500!important;
-  text-transform:uppercase;opacity:1}
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"]{margin-top:4px!important}
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"] button{
+/* seçici — Streamlit selectbox + buton monokrom terminale giydirildi (Stewardle deseni) */
+.stApp div[class*="st-key-deco_pickwrap"]{margin-top:12px}
+.stApp div[class*="st-key-deco_pickwrap"] [data-testid="stWidgetLabel"]{display:none!important}
+.stApp div[class*="st-key-deco_pickwrap"] [data-baseweb="select"]>div{
+  background:var(--fp-bg-2)!important;border:1px solid var(--fp-line-2)!important;
+  border-radius:var(--fp-r-md)!important;box-shadow:none!important;min-height:46px!important}
+.stApp div[class*="st-key-deco_pickwrap"] [data-baseweb="select"] [data-testid="stMarkdownContainer"] p,
+.stApp div[class*="st-key-deco_pickwrap"] [data-baseweb="select"] div[value]{
+  font:600 14px var(--fp-f-mono)!important;letter-spacing:.02em!important;color:var(--fp-text)!important}
+.stApp div[class*="st-key-deco_pickwrap"] [data-baseweb="select"] svg{fill:var(--fp-text-mute)!important}
+.stApp div[class*="st-key-deco_pickwrap"] .stButton{margin-top:8px}
+.stApp div[class*="st-key-deco_pickwrap"] .stButton button{
   width:100%!important;border:1px solid #e6e9ee!important;border-radius:var(--fp-r-sm)!important;
   background:rgba(230,233,238,.10)!important;color:#e6e9ee!important;
-  font:700 11px var(--fp-f-mono)!important;letter-spacing:.26em!important;padding:10px!important;
+  font:700 11px var(--fp-f-mono)!important;letter-spacing:.26em!important;padding:11px!important;
   text-transform:uppercase!important;box-shadow:none!important;transition:background .14s ease}
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"] button:hover{
+.stApp div[class*="st-key-deco_pickwrap"] .stButton button:hover{
   background:rgba(230,233,238,.2)!important;border-color:#fff!important}
-.stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"] button p{
+.stApp div[class*="st-key-deco_pickwrap"] .stButton button p{
   font:inherit!important;letter-spacing:inherit!important;text-transform:inherit!important;margin:0!important}
+/* açılır menü paneli (portal — kök seviyede) */
+.stApp [data-baseweb="popover"] [role="listbox"]{
+  background:var(--fp-bg-2)!important;border:1px solid var(--fp-line-2)!important;border-radius:var(--fp-r-md)!important}
+.stApp [data-baseweb="popover"] [role="option"]{
+  font:600 13px var(--fp-f-mono)!important;color:var(--fp-text-dim)!important;letter-spacing:.02em!important}
+.stApp [data-baseweb="popover"] [role="option"]:hover,
+.stApp [data-baseweb="popover"] [aria-selected="true"]{
+  background:var(--fp-bg-3)!important;color:var(--fp-text)!important}
 
 .dcx-hint{border:1px solid var(--fp-line);border-left:2px solid var(--fp-text-mute);
   border-radius:var(--fp-r-md);background:var(--fp-bg-2);padding:12px 15px;margin-top:12px;
@@ -9957,33 +9957,36 @@ _DECODER_CSS = r"""
 _DECO_LABEL = {"teams": "TAKIM", "drivers": "PİLOT", "tracks": "PİST"}
 
 
-def _deco_image_filter(remaining, solved):
+def _deco_image_filter(remaining, solved, category=None):
     """Görsel HER ZAMAN gri-beyaz ve KIRPILMIŞ (zoom). ``(blur px, contrast,
     brightness, scale)``; ``grayscale(1)`` stil dizesinde sabit.
 
     Kalan hak azaldıkça blur düşer ve kadraj genişler. Son hakta bile taban blur
-    + kırpma kalır — görsel asla tam açılmaz. Çözülünce blur kalkar, kadraj
-    tam açılır (ama yine gridir)."""
+    + kırpma kalır — görsel asla tam açılmaz. Çözülünce blur kalkar.
+    Logolar (``teams``) basit şekil olduğu için ilk kare çok daha ağır örtülür."""
     mg = fp_deco.MAX_GUESSES
     if solved:
         return (0.6, 1.05, 1.0, 1.0)
     r = max(0, min(mg, int(remaining)))
     frac = (mg - r) / mg                     # 0 (ilk) → 1 (son)
-    blur = round(16.0 - 11.0 * frac, 1)      # 16 → 5
+    logo = category == "teams"
+    b0, b1 = (30.0, 8.0) if logo else (22.0, 6.0)     # ilk kare çok daha karanlık
+    s0, s1 = (2.9, 1.35) if logo else (2.35, 1.18)
+    blur = round(b0 - (b0 - b1) * frac, 1)
     if r == 0:
-        blur = 5.0
-    contrast = round(1.26 - 0.10 * frac, 2)  # 1.26 → 1.16
-    bright = round(0.93 + 0.06 * frac, 3)    # 0.93 → 0.99
-    scale = round(1.85 - 0.72 * frac, 3)     # 1.85 → 1.13
+        blur = b1
+    scale = round(s0 - (s0 - s1) * frac, 3)
+    contrast = round(1.30 - 0.12 * frac, 2)  # 1.30 → 1.18
+    bright = round(0.90 + 0.08 * frac, 3)    # 0.90 → 0.98
     return (blur, contrast, bright, scale)
 
 
 def render_paddock_decoder_v1():
     _game_shell(
         "Paddock Dekoder",
-        "Gri-beyaz, bulanık ve kırpılmış bir görsel: sırayla bir takım, bir "
-        "pilot, bir pist. 4 hak; her yanlışta kadraj biraz açılır ama görsel "
-        "asla tam netleşmez.",
+        "Gri-beyaz, bulanık ve kırpılmış bir görsel (2018 sonrası): sırayla bir "
+        "takım, bir pilot, bir pist. Cevabı listeden seç — 3 hak. Her yanlışta "
+        "kadraj biraz açılır ama görsel asla tam netleşmez.",
         "#9aa1ab",
     )
     if _game_intro_gate_v8('decoder'):
@@ -10026,7 +10029,7 @@ def render_paddock_decoder_v1():
             f"<br>+{fp_deco.score_round(rr)} XP</div></div>"
             for rr in sess.rounds
         )
-        sweep = " · SWEEP +30" if view['swept'] else ""
+        sweep = " · SWEEP +40" if view['swept'] else ""
         st.markdown(
             f"<div class='dcx'><div class='dcx-final'>"
             f"<div class='dcx-final-top'>"
@@ -10048,7 +10051,9 @@ def render_paddock_decoder_v1():
     rnd = view['round']
     rd = sess.current
     cat = rnd['category']
-    blur, contrast, bright, scale = _deco_image_filter(rnd['remaining'], rnd['solved'])
+    blur, contrast, bright, scale = _deco_image_filter(rnd['remaining'], rnd['solved'], cat)
+    o_deg, o_mir = rnd.get('orientation', (0, False))
+    xform = f"scale({scale}) rotate({o_deg}deg)" + (" scaleX(-1)" if o_mir else "")
     crit = (not rnd['over']) and rnd['remaining'] == 1
 
     # üst şerit
@@ -10070,7 +10075,7 @@ def render_paddock_decoder_v1():
             f"<div class='dcx'><div class='dcx-view'>"
             + _img(rnd['image'],
                    f"style=\"filter:grayscale(1) blur({blur}px) contrast({contrast}) "
-                   f"brightness({bright});transform:scale({scale})\" "
+                   f"brightness({bright});transform:{xform}\" "
                    "onerror=\"this.closest('.dcx-view').classList.add('blank')\"")
             + "<div class='no'>?</div>"
             "<span class='tk a'></span><span class='tk b'></span>"
@@ -10099,19 +10104,18 @@ def render_paddock_decoder_v1():
         )
 
         if not rnd['over']:
-            with st.container(key='deco_inwrap'):
-                with st.form(key=f"deco_form_{sess.index}_{rnd['attempts_used']}",
-                             clear_on_submit=True):
-                    guess = st.text_input(
-                        "guess", label_visibility="collapsed",
-                        placeholder=f"{_DECO_LABEL[cat]} adını yaz",
-                        key=f"deco_g_{sess.index}_{rnd['attempts_used']}",
-                    )
-                    sent = st.form_submit_button("ÇÖZ")
-            if sent and str(guess or "").strip():
-                fp_deco.submit_guess(rd, guess)
-                st.session_state[key] = sess.to_dict()
-                st.rerun()
+            used = set(rnd['guesses'])
+            options = [o for o in rnd['pool'] if o not in used]
+            with st.container(key='deco_pickwrap'):
+                pick = st.selectbox(
+                    "pick", options, label_visibility="collapsed",
+                    key=f"deco_pick_{sess.index}_{rnd['attempts_used']}",
+                )
+                if st.button("ÇÖZ", key=f"deco_go_{sess.index}_{rnd['attempts_used']}"):
+                    if pick:
+                        fp_deco.submit_guess(rd, pick)
+                        st.session_state[key] = sess.to_dict()
+                        st.rerun()
             if rnd['hint']:
                 st.markdown(
                     f"<div class='dcx'><div class='dcx-hint'><s>ÇÖZÜMLEME NOTU</s>"
@@ -10139,16 +10143,13 @@ def render_paddock_decoder_v1():
                     st.session_state[key] = sess.to_dict()
                 st.rerun()
 
-    # tahmin kaydı — yakınlık yüzdesiyle
+    # tahmin kaydı — seçilen isimler
     if rnd['guesses']:
         rows = ""
         for i, g in enumerate(rnd['guesses'], 1):
-            sim = fp_deco.match_score(g, rd.target)[0]
             hit = rnd['solved'] and i == len(rnd['guesses'])
-            cls = "hit" if hit else ("warm" if sim >= 0.6 else "")
-            tag = ("EŞLEŞTİ" if hit
-                   else f"%{int(round(sim * 100))} · YAKIN" if sim >= 0.6
-                   else f"%{int(round(sim * 100))} · UZAK")
+            cls = "hit" if hit else ""
+            tag = "EŞLEŞTİ" if hit else "DEĞİL"
             rows += (f"<div class='dcx-row {cls}'><span class='n'>{i:02d}</span>"
                      f"<span class='g'>{html_lib.escape(g)}</span>"
                      f"<span class='r'>{tag}</span></div>")
@@ -12204,8 +12205,8 @@ _GAMES_HUB_V8 = [
      "Pole zamanını gördün; gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.",
      "#7c5cff", "Tur ver", "hotlap", "Kolay", "~30 sn", "gerekmez"),
     ("SİLÜET", "Paddock Dekoder",
-     "Gri-beyaz bulanık görseli çöz: bir takım, bir pilot, bir pist. 5 hak, her yanlışta netleşir — ama tam değil.",
-     "#9aa1ab", "Dekoderi aç", "decoder", "Orta", "~2 dk", "gerekmez"),
+     "Gri-beyaz, ters çevrilmiş, kırpılmış görseli listeden çöz: bir takım, bir pilot, bir pist (2018+). 3 hak.",
+     "#9aa1ab", "Dekoderi aç", "decoder", "Zor", "~2 dk", "gerekmez"),
 ]
 
 

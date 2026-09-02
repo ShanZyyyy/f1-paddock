@@ -85,9 +85,9 @@ def test_empty_guess_not_counted():
 def test_tracks_rotated_until_last_guess():
     r = deco.new_round("tracks", target_index=0)    # Monaco
     deg, mirror = deco.image_orientation(r)
-    assert deg in (90, 180, 270)                    # asla düz
+    assert deg == 180 and mirror in (True, False)  # 180° döndürülür
     deco.submit_guess(r, "Suzuka Circuit")          # 2 kaldı
-    assert deco.image_orientation(r)[0] in (90, 180, 270)
+    assert deco.image_orientation(r)[0] == 180
     deco.submit_guess(r, "Suzuka Circuit")          # 1 kaldı (son hak)
     assert deco.image_orientation(r) == (0, False)  # düzelir
 
@@ -136,7 +136,7 @@ def test_public_state_carries_pool_and_orientation():
     r = deco.new_round("tracks", target_index=0)
     v = deco.public_state(r)
     assert v["pool"] == deco.pool_options("tracks")
-    assert v["orientation"][0] in (90, 180, 270)
+    assert v["orientation"][0] == 180
     assert v["max_guesses"] == 3
 
 
