@@ -57,7 +57,10 @@ CATALOG: list[IntentDef] = [
               strong=("kariyerinde kac", "toplam kac"),
               needs=("driver",)),
     IntentDef("HEAD_TO_HEAD",
-              keywords=("karsilastir", "vs", "kime karsi", "kim daha", "hangisi daha")),
+              keywords=("karsilastir", "vs", "kime karsi", "kim daha", "hangisi daha",
+                        "daha cok", "daha fazla", "daha iyi", "mi daha", "kiyasla"),
+              strong=("kim daha iyi", "hangisi daha iyi", "daha cok sampiyon",
+                      "daha fazla galibiyet")),
     IntentDef("RECORD",
               keywords=("rekor", "en cok", "en fazla", "en genc", "en yasli", "tarihte kim"),
               strong=("rekoru kimin", "en cok kim", "en genc sampiyon", "en genc dunya",
@@ -103,9 +106,9 @@ def classify(u: Utterance, ent: Entities) -> Classification:
         # zorunlu varlığı olan niyetler, o varlık geldiyse bir taban puan alır
         if d.needs and s:
             s += 1
-        # HEAD_TO_HEAD yalnız iki pilot varsa
-        if d.name == "HEAD_TO_HEAD" and len(ent.drivers) < 2:
-            s = 0
+        # HEAD_TO_HEAD yalnız iki pilot varsa — ve iki pilot varsa güçlü sinyal
+        if d.name == "HEAD_TO_HEAD":
+            s = s + 3 if len(ent.drivers) >= 2 else 0
         if s:
             scores[d.name] = s
 
@@ -115,6 +118,8 @@ def classify(u: Utterance, ent: Entities) -> Classification:
             return Classification("RACE_RESULT", 1, scores)
         if ent.year and ent.metrics == ["champion"]:
             return Classification("SEASON_CHAMPION", 1, scores)
+        if len(ent.drivers) >= 2:
+            return Classification("HEAD_TO_HEAD", 2, scores)
         if ent.team:
             return Classification("TECH_UPGRADE", 1, scores)
         if ent.drivers:

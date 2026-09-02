@@ -52,6 +52,16 @@ _CODE_STOPWORDS = {"ver", "alo", "law", "ric", "per", "bot", "hul", "col",
 
 def _build_extractor() -> EntityExtractor:
     drivers = dict(careers.all_driver_names())          # bundled JSON: tam adlar
+    # tarihî isimler (1950+) — modern isimler çakışmada öncelikli kalsın (setdefault)
+    try:
+        for full in history_db.all_driver_names():
+            low = full.lower()
+            drivers.setdefault(low, full)
+            parts = low.split()
+            if len(parts) > 1 and len(parts[-1]) >= 4 and parts[-1].isalpha():
+                drivers.setdefault(parts[-1], full)
+    except Exception:
+        pass
     for code, entry in DRIVER_DISPLAY.items():
         disp = _display_name(entry)                     # "L. Hamilton"
         surname = disp.split()[-1].lower()
@@ -62,8 +72,12 @@ def _build_extractor() -> EntityExtractor:
         if code.lower() not in _CODE_STOPWORDS:
             drivers[code.lower()] = canonical
     teams = {t.lower(): t for t in _CANON_TEAMS_2026}
+    try:
+        gp_names = history_db.all_race_names()
+    except Exception:
+        gp_names = []
     return EntityExtractor(driver_names=drivers, team_names=teams,
-                           team_aliases=TEAM_NAME_ALIASES)
+                           team_aliases=TEAM_NAME_ALIASES, gp_names=gp_names)
 
 
 _EXTRACTOR: EntityExtractor | None = None
@@ -85,6 +99,35 @@ def _has_f1_entity(ent, u) -> bool:
 
 
 # --------------------------------------------------------------------------
+
+def _career_for(nm: str) -> dict | None:
+    """Görünen ada göre kariyer toplamları: paketli JSON (varsa API kodu ile) ->
+    tarih DB'si son çare."""
+    surname = nm.lower().split()[-1]
+    code = next((c for c in DRIVER_DISPLAY
+                 if _name_by_code(c).lower().split()[-1] == surname), None)
+    api = None
+    try:
+        from core.f1_constants import STEWARDLE_ACTIVE_API_IDS_V24
+        api = STEWARDLE_ACTIVE_API_IDS_V24.get(code)
+    except Exception:
+        pass
+    primary = careers.career(nm, api)
+    hist = history_db.driver_career(nm)
+    res = None
+    if primary and hist:                       # eksik alanları tarih DB'sinden tamamla
+        for k in ("wins", "podiums", "poles", "starts", "first_season", "last_season"):
+            if primary.get(k) is None and hist.get(k) is not None:
+                primary[k] = hist[k]
+        res = primary
+    else:
+        res = primary or hist
+    if res is not None and res.get("titles") is None:
+        tc = history_db.title_count(res.get("name") or nm)
+        if tc:
+            res["titles"] = tc
+    return res
+
 
 def _retrieve(name, ent, u, live, this_year):
     if name == "SEASON_CHAMPION" and ent.year:
@@ -141,18 +184,14 @@ def _retrieve(name, ent, u, live, this_year):
         return None
 
     if name in ("DRIVER_SEASON", "DRIVER_CAREER") and ent.drivers:
-        nm = ent.drivers[0]
-        surname = nm.lower().split()[-1]
-        code = next((c for c in DRIVER_DISPLAY
-                     if _name_by_code(c).lower().split()[-1] == surname), None)
-        api = None
-        try:
-            from core.f1_constants import STEWARDLE_ACTIVE_API_IDS_V24
-            api = STEWARDLE_ACTIVE_API_IDS_V24.get(code)
-        except Exception:
-            pass
-        d = careers.career(nm, api) or history_db.driver_career(nm)
+        d = _career_for(ent.drivers[0])
         return templates.driver_career(d) if d else None
+
+    if name == "HEAD_TO_HEAD" and len(ent.drivers) >= 2:
+        da, db = _career_for(ent.drivers[0]), _career_for(ent.drivers[1])
+        if da and db:
+            return templates.head_to_head(da, db)
+        return None
 
     if name == "TECH_UPGRADE" and ent.team:
         d = tech.latest_for_team(ent.team)
@@ -198,13 +237,14 @@ def answer(question: str, *, live: live_data.LiveData = live_data.NULL,
     u = parse(question)
     ent = _extractor().extract(u)
 
-    verdict = guard.check(u, has_f1_entity=_has_f1_entity(ent, u))
+    cls = intents.classify(u, ent)
+
+    verdict = guard.check(u, has_f1_entity=_has_f1_entity(ent, u), intent=cls.name)
     if verdict.action == "SMALLTALK":
         return templates.Answer(verdict.reply, "Paddock Asistan", "SMALLTALK")
     if verdict.action == "REFUSE":
         return templates.Answer(verdict.reply, "Paddock Asistan", "REFUSE", ok=False)
 
-    cls = intents.classify(u, ent)
     try:
         out = _retrieve(cls.name, ent, u, live, this_year)
     except Exception:

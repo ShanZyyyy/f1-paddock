@@ -86,6 +86,36 @@ def test_season_first_last_intent():
     assert a2.intent == "SEASON_FIRST_LAST"
 
 
+def test_guard_allows_record_question_without_f1_keyword():
+    # "kimin en çok galibiyeti var" — entity yok, açık F1 anahtar kelimesi yok;
+    # yine de reddedilmemeli (niyet RECORD olarak sınıflanır).
+    a = answer("Kimin en çok galibiyeti var?")
+    assert a.intent == "RECORD" and a.ok
+
+
+def test_head_to_head_compares_two_drivers():
+    a = answer("Hamilton mı Verstappen mi daha çok şampiyon?")
+    assert a.intent == "HEAD_TO_HEAD" and a.ok
+    assert "Hamilton" in a.text and "Verstappen" in a.text
+
+
+def test_head_to_head_historic_drivers_from_db():
+    from core.paddock_ai.retrievers import history_db
+    if not history_db.available():
+        return
+    a = answer("Prost ve Lauda karşılaştır")
+    assert a.intent == "HEAD_TO_HEAD" and a.ok
+    assert "Prost" in a.text and "Lauda" in a.text
+
+
+def test_english_gp_alias_resolves():
+    from core.paddock_ai.retrievers import history_db
+    if not history_db.available():
+        return
+    a = answer("2021 Abu Dhabi'yi kim kazandı?")
+    assert a.intent == "RACE_RESULT" and a.ok and "kazandı" in a.text
+
+
 def test_season_calendar_from_db_if_present():
     from core.paddock_ai.retrievers import history_db
     if not history_db.available():

@@ -49,6 +49,47 @@ def available() -> bool:
 
 # -- sorgular -----------------------------------------------------------------
 
+def title_count(driver_name: str) -> int | None:
+    """Bir pilotun dünya şampiyonluğu sayısı (champions tablosu). DB yoksa None."""
+    conn = _db()
+    if conn is None:
+        return None
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS n FROM champions WHERE driver = ?", (driver_name,)
+        ).fetchone()
+        return int(row["n"]) if row else 0
+    except sqlite3.Error:
+        return None
+
+
+def all_driver_names() -> list[str]:
+    """DB'deki tüm benzersiz pilot adları (1950'den bugüne) — entity çıkarımına
+    beslenir, böylece 'Jim Clark' / 'Denny Hulme' gibi eski isimler de tanınır."""
+    conn = _db()
+    if conn is None:
+        return []
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT driver FROM results WHERE driver IS NOT NULL").fetchall()
+        return [r["driver"] for r in rows if r["driver"]]
+    except sqlite3.Error:
+        return []
+
+
+def all_race_names() -> list[str]:
+    """Entity çıkarımına beslenecek benzersiz yarış adları ('Monaco Grand Prix',
+    'São Paulo Grand Prix', …). DB yoksa boş liste."""
+    conn = _db()
+    if conn is None:
+        return []
+    try:
+        rows = conn.execute("SELECT DISTINCT name FROM races WHERE name IS NOT NULL").fetchall()
+        return [r["name"] for r in rows if r["name"]]
+    except sqlite3.Error:
+        return []
+
+
 def champion(season: int) -> dict | None:
     conn = _db()
     if conn is not None:
@@ -150,4 +191,7 @@ def driver_career(name_or_code: str) -> dict | None:
     ).fetchone()
     if not row or not row["starts"]:
         return None
-    return {k: row[k] for k in row.keys()} | {"source": "f1_history.sqlite"}
+    out = {k: row[k] for k in row.keys()}
+    out["name"] = out.get("driver") or name_or_code
+    out["source"] = "f1_history.sqlite"
+    return out

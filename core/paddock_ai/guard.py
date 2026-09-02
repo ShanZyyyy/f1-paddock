@@ -33,6 +33,7 @@ _F1_KEYWORDS = (
     "tahmin puanim", "sampiyonlar", "rekor", "dunya birincisi",
     "takvim", "pistleri", "yarislar", "yarisi", "sezonu", "sezonunda",
     "nerede basladi", "nerede bitti", "ilk yari", "grand prix", "kac tane",
+    "karsilastir", "kiyasla", "galibiyet", "podyum",
 )
 
 
@@ -57,20 +58,23 @@ _SMALLTALK = {
 }
 
 
-def check(u: Utterance, *, has_f1_entity: bool) -> Verdict:
+def check(u: Utterance, *, has_f1_entity: bool, intent: str = "") -> Verdict:
     """`has_f1_entity`: entity çıkarımı bir pilot/takım/GP/şampiyon-yılı buldu mu.
-    Bu, anahtar-kelime listesine güvenmeden 'F1'lik' için en güçlü sinyal."""
+    `intent`: niyet skorlayıcısının kararı. İkisi birlikte, kısa anahtar-kelime
+    listesine güvenmeden 'F1'lik' için en güçlü sinyal — böylece "kimin en çok
+    galibiyeti var" gibi entity'siz ama meşru sorular yanlışlıkla reddedilmez."""
     t = u.text
+    known_intent = bool(intent) and intent not in ("FALLBACK", "SMALLTALK")
 
     # 1) selamlaşma — ama F1 sinyali de varsa selamı geç, soruyu işle
-    if not has_f1_entity and any(g in f" {t} " for g in _GREETINGS):
+    if not has_f1_entity and not known_intent and any(g in f" {t} " for g in _GREETINGS):
         for key, msg in _SMALLTALK.items():
             if key != "_default" and key in t:
                 return Verdict("SMALLTALK", msg)
         return Verdict("SMALLTALK", _SMALLTALK["_default"])
 
-    # 2) F1 sinyali
-    if has_f1_entity or any(k in t for k in _F1_KEYWORDS):
+    # 2) F1 sinyali: entity, tanınan niyet ya da anahtar kelime
+    if has_f1_entity or known_intent or any(k in t for k in _F1_KEYWORDS):
         return Verdict("PASS")
 
     # 3) kapsam dışı

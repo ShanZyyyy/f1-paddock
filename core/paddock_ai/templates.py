@@ -113,6 +113,38 @@ def driver_career(d: dict) -> Answer:
                   d.get("source", "kariyer arşivi"), "DRIVER_CAREER", bool(bits))
 
 
+def _hh_num(v):
+    return v if isinstance(v, (int, float)) else None
+
+
+def head_to_head(a: dict, b: dict) -> Answer:
+    """İki pilotun paketli kariyer toplamlarını yan yana koyar. Yorum yok, uydurma
+    yok — yalnızca kayıttaki alanlar."""
+    na, nb = a.get("name", "?"), b.get("name", "?")
+    rows = []
+    for label, key in (("Şampiyonluk", "titles"), ("Galibiyet", "wins"),
+                       ("Podyum", "podiums"), ("Pole", "poles"), ("Yarış", "starts")):
+        av, bv = a.get(key), b.get(key)
+        if av is None and bv is None:
+            continue
+        rows.append((label, f"{na}: {av if av is not None else '—'}  ·  "
+                            f"{nb}: {bv if bv is not None else '—'}"))
+    if not rows:
+        return Answer(NO_DATA, "kariyer arşivi", "HEAD_TO_HEAD", False)
+
+    lead = ""
+    for key, word in (("titles", "şampiyonluk"), ("wins", "galibiyet")):
+        av, bv = _hh_num(a.get(key)), _hh_num(b.get(key))
+        if av is not None and bv is not None and av != bv:
+            hi = na if av > bv else nb
+            lead = f" {hi}, {word} sayısında önde ({max(av, bv)}–{min(av, bv)})."
+            break
+
+    body = f"**{na} — {nb}**\n" + "\n".join(f"• {l}: {v}" for l, v in rows) + \
+           (f"\n{lead.strip()}" if lead else "")
+    return Answer(body, a.get("source", "kariyer arşivi"), "HEAD_TO_HEAD", items=rows)
+
+
 def tech_upgrade(d: dict) -> Answer:
     lines = []
     for u in d["updates"]:

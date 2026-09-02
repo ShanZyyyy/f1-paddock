@@ -44,6 +44,30 @@ GP_ALIASES: dict[str, str] = {
     "portimao": "Portuguese", "portekiz": "Portuguese",
     "nurburgring": "Eifel", "hockenheim": "German", "almanya": "German",
     "estoril": "Portuguese", "kyalami": "South African",
+    # İngilizce ülke adları ve kanonik GP sıfatları — kullanıcı "Abu Dhabi" ya da
+    # "Belgian GP" yazarsa da yakala (Türkçe karşılıkları yukarıda).
+    "abu dhabi": "Abu Dhabi",
+    "belgium": "Belgian", "belgian": "Belgian",
+    "japan": "Japanese", "japanese": "Japanese",
+    "china": "Chinese", "chinese": "Chinese",
+    "brazil": "São Paulo", "brazilian": "São Paulo",
+    "netherlands": "Dutch", "dutch": "Dutch",
+    "spain": "Spanish", "spanish": "Spanish",
+    "italy": "Italian", "italian": "Italian",
+    "france": "French", "french": "French",
+    "britain": "British", "great britain": "British", "british": "British", "england": "British",
+    "germany": "German", "german": "German",
+    "hungary": "Hungarian", "hungarian": "Hungarian",
+    "austria": "Austrian", "austrian": "Austrian",
+    "australia": "Australian", "australian": "Australian",
+    "canada": "Canadian", "canadian": "Canadian",
+    "portugal": "Portuguese", "portuguese": "Portuguese",
+    "mexico": "Mexico City", "mexican": "Mexico City",
+    "saudi arabia": "Saudi Arabian", "saudi arabian": "Saudi Arabian", "saudi": "Saudi Arabian",
+    "united states": "United States", "usa": "United States", "american": "United States",
+    "emilia romagna": "Emilia Romagna", "qatar": "Qatar",
+    "azerbaijan": "Azerbaijan", "baku": "Azerbaijan",
+    "south africa": "South African", "south african": "South African",
 }
 
 _SESSION_HINTS = {
@@ -110,14 +134,23 @@ class EntityExtractor:
         return best[1] if best else None
 
     def _drivers(self, u: Utterance):
-        found, seen = [], set()
+        padded = f" {u.text} "
+        full_hits, sur_hits = [], []
         for key in self._driver_keys:
             # tam kelime sınırı: " senna " gibi
-            if f" {key} " in f" {u.text} ":
-                v = self.drivers[key]
-                if v not in seen:
-                    seen.add(v)
-                    found.append(v)
+            if f" {key} " in padded:
+                (full_hits if " " in key else sur_hits).append(self.drivers[key])
+        found, seen = [], set()
+        for v in full_hits:                       # "michael schumacher" > "schumacher"
+            if v not in seen:
+                seen.add(v)
+                found.append(v)
+        covered = {v.lower().split()[-1] for v in found}
+        for v in sur_hits:
+            sn = v.lower().split()[-1]
+            if v not in seen and sn not in covered:   # tam ad zaten yakaladıysa çıplak soyadı atla
+                seen.add(v)
+                found.append(v)
         if not found:  # yazım hatası toleransı — sadece 5+ harfli tek token'lar için
             for tok in u.tokens:
                 if len(tok) >= 5:
