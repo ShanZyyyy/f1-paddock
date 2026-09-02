@@ -326,3 +326,29 @@ def test_championship_projection_html_uses_kit():
     html = app.championship_projection_html("NOR", "VER", 331, 312, 2, 1, 4, 1, "#ff8000", "#3671c6")
     assert _kit_ok(html)
     assert "pj-verdict" in html and "--pjc:" in html
+
+
+def test_season_h2h_html_uses_kit():
+    h = {"ok": True, "a": "NOR", "b": "VER", "team_a": "McLaren", "team_b": "Red Bull Racing",
+         "pts_a": 374, "pts_b": 331, "race_w_a": 11, "race_w_b": 8, "spr_w_a": 3, "spr_w_b": 2,
+         "has_sprints": True, "mom_a": 58, "mom_b": 44, "mom_span": 5,
+         "rounds": [{"winner": "a", "badge": "GP Suzuka", "a_pos": 1, "b_pos": 2, "a_pts": 25, "b_pts": 18}]}
+    html = app.season_h2h_html(h, "#ff8000", "#3671c6")
+    assert _kit_ok(html)
+    assert "h2h-strip" in html and "--ca:#ff8000" in html
+    assert "verisi yok" in app.season_h2h_html({"ok": False}, "#fff", "#fff")
+
+
+def test_career_h2h_html_uses_kit():
+    h = {"ok": True,
+         "career_a": {"span": "2019-26", "races": 148, "wins": 9, "podiums": 41, "poles": 12, "points": 1204.5},
+         "career_b": {"span": "2015-26", "races": 224, "wins": 65, "podiums": 118, "poles": 44, "points": 3111},
+         "teammate_years": 0, "seasons": []}
+    html = app.career_h2h_html(h, "NOR", "VER", "#ff8000", "#3671c6", 0, 4)
+    assert _kit_ok(html)
+    assert "ch-cols" in html and "ch-col.r .ch-grid>div" in html
+
+
+def test_kit_css_neutralises_legacy_component_selectors():
+    css = app.fp_kit.kit_css()
+    assert ".r,.box,.tile,.panel,.card,.summary,.hud{background:transparent" in css

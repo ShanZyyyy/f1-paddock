@@ -67,6 +67,11 @@ body{background:transparent;color:var(--k-ink);font-family:var(--k-f-ui);
 ::selection{background:color-mix(in srgb,var(--k-cyan) 30%,transparent)}
 :focus-visible{outline:2px solid var(--k-cyan);outline-offset:2px}
 
+/* theme.hud_iframe_style eski bileşen seçicilerini (.r/.box/.tile/.panel/.card/
+   .summary/.hud) nötrle — kit HUD'ları kendi zeminini açıkça boyar. Bir HUD'un
+   kendi kuralı bu sıfırlamadan sonra geldiği için onları yener. */
+.r,.box,.tile,.panel,.card,.summary,.hud{background:transparent;border-color:var(--k-line)}
+
 .k-pane{background:var(--k-panel);border:1px solid var(--k-line);border-radius:var(--k-r-l)}
 .k-pane-h{display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--k-line)}
 .k-k{font-family:var(--k-f-data);font-weight:600;font-size:10.5px;letter-spacing:.15em;

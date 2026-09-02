@@ -2448,10 +2448,54 @@ def season_h2h_v41(result_matrix, points_matrix, rounds, standings, code_a, code
     }
 
 
+_SEASON_H2H_CSS = r"""
+.h2h{border:1px solid var(--k-line);border-radius:var(--k-r-l);overflow:hidden;background:var(--k-panel)}
+.h2h-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
+  padding:16px;border-bottom:1px solid var(--k-line)}
+.h2h-d{display:flex;flex-direction:column;gap:3px}
+.h2h-d.r{align-items:flex-end;text-align:right}
+.h2h-d b{font:700 20px var(--k-f-ui);text-transform:uppercase;letter-spacing:-.01em}
+.h2h-d s{font:500 10px var(--k-f-data);letter-spacing:.06em;text-transform:uppercase;color:var(--k-dim);
+  text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.h2h-d i{font:700 15px var(--k-f-data);font-variant-numeric:tabular-nums;font-style:normal;margin-top:3px}
+.h2h-gap{text-align:center}
+.h2h-gap s{display:block;font:600 8.5px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--k-mute);text-decoration:none}
+.h2h-gap b{font:700 24px var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--ahead)}
+.h2h-gap em{display:block;font:500 10.5px var(--k-f-data);font-style:normal;color:var(--k-dim);margin-top:3px}
+.h2h-body{padding:14px 16px}
+.h2h-hd{font:600 9px var(--k-f-data);letter-spacing:.14em;text-transform:uppercase;color:var(--k-mute);margin:2px 0 8px}
+.h2h-bar{display:flex;height:26px;border-radius:var(--k-r-s);overflow:hidden;border:1px solid var(--k-line);
+  font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums}
+.h2h-bar i{display:flex;align-items:center;justify-content:center;color:var(--k-void);min-width:34px}
+.h2h-bar .ba{background:var(--ca);width:var(--ashare)}
+.h2h-bar .bb{background:var(--cb);flex:1}
+.h2h-sub{margin-top:9px;font:500 12px var(--k-f-data);color:var(--k-dim)}
+.h2h-sub b{color:var(--k-ink)}
+.h2h-mom{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.h2h-mom>div{border:1px solid var(--k-line);border-radius:var(--k-r-s);padding:9px 11px;background:var(--k-void)}
+.h2h-mom s{display:block;font:600 8.5px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--k-mute);text-decoration:none}
+.h2h-mom b{font:700 17px var(--k-f-data);font-variant-numeric:tabular-nums;margin-top:4px;display:block}
+.h2h-mom em{font:600 10px var(--k-f-data);font-style:normal;letter-spacing:.06em;text-transform:uppercase;color:var(--k-green)}
+.h2h-strip{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px}
+.cell{flex:1 0 48px;text-align:center;font:700 10px var(--k-f-data);padding:6px 2px;border-radius:4px;
+  border:1px solid var(--k-line);cursor:help;color:var(--k-dim)}
+.cell::before{font-size:9px;margin-right:2px;opacity:.9}
+.cell.a{background:color-mix(in srgb,var(--ca) 24%,var(--k-panel));border-color:var(--ca)}
+.cell.a::before{content:"\25C2"}
+.cell.b{background:color-mix(in srgb,var(--cb) 24%,var(--k-panel));border-color:var(--cb)}
+.cell.b::before{content:"\25B8"}
+.cell.d{background:var(--k-panel)}
+.cell.d::before{content:"=";opacity:.5}
+@media(max-width:560px){.h2h-top{gap:6px}.h2h-d b{font-size:16px}.h2h-mom{grid-template-columns:1fr}}
+"""
+
+
 def season_h2h_html(h, colour_a, colour_b):
     """Kafa-kafaya HUD'u — güncel puan farkı, yarışta önde sayısı, form, tur şeridi."""
     if not h.get('ok'):
-        return ("<div style='padding:20px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>"
+        return ("<div style=\"padding:20px;color:#63728a;font-family:system-ui,sans-serif\">"
                 "Bu iki pilot için bu sezona ait karşılaştırma verisi yok.</div>")
     ca, cb = colour_a or '#e10600', colour_b or '#33d6c8'
     gap = h['pts_a'] - h['pts_b']
@@ -2470,47 +2514,10 @@ def season_h2h_html(h, colour_a, colour_b):
     if h['has_sprints']:
         sprint_line = (f"<div class='h2h-sub'>Sprint · <b>{h['a']}</b> {h['spr_w_a']} — "
                        f"{h['spr_w_b']} <b>{h['b']}</b></div>")
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .h2h{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
-      .h2h-top{{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
-        padding:16px;border-bottom:1px solid #232c3a}}
-      .h2h-d{{display:flex;flex-direction:column;gap:3px}}
-      .h2h-d.r{{align-items:flex-end;text-align:right}}
-      .h2h-d b{{font:800 20px 'Inter',system-ui,sans-serif;text-transform:uppercase;letter-spacing:.02em}}
-      .h2h-d s{{font:600 11px 'Inter',system-ui,sans-serif;color:#9aa7b8;text-decoration:none;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}}
-      .h2h-d i{{font:700 15px 'JetBrains Mono',monospace;font-style:normal;margin-top:2px}}
-      .h2h-gap{{text-align:center}}
-      .h2h-gap s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;color:#6d7a8c;text-decoration:none}}
-      .h2h-gap b{{font:800 22px 'JetBrains Mono',monospace;color:{ahead_col}}}
-      .h2h-gap em{{display:block;font:600 11px 'Inter',system-ui,sans-serif;font-style:normal;color:#a8b8c8;margin-top:2px}}
-      .h2h-body{{padding:14px 16px}}
-      .h2h-hd{{font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6d7a8c;margin:2px 0 7px}}
-      .h2h-bar{{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #232c3a;font:800 12px 'JetBrains Mono',monospace}}
-      .h2h-bar i{{display:flex;align-items:center;justify-content:center;color:#05080d;min-width:34px}}
-      .h2h-bar .ba{{background:{ca};width:{a_share}%}} .h2h-bar .bb{{background:{cb};flex:1}}
-      .h2h-sub{{margin-top:9px;font:600 12px 'Inter',system-ui,sans-serif;color:#a8b8c8}}
-      .h2h-sub b{{color:#e8eef4}}
-      .h2h-mom{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}}
-      .h2h-mom>div{{border:1px solid #232c3a;border-radius:8px;padding:9px 11px;background:#131a24}}
-      .h2h-mom s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.08em;color:#6d7a8c;text-decoration:none}}
-      .h2h-mom b{{font:700 17px 'JetBrains Mono',monospace;margin-top:3px;display:block}}
-      .h2h-mom em{{font:600 11px 'Inter',system-ui,sans-serif;font-style:normal;color:#3ecf8e}}
-      .h2h-strip{{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px}}
-      .cell{{flex:1 0 48px;text-align:center;font:700 10px 'JetBrains Mono',monospace;padding:6px 2px;border-radius:4px;
-        border:1px solid #232c3a;cursor:help;color:#c9d6e2}}
-      .cell::before{{font-size:9px;margin-right:2px;opacity:.9}}
-      .cell.a{{background:color-mix(in srgb,{ca} 26%,#141a24);border-color:{ca}}}
-      .cell.a::before{{content:"◂"}}
-      .cell.b{{background:color-mix(in srgb,{cb} 26%,#141a24);border-color:{cb}}}
-      .cell.b::before{{content:"▸"}}
-      .cell.d{{background:#141a24}}
-      .cell.d::before{{content:"=";opacity:.5}}
-      @media(max-width:560px){{.h2h-top{{grid-template-columns:1fr auto 1fr;gap:6px}}.h2h-d b{{font-size:16px}}.h2h-mom{{grid-template-columns:1fr}}}}
-    </style>
-    <div class="h2h">
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _SEASON_H2H_CSS + "</style>"
+        + f'<div class="h2h" style="--ca:{ca};--cb:{cb};--ahead:{ahead_col};--ashare:{a_share}%">'
+        + f"""
       <div class="h2h-top">
         <div class="h2h-d" style="color:{ca}"><b>{html_lib.escape(h['a'])}</b><s>{html_lib.escape(h['team_a'])}</s><i>{h['pts_a']:g} P</i></div>
         <div class="h2h-gap"><s>Fark</s><b>{abs(gap):g}</b><em>{html_lib.escape(ahead)} önde</em></div>
@@ -2529,6 +2536,7 @@ def season_h2h_html(h, colour_a, colour_b):
       </div>
     </div>
     """
+    )
 
 
 def season_h2h_component_height(h):
@@ -2598,9 +2606,42 @@ def career_h2h_v49(prof_a, prof_b):
     }
 
 
+_CAREER_H2H_CSS = r"""
+.ch{border:1px solid var(--k-line);border-radius:var(--k-r-l);overflow:hidden;background:var(--k-panel)}
+.ch-hd{padding:13px 15px;border-bottom:1px solid var(--k-line);font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.ch-cols{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--k-line)}
+.ch-col{background:var(--k-panel);padding:13px 15px;border-top:var(--k-edge) solid var(--c)}
+.ch-col.r{text-align:right}
+.ch-col.r .ch-grid{direction:rtl}
+.ch-col.r .ch-grid>div{direction:ltr;text-align:right}
+.ch-name{font:700 16px var(--k-f-ui);text-transform:uppercase;letter-spacing:-.01em;color:var(--c);margin-bottom:10px}
+.ch-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ch-grid s{display:block;font:600 8.5px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--k-mute);text-decoration:none}
+.ch-grid b{font:700 14px var(--k-f-data);font-variant-numeric:tabular-nums;margin-top:3px;display:block}
+.ch-tm{padding:13px 15px}
+.ch-tmhd{font:600 9px var(--k-f-data);letter-spacing:.14em;text-transform:uppercase;color:var(--k-mute);margin-bottom:14px}
+.ch-tl{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center;
+  font:700 13px var(--k-f-data);font-variant-numeric:tabular-nums;margin:16px 0 8px;position:relative}
+.ch-tl:first-of-type{margin-top:4px}
+.ch-tl em{position:absolute;left:50%;transform:translateX(-50%);top:-13px;font:600 9px var(--k-f-data);
+  font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--k-dim)}
+.ch-bar{display:flex;height:13px;border-radius:3px;overflow:hidden;background:var(--k-void)}
+.ch-bar i{display:block;height:100%}
+.ch-srows{margin-top:10px;border-top:1px solid var(--k-line-soft)}
+.ch-srow{display:grid;grid-template-columns:46px 1fr 64px 64px;gap:8px;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--k-line-soft);font:600 11px var(--k-f-data);font-variant-numeric:tabular-nums}
+.ch-srow .yr{color:var(--k-mute)}
+.ch-srow .tm{font:500 11px var(--k-f-data);color:var(--k-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-srow .sc{text-align:right;color:var(--k-dim)}
+.ch-note{color:var(--k-mute);font:500 12px var(--k-f-ui);line-height:1.5}
+@media(max-width:560px){.ch-name{font-size:14px}}
+"""
+
+
 def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=0):
     if not h.get('ok'):
-        return ("<div style='padding:20px;color:#8a9bb0;font-family:'Inter',system-ui,sans-serif'>"
+        return ("<div style=\"padding:20px;color:#63728a;font-family:system-ui,sans-serif\">"
                 "Bu iki pilotun kariyer kaydı şu an alınamadı.</div>")
     ca, cb = colour_a or '#e10600', colour_b or '#33d6c8'
     a, b = h['career_a'], h['career_b']
@@ -2641,43 +2682,12 @@ def career_h2h_html(h, name_a, name_b, colour_a, colour_b, titles_a=0, titles_b=
         tm = ("<div class='ch-tm'><div class='ch-note'>Bu iki pilot hiç aynı takımda yarışmadı — "
               "yandaki kariyer toplamları yine de karşılaştırılabilir.</div></div>")
 
-    return f"""
-    <style>
-      body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .ch{{border:1px solid #232c3a;border-radius:12px;overflow:hidden;background:#141a24}}
-      .ch-hd{{padding:12px 15px;border-bottom:1px solid #232c3a;font:800 13px 'Inter',system-ui,sans-serif;
-        text-transform:uppercase;letter-spacing:.03em}}
-      .ch-cols{{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#1b2330}}
-      .ch-col{{background:#131a24;padding:12px 14px;border-top:3px solid var(--c)}}
-      .ch-col.r{{text-align:right}} .ch-col.r .ch-grid{{direction:rtl}}
-      .ch-name{{font:800 16px 'Inter',system-ui,sans-serif;text-transform:uppercase;color:var(--c);margin-bottom:9px}}
-      .ch-grid{{display:grid;grid-template-columns:1fr 1fr;gap:7px}}
-      .ch-grid s{{display:block;font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.06em;color:#6d7a8c;text-decoration:none}}
-      .ch-grid b{{font:700 14px 'JetBrains Mono',monospace;margin-top:2px;display:block}}
-      .ch-tm{{padding:13px 15px}}
-      .ch-tmhd{{font:700 11px 'Inter',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6d7a8c;margin-bottom:12px}}
-      .ch-tl{{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center;
-        font:800 13px 'JetBrains Mono',monospace;margin:16px 0 8px;position:relative}}
-      .ch-tl:first-of-type{{margin-top:4px}}
-      .ch-tl em{{position:absolute;left:50%;transform:translateX(-50%);top:-13px;font:700 11px 'Inter',system-ui,sans-serif;
-        font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:#9aa7b8}}
-      .ch-bar{{display:flex;height:13px;border-radius:3px;overflow:hidden;background:#0a111b}}
-      .ch-bar i{{display:block;height:100%}}
-      .ch-srows{{margin-top:10px;border-top:1px solid #1b2330}}
-      .ch-srow{{display:grid;grid-template-columns:46px 1fr 64px 64px;gap:8px;align-items:center;
-        padding:5px 0;border-bottom:1px solid #1b2330;font:700 11px 'JetBrains Mono',monospace}}
-      .ch-srow .yr{{color:#6d7a8c}}
-      .ch-srow .tm{{font:600 11px 'Inter',system-ui,sans-serif;color:#c9d2de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-      .ch-srow .sc{{text-align:right;color:#c2d4e6}}
-      .ch-note{{color:#8a9bb0;font:500 12px 'Inter',system-ui,sans-serif;line-height:1.5}}
-      @media(max-width:560px){{.ch-grid{{grid-template-columns:1fr 1fr}}.ch-name{{font-size:14px}}}}
-    </style>
-    <div class="ch">
-      <div class="ch-hd">Kariyer kafa kafaya</div>
-      <div class="ch-cols">{grid(name_a, a, titles_a, ca)}{grid(name_b, b, titles_b, cb, right=True)}</div>
-      {tm}
-    </div>
-    """
+    return (
+        fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _CAREER_H2H_CSS + "</style>"
+        + '<div class="ch"><div class="ch-hd">Kariyer kafa kafaya</div>'
+        + f'<div class="ch-cols">{grid(name_a, a, titles_a, ca)}{grid(name_b, b, titles_b, cb, right=True)}</div>'
+        + f'{tm}</div>'
+    )
 
 
 def career_h2h_component_height(h):
