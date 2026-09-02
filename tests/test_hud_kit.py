@@ -161,3 +161,30 @@ def test_telemetry_trace_html_structure(trace_payload):
 def test_telemetry_trace_height_is_int():
     assert isinstance(app.telemetry_trace_component_height(), int)
     assert app.telemetry_trace_component_height({}) > 400
+
+
+# --------------------------------------------------------------------------
+# Faz 4 — kit diline restyle edilen grafik HUD'ları
+# --------------------------------------------------------------------------
+def test_dominance_map_html_uses_kit(trace_payload):
+    html = app.dominance_map_html(trace_payload)
+    assert "__PAYLOAD__" not in html
+    assert "--k-panel" in html and "fonts.googleapis.com" in html
+    assert html.count("<style>") == 1 and html.count("</style>") == 1
+    assert 'id="dom"' in html and "KUŞ BAKIŞI" in html
+
+
+def test_stint_pace_html_uses_kit(replay_payload):
+    html = app.stint_pace_html(replay_payload)
+    assert "__STINT_PACE_PAYLOAD__" not in html
+    assert "--k-void" in html and "fonts.googleapis.com" in html
+    assert html.count("<style>") == 1 and html.count("</style>") == 1
+    assert "STINT TEMPOSU" in html and "id='sp'" in html
+
+
+def test_position_flow_html_uses_kit(replay_payload):
+    html = app.position_flow_html(replay_payload)
+    assert "__POSITION_FLOW_PAYLOAD__" not in html
+    assert "--k-line" in html and "fonts.googleapis.com" in html
+    assert html.count("<style>") == 1 and html.count("</style>") == 1
+    assert "RACE POSITION FLOW" in html and "id='chart'" in html

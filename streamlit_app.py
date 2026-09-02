@@ -3440,20 +3440,23 @@ def dominance_map_html(payload):
     """Kuş bakışı pist dominasyonu — pist her noktada o an daha hızlı olan
     pilotun rengiyle boyanır; imleç o noktadaki iki hızı ve farkı okur."""
     packed = fp_ui.json_for_script(payload)
-    return r'''<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #232c3a;border-radius:13px;padding:12px;background:#141a24}
+    return (fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + r'''
+.hud{border:1px solid var(--k-line);border-radius:var(--k-r-l);padding:12px;background:var(--k-panel)}
 .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
-.title{font-size:13px;font-weight:950;letter-spacing:.09em}
-.sub{font-size:10px;color:#9aa7b8;margin-top:5px;max-width:540px}
+.title{font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.sub{font-size:10px;color:var(--k-dim);margin-top:5px;max-width:540px;line-height:1.5}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
-.tag{border:1px solid #35506d;border-radius:7px;padding:5px 8px;font:900 11px Inter,Arial,sans-serif;color:var(--team)}
-.mapbox{margin-top:10px;border:1px solid #232c3a;border-radius:10px;overflow:hidden;background:radial-gradient(circle at 50% 45%,#141b26,#07090d 78%)}
+.tag{border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--team);border-radius:var(--k-r-s);
+  padding:5px 9px;font:700 11px var(--k-f-ui);color:var(--k-ink);background:var(--k-raised)}
+.mapbox{margin-top:10px;border:1px solid var(--k-line);border-radius:var(--k-r-m);overflow:hidden;
+  background:radial-gradient(circle at 50% 45%,var(--k-panel),var(--k-void) 82%)}
 .mapbox canvas{width:100%;height:430px;display:block;cursor:crosshair}
-.share{display:flex;height:16px;border-radius:6px;overflow:hidden;margin-top:10px;border:1px solid #232c3a;font:900 9px Inter,Arial,sans-serif}
-.share i{display:flex;align-items:center;justify-content:center;color:#05080d}
-.rowline{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font:800 12px ui-monospace,Consolas,monospace;color:#c7d6e6}
-.rowline span{color:#8fa2b4}
+.share{display:flex;height:16px;border-radius:var(--k-r-s);overflow:hidden;margin-top:10px;
+  border:1px solid var(--k-line);font:700 9px var(--k-f-data);letter-spacing:.05em}
+.share i{display:flex;align-items:center;justify-content:center;color:var(--k-void)}
+.rowline{display:flex;justify-content:space-between;gap:8px;margin-top:8px;
+  font:600 12px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-dim)}
+.rowline span{color:var(--k-mute)}
 @media(max-width:640px){.mapbox canvas{height:320px}}
 </style>
 <div class="hud">
@@ -3516,7 +3519,7 @@ function readout(){
   const a=(drv[0].speed||[])[cursor]||0, b=(drv[1].speed||[])[cursor]||0, dd=a-b;
   $('#cur').innerHTML='<span>'+Math.round(DIST[cursor]||0)+' m</span><b>'
     +'<span style="color:'+c0+'">'+drv[0].code+' '+Math.round(a)+'</span>  '
-    +'<span style="color:'+c1+'">'+drv[1].code+' '+Math.round(b)+'</span>  km/h  ·  '
+    +'<span style="color:'+c1+'">'+drv[1].code+' '+Math.round(b)+'</span>  km/s  ·  '
     +(Math.abs(dd)<1?'eşit':(dd>0?drv[0].code:drv[1].code)+' +'+Math.abs(Math.round(dd)))+'</b>';
 }
 cv.addEventListener('pointermove',function(e){ if(e.pointerType==='mouse'||e.buttons) pick(e.clientX,e.clientY); });
@@ -3524,7 +3527,7 @@ cv.addEventListener('pointerdown',function(e){ pick(e.clientX,e.clientY); try{cv
 let rz=0; window.addEventListener('resize',function(){ clearTimeout(rz); rz=setTimeout(fit,120); });
 tags(); share(); fit(); setTimeout(fit,60);
 })();
-</script>'''.replace('__PAYLOAD__', packed)
+</script>''').replace('__PAYLOAD__', packed)
 
 
 # =========================================================
@@ -4348,24 +4351,28 @@ def stint_pace_html(payload):
     """Seçili pilotun stint başına tur-zaman eğrisi + lineer degradasyon eğimi
     (sn/tur). Payload'daki tur süre + lastik + pit verisinden; yeni kaynak yok."""
     packed = fp_ui.json_for_script(payload)
-    return r"""<style>
-*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}
-.hud{border:1px solid #2c425c;border-radius:13px;background:#141a24;padding:13px}
-.head{font-size:13px;font-weight:950;letter-spacing:.08em}
-.sub{font-size:11px;color:#9db2c6;margin-top:5px;line-height:1.5}
+    return (fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + r"""
+.hud{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);padding:13px}
+.head{font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.sub{font-size:10px;color:var(--k-dim);margin-top:5px;line-height:1.5}
 .chips{display:flex;gap:5px;flex-wrap:wrap;margin:11px 0}
-.chip{border:1px solid #36506e;border-left:4px solid var(--team);border-radius:6px;background:#132137;color:#f1f7ff;padding:5px 8px;font-weight:900;font-size:11px;cursor:pointer}
-.chip.active{background:#20334d;box-shadow:0 0 0 1px var(--team) inset}
+.chip{border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--team);border-radius:var(--k-r-s);
+  background:var(--k-raised);color:var(--k-ink);padding:5px 9px;font:700 11px var(--k-f-ui);cursor:pointer;
+  transition:background .2s ease}
+.chip:hover{background:var(--k-hover)}
+.chip.active{box-shadow:inset 0 0 0 1px var(--team)}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:12px}
-.graph{border:1px solid #29405a;border-radius:9px;background:#0b121c}
+.graph{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-void)}
 .graph canvas{display:block;width:100%;height:300px}
-.side{border:1px solid #2b405a;border-radius:9px;padding:10px;background:#141a24;display:flex;flex-direction:column;gap:7px}
-.st{border:1px solid #253a51;border-left:4px solid var(--tc);border-radius:7px;padding:7px 9px;background:#0e1826}
-.st b{font:900 12px ui-monospace,Consolas,monospace;display:block}
-.st small{display:block;color:#a6b7c8;font-size:11px;margin-top:3px;line-height:1.45}
-.st .slope{font:900 13px ui-monospace,Consolas,monospace;margin-top:4px}
-.st .slope.up{color:#ff8a70}.st .slope.flat{color:#9aa7b8}.st .slope.down{color:#3ecf8e}
-.empty{color:#8da2b8;font-size:11px;padding:8px}
+.side{border:1px solid var(--k-line);border-radius:var(--k-r-m);padding:10px;background:var(--k-panel);
+  display:flex;flex-direction:column;gap:7px}
+.st{border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--tc);border-radius:var(--k-r-s);
+  padding:7px 9px;background:var(--k-void)}
+.st b{font:600 12px var(--k-f-data);display:block}
+.st small{display:block;color:var(--k-dim);font-size:11px;margin-top:3px;line-height:1.45}
+.st .slope{font:700 13px var(--k-f-data);font-variant-numeric:tabular-nums;margin-top:4px}
+.st .slope.up{color:var(--k-pink)}.st .slope.flat{color:var(--k-dim)}.st .slope.down{color:var(--k-green)}
+.empty{color:var(--k-mute);font-size:11px;padding:8px}
 @media(max-width:720px){.layout{grid-template-columns:1fr}}
 </style>
 <div class='hud'>
@@ -4376,7 +4383,7 @@ def stint_pace_html(payload):
 </div>
 <script>
 const D=__STINT_PACE_PAYLOAD__, cars=(D.cars||[]).filter(c=>c&&c.laps&&c.laps.length), TL=Math.max(1,D.total_laps||1);
-const TYRE={SOFT:'#ef3340',MEDIUM:'#ffd23f',HARD:'#eef2f7',INTERMEDIATE:'#36c96a',WET:'#39a9ff',UNKNOWN:'#8fa0b4'};
+const TYRE={SOFT:'#ff5b5b',MEDIUM:'#ffd23f',HARD:'#eef2f7',INTERMEDIATE:'#3ecf8e',WET:'#39a9ff',UNKNOWN:'#8fa0b4'};
 const cv=document.getElementById('sp'), ctx=cv.getContext('2d');
 let chosen=(cars[0]||{}).code||'';
 function stintsFor(c){
@@ -4436,7 +4443,7 @@ function draw(S){
   let lo=1e9,hi=-1e9; S.forEach(s=>s.good.forEach(l=>{lo=Math.min(lo,l.sec);hi=Math.max(hi,l.sec);}));
   const pad=(hi-lo)*0.15||0.5; lo-=pad; hi+=pad;
   const X=x=>p.l+(x-1)/(TL-1||1)*(w-p.l-p.r), Y=v=>p.t+(1-(v-lo)/(hi-lo))*(h-p.t-p.b);
-  ctx.strokeStyle='#1c2c3d';ctx.fillStyle='#7f97ac';ctx.font='10px Arial';ctx.textAlign='right';
+  ctx.strokeStyle='#222c3a';ctx.fillStyle='#63728a';ctx.font='10px Arial';ctx.textAlign='right';
   for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4, y=p.t+(1-k/4)*(h-p.t-p.b);
     ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke(); ctx.fillText(fmt(v),p.l-5,y+3); }
   ctx.textAlign='center';
@@ -4455,7 +4462,7 @@ function resize(S){ const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelR
   cv.width=r.width*d;cv.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw(S||stintsFor(cars.find(x=>x.code===chosen)||cars[0])); }
 window.addEventListener('resize',()=>resize());
 render();
-</script>""".replace('__STINT_PACE_PAYLOAD__', packed)
+</script>""").replace('__STINT_PACE_PAYLOAD__', packed)
 
 
 def stint_pace_component_height(payload):
@@ -4470,7 +4477,27 @@ def stint_pace_component_height(payload):
 def position_flow_html(payload):
     """Pilotun tur tur sıra değişimini takım renkli, seçilebilir HUD grafiğine dönüştürür."""
     packed = fp_ui.json_for_script(payload)
-    return r"""<style>*{box-sizing:border-box}body{margin:0;background:#07090d;color:#eef2f7;font-family:Inter,Segoe UI,Arial,sans-serif}.hud{border:1px solid #2c425c;border-radius:13px;background:#141a24;padding:13px}.head{font-size:13px;font-weight:950;letter-spacing:.08em}.sub{font-size:10px;color:#90a7be;margin-top:5px}.chips{display:flex;gap:6px;flex-wrap:wrap;margin:11px 0}.chip{border:1px solid #36506e;border-left:4px solid var(--team);border-radius:6px;background:#132137;color:#f1f7ff;padding:6px 8px;font-weight:900;font-size:11px;cursor:pointer}.chip.active{background:#20334d;box-shadow:0 0 0 1px var(--team) inset}.layout{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:12px}.graph{border:1px solid #29405a;border-radius:9px;background:#0b121c}.graph canvas{display:block;width:100%;height:270px}.summary{border:1px solid #2b405a;border-radius:9px;padding:11px;background:#141a24}.name{font-size:19px;font-weight:950;color:var(--team)}.line{display:flex;justify-content:space-between;border-top:1px solid #293b50;padding:8px 0;font-size:12px}.line span{color:#96aac0}.up{color:#79e5a7}.down{color:#ff7380}@media(max-width:720px){.layout{grid-template-columns:1fr}}</style><div class='hud'><div class='head'>RACE POSITION FLOW</div><div class='sub'>TUR TUR SIRA DEĞİŞİMİ • YUKARI OK POZİSYON KAZANCI, AŞAĞI OK POZİSYON KAYBI</div><div class='chips' id='chips'></div><div class='layout'><div class='graph'><canvas id='chart'></canvas></div><aside class='summary' id='summary'></aside></div></div><script>const data=__POSITION_FLOW_PAYLOAD__,cars=data.cars||[],canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');let chosen=cars[0]?.code||'';function info(c){const a=(c.laps||[]).filter(x=>Number.isFinite(x.position));const start=c.grid||a[0]?.position||'—',finish=c.final_position||a[a.length-1]?.position||'—',values=a.map(x=>x.position),best=values.length?Math.min(...values):'—',worst=values.length?Math.max(...values):'—';return{a,start,finish,best,worst,change:(typeof start==='number'&&typeof finish==='number')?start-finish:0}}function draw(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),w=canvas.clientWidth,h=canvas.clientHeight,p={l:35,r:14,t:16,b:25},laps=Math.max(1,data.total_laps||1),maxP=Math.max(20,...cars.flatMap(x=>x.laps.map(y=>y.position||0)));ctx.clearRect(0,0,w,h);ctx.strokeStyle='#23384f';ctx.fillStyle='#8fa6bd';ctx.font='10px Arial';for(let pos=1;pos<=maxP;pos+=4){const y=p.t+(pos-1)/(maxP-1)*(h-p.t-p.b);ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.fillText('P'+pos,4,y+3)}for(let x=1;x<=laps;x+=Math.max(1,Math.ceil(laps/8))){const px=p.l+(x-1)/(laps-1||1)*(w-p.l-p.r);ctx.fillText(x,px-4,h-7)}if(!d.a.length)return;ctx.strokeStyle=c.colour;ctx.lineWidth=3;ctx.beginPath();d.a.forEach((item,i)=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();d.a.forEach(item=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);ctx.fillStyle=c.colour;ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill()})}function render(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),arrow=d.change>0?'↑ '+d.change+' SIRA':d.change<0?'↓ '+Math.abs(d.change)+' SIRA':'→ DEĞİŞMEDİ';document.getElementById('chips').innerHTML=cars.map(x=>`<button class='chip ${x.code===chosen?'active':''}' style='--team:${x.colour}' data-c='${x.code}'>${x.code}</button>`).join('');document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{chosen=b.dataset.c;render()});document.getElementById('summary').style.setProperty('--team',c.colour);document.getElementById('summary').innerHTML=`<div class='name'>${c.code}</div><div class='line'><span>Başlangıç</span><b>P${d.start}</b></div><div class='line'><span>En iyi sıra</span><b>P${d.best}</b></div><div class='line'><span>En kötü sıra</span><b>P${d.worst}</b></div><div class='line'><span>Bitiş</span><b>P${d.finish}</b></div><div class='line'><span>Toplam değişim</span><b class='${d.change>0?'up':d.change<0?'down':''}'>${arrow}</b></div>`;resize()}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}window.addEventListener('resize',resize);render();</script>""".replace('__POSITION_FLOW_PAYLOAD__', packed)
+    return (fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + r"""
+.hud{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);padding:13px}
+.head{font:600 13px var(--k-f-ui);letter-spacing:.02em}
+.sub{font-size:10px;color:var(--k-dim);margin-top:5px;line-height:1.5}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:11px 0}
+.chip{border:1px solid var(--k-line);border-left:var(--k-edge) solid var(--team);border-radius:var(--k-r-s);
+  background:var(--k-raised);color:var(--k-ink);padding:6px 9px;font:700 11px var(--k-f-ui);cursor:pointer;
+  transition:background .2s ease}
+.chip:hover{background:var(--k-hover)}
+.chip.active{box-shadow:inset 0 0 0 1px var(--team)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:12px}
+.graph{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-void)}
+.graph canvas{display:block;width:100%;height:270px}
+.summary{border:1px solid var(--k-line);border-radius:var(--k-r-m);padding:11px;background:var(--k-panel)}
+.name{font:700 19px var(--k-f-ui);letter-spacing:.01em;color:var(--team)}
+.line{display:flex;justify-content:space-between;border-top:1px solid var(--k-line-soft);padding:8px 0;
+  font:600 12px var(--k-f-data);font-variant-numeric:tabular-nums}
+.line span{color:var(--k-mute)}
+.up{color:var(--k-green)}.down{color:var(--k-pink)}
+@media(max-width:720px){.layout{grid-template-columns:1fr}}
+</style><div class='hud'><div class='head'>RACE POSITION FLOW</div><div class='sub'>TUR TUR SIRA DEĞİŞİMİ • YUKARI OK POZİSYON KAZANCI, AŞAĞI OK POZİSYON KAYBI</div><div class='chips' id='chips'></div><div class='layout'><div class='graph'><canvas id='chart'></canvas></div><aside class='summary' id='summary'></aside></div></div><script>const data=__POSITION_FLOW_PAYLOAD__,cars=data.cars||[],canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');let chosen=cars[0]?.code||'';function info(c){const a=(c.laps||[]).filter(x=>Number.isFinite(x.position));const start=c.grid||a[0]?.position||'—',finish=c.final_position||a[a.length-1]?.position||'—',values=a.map(x=>x.position),best=values.length?Math.min(...values):'—',worst=values.length?Math.max(...values):'—';return{a,start,finish,best,worst,change:(typeof start==='number'&&typeof finish==='number')?start-finish:0}}function draw(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),w=canvas.clientWidth,h=canvas.clientHeight,p={l:35,r:14,t:16,b:25},laps=Math.max(1,data.total_laps||1),maxP=Math.max(20,...cars.flatMap(x=>x.laps.map(y=>y.position||0)));ctx.clearRect(0,0,w,h);ctx.strokeStyle='#222c3a';ctx.fillStyle='#63728a';ctx.font='10px Arial';for(let pos=1;pos<=maxP;pos+=4){const y=p.t+(pos-1)/(maxP-1)*(h-p.t-p.b);ctx.beginPath();ctx.moveTo(p.l,y);ctx.lineTo(w-p.r,y);ctx.stroke();ctx.fillText('P'+pos,4,y+3)}for(let x=1;x<=laps;x+=Math.max(1,Math.ceil(laps/8))){const px=p.l+(x-1)/(laps-1||1)*(w-p.l-p.r);ctx.fillText(x,px-4,h-7)}if(!d.a.length)return;ctx.strokeStyle=c.colour;ctx.lineWidth=3;ctx.beginPath();d.a.forEach((item,i)=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();d.a.forEach(item=>{const x=p.l+(item.lap-1)/(laps-1||1)*(w-p.l-p.r),y=p.t+(item.position-1)/(maxP-1)*(h-p.t-p.b);ctx.fillStyle=c.colour;ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill()})}function render(){const c=cars.find(x=>x.code===chosen)||cars[0],d=info(c),arrow=d.change>0?'↑ '+d.change+' SIRA':d.change<0?'↓ '+Math.abs(d.change)+' SIRA':'→ DEĞİŞMEDİ';document.getElementById('chips').innerHTML=cars.map(x=>`<button class='chip ${x.code===chosen?'active':''}' style='--team:${x.colour}' data-c='${x.code}'>${x.code}</button>`).join('');document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{chosen=b.dataset.c;render()});document.getElementById('summary').style.setProperty('--team',c.colour);document.getElementById('summary').innerHTML=`<div class='name'>${c.code}</div><div class='line'><span>Başlangıç</span><b>P${d.start}</b></div><div class='line'><span>En iyi sıra</span><b>P${d.best}</b></div><div class='line'><span>En kötü sıra</span><b>P${d.worst}</b></div><div class='line'><span>Bitiş</span><b>P${d.finish}</b></div><div class='line'><span>Toplam değişim</span><b class='${d.change>0?'up':d.change<0?'down':''}'>${arrow}</b></div>`;resize()}function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}window.addEventListener('resize',resize);render();</script>""").replace('__POSITION_FLOW_PAYLOAD__', packed)
 
 # =========================================================
 # BETA 1.2 — VERIFIED DATA / REPLAY STABILITY
