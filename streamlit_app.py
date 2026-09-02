@@ -9828,56 +9828,54 @@ def render_hotlap_game_v66():
 # =========================================================
 _DECODER_CSS = r"""
 <style>
-/* Paddock Dekoder — tek renk (gri/beyaz) "kapalı devre dekoder" estetiği:
-   koyu zemin, ince beyaz hat, monospace veri, cam panel. Renk yok. */
-.deco-wrap{--dc:#dfe3e8;display:flex;flex-direction:column;gap:14px;margin-top:6px}
-.deco-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
-  border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);background:var(--fp-bg-2);
-  padding:12px 16px;flex-wrap:wrap}
-.deco-head .step{font:600 9px var(--fp-f-mono);letter-spacing:.22em;color:var(--fp-text-mute)}
-.deco-head .cat{font:600 20px var(--fp-f-display);letter-spacing:-.01em;color:var(--fp-text);margin-top:3px}
-.deco-head .cat i{font-style:normal;color:var(--dc)}
-.deco-head .sc{text-align:right;font:600 9px var(--fp-f-mono);letter-spacing:.16em;color:var(--fp-text-mute)}
-.deco-head .sc b{display:block;font:700 22px var(--fp-f-mono);color:var(--fp-text);letter-spacing:-.01em;
-  font-variant-numeric:tabular-nums}
+/* Paddock Dekoder — tek renk (gri/beyaz) adli görüntü analizi terminali.
+   Gösterişsiz: ince hat, monospace veri, ölçülü. Renk / gereksiz animasyon yok. */
+.dcx{--w:#e6e9ee;font-family:var(--fp-f-mono)}
+.dcx *{box-sizing:border-box}
 
-.deco-stage{position:relative;border:1px solid var(--fp-line-2);border-radius:var(--fp-r-lg);
-  background:radial-gradient(120% 90% at 50% 0,color-mix(in srgb,var(--dc) 9%,var(--fp-bg-1)),var(--fp-bg-0) 70%);
-  padding:16px;overflow:hidden}
-.deco-stage::after{content:"";position:absolute;inset:0;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.16) 2px 4px);mix-blend-mode:multiply;opacity:.5}
-.deco-frame{position:relative;width:100%;height:clamp(190px,40vh,310px);border:1px solid var(--fp-line-2);
-  border-radius:var(--fp-r-md);overflow:hidden;background:
-  linear-gradient(135deg,color-mix(in srgb,var(--dc) 6%,var(--fp-bg-2)),var(--fp-bg-0));
-  display:grid;place-items:center}
-.deco-frame img{width:100%;height:100%;object-fit:contain;padding:5%;
-  transition:filter .55s cubic-bezier(.4,0,.2,1);will-change:filter}
-.deco-frame .sil{position:absolute;font:700 96px var(--fp-f-display);color:color-mix(in srgb,var(--dc) 22%,transparent);
-  display:none;user-select:none}
-.deco-frame.noimg img{display:none}
-.deco-frame.noimg .sil{display:block}
-.deco-frame .corner{position:absolute;width:16px;height:16px;border:2px solid var(--dc);opacity:.55}
-.deco-frame .corner.tl{top:8px;left:8px;border-right:0;border-bottom:0}
-.deco-frame .corner.tr{top:8px;right:8px;border-left:0;border-bottom:0}
-.deco-frame .corner.bl{bottom:8px;left:8px;border-right:0;border-top:0}
-.deco-frame .corner.br{bottom:8px;right:8px;border-left:0;border-top:0}
-.deco-frame .scan{position:absolute;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,var(--dc),transparent);opacity:.4;
-  animation:decoscan 3.4s linear infinite}
-@keyframes decoscan{0%{top:-2%}100%{top:102%}}
-@media(prefers-reduced-motion:reduce){.deco-frame .scan{animation:none;display:none}}
+/* üst şerit */
+.dcx-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  border:1px solid var(--fp-line);border-radius:var(--fp-r-md);background:var(--fp-bg-2);
+  padding:10px 16px;font:600 9.5px var(--fp-f-mono);letter-spacing:.2em;color:var(--fp-text-mute);
+  margin-bottom:12px}
+.dcx-bar b{color:var(--fp-text);font-weight:700;font-variant-numeric:tabular-nums}
 
-.deco-meter{display:flex;gap:5px;margin-top:14px}
-.deco-meter i{flex:1;height:4px;border-radius:2px;background:var(--fp-bg-3);
-  box-shadow:inset 0 0 0 1px var(--fp-line)}
-.deco-meter i.live{background:var(--dc)}
-.deco-meter i.spent{background:var(--fp-line-2)}
-.deco-cap{margin-top:9px;font:600 9px var(--fp-f-mono);letter-spacing:.16em;color:var(--fp-text-mute);
+/* --- görüntü sahnesi --- */
+.dcx-view{position:relative;border:1px solid var(--fp-line-2);border-radius:var(--fp-r-md);
+  background:var(--fp-bg-0);overflow:hidden;height:clamp(240px,46vh,368px)}
+.dcx-view img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:0;
+  transition:filter .5s ease,transform .5s ease;will-change:filter,transform}
+.dcx-view .no{position:absolute;inset:0;display:none;place-items:center;z-index:1;
+  font:700 96px var(--fp-f-display);color:var(--fp-line-2)}
+.dcx-view.blank img{display:none}.dcx-view.blank .no{display:grid}
+.dcx-view .tk{position:absolute;width:13px;height:13px;border:1px solid rgba(255,255,255,.4);z-index:2;pointer-events:none}
+.dcx-view .tk.a{top:9px;left:9px;border-right:0;border-bottom:0}
+.dcx-view .tk.b{bottom:9px;right:9px;border-left:0;border-top:0}
+.dcx-strip{position:absolute;left:9px;right:9px;bottom:9px;z-index:2;pointer-events:none;
+  display:flex;justify-content:space-between;align-items:center;padding:5px 9px;border-radius:2px;
+  border:1px solid rgba(255,255,255,.22);background:linear-gradient(0deg,rgba(8,11,17,.82),rgba(8,11,17,.34));
+  font:600 8px var(--fp-f-mono);letter-spacing:.18em;color:rgba(238,242,247,.82)}
+
+/* --- hedef paneli --- */
+.dcx-target{border:1px solid var(--fp-line);border-radius:var(--fp-r-md);background:var(--fp-bg-2);
+  padding:15px 17px}
+.dcx-target s{font:600 8.5px var(--fp-f-mono);letter-spacing:.24em;color:var(--fp-text-mute);text-decoration:none}
+.dcx-target b{display:block;font:700 30px var(--fp-f-display);letter-spacing:-.02em;color:var(--fp-text);margin-top:5px}
+.dcx-pips{display:flex;gap:6px;margin-top:14px}
+.dcx-pips i{flex:1;height:6px;border-radius:1px;box-shadow:inset 0 0 0 1px var(--fp-line-2)}
+.dcx-pips i.used{box-shadow:none;background:var(--fp-line-2);
+  background-image:repeating-linear-gradient(45deg,transparent 0 2px,rgba(8,11,17,.55) 2px 4px)}
+.dcx-pips i.left{background:var(--w);box-shadow:none}
+.dcx-pips.crit i.left{animation:dcxp 1.5s ease-in-out infinite}
+@keyframes dcxp{0%,100%{opacity:1}50%{opacity:.4}}
+@media(prefers-reduced-motion:reduce){.dcx-pips.crit i.left{animation:none}}
+.dcx-pl{margin-top:8px;font:600 8.5px var(--fp-f-mono);letter-spacing:.16em;color:var(--fp-text-mute);
   display:flex;justify-content:space-between}
+.dcx-pl .c{color:var(--fp-text)}
 
-/* Tahmin kutusu — Streamlit text_input + form button tamamen yeniden giydirildi */
+/* girdi — Streamlit text_input + form button tamamen yeniden giydirildi */
 .stApp div[class*="st-key-deco_inwrap"]{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-md);
-  background:var(--fp-bg-2);padding:5px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--dc) 14%,transparent)}
+  background:var(--fp-bg-2);padding:5px;margin-top:12px}
 .stApp div[class*="st-key-deco_inwrap"] [data-testid="stForm"]{
   border:0!important;padding:0!important;background:none!important;box-shadow:none!important}
 .stApp div[class*="st-key-deco_inwrap"] [data-testid="stTextInput"]{margin:0!important}
@@ -9889,59 +9887,70 @@ _DECODER_CSS = r"""
 .stApp div[class*="st-key-deco_inwrap"] input{
   background:transparent!important;border:0!important;box-shadow:none!important;color:var(--fp-text)!important;
   font:600 15px var(--fp-f-mono)!important;letter-spacing:.03em!important;padding:11px 13px!important;
-  caret-color:var(--dc)!important}
+  caret-color:#e6e9ee!important}
 .stApp div[class*="st-key-deco_inwrap"] input:focus{outline:0!important}
 .stApp div[class*="st-key-deco_inwrap"] input::placeholder{
   color:var(--fp-text-mute)!important;letter-spacing:.14em!important;font-weight:500!important;
   text-transform:uppercase;opacity:1}
 .stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"]{margin-top:4px!important}
 .stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"] button{
-  width:100%!important;border:1px solid var(--dc)!important;border-radius:var(--fp-r-sm)!important;
-  background:color-mix(in srgb,var(--dc) 12%,transparent)!important;color:var(--dc)!important;
-  font:700 11px var(--fp-f-mono)!important;letter-spacing:.24em!important;padding:10px!important;
+  width:100%!important;border:1px solid #e6e9ee!important;border-radius:var(--fp-r-sm)!important;
+  background:rgba(230,233,238,.10)!important;color:#e6e9ee!important;
+  font:700 11px var(--fp-f-mono)!important;letter-spacing:.26em!important;padding:10px!important;
   text-transform:uppercase!important;box-shadow:none!important;transition:background .14s ease}
 .stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"] button:hover{
-  background:color-mix(in srgb,var(--dc) 22%,transparent)!important;border-color:var(--dc)!important}
+  background:rgba(230,233,238,.2)!important;border-color:#fff!important}
 .stApp div[class*="st-key-deco_inwrap"] [data-testid="stFormSubmitButton"] button p{
   font:inherit!important;letter-spacing:inherit!important;text-transform:inherit!important;margin:0!important}
 
-.deco-hint{border:1px solid var(--fp-line);border-left:2px solid var(--fp-text-mute);
-  border-radius:var(--fp-r-md);background:var(--fp-bg-2);padding:11px 14px;
+.dcx-hint{border:1px solid var(--fp-line);border-left:2px solid var(--fp-text-mute);
+  border-radius:var(--fp-r-md);background:var(--fp-bg-2);padding:12px 15px;margin-top:12px;
   font:500 12.5px var(--fp-f-body);color:var(--fp-text-dim)}
-.deco-hint b{font:600 9px var(--fp-f-mono);letter-spacing:.18em;color:var(--fp-text);margin-right:8px}
+.dcx-hint s{display:block;font:600 8px var(--fp-f-mono);letter-spacing:.2em;color:var(--fp-text-mute);
+  margin-bottom:6px;text-decoration:none}
 
-.deco-verdict{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-lg);padding:15px 18px;
-  background:var(--fp-bg-2);display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.deco-verdict.ok{border-left:3px solid #eef1f5}
-.deco-verdict.no{border-left:3px solid var(--fp-line-2)}
-.deco-verdict b{font:700 21px var(--fp-f-display);letter-spacing:-.015em;color:var(--fp-text)}
-.deco-verdict span{font:600 10px var(--fp-f-mono);letter-spacing:.14em;color:var(--fp-text-mute)}
-.deco-verdict.ok span{color:var(--fp-text)}
-.deco-verdict.no b{color:var(--fp-text-dim)}
+.dcx-verdict{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-md);padding:15px 17px;
+  background:var(--fp-bg-2);margin-top:2px}
+.dcx-verdict.ok{border-left:3px solid #eef1f5}
+.dcx-verdict.no{border-left:3px solid var(--fp-line-2)}
+.dcx-verdict s{font:600 8px var(--fp-f-mono);letter-spacing:.22em;color:var(--fp-text-mute);text-decoration:none}
+.dcx-verdict b{display:block;font:700 22px var(--fp-f-display);letter-spacing:-.02em;color:var(--fp-text);margin:5px 0 4px}
+.dcx-verdict.no b{color:var(--fp-text-dim)}
+.dcx-verdict i{font:600 9.5px var(--fp-f-mono);letter-spacing:.12em;color:var(--fp-text-mute);font-style:normal}
 
-.deco-log{border:1px solid var(--fp-line);border-radius:var(--fp-r-md);background:var(--fp-bg-1);overflow:hidden}
-.deco-log-h{font:600 9px var(--fp-f-mono);letter-spacing:.2em;color:var(--fp-text-mute);
-  padding:9px 14px;border-bottom:1px solid var(--fp-line)}
-.deco-log-row{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;
-  padding:8px 14px;border-bottom:1px solid var(--fp-line-soft);font:600 12px var(--fp-f-mono)}
-.deco-log-row:last-child{border-bottom:0}
-.deco-log-row .n{color:var(--fp-text-mute);font-variant-numeric:tabular-nums;font-size:10px;letter-spacing:.1em}
-.deco-log-row .g{color:var(--fp-text-dim);letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.deco-log-row .r{font:600 9px var(--fp-f-mono);letter-spacing:.14em}
-.deco-log-row.hit .g{color:var(--fp-text)}
-.deco-log-row.hit .r{color:var(--fp-text)}
-.deco-log-row.miss .r{color:var(--fp-text-mute)}
+.dcx-log{border:1px solid var(--fp-line);border-radius:var(--fp-r-md);background:var(--fp-bg-1);
+  overflow:hidden;margin-top:12px}
+.dcx-log-h{display:flex;justify-content:space-between;padding:9px 15px;border-bottom:1px solid var(--fp-line);
+  font:600 8px var(--fp-f-mono);letter-spacing:.2em;color:var(--fp-text-mute)}
+.dcx-row{display:grid;grid-template-columns:26px 1fr auto;gap:13px;align-items:center;
+  padding:9px 15px;border-bottom:1px solid var(--fp-line-soft);font:600 12px var(--fp-f-mono)}
+.dcx-row:last-child{border-bottom:0}
+.dcx-row .n{color:var(--fp-text-mute);font-size:10px}
+.dcx-row .g{color:var(--fp-text-dim);letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dcx-row .r{font-size:9px;letter-spacing:.14em;color:var(--fp-text-mute);white-space:nowrap}
+.dcx-row.hit .g{color:var(--fp-text)}
+.dcx-row.hit .r{color:var(--fp-text)}
+.dcx-row.warm .r{color:var(--fp-text-dim)}
 
-.deco-final{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-lg);background:var(--fp-bg-2);
-  padding:20px;text-align:center}
-.deco-final .fh{font:600 9px var(--fp-f-mono);letter-spacing:.22em;color:var(--fp-text-mute)}
-.deco-final .fs{font:700 46px var(--fp-f-mono);letter-spacing:-.02em;color:var(--fp-text);
-  font-variant-numeric:tabular-nums;margin:6px 0 2px}
-.deco-final .fl{font:500 12px var(--fp-f-body);color:var(--fp-text-dim)}
-.deco-final .fg{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
-.deco-final .fg span{border:1px solid var(--fp-line);border-radius:var(--fp-r-pill);padding:5px 11px;
-  font:600 9px var(--fp-f-mono);letter-spacing:.12em;color:var(--fp-text-dim)}
-.deco-final .fg span.win{border-color:var(--fp-text-dim);color:var(--fp-text)}
+.dcx-final{border:1px solid var(--fp-line-2);border-radius:var(--fp-r-md);background:var(--fp-bg-2);padding:20px}
+.dcx-final-top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.dcx-final-top s{font:600 8.5px var(--fp-f-mono);letter-spacing:.22em;color:var(--fp-text-mute);text-decoration:none}
+.dcx-final-top b{display:block;font:700 44px var(--fp-f-mono);letter-spacing:-.03em;color:var(--fp-text);
+  font-variant-numeric:tabular-nums;margin-top:3px}
+.dcx-final-top i{font:600 9.5px var(--fp-f-mono);letter-spacing:.1em;color:var(--fp-text-mute);font-style:normal;
+  text-align:right;line-height:1.7}
+.dcx-dossier{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.dcx-dos{display:grid;grid-template-columns:56px 1fr auto;gap:14px;align-items:center;
+  border:1px solid var(--fp-line);border-radius:var(--fp-r-sm);background:var(--fp-bg-1);padding:9px 13px}
+.dcx-dos img{width:56px;height:40px;object-fit:contain;filter:grayscale(1) contrast(1.08);
+  background:var(--fp-bg-0);border-radius:2px}
+.dcx-dos .l{min-width:0}
+.dcx-dos .l s{display:block;font:600 8px var(--fp-f-mono);letter-spacing:.18em;color:var(--fp-text-mute);text-decoration:none}
+.dcx-dos .l b{display:block;font:700 15px var(--fp-f-display);letter-spacing:-.01em;color:var(--fp-text);
+  margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dcx-dos .l b.miss{color:var(--fp-text-dim)}
+.dcx-dos .r{font:600 9px var(--fp-f-mono);letter-spacing:.1em;color:var(--fp-text-mute);text-align:right;
+  white-space:nowrap;line-height:1.7}
 </style>
 """
 
@@ -9949,25 +9958,32 @@ _DECO_LABEL = {"teams": "TAKIM", "drivers": "PİLOT", "tracks": "PİST"}
 
 
 def _deco_image_filter(remaining, solved):
-    """Görsel HER ZAMAN gri-beyaz (renk asla ipucu vermez). ``(blur px,
-    contrast, brightness)`` — ``grayscale(1)`` stil dizesinde sabit.
+    """Görsel HER ZAMAN gri-beyaz ve KIRPILMIŞ (zoom). ``(blur px, contrast,
+    brightness, scale)``; ``grayscale(1)`` stil dizesinde sabit.
 
-    Blur kalan hakla azalır ama 1. hakta bile taban blur + kontrast bozulması
-    kalır (kalıcı gizem). Çözülünce blur kalkar, görsel yine gridir."""
+    Kalan hak azaldıkça blur düşer ve kadraj genişler. Son hakta bile taban blur
+    + kırpma kalır — görsel asla tam açılmaz. Çözülünce blur kalkar, kadraj
+    tam açılır (ama yine gridir)."""
+    mg = fp_deco.MAX_GUESSES
     if solved:
-        return (0.0, 1.06, 1.0)
-    r = max(0, min(5, int(remaining)))
-    blur = {5: 18.0, 4: 14.0, 3: 10.5, 2: 7.5, 1: 5.0, 0: 5.0}[r]
-    contrast = round(1.16 + (5 - r) * 0.05, 2)
-    bright = round(0.98 - (5 - r) * 0.02, 3)
-    return (blur, contrast, bright)
+        return (0.6, 1.05, 1.0, 1.0)
+    r = max(0, min(mg, int(remaining)))
+    frac = (mg - r) / mg                     # 0 (ilk) → 1 (son)
+    blur = round(16.0 - 11.0 * frac, 1)      # 16 → 5
+    if r == 0:
+        blur = 5.0
+    contrast = round(1.26 - 0.10 * frac, 2)  # 1.26 → 1.16
+    bright = round(0.93 + 0.06 * frac, 3)    # 0.93 → 0.99
+    scale = round(1.85 - 0.72 * frac, 3)     # 1.85 → 1.13
+    return (blur, contrast, bright, scale)
 
 
 def render_paddock_decoder_v1():
     _game_shell(
         "Paddock Dekoder",
-        "Bulanık görseli çöz — sırayla bir takım, bir pilot, bir pist. 5 hak; "
-        "görsel her yanlışta biraz netleşir ama asla tam açılmaz.",
+        "Gri-beyaz, bulanık ve kırpılmış bir görsel: sırayla bir takım, bir "
+        "pilot, bir pist. 4 hak; her yanlışta kadraj biraz açılır ama görsel "
+        "asla tam netleşmez.",
         "#9aa1ab",
     )
     if _game_intro_gate_v8('decoder'):
@@ -9979,12 +9995,17 @@ def render_paddock_decoder_v1():
         st.session_state[key] = fp_deco.new_session().to_dict()
     sess = fp_deco.DecoderSession.from_dict(st.session_state[key])
     view = sess.public_state()
+    mg = fp_deco.MAX_GUESSES
 
     dc_pref = fp_ui.get_pref('dc') if isinstance(fp_ui.get_pref('dc'), dict) else {}
     streak = int(dc_pref.get('s') or 0)
     best = int(dc_pref.get('b') or 0)
 
-    # ---------- OYUN BİTTİ ----------
+    def _img(src, attrs=""):
+        return (f"<img src='{html_lib.escape(str(src), quote=True)}' alt='' "
+                f"referrerpolicy='no-referrer' {attrs}>")
+
+    # ---------- OYUN BİTTİ — DOSYA ÖZETİ ----------
     # Son turun kararı da gösterilsin: 'done' anında değil, "Sonucu gör →"
     # onaylandıktan sonra özet ekranına geç.
     if view['done'] and st.session_state.get(key + '_done_ack'):
@@ -9996,31 +10017,26 @@ def render_paddock_decoder_v1():
                             streak=new_streak if view['swept'] else None)
             streak, best = new_streak, max(best, new_streak)
 
-        chips = "".join(
-            f"<span class='{'win' if rr.solved else ''}'>"
-            f"{_DECO_LABEL[rr.category]} · {'ÇÖZDÜ' if rr.solved else 'KAÇTI'}</span>"
+        dossier = "".join(
+            f"<div class='dcx-dos'>"
+            + _img(rr.target.image, "onerror=\"this.style.visibility='hidden'\"")
+            + f"<div class='l'><s>{_DECO_LABEL[rr.category]}</s>"
+            f"<b class='{'' if rr.solved else 'miss'}'>{html_lib.escape(rr.target.answer)}</b></div>"
+            f"<div class='r'>{(str(rr.attempts_used) + '. deneme') if rr.solved else 'bilinemedi'}"
+            f"<br>+{fp_deco.score_round(rr)} XP</div></div>"
             for rr in sess.rounds
         )
-        sweep_chip = "<span class='win'>SWEEP +25</span>" if view['swept'] else ""
+        sweep = " · SWEEP +30" if view['swept'] else ""
         st.markdown(
-            f"<div class='deco-wrap'><div class='deco-final'>"
-            f"<div class='fh'>DEKODER TAMAM</div>"
-            f"<div class='fs'>{view['total_score']}</div>"
-            f"<div class='fl'>{view['solved_count']} / 3 kategori çözüldü · "
-            f"seri {streak} (en iyi {best})</div>"
-            f"<div class='fg'>{chips}{sweep_chip}</div>"
+            f"<div class='dcx'><div class='dcx-final'>"
+            f"<div class='dcx-final-top'>"
+            f"<div><s>OTURUM PUANI</s><b>{view['total_score']}</b></div>"
+            f"<i>{view['solved_count']} / 3 çözüldü{sweep}<br>seri {streak} · en iyi {best}</i>"
+            f"</div>"
+            f"<div class='dcx-dossier'>{dossier}</div>"
             f"</div></div>",
             unsafe_allow_html=True,
         )
-        rows = "".join(
-            f"<div class='deco-log-row {'hit' if rr.solved else 'miss'}'>"
-            f"<span class='n'>{_DECO_LABEL[rr.category]}</span>"
-            f"<span class='g'>{html_lib.escape(rr.target.answer)}</span>"
-            f"<span class='r'>+{fp_deco.score_round(rr)} XP</span></div>"
-            for rr in sess.rounds
-        )
-        st.markdown(f"<div class='deco-log'><div class='deco-log-h'>ÇÖZÜM DÖKÜMÜ</div>{rows}</div>",
-                    unsafe_allow_html=True)
         if st.button("Yeni oyun →", type="primary", key="deco_restart", width='stretch'):
             st.session_state[key] = fp_deco.new_session().to_dict()
             st.session_state.pop(key + '_awarded', None)
@@ -10032,83 +10048,116 @@ def render_paddock_decoder_v1():
     rnd = view['round']
     rd = sess.current
     cat = rnd['category']
-    blur, contrast, bright = _deco_image_filter(rnd['remaining'], rnd['solved'])
+    blur, contrast, bright, scale = _deco_image_filter(rnd['remaining'], rnd['solved'])
+    crit = (not rnd['over']) and rnd['remaining'] == 1
 
-    meter = "".join(
-        f"<i class='{'spent' if i < rnd['attempts_used'] else 'live'}'></i>"
-        for i in range(fp_deco.MAX_GUESSES)
-    )
+    # üst şerit
     st.markdown(
-        f"<div class='deco-wrap'>"
-        f"<div class='deco-head'>"
-        f"<div><div class='step'>DEKODER · {view['step']}</div>"
-        f"<div class='cat'>Bu bir <i>{_DECO_LABEL[cat]}</i></div></div>"
-        f"<div class='sc'>OTURUM PUANI<b>{view['total_score']}</b></div>"
-        f"</div>"
-        f"<div class='deco-stage'><div class='deco-frame'>"
-        f"<img src='{html_lib.escape(rnd['image'], quote=True)}' alt='' referrerpolicy='no-referrer' "
-        f"style='filter:grayscale(1) blur({blur}px) contrast({contrast}) brightness({bright})' "
-        f"onerror=\"this.closest('.deco-frame').classList.add('noimg')\">"
-        f"<div class='sil'>?</div>"
-        f"<span class='corner tl'></span><span class='corner tr'></span>"
-        f"<span class='corner bl'></span><span class='corner br'></span>"
-        f"<span class='scan'></span>"
-        f"</div>"
-        f"<div class='deco-meter'>{meter}</div>"
-        f"<div class='deco-cap'><span>TARAMA {5 - rnd['remaining']} / 5</span>"
-        f"<span>KALAN {rnd['remaining']} HAK</span></div>"
-        f"</div>"
-        f"</div>",
+        f"<div class='dcx'><div class='dcx-bar'>"
+        f"<span>DEKODER · <b>{view['step'].replace('/', ' / ')}</b></span>"
+        f"<span>OTURUM · <b>{view['total_score']}</b></span>"
+        f"</div></div>",
         unsafe_allow_html=True,
     )
 
-    if not rnd['over']:
-        with st.container(key='deco_inwrap'):
-            with st.form(key=f"deco_form_{sess.index}_{rnd['attempts_used']}", clear_on_submit=True):
-                guess = st.text_input(
-                    "guess", label_visibility="collapsed",
-                    placeholder=f"{_DECO_LABEL[cat]} adını yaz",
-                    key=f"deco_g_{sess.index}_{rnd['attempts_used']}",
-                )
-                sent = st.form_submit_button("ÇÖZ")
-        if sent and str(guess or "").strip():
-            fp_deco.submit_guess(rd, guess)
-            st.session_state[key] = sess.to_dict()
-            st.rerun()
-        if rnd['hint']:
-            st.markdown(
-                f"<div class='deco-hint'><b>İPUCU</b>{html_lib.escape(rnd['hint'])}</div>",
-                unsafe_allow_html=True,
-            )
-    else:
-        solved = rnd['solved']
-        tail = (f"+{rnd['score']} XP · {rnd['attempts_used']}. denemede"
-                if solved else f"bilemedin · +{rnd['score']} XP")
+    col_img, col_side = st.columns([1.4, 1], gap="medium")
+
+    with col_img:
+        strip_r = ("ÇÖZÜLDÜ" if rnd['solved']
+                   else "KAYIT KAPANDI" if rnd['failed']
+                   else f"{rnd['remaining']} HAK KALDI")
         st.markdown(
-            f"<div class='deco-verdict {'ok' if solved else 'no'}'>"
-            f"<b>{html_lib.escape(rnd['answer'])}</b><span>{tail}</span></div>",
+            f"<div class='dcx'><div class='dcx-view'>"
+            + _img(rnd['image'],
+                   f"style=\"filter:grayscale(1) blur({blur}px) contrast({contrast}) "
+                   f"brightness({bright});transform:scale({scale})\" "
+                   "onerror=\"this.closest('.dcx-view').classList.add('blank')\"")
+            + "<div class='no'>?</div>"
+            "<span class='tk a'></span><span class='tk b'></span>"
+            f"<div class='dcx-strip'><span>GÖRÜNTÜ · {_DECO_LABEL[cat]}</span>"
+            f"<span>{strip_r}</span></div>"
+            "</div></div>",
             unsafe_allow_html=True,
         )
-        last = sess.index >= len(sess.order) - 1
-        nxt = "Sonucu gör →" if last else "Sıradaki kategori →"
-        if st.button(nxt, type="primary", key=f"deco_next_{sess.index}", width='stretch'):
-            if last:
-                st.session_state[key + '_done_ack'] = True
-            else:
-                sess.advance()
-                st.session_state[key] = sess.to_dict()
-            st.rerun()
 
+    with col_side:
+        pips = "".join(
+            f"<i class='{'used' if i < rnd['attempts_used'] else 'left'}'></i>"
+            for i in range(mg)
+        )
+        right_lbl = ("SON HAK" if crit
+                     else f"{rnd['remaining']} KALDI" if not rnd['over']
+                     else "—")
+        st.markdown(
+            f"<div class='dcx'><div class='dcx-target'>"
+            f"<s>HEDEF SINIFI</s><b>{_DECO_LABEL[cat]}</b>"
+            f"<div class='dcx-pips{' crit' if crit else ''}'>{pips}</div>"
+            f"<div class='dcx-pl'><span>{rnd['attempts_used']} / {mg} TARAMA</span>"
+            f"<span class='{'c' if crit else ''}'>{right_lbl}</span></div>"
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
+
+        if not rnd['over']:
+            with st.container(key='deco_inwrap'):
+                with st.form(key=f"deco_form_{sess.index}_{rnd['attempts_used']}",
+                             clear_on_submit=True):
+                    guess = st.text_input(
+                        "guess", label_visibility="collapsed",
+                        placeholder=f"{_DECO_LABEL[cat]} adını yaz",
+                        key=f"deco_g_{sess.index}_{rnd['attempts_used']}",
+                    )
+                    sent = st.form_submit_button("ÇÖZ")
+            if sent and str(guess or "").strip():
+                fp_deco.submit_guess(rd, guess)
+                st.session_state[key] = sess.to_dict()
+                st.rerun()
+            if rnd['hint']:
+                st.markdown(
+                    f"<div class='dcx'><div class='dcx-hint'><s>ÇÖZÜMLEME NOTU</s>"
+                    f"{html_lib.escape(rnd['hint'])}</div></div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            solved = rnd['solved']
+            tail = (f"+{rnd['score']} XP · {rnd['attempts_used']}. denemede"
+                    if solved else f"+{rnd['score']} XP · {mg} denemede bulunamadı")
+            st.markdown(
+                f"<div class='dcx'><div class='dcx-verdict {'ok' if solved else 'no'}'>"
+                f"<s>{'DOĞRULANDI' if solved else 'BİLİNEMEDİ'}</s>"
+                f"<b>{html_lib.escape(rnd['answer'])}</b><i>{tail}</i>"
+                f"</div></div>",
+                unsafe_allow_html=True,
+            )
+            last = sess.index >= len(sess.order) - 1
+            nxt = "Sonucu gör →" if last else "Sıradaki kategori →"
+            if st.button(nxt, type="primary", key=f"deco_next_{sess.index}", width='stretch'):
+                if last:
+                    st.session_state[key + '_done_ack'] = True
+                else:
+                    sess.advance()
+                    st.session_state[key] = sess.to_dict()
+                st.rerun()
+
+    # tahmin kaydı — yakınlık yüzdesiyle
     if rnd['guesses']:
         rows = ""
         for i, g in enumerate(rnd['guesses'], 1):
+            sim = fp_deco.match_score(g, rd.target)[0]
             hit = rnd['solved'] and i == len(rnd['guesses'])
-            rows += (f"<div class='deco-log-row {'hit' if hit else 'miss'}'>"
-                     f"<span class='n'>{i:02d}</span>"
+            cls = "hit" if hit else ("warm" if sim >= 0.6 else "")
+            tag = ("EŞLEŞTİ" if hit
+                   else f"%{int(round(sim * 100))} · YAKIN" if sim >= 0.6
+                   else f"%{int(round(sim * 100))} · UZAK")
+            rows += (f"<div class='dcx-row {cls}'><span class='n'>{i:02d}</span>"
                      f"<span class='g'>{html_lib.escape(g)}</span>"
-                     f"<span class='r'>{'EŞLEŞTİ' if hit else 'UZAK'}</span></div>")
-        st.markdown(f"<div class='deco-log'><div class='deco-log-h'>TAHMİN KAYDI</div>{rows}</div>",
-                    unsafe_allow_html=True)
+                     f"<span class='r'>{tag}</span></div>")
+        st.markdown(
+            f"<div class='dcx'><div class='dcx-log'><div class='dcx-log-h'>"
+            f"<span>TAHMİN KAYDI</span><span>{len(rnd['guesses'])} / {mg}</span></div>"
+            f"{rows}</div></div>",
+            unsafe_allow_html=True,
+        )
 
 
 # =========================================================
