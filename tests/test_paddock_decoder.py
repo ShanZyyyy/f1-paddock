@@ -76,6 +76,24 @@ def test_seed_is_deterministic():
     assert isinstance(c.target_index, int)
 
 
+def test_seedless_sessions_vary():
+    # seed'siz oyunlar zamanla farklı hedefler üretmeli (art arda 20'de en az 2 farklı)
+    seen = {deco.new_session().current.target_index for _ in range(20)}
+    assert len(seen) >= 2
+
+
+def test_seedless_session_stable_across_roundtrip():
+    s = deco.new_session()
+    idx = s.current.target_index
+    restored = deco.DecoderSession.from_dict(s.to_dict())
+    assert restored.current.target_index == idx
+    # ilerleyince de aynı seed'i kullanır (rerun'da hedef kaymaz)
+    deco.submit_guess(restored.current, restored.current.target.answer)
+    restored.advance()
+    again = deco.DecoderSession.from_dict(restored.to_dict())
+    assert again.current.target_index == restored.current.target_index
+
+
 def test_correct_guess_solves_and_stops_countdown():
     r = deco.new_round("teams", target_index=0)   # Ferrari
     assert r.remaining == 5

@@ -20,6 +20,7 @@ Bu modül SAF: Streamlit/ağ yok. UI state sözlüğünü tutar ve şu akışı 
 from __future__ import annotations
 
 import hashlib
+import random
 import unicodedata
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -266,7 +267,7 @@ class DecoderRound:
 def _seed_index(category: str, seed) -> int:
     pool = TARGETS[category]
     if seed is None:
-        return 0
+        return random.randrange(len(pool))
     digest = hashlib.sha256(f"{category}:{seed}".encode("utf-8")).hexdigest()
     return int(digest, 16) % len(pool)
 
@@ -275,7 +276,7 @@ def new_round(category: str, *, seed=None, target_index: Optional[int] = None) -
     """Yeni tur başlat.
 
     category      : "teams" | "drivers" | "tracks"
-    seed          : verilirse deterministik hedef (günlük mod için gün dizesi)
+    seed          : verilirse deterministik hedef; verilmezse rastgele
     target_index  : elle hedef seç (test / "sınırsız" mod rotasyonu)
     """
     if category not in TARGETS:
@@ -488,11 +489,18 @@ class DecoderSession:
 
 
 def new_session(*, seed=None, order: Optional[List[str]] = None) -> DecoderSession:
-    """Yeni tam oyun. `seed` verilirse (günlük mod) üç hedef de deterministik."""
+    """Yeni tam oyun.
+
+    `seed` verilirse (günlük mod) üç hedef de o seed'e göre deterministik.
+    Verilmezse rastgele bir oturum seed'i üretilir ve saklanır — böylece oturum
+    yeniden-çalıştırmalar (Streamlit rerun) arasında tutarlı kalır ama her yeni
+    oyun farklı hedefler verir.
+    """
     order = list(order or CATEGORIES)
     for cat in order:
         if cat not in TARGETS:
             raise ValueError(f"bilinmeyen kategori: {cat!r}")
-    s = DecoderSession(order=order, rounds=[new_round(order[0], seed=seed)], index=0)
-    s._seed = None if seed is None else str(seed)
+    resolved = str(seed) if seed is not None else format(random.randrange(1 << 40), "x")
+    s = DecoderSession(order=order, rounds=[new_round(order[0], seed=resolved)], index=0)
+    s._seed = resolved
     return s
