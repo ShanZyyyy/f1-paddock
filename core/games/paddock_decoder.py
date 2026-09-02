@@ -37,6 +37,7 @@ __all__ = [
     "is_correct",
     "new_round",
     "submit_guess",
+    "skip_round",
     "pool_options",
     "public_state",
     "blur_px",
@@ -46,13 +47,18 @@ __all__ = [
     "DecoderSession",
     "new_session",
     "ERA_START",
+    "REVEAL_STEPS",
 ]
 
 CATEGORIES: Tuple[str, ...] = ("teams", "drivers", "tracks")
-MAX_GUESSES: int = 3
 
-# Kaç yanlıştan sonra metin ipucu açılır (yalnızca son hak kalınca)
-_HINT_AFTER_MISSES = 2
+# Tahmin SINIRSIZ. Görsel yalnızca ilk ``REVEAL_STEPS`` yanlış boyunca açılır;
+# sonra %40 dolayında sabit kalır (fix) — asla tam netleşmez.
+REVEAL_STEPS: int = 4
+MAX_GUESSES: int = REVEAL_STEPS   # geriye dönük uyum (eski kod bunu okuyabilir)
+
+# Kaç yanlıştan sonra metin ipucu açılır (görsel sabitlenince)
+_HINT_AFTER_MISSES = REVEAL_STEPS
 
 # Tahmin artık bir açılır listeden SEÇİLİYOR (Stewardle gibi), serbest yazı değil.
 # Eşik yalnızca güvenlik amaçlı: seçim zaten kanonik ada birebir eşit gelir.
@@ -275,6 +281,7 @@ class DecoderRound:
     target_index: int
     guesses: List[str] = field(default_factory=list)   # ham tahminler
     solved: bool = False
+    skipped: bool = False
     matched_on: Optional[str] = None
 
     # -- türetilenler --------------------------------------------------
@@ -287,12 +294,14 @@ class DecoderRound:
         return len(self.guesses)
 
     @property
-    def remaining(self) -> int:
-        return max(0, MAX_GUESSES - self.attempts_used)
+    def revealed(self) -> float:
+        """0 (kapalı) → 1 (sabit noktaya ulaştı). Sınırsız tahmin; yalnızca ilk
+        REVEAL_STEPS yanlış boyunca açılır, sonra sabit."""
+        return min(1.0, self.attempts_used / max(1, REVEAL_STEPS))
 
     @property
     def failed(self) -> bool:
-        return not self.solved and self.remaining == 0
+        return self.skipped and not self.solved
 
     @property
     def over(self) -> bool:
@@ -305,6 +314,7 @@ class DecoderRound:
             "target_index": self.target_index,
             "guesses": list(self.guesses),
             "solved": self.solved,
+            "skipped": self.skipped,
             "matched_on": self.matched_on,
         }
 
@@ -315,6 +325,7 @@ class DecoderRound:
             target_index=int(data["target_index"]),
             guesses=list(data.get("guesses", [])),
             solved=bool(data.get("solved", False)),
+            skipped=bool(data.get("skipped", False)),
             matched_on=data.get("matched_on"),
         )
 
@@ -352,17 +363,18 @@ def pool_options(category: str) -> List[str]:
 def submit_guess(state: DecoderRound, guess: str) -> dict:
     """Seçilen bir tahmini işle, state'i günceller, sonucu döndürür.
 
+    Tahmin SINIRSIZ — yanlış tahmin turu bitirmez, yalnızca sayacı artırır.
     ``guess`` açılır listeden gelen kanonik ad olmalı; güvenlik için çok yakın
-    yazımlar da kabul edilir (``_MATCH_THRESHOLD`` = 0.92).
+    yazımlar da kabul edilir.
 
-    Dönen: {accepted, correct, solved, failed, remaining}
+    Dönen: {accepted, correct, solved, failed, over, attempts_used}
     """
     guess = str(guess or "").strip()
     if state.over or not guess:
         return {
-            "accepted": False, "correct": False,
-            "solved": state.solved, "failed": state.failed,
-            "remaining": state.remaining,
+            "accepted": False, "correct": False, "solved": state.solved,
+            "failed": state.failed, "over": state.over,
+            "attempts_used": state.attempts_used,
         }
 
     state.guesses.append(guess)
@@ -375,12 +387,17 @@ def submit_guess(state: DecoderRound, guess: str) -> dict:
         state.matched_on = state.target.answer
 
     return {
-        "accepted": True,
-        "correct": correct,
-        "solved": state.solved,
-        "failed": state.failed,
-        "remaining": state.remaining,
+        "accepted": True, "correct": correct, "solved": state.solved,
+        "failed": state.failed, "over": state.over,
+        "attempts_used": state.attempts_used,
     }
+
+
+def skip_round(state: DecoderRound) -> dict:
+    """Oyuncu turu geçer — bilinemedi sayılır, düşük XP, sıradaki kategoriye."""
+    if not state.over:
+        state.skipped = True
+    return {"skipped": state.skipped, "over": state.over}
 
 
 # ===========================================================================
@@ -388,22 +405,18 @@ def submit_guess(state: DecoderRound, guess: str) -> dict:
 # ===========================================================================
 
 
-def blur_px(remaining: int, *, start: float = _BLUR_START_PX,
+def blur_px(attempts_used: int, *, start: float = _BLUR_START_PX,
             solved: bool = False) -> float:
-    """Kalan hakka göre önerilen CSS blur (px).
-
-    remaining == MAX_GUESSES → tam blur; her yanlışta eşit azalır; 0/çözüldü → 0.
-    (UI kendi eğrisini kullanabilir; bu yalnızca basit bir yardımcı.)
-    """
-    if solved or remaining <= 0:
+    """Basit blur yardımcı: ``attempts_used`` arttıkça azalır, REVEAL_STEPS'te
+    tabana oturur (0'a inmez). UI kendi (kategori bazlı) eğrisini kullanır."""
+    if solved:
         return 0.0
-    used = MAX_GUESSES - max(0, min(MAX_GUESSES, remaining))
-    frac = 1.0 - used / MAX_GUESSES
-    return round(start * frac, 1)
+    frac = min(1.0, attempts_used / max(1, REVEAL_STEPS))
+    return round(start * (1.0 - 0.75 * frac), 1)     # en fazla %75 açılır
 
 
 def reveal_hint(state: DecoderRound) -> Optional[str]:
-    """Yeterince yanlış yapıldıysa (veya oyun bittiyse) metin ipucunu ver."""
+    """Görsel sabitlendikten (REVEAL_STEPS yanlış) sonra metin ipucu açılır."""
     if state.over:
         return state.target.hint or None
     if state.attempts_used >= _HINT_AFTER_MISSES and not state.solved:
@@ -412,17 +425,11 @@ def reveal_hint(state: DecoderRound) -> Optional[str]:
 
 
 def image_orientation(state: DecoderRound) -> Tuple[int, bool]:
-    """Görselin (döndürme derecesi, yatay aynalama) durumu.
-
-    Yalnızca PİST haritaları için: bir pist silüeti taraftara çok tanıdık, bu
-    yüzden çözülene / son hak kalana dek 180° döndürülüp (bazılarında ayrıca
-    aynalanıp) gösterilir — kadraj oranı bozulmaz, sadece "o şekli biliyorum"
-    anlık galibiyeti kalkar. Son hakta ve oyun bitince düz konuma döner.
-    """
-    if state.category != "tracks" or state.over or state.remaining <= 1:
+    """PİST haritaları ilk 2 yanlış boyunca 180° döndürülür (aynalama YOK — çok
+    kafa karıştırıyordu). Sonra ve çözülünce/geçilince düz."""
+    if state.category != "tracks" or state.over or state.attempts_used >= 2:
         return (0, False)
-    h = int(hashlib.sha256(state.target.answer.encode("utf-8")).hexdigest(), 16)
-    return (180, bool(h & 1))
+    return (180, False)
 
 
 def public_state(state: DecoderRound) -> dict:
@@ -435,12 +442,13 @@ def public_state(state: DecoderRound) -> dict:
         "image": state.target.image,
         "guesses": list(state.guesses),
         "attempts_used": state.attempts_used,
-        "remaining": state.remaining,
-        "max_guesses": MAX_GUESSES,
+        "reveal_steps": REVEAL_STEPS,
+        "revealed": round(state.revealed, 3),
         "solved": state.solved,
+        "skipped": state.skipped,
         "failed": state.failed,
         "over": state.over,
-        "blur_px": blur_px(state.remaining, solved=state.solved),
+        "blur_px": blur_px(state.attempts_used, solved=state.solved),
         "hint": reveal_hint(state),
         "orientation": image_orientation(state),
         "pool": pool_options(state.category),
@@ -455,16 +463,15 @@ def public_state(state: DecoderRound) -> dict:
 # ===========================================================================
 
 _SOLVE_BASE = 50        # 1. denemede bilme
-_SOLVE_STEP = 20        # her fazladan deneme -kaybı
-_SOLVE_FLOOR = 15       # son denemede bile en az
-_FAIL_XP = 2            # teselli
-_SWEEP_BONUS = 40       # 3 kategoriyi de bilme (3 hak → çok daha zor)
+_SOLVE_STEP = 9         # her fazladan yanlış -kaybı
+_SOLVE_FLOOR = 8        # ne kadar geç bilirsen bil en az
+_FAIL_XP = 2            # turu geçme tesellisi
+_SWEEP_BONUS = 40       # 3 kategoriyi de bilme
 
 
 def score_round(state: DecoderRound) -> int:
-    """Bir turun XP değeri. Oyun bitmediyse 0.
-
-    1. deneme 50 · 2. 30 · 3. 15 · bilemedi 2.
+    """Bir turun XP değeri. Oyun bitmediyse 0. Sınırsız tahmin — puan yanlış
+    sayısıyla azalır: 1. deneme 50 · 2. 41 · 3. 32 · … taban 8. Geçilirse 2.
     """
     if not state.over:
         return 0

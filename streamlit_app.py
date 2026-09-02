@@ -9263,9 +9263,9 @@ _GAME_INTRO_V8 = {
     ], None),
     'decoder': ("Paddock Dekoder", "#9aa1ab", [
         "Gri-beyaz, bulanık ve kırpılmış bir görsel (2018 sonrası): sırayla bir takım, bir pilot, bir pist.",
-        "Cevabı açılır listeden seç — 3 hak. Her yanlışta kadraj biraz açılır ama görsel asla tam netleşmez.",
-        "Pist haritaları çözülene dek ters/aynalı gösterilir. Son hakta metin ipucu gelir.",
-        "Puan: 1. denemede 50, sonra 30, sonra 15; üç kategoriyi de bil, +40 bonus.",
+        "Cevabı açılır listeden seç — tahmin SINIRSIZ. İlk birkaç yanlışta kadraj ~%40 açılır, sonra sabitlenir.",
+        "Pist haritaları ilk tahminlerde ters gösterilir. Kadraj sabitlenince metin ipucu gelir. İstersen turu geçebilirsin.",
+        "Puan yanlış sayısıyla düşer: 1. tahmin 50 → taban 8. Üç kategoriyi de bil, +40 bonus.",
     ], [
         "Dekoder: yayın öncesi kapalı devre kamerada silüetten tanıma alıştırması",
     ]),
@@ -9861,14 +9861,11 @@ _DECODER_CSS = r"""
   padding:15px 17px}
 .dcx-target s{font:600 8.5px var(--fp-f-mono);letter-spacing:.24em;color:var(--fp-text-mute);text-decoration:none}
 .dcx-target b{display:block;font:700 30px var(--fp-f-display);letter-spacing:-.02em;color:var(--fp-text);margin-top:5px}
-.dcx-pips{display:flex;gap:6px;margin-top:14px}
-.dcx-pips i{flex:1;height:6px;border-radius:1px;box-shadow:inset 0 0 0 1px var(--fp-line-2)}
-.dcx-pips i.used{box-shadow:none;background:var(--fp-line-2);
-  background-image:repeating-linear-gradient(45deg,transparent 0 2px,rgba(8,11,17,.55) 2px 4px)}
-.dcx-pips i.left{background:var(--w);box-shadow:none}
-.dcx-pips.crit i.left{animation:dcxp 1.5s ease-in-out infinite}
-@keyframes dcxp{0%,100%{opacity:1}50%{opacity:.4}}
-@media(prefers-reduced-motion:reduce){.dcx-pips.crit i.left{animation:none}}
+.dcx-rev{margin-top:14px;height:6px;border-radius:1px;background:var(--fp-bg-3);
+  box-shadow:inset 0 0 0 1px var(--fp-line-2);overflow:hidden}
+.dcx-rev i{display:block;height:100%;background:var(--w);transition:width .45s ease}
+.dcx-rev.fixed i{background:var(--fp-line-2);
+  background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(8,11,17,.5) 3px 6px)}
 .dcx-pl{margin-top:8px;font:600 8.5px var(--fp-f-mono);letter-spacing:.16em;color:var(--fp-text-mute);
   display:flex;justify-content:space-between}
 .dcx-pl .c{color:var(--fp-text)}
@@ -9894,6 +9891,14 @@ _DECODER_CSS = r"""
   background:rgba(230,233,238,.2)!important;border-color:#fff!important}
 .stApp div[class*="st-key-deco_pickwrap"] .stButton button p{
   font:inherit!important;letter-spacing:inherit!important;text-transform:inherit!important;margin:0!important}
+/* "Geç" (ikinci sütun) — sessiz ikincil */
+.stApp div[class*="st-key-deco_pickwrap"] [data-testid="stColumn"]:last-child .stButton button,
+.stApp div[class*="st-key-deco_pickwrap"] [data-testid="column"]:last-child .stButton button{
+  border-color:var(--fp-line-2)!important;background:transparent!important;color:var(--fp-text-mute)!important;
+  letter-spacing:.14em!important}
+.stApp div[class*="st-key-deco_pickwrap"] [data-testid="stColumn"]:last-child .stButton button:hover,
+.stApp div[class*="st-key-deco_pickwrap"] [data-testid="column"]:last-child .stButton button:hover{
+  color:var(--fp-text)!important;border-color:var(--fp-text-mute)!important;background:transparent!important}
 /* açılır menü paneli (portal — kök seviyede) */
 .stApp [data-baseweb="popover"] [role="listbox"]{
   background:var(--fp-bg-2)!important;border:1px solid var(--fp-line-2)!important;border-radius:var(--fp-r-md)!important}
@@ -9957,27 +9962,29 @@ _DECODER_CSS = r"""
 _DECO_LABEL = {"teams": "TAKIM", "drivers": "PİLOT", "tracks": "PİST"}
 
 
-def _deco_image_filter(remaining, solved, category=None):
-    """Görsel HER ZAMAN gri-beyaz ve KIRPILMIŞ (zoom). ``(blur px, contrast,
-    brightness, scale)``; ``grayscale(1)`` stil dizesinde sabit.
+# kategori: (blur_ilk, blur_sabit, zoom_ilk, zoom_sabit) — SINIRSIZ tahmin;
+# ilk REVEAL_STEPS yanlış boyunca açılır, sonra "sabit" noktasında kalır (fix).
+_DECO_OBSCURE = {
+    "teams":   (28.0, 9.0, 2.7, 1.55),   # logo — basit şekil, en kapalı kalır
+    "drivers": (20.0, 6.5, 2.2, 1.30),
+    "tracks":  (12.0, 3.0, 1.7, 1.12),   # pist — soyut zaten, en okunur açılır
+}
 
-    Kalan hak azaldıkça blur düşer ve kadraj genişler. Son hakta bile taban blur
-    + kırpma kalır — görsel asla tam açılmaz. Çözülünce blur kalkar.
-    Logolar (``teams``) basit şekil olduğu için ilk kare çok daha ağır örtülür."""
-    mg = fp_deco.MAX_GUESSES
+
+def _deco_image_filter(attempts_used, solved, category=None):
+    """Görsel HER ZAMAN gri-beyaz + kırpılmış. ``(blur, contrast, brightness,
+    scale)``; ``grayscale(1)`` stil dizesinde sabit.
+
+    Sınırsız tahmin: ilk ``REVEAL_STEPS`` yanlışta kadraj ~%40 açılıp SABİTLENİR
+    — sonra hiç değişmez, asla tam netleşmez. Çözülünce blur kalkar."""
     if solved:
-        return (0.6, 1.05, 1.0, 1.0)
-    r = max(0, min(mg, int(remaining)))
-    frac = (mg - r) / mg                     # 0 (ilk) → 1 (son)
-    logo = category == "teams"
-    b0, b1 = (30.0, 8.0) if logo else (22.0, 6.0)     # ilk kare çok daha karanlık
-    s0, s1 = (2.9, 1.35) if logo else (2.35, 1.18)
+        return (0.6, 1.04, 1.0, 1.0)
+    b0, b1, s0, s1 = _DECO_OBSCURE.get(category, _DECO_OBSCURE["drivers"])
+    frac = min(1.0, int(attempts_used) / max(1, fp_deco.REVEAL_STEPS))
     blur = round(b0 - (b0 - b1) * frac, 1)
-    if r == 0:
-        blur = b1
     scale = round(s0 - (s0 - s1) * frac, 3)
-    contrast = round(1.30 - 0.12 * frac, 2)  # 1.30 → 1.18
-    bright = round(0.90 + 0.08 * frac, 3)    # 0.90 → 0.98
+    contrast = round(1.26 - 0.10 * frac, 2)
+    bright = round(0.92 + 0.06 * frac, 3)
     return (blur, contrast, bright, scale)
 
 
@@ -9985,8 +9992,8 @@ def render_paddock_decoder_v1():
     _game_shell(
         "Paddock Dekoder",
         "Gri-beyaz, bulanık ve kırpılmış bir görsel (2018 sonrası): sırayla bir "
-        "takım, bir pilot, bir pist. Cevabı listeden seç — 3 hak. Her yanlışta "
-        "kadraj biraz açılır ama görsel asla tam netleşmez.",
+        "takım, bir pilot, bir pist. Cevabı listeden seç — tahmin sınırsız. Kadraj "
+        "ilk birkaç yanlışta ~%40 açılıp sabitlenir; görsel asla tam netleşmez.",
         "#9aa1ab",
     )
     if _game_intro_gate_v8('decoder'):
@@ -9998,7 +10005,6 @@ def render_paddock_decoder_v1():
         st.session_state[key] = fp_deco.new_session().to_dict()
     sess = fp_deco.DecoderSession.from_dict(st.session_state[key])
     view = sess.public_state()
-    mg = fp_deco.MAX_GUESSES
 
     dc_pref = fp_ui.get_pref('dc') if isinstance(fp_ui.get_pref('dc'), dict) else {}
     streak = int(dc_pref.get('s') or 0)
@@ -10025,7 +10031,7 @@ def render_paddock_decoder_v1():
             + _img(rr.target.image, "onerror=\"this.style.visibility='hidden'\"")
             + f"<div class='l'><s>{_DECO_LABEL[rr.category]}</s>"
             f"<b class='{'' if rr.solved else 'miss'}'>{html_lib.escape(rr.target.answer)}</b></div>"
-            f"<div class='r'>{(str(rr.attempts_used) + '. deneme') if rr.solved else 'bilinemedi'}"
+            f"<div class='r'>{(str(rr.attempts_used) + '. tahmin') if rr.solved else 'geçildi'}"
             f"<br>+{fp_deco.score_round(rr)} XP</div></div>"
             for rr in sess.rounds
         )
@@ -10051,10 +10057,12 @@ def render_paddock_decoder_v1():
     rnd = view['round']
     rd = sess.current
     cat = rnd['category']
-    blur, contrast, bright, scale = _deco_image_filter(rnd['remaining'], rnd['solved'], cat)
-    o_deg, o_mir = rnd.get('orientation', (0, False))
-    xform = f"scale({scale}) rotate({o_deg}deg)" + (" scaleX(-1)" if o_mir else "")
-    crit = (not rnd['over']) and rnd['remaining'] == 1
+    att = rnd['attempts_used']
+    revealed = float(rnd.get('revealed', min(1.0, att / max(1, fp_deco.REVEAL_STEPS))))
+    fixed = revealed >= 1.0
+    blur, contrast, bright, scale = _deco_image_filter(att, rnd['solved'], cat)
+    o_deg = rnd.get('orientation', (0, False))[0]
+    xform = f"scale({scale}) rotate({o_deg}deg)"
 
     # üst şerit
     st.markdown(
@@ -10069,8 +10077,9 @@ def render_paddock_decoder_v1():
 
     with col_img:
         strip_r = ("ÇÖZÜLDÜ" if rnd['solved']
-                   else "KAYIT KAPANDI" if rnd['failed']
-                   else f"{rnd['remaining']} HAK KALDI")
+                   else "ATLANDI" if rnd['failed']
+                   else "KADRAJ SABİT" if fixed
+                   else f"KADRAJ %{int(round(revealed * 40))}")
         st.markdown(
             f"<div class='dcx'><div class='dcx-view'>"
             + _img(rnd['image'],
@@ -10086,19 +10095,14 @@ def render_paddock_decoder_v1():
         )
 
     with col_side:
-        pips = "".join(
-            f"<i class='{'used' if i < rnd['attempts_used'] else 'left'}'></i>"
-            for i in range(mg)
-        )
-        right_lbl = ("SON HAK" if crit
-                     else f"{rnd['remaining']} KALDI" if not rnd['over']
-                     else "—")
+        bar_pct = int(round(revealed * 100))
         st.markdown(
             f"<div class='dcx'><div class='dcx-target'>"
             f"<s>HEDEF SINIFI</s><b>{_DECO_LABEL[cat]}</b>"
-            f"<div class='dcx-pips{' crit' if crit else ''}'>{pips}</div>"
-            f"<div class='dcx-pl'><span>{rnd['attempts_used']} / {mg} TARAMA</span>"
-            f"<span class='{'c' if crit else ''}'>{right_lbl}</span></div>"
+            f"<div class='dcx-rev{' fixed' if fixed else ''}'><i style='width:{bar_pct}%'></i></div>"
+            f"<div class='dcx-pl'><span>{att}. TAHMİN</span>"
+            f"<span class='{'c' if fixed else ''}'>"
+            f"{'GÖRÜNTÜ SABİTLENDİ' if fixed else 'AÇILIYOR'}</span></div>"
             f"</div></div>",
             unsafe_allow_html=True,
         )
@@ -10110,11 +10114,18 @@ def render_paddock_decoder_v1():
             with st.container(key='deco_pickwrap'):
                 pick = st.selectbox(
                     "pick", options, label_visibility="collapsed",
-                    key=f"deco_pick_{sess.index}_{rnd['attempts_used']}",
+                    key=f"deco_pick_{sess.index}_{att}",
                 )
-                if st.button("ÇÖZ", key=f"deco_go_{sess.index}_{rnd['attempts_used']}"):
-                    if pick:
-                        fp_deco.submit_guess(rd, pick)
+                bc = st.columns([2, 1])
+                with bc[0]:
+                    if st.button("ÇÖZ", key=f"deco_go_{sess.index}_{att}", width='stretch'):
+                        if pick:
+                            fp_deco.submit_guess(rd, pick)
+                            st.session_state[key] = sess.to_dict()
+                            st.rerun()
+                with bc[1]:
+                    if st.button("Geç", key=f"deco_skip_{sess.index}_{att}", width='stretch'):
+                        fp_deco.skip_round(rd)
                         st.session_state[key] = sess.to_dict()
                         st.rerun()
             if rnd['hint']:
@@ -10125,11 +10136,11 @@ def render_paddock_decoder_v1():
                 )
         else:
             solved = rnd['solved']
-            tail = (f"+{rnd['score']} XP · {rnd['attempts_used']}. denemede"
-                    if solved else f"+{rnd['score']} XP · {mg} denemede bulunamadı")
+            tail = (f"+{rnd['score']} XP · {att}. tahminde"
+                    if solved else f"+{rnd['score']} XP · tur geçildi")
             st.markdown(
                 f"<div class='dcx'><div class='dcx-verdict {'ok' if solved else 'no'}'>"
-                f"<s>{'DOĞRULANDI' if solved else 'BİLİNEMEDİ'}</s>"
+                f"<s>{'DOĞRULANDI' if solved else 'ATLANDI'}</s>"
                 f"<b>{html_lib.escape(rnd['answer'])}</b><i>{tail}</i>"
                 f"</div></div>",
                 unsafe_allow_html=True,
@@ -10156,7 +10167,7 @@ def render_paddock_decoder_v1():
                      f"<span class='r'>{tag}</span></div>")
         st.markdown(
             f"<div class='dcx'><div class='dcx-log'><div class='dcx-log-h'>"
-            f"<span>TAHMİN KAYDI</span><span>{len(rnd['guesses'])} / {mg}</span></div>"
+            f"<span>TAHMİN KAYDI</span><span>{len(rnd['guesses'])} TAHMİN</span></div>"
             f"{rows}</div></div>",
             unsafe_allow_html=True,
         )
@@ -12206,7 +12217,7 @@ _GAMES_HUB_V8 = [
      "Pole zamanını gördün; gizli pilot pole'a ne kadar yakındı? Tahmin et, seriyi uzat.",
      "#7c5cff", "Tur ver", "hotlap", "Kolay", "~30 sn", "gerekmez"),
     ("SİLÜET", "Paddock Dekoder",
-     "Gri-beyaz, ters çevrilmiş, kırpılmış görseli listeden çöz: bir takım, bir pilot, bir pist (2018+). 3 hak.",
+     "Gri-beyaz, kırpılmış, ters görseli listeden çöz: bir takım, bir pilot, bir pist (2018+). Sınırsız tahmin, kadraj %40 açılır.",
      "#9aa1ab", "Dekoderi aç", "decoder", "Zor", "~2 dk", "gerekmez"),
 ]
 
