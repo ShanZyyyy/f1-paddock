@@ -5268,7 +5268,7 @@ def personal_race_digest_html(d, colour_team, next_race=None, next_days=None):
 
     return f"""
     <style>
-      .fp-dg{{border:1px solid #232c3a;border-left:3px solid {colour_team};border-radius:12px;
+      .fp-dg{{border:1px solid #232c3a;border-radius:12px;
         background:#141a24;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .fp-dg .dg-pod{{padding:0 16px 12px;font:700 11.5px 'JetBrains Mono',monospace;color:#9aa7b8}}
       .fp-dg .dg-body{{border-top:1px solid #232c3a;padding:13px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}}
@@ -11824,7 +11824,7 @@ def _home_last_race_html(year, event, next_race, next_days):
         nxt = f"<div class='lr-next'>Sıradaki: <b>{html_lib.escape(next_race)}</b>{days}</div>"
     return f"""
     <style>
-      .fp-lr{{border:1px solid #232c3a;border-left:3px solid #e10600;border-radius:12px;
+      .fp-lr{{border:1px solid #232c3a;border-radius:12px;
         background:#141a24;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .fp-lr .lr-row{{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;
         padding:7px 16px;border-top:1px solid #1b2330;border-left:3px solid var(--c)}}
@@ -11970,7 +11970,7 @@ def follow_board_html(board, year):
     _hd_tail = f" · son yarış <b>{race_label}</b>" if race_label else ""
     return f"""
     <style>
-      .fp-fb{{border:1px solid #232c3a;border-left:3px solid #33d6c8;border-radius:12px;
+      .fp-fb{{border:1px solid #232c3a;border-radius:12px;
         background:#141a24;overflow:hidden;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
       .fp-fb>div:first-child b{{color:#e8eef4;font-weight:600}}
       .fp-fb .fb-row{{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:9px;align-items:center;
