@@ -2928,14 +2928,28 @@ def build_track_overlay(telemetry, lap=None, session=None):
         return empty
 
 
-def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, team_1, team_2, colour_1, colour_2, lap_time_1, lap_time_2, lap_seconds_1, lap_seconds_2, track_overlay=None, sector_times_1=None, sector_times_2=None):
+def two_driver_duel_html_stable(telemetry_1, telemetry_2, driver_1, driver_2, team_1, team_2, colour_1, colour_2, lap_time_1, lap_time_2, lap_seconds_1, lap_seconds_2, track_overlay=None, sector_times_1=None, sector_times_2=None, compound_1=None, tyre_life_1=None):
     """İki turu ortak gerçek-zaman saatinde ve tek, önbellekli canvas dönüşümünde oynatır."""
     first, second = _duel_samples_v18(telemetry_1), _duel_samples_v18(telemetry_2)
     first['lap_seconds'], second['lap_seconds'] = float(lap_seconds_1), float(lap_seconds_2)
+    _rail = _duel_rail_samples(telemetry_1)
+    _rail_delta = float(lap_seconds_1) - float(lap_seconds_2)
     packed = fp_ui.json_for_script({'drivers': [
         {'code': str(driver_1), 'team': str(team_1), 'colour': colour_1, 'lap': str(lap_time_1), 'samples': first, 'sectors': sector_times_1 or []},
         {'code': str(driver_2), 'team': str(team_2), 'colour': colour_2, 'lap': str(lap_time_2), 'samples': second, 'sectors': sector_times_2 or []},
-    ], 'overlay': track_overlay or {}})
+    ], 'overlay': track_overlay or {}, 'rail': _rail})
+    _rl_code = html_lib.escape(str(driver_1 or '—'))
+    _rl_other = html_lib.escape(str(driver_2 or '—'))
+    _rl_tc = colour_1 or '#33d6c8'
+    _rl_comp = html_lib.escape(str(compound_1).strip().upper()) if compound_1 and str(compound_1).lower() != 'nan' else '—'
+    _rl_life = f'{int(tyre_life_1)} TUR' if tyre_life_1 is not None and str(tyre_life_1) != 'nan' else '—'
+    if _rail_delta < 0:
+        _rl_dtxt, _rl_dcol = f'&#8722;{abs(_rail_delta):.3f} sn', '#2ee6a6'
+    elif _rail_delta > 0:
+        _rl_dtxt, _rl_dcol = f'+{_rail_delta:.3f} sn', '#ff6b6b'
+    else:
+        _rl_dtxt, _rl_dcol = '&#177;0.000 sn', 'var(--k-dim)'
+    _rl_spark = _duel_rail_spark_svg(_rail.get('s') or [])
     _c1 = colour_1 or '#e10600'
     _c2 = colour_2 or '#33d6c8'
     _t1 = html_lib.escape(str(team_1 or '—'))
@@ -3024,15 +3038,54 @@ canvas#dtcv{width:100%;height:120px;display:block;border:1px solid var(--k-line)
 .d2-rates .btn{border:0;background:transparent;padding:7px 10px}
 .d2-rates .btn.active{background:var(--k-raised);color:var(--k-ink)}
 .slider{flex:1;min-width:150px;accent-color:var(--k-cyan);height:4px}
+/* --- SAG CANLI TELEMETRI SERIDI (rail) -------------------------------- */
+.d2wrap{display:grid;grid-template-columns:minmax(0,1fr) 296px;gap:14px;align-items:start}
+.d2-rail{position:sticky;top:0;display:flex;flex-direction:column;background:var(--k-panel);
+  border:1px solid var(--k-line);border-radius:var(--k-r-l);overflow:hidden;font-family:var(--k-f-ui)}
+.rl-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;
+  border-bottom:1px solid var(--k-line)}
+.rl-hd .k{font:700 8.5px var(--k-f-data);letter-spacing:.2em;text-transform:uppercase;color:var(--k-mute)}
+.rl-hd .k b{color:var(--rc);font-weight:800}
+.rl-live{display:inline-flex;align-items:center;gap:6px;font:700 7.5px var(--k-f-data);
+  letter-spacing:.14em;text-transform:uppercase;color:var(--k-dim)}
+.rl-live::before{content:"";width:6px;height:6px;border-radius:50%;background:#2ee6a6;
+  box-shadow:0 0 0 3px color-mix(in srgb,#2ee6a6 22%,transparent);animation:rlpulse 1.6s ease-in-out infinite}
+@keyframes rlpulse{50%{opacity:.3}}
+.rl-spark{padding:12px 15px 13px;border-bottom:1px solid var(--k-line)}
+.rl-spark .row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.rl-spark .row s{font-style:normal;font:700 7.5px var(--k-f-data);letter-spacing:.15em;text-transform:uppercase;color:var(--k-mute)}
+.rl-spark .row b{font:700 15px var(--k-f-data);color:var(--k-ink);font-variant-numeric:tabular-nums}
+.rl-spark .row b i{font-style:normal;font-size:8px;font-weight:600;color:var(--k-mute);margin-left:3px;letter-spacing:.06em}
+.rl-spark svg{display:block;width:100%;height:52px}
+.rl-row{padding:13px 15px;border-bottom:1px solid var(--k-line);display:flex;flex-direction:column;gap:9px}
+.rl-row:last-child{border-bottom:0}
+.rl-row.split{flex-direction:row;align-items:baseline;justify-content:space-between}
+.rl-k{font:700 7.5px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;color:var(--k-mute)}
+.rl-big{font:700 33px/1 var(--k-f-data);letter-spacing:-.02em;color:var(--k-ink);font-variant-numeric:tabular-nums}
+.rl-big i{font-style:normal;font-size:10px;font-weight:600;color:var(--k-mute);margin-left:6px;letter-spacing:.05em}
+.rl-bar{height:10px;border-radius:3px;background:var(--k-void);border:1px solid var(--k-line);position:relative;overflow:hidden}
+.rl-bar>i{position:absolute;top:-1px;bottom:-1px;display:block;border-radius:2px;transition:width .09s linear}
+.rl-bar>i.thr{left:-1px;background:linear-gradient(90deg,#1f8f6b,#3fe6a6);box-shadow:0 0 12px -2px #3fe6a6}
+.rl-bar>i.brk{right:-1px;background:linear-gradient(90deg,#ff8a5b,#ff5b5b);box-shadow:0 0 12px -2px #ff5b5b}
+.rl-nums{display:flex;justify-content:space-between;font:700 8.5px var(--k-f-data);color:var(--k-dim);letter-spacing:.05em;font-variant-numeric:tabular-nums}
+.rl-seg{display:flex;gap:3px}
+.rl-seg>i{flex:1;height:13px;border-radius:2px;background:var(--k-void);border:1px solid var(--k-line);transition:background .09s linear}
+.rl-seg>i.on{background:var(--rc);border-color:var(--rc);box-shadow:0 0 9px -2px var(--rc)}
+.rl-lin{height:7px;border-radius:4px;background:var(--k-void);border:1px solid var(--k-line);overflow:hidden}
+.rl-lin>i{display:block;height:100%;background:linear-gradient(90deg,#7c5cff,#b6a3ff);box-shadow:0 0 11px -1px #7c5cff;transition:width .09s linear}
+.rl-chip{align-self:flex-start;padding:5px 12px;border-radius:var(--k-r-s);border:1px solid var(--k-line);background:var(--k-void);font:700 9.5px var(--k-f-data);letter-spacing:.12em;color:var(--k-dim)}
+.rl-chip.on{color:#05131a;background:var(--k-cyan);border-color:var(--k-cyan)}
+.rl-sub{font:700 10.5px var(--k-f-data);color:var(--k-dim);letter-spacing:.04em;font-variant-numeric:tabular-nums}
 @media(max-width:540px){
   .d2-vs{grid-template-columns:1fr 1fr}
   .d2-mid{grid-column:1/-1;order:3;flex-direction:row;gap:10px;border:0;border-top:1px solid var(--k-line)}
   .sectors{grid-template-columns:1fr}
 }
+@media(max-width:860px){ .d2wrap{grid-template-columns:1fr} .d2-rail{position:static} }
 @media(max-width:760px){ canvas#duel{height:340px} }
 @media(max-width:540px){ canvas#duel{height:280px} }
 </style>
-''' + f'''<div class="d2"><header class="d2-vs"><div class="d2-drv d2-drv--a" style="--tc:{_c1}"><span class="d2-drv-eb">{_t1}</span><span class="d2-drv-code" id="cn0">{_d1}</span><span class="d2-drv-lap">{_l1}</span></div><div class="d2-mid"><span class="d2-mid-eb">Canli &#916;</span><span class="d2-mid-delta" id="delta">&#916; --</span><span class="d2-mid-note">ortak zaman ekseni</span></div><div class="d2-drv d2-drv--b" style="--tc:{_c2}"><span class="d2-drv-eb">{_t2}</span><span class="d2-drv-code" id="cn1">{_d2}</span><span class="d2-drv-lap">{_l2}</span></div></header><div id="tags" hidden></div><section class="d2-panel"><div class="d2-panel-hd"><span>Pist &#246;rt&#252;&#351;mesi</span><span class="d2-legend" id="legend"><i style="--l:#33d6c8">SM &#8776; DRS</i><i style="--l:#71e6a1">OM &#8776; ERS</i><i style="--l:#f4d35e">sekt&#246;r</i></span></div><div class="d2-canvaswrap"><canvas id="duel"></canvas></div></section><div class="d2-transport"><button class="btn d2-play" id="play">Oynat</button><div class="d2-rates"><button class="btn active" data-rate="1">1&#215;</button><button class="btn" data-rate="2">2&#215;</button><button class="btn" data-rate="4">4&#215;</button><button class="btn" data-rate="8">8&#215;</button></div><input id="range" class="slider" type="range" min="0" max="1000" value="0"></div><div class="d2-panel-hd d2-sub-hd">Sekt&#246;r kar&#351;&#305;la&#351;t&#305;rmas&#305;</div><div class="sectors" id="sectors"></div><div id="msec"></div><section class="d2-panel"><div class="dtrace" id="dtrace"><div class="dtlab"><span>K&#252;m&#252;latif &#916; &#183; &#231;izgi yukar&#305;da <s id="dtc0">1.</s> &#246;nde &#183; imlece t&#305;kla</span><span><s id="dtnow">&#916; --</s></span></div><canvas id="dtcv"></canvas></div></section></div>''' + r'''
+''' + f'''<div class="d2wrap"><div class="d2"><header class="d2-vs"><div class="d2-drv d2-drv--a" style="--tc:{_c1}"><span class="d2-drv-eb">{_t1}</span><span class="d2-drv-code" id="cn0">{_d1}</span><span class="d2-drv-lap">{_l1}</span></div><div class="d2-mid"><span class="d2-mid-eb">Canli &#916;</span><span class="d2-mid-delta" id="delta">&#916; --</span><span class="d2-mid-note">ortak zaman ekseni</span></div><div class="d2-drv d2-drv--b" style="--tc:{_c2}"><span class="d2-drv-eb">{_t2}</span><span class="d2-drv-code" id="cn1">{_d2}</span><span class="d2-drv-lap">{_l2}</span></div></header><div id="tags" hidden></div><section class="d2-panel"><div class="d2-panel-hd"><span>Pist &#246;rt&#252;&#351;mesi</span><span class="d2-legend" id="legend"><i style="--l:#33d6c8">SM &#8776; DRS</i><i style="--l:#71e6a1">OM &#8776; ERS</i><i style="--l:#f4d35e">sekt&#246;r</i></span></div><div class="d2-canvaswrap"><canvas id="duel"></canvas></div></section><div class="d2-transport"><button class="btn d2-play" id="play">Oynat</button><div class="d2-rates"><button class="btn active" data-rate="1">1&#215;</button><button class="btn" data-rate="2">2&#215;</button><button class="btn" data-rate="4">4&#215;</button><button class="btn" data-rate="8">8&#215;</button></div><input id="range" class="slider" type="range" min="0" max="1000" value="0"></div><div class="d2-panel-hd d2-sub-hd">Sekt&#246;r kar&#351;&#305;la&#351;t&#305;rmas&#305;</div><div class="sectors" id="sectors"></div><div id="msec"></div><section class="d2-panel"><div class="dtrace" id="dtrace"><div class="dtlab"><span>K&#252;m&#252;latif &#916; &#183; &#231;izgi yukar&#305;da <s id="dtc0">1.</s> &#246;nde &#183; imlece t&#305;kla</span><span><s id="dtnow">&#916; --</s></span></div><canvas id="dtcv"></canvas></div></section></div><aside class="d2-rail" style="--rc:{_rl_tc}"><div class="rl-hd"><span class="k">TELEMETR&#304; &#183; <b>{_rl_code}</b></span><span class="rl-live">Canl&#305;</span></div><div class="rl-spark"><div class="row"><s>HIZ &#304;Z&#304;</s><b id="rl-spd">0<i>KM/S</i></b></div>{_rl_spark}</div><div class="rl-row"><div class="rl-k">V&#304;TES</div><div class="rl-big" id="rl-gear">&#8212;</div><div class="rl-seg" id="rl-seg"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="rl-row"><div class="rl-k">GAZ / FREN</div><div class="rl-bar"><i class="thr" id="rl-thr" style="width:0%"></i><i class="brk" id="rl-brk" style="width:0%"></i></div><div class="rl-nums"><span id="rl-thrn">GAZ 0%</span><span id="rl-brkn">FREN</span></div></div><div class="rl-row"><div class="rl-k">DEV / DK</div><div class="rl-big" id="rl-rpm">0<i>DEV/DK</i></div><div class="rl-lin"><i id="rl-rpmbar" style="width:0%"></i></div></div><div class="rl-row"><div class="rl-k">DRS</div><div class="rl-chip" id="rl-drs">KAPALI</div></div><div class="rl-row split"><div class="rl-k">LAST&#304;K &#183; {_rl_comp}</div><div class="rl-sub">{_rl_life}</div></div><div class="rl-row split"><div class="rl-k">TUR &#183; &#916; ({_rl_other})</div><div class="rl-sub" style="color:{_rl_dcol}">{_rl_dtxt}</div></div></aside></div>''' + r'''
 <script>
 "use strict";
 (function(){
@@ -3303,6 +3356,48 @@ buildStatic(); fit(); fitDT();
 raf=requestAnimationFrame(loop);
 setInterval(function(){ if(performance.now()-last>60) tick(); }, 40);
 })();
+</script>
+<script>
+/* SAG CANLI TELEMETRI SERIDI - a3 motoruna dokunmaz; sadece #range playhead'ini okur */
+(function(){
+  "use strict";
+  var D=__PAYLOAD__, R=(D&&D.rail)||{};
+  var S=R.s||[], G=R.g||[], TH=R.th||[], BR=R.br||[], RP=R.rp||[], DR=R.dr||[];
+  var N=S.length; if(!N) return;
+  var drv=(D.drivers||[]);
+  var lap1=(drv[0]&&drv[0].samples&&+drv[0].samples.lap_seconds)||0, maxLap=0;
+  drv.forEach(function(c){ var v=(c&&c.samples&&+c.samples.lap_seconds)||0; if(v>maxLap) maxLap=v; });
+  var rpmMax=1; for(var k=0;k<RP.length;k++){ if(RP[k]>rpmMax) rpmMax=RP[k]; }
+  var $=function(id){ return document.getElementById(id); };
+  var rng=$('range');
+  var segEl=$('rl-seg'), segs=segEl?segEl.querySelectorAll('i'):[];
+  function setNum(el,v){ if(!el) return; if(el.firstChild&&el.firstChild.nodeType===3) el.firstChild.nodeValue=v; else el.textContent=v; }
+  function frac(){
+    var p=(+((rng&&rng.value)||0))/1000;
+    if(maxLap>0&&lap1>0) return Math.max(0,Math.min(1, p*maxLap/lap1));
+    return Math.max(0,Math.min(1,p));
+  }
+  var lastI=-1;
+  function paint(){
+    var f=frac(), i=Math.round(f*(N-1));
+    if(i===lastI) return; lastI=i;
+    var spd=S[i]||0, gear=G[i]||0, th=TH[i]||0, br=BR[i]||0, rp=RP[i]||0, dr=DR[i]||0;
+    setNum($('rl-spd'), spd);
+    var g=$('rl-gear'); if(g) g.textContent = gear>0 ? gear : 'N';
+    for(var s=0;s<segs.length;s++){ segs[s].classList.toggle('on', s<gear); }
+    var t=$('rl-thr'); if(t) t.style.width=th+'%';
+    var b=$('rl-brk'); if(b) b.style.width=(br?42:0)+'%';
+    setNum($('rl-thrn'), 'GAZ '+th+'%');
+    var bn=$('rl-brkn'); if(bn) bn.textContent = br ? 'FREN ●' : 'FREN';
+    setNum($('rl-rpm'), rp.toLocaleString('tr-TR'));
+    var rb=$('rl-rpmbar'); if(rb) rb.style.width=Math.max(3,Math.min(100,Math.round(rp/rpmMax*100)))+'%';
+    var d=$('rl-drs'); if(d){ d.textContent = dr ? 'AÇIK' : 'KAPALI'; d.classList.toggle('on', !!dr); }
+    var cur=$('rl-cur'); if(cur){ var x=(f*100).toFixed(2); cur.setAttribute('x1',x); cur.setAttribute('x2',x); }
+  }
+  paint();
+  if(rng) rng.addEventListener('input', paint);
+  setInterval(paint, 110);
+})();
 </script>''').replace('__PAYLOAD__', packed)
 
 
@@ -3311,172 +3406,85 @@ def two_driver_duel_html_repaired(*args, **kwargs):
     return two_driver_duel_html_stable(*args, **kwargs)
 
 
-def _duel_side_metrics(lap, tel, code, team, colour, other_code, delta_seconds):
-    """2D düello sağ paneli için tek turluk telemetri özeti — saf skalerler.
+def _duel_rail_samples(tel, n=240):
+    """2D düello sağ telemetri şeridi için pilot 1'in zaman-ekseni örnekleri.
 
-    FastF1 kanalları eksikse güvenli varsayılana düşer; sol HUD'a ve veri
-    akışına dokunmaz, yalnızca hazır turun `get_telemetry()` çıktısını okur."""
+    a3'ün `_duel_samples_v18` motoruna DOKUNMAZ — ayrı, bağımsız bir okuma.
+    Kanal yoksa güvenli sıfıra düşer. Sağ şerit bu diziyi `#range` playhead'i
+    ile senkron okur: hız + vites + gaz/fren + devir + DRS canlı güncellenir."""
     import numpy as _np
-
-    def _num(col):
-        try:
-            return pd.to_numeric(tel[col], errors='coerce').dropna()
-        except Exception:
-            return pd.Series(dtype=float)
-
-    spd, thr, rpm, gear, drs = _num('Speed'), _num('Throttle'), _num('RPM'), _num('nGear'), _num('DRS')
+    empty = {'dur': 0.0, 's': [], 'g': [], 'th': [], 'br': [], 'rp': [], 'dr': []}
     try:
-        brk = tel['Brake'].astype(float).dropna()
+        cols = [c for c in ('Time', 'Speed', 'nGear', 'Throttle', 'Brake', 'RPM', 'DRS')
+                if c in getattr(tel, 'columns', [])]
+        if 'Speed' not in cols:
+            return empty
+        src = tel[cols].copy()
     except Exception:
-        brk = pd.Series(dtype=float)
+        return empty
+    if len(src) < 4:
+        return empty
 
-    spark = []
-    if len(spd) >= 4:
-        idx = _np.linspace(0, len(spd) - 1, min(96, len(spd))).astype(int)
-        spark = [round(float(spd.iloc[int(i)]), 1) for i in idx]
+    def _col(name, default=0.0):
+        if name in src.columns:
+            return pd.to_numeric(src[name], errors='coerce').ffill().bfill().fillna(default).to_numpy(dtype=float)
+        return _np.full(len(src), float(default))
 
-    def _iv(series, fn, default=0):
-        try:
-            return int(round(fn(series))) if len(series) else default
-        except Exception:
-            return default
+    spd, gear, thr, rpm, drs = _col('Speed'), _col('nGear'), _col('Throttle'), _col('RPM'), _col('DRS')
+    try:
+        brk = src['Brake'].astype(float).to_numpy()
+    except Exception:
+        brk = _np.zeros(len(src))
 
-    def _lap_field(key):
-        try:
-            v = lap.get(key)
-            return None if v is None or pd.isna(v) else v
-        except Exception:
-            return None
+    try:
+        t = (pd.to_timedelta(src['Time']) - pd.to_timedelta(src['Time']).iloc[0]).dt.total_seconds().to_numpy(dtype=float)
+        dur = float(t[-1])
+    except Exception:
+        t, dur = _np.arange(len(src), dtype=float), 0.0
 
-    lap_no = _lap_field('LapNumber')
-    tyre_life = _lap_field('TyreLife')
-    _comp = _lap_field('Compound')
-    compound = str(_comp).strip().upper() if _comp and str(_comp).lower() != 'nan' else '—'
+    if dur > 0:
+        grid = _np.linspace(0.0, dur, n)
+        spd, gear, thr, rpm, drs, brk = (
+            _np.interp(grid, t, spd), _np.interp(grid, t, gear), _np.interp(grid, t, thr),
+            _np.interp(grid, t, rpm), _np.interp(grid, t, drs), _np.interp(grid, t, brk),
+        )
+    else:
+        idx = _np.linspace(0, len(src) - 1, n).astype(int)
+        spd, gear, thr, rpm, drs, brk = spd[idx], gear[idx], thr[idx], rpm[idx], drs[idx], brk[idx]
 
     return {
-        'code': str(code), 'team': str(team or '—'), 'colour': colour or '#e10600',
-        'other': str(other_code or '—'),
-        'lap_label': (f"TUR {int(lap_no)}" if lap_no is not None else "SEÇİLİ TUR"),
-        'speed_max': _iv(spd, lambda s: s.max()),
-        'speed_avg': _iv(spd, lambda s: s.mean()),
-        'throttle_avg': max(0, min(100, _iv(thr, lambda s: s.mean()))),
-        'brake_pct': max(0, min(100, int(round(float(brk.mean()) * 100)) if len(brk) else 0)),
-        'gear_max': max(0, min(8, _iv(gear, lambda s: s.max()))),
-        'rpm_max': _iv(rpm, lambda s: s.max()),
-        'drs_used': bool(len(drs) and drs.isin([10, 12, 14]).any()),
-        'compound': compound,
-        'tyre_life': (int(tyre_life) if tyre_life is not None else None),
-        'delta': (float(delta_seconds) if delta_seconds is not None else None),
-        'spark': spark,
+        'dur': round(dur, 3),
+        's':  [int(round(float(x))) for x in spd],
+        'g':  [max(0, min(8, int(round(float(x))))) for x in gear],
+        'th': [int(round(max(0.0, min(100.0, float(x))))) for x in thr],
+        'br': [1 if float(x) >= 0.5 else 0 for x in brk],
+        'rp': [int(round(float(x))) for x in rpm],
+        'dr': [1 if float(x) >= 9.0 else 0 for x in drs],
     }
 
 
-def duel_side_telemetry_html(payload):
-    """2D düello sayfasının sağ sütunu — referans yayın telemetri panosu.
-
-    Saf HTML/CSS/SVG; `<script>` yok, `st.metric`/`st.progress` yok. Sol 2D HUD
-    ve pist haritası olduğu gibi kalır; bu panel yanına eklenir."""
-    m = payload or {}
-    tc = m.get('colour') or '#e10600'
-    code = html_lib.escape(str(m.get('code') or '—'))
-    other = html_lib.escape(str(m.get('other') or '—'))
-    lap_label = html_lib.escape(str(m.get('lap_label') or ''))
-    compound = html_lib.escape(str(m.get('compound') or '—'))
-    smax = int(m.get('speed_max') or 0)
-    savg = int(m.get('speed_avg') or 0)
-    thr = int(m.get('throttle_avg') or 0)
-    brk = int(m.get('brake_pct') or 0)
-    gmax = int(m.get('gear_max') or 0)
-    rpm = int(m.get('rpm_max') or 0)
-    rpm_pct = max(4, min(100, round(rpm / 15000 * 100))) if rpm else 0
-    tyre_life = m.get('tyre_life')
-    delta = m.get('delta')
-
-    seg = ''.join(f'<i class="{"on" if k < gmax else ""}"></i>' for k in range(8))
-
-    vals = m.get('spark') or []
-    spark_svg = ''
-    if len(vals) >= 2:
-        lo, hi = min(vals), max(vals)
-        rng = (hi - lo) or 1.0
-        n = len(vals)
-        pts = ' '.join(f'{i / (n - 1) * 100:.2f},{26 - (v - lo) / rng * 22:.2f}' for i, v in enumerate(vals))
-        spark_svg = (
-            '<svg viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">'
-            '<defs><linearGradient id="tpg" x1="0" y1="0" x2="0" y2="1">'
-            '<stop offset="0" stop-color="#33d6c8" stop-opacity="0.34"></stop>'
-            '<stop offset="1" stop-color="#33d6c8" stop-opacity="0"></stop>'
-            '</linearGradient></defs>'
-            f'<polygon points="0,28 {pts} 100,28" fill="url(#tpg)"></polygon>'
-            f'<polyline points="{pts}" fill="none" stroke="#33d6c8" stroke-width="1.5" '
-            'vector-effect="non-scaling-stroke" stroke-linejoin="round"></polyline>'
-            '</svg>'
-        )
-
-    drs_chip = '<div class="tp-chip on">KULLANILDI</div>' if m.get('drs_used') else '<div class="tp-chip">YOK</div>'
-    tyre_txt = f'{int(tyre_life)} TUR' if tyre_life is not None else '— TUR'
-    if delta is None:
-        delta_txt, delta_col = 'Δ —', 'var(--k-dim)'
-    else:
-        sign = '−' if delta < 0 else ('+' if delta > 0 else '±')
-        delta_col = '#2ee6a6' if delta < 0 else ('#ff6b6b' if delta > 0 else 'var(--k-dim)')
-        delta_txt = f'{sign}{abs(delta):.3f} sn'
-
-    return (fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + r'''
-/* 2D DUELLO SAG PANEL - yayin telemetri panosu (referans gorsel) - JS yok */
-.tp{font-family:var(--k-f-ui);display:flex;flex-direction:column;background:var(--k-panel);
-  border:1px solid var(--k-line);border-radius:var(--k-r-l);overflow:hidden}
-.tp-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  padding:14px 16px;border-bottom:1px solid var(--k-line)}
-.tp-hd .k{font:700 9px var(--k-f-data);letter-spacing:.2em;text-transform:uppercase;color:var(--k-mute)}
-.tp-hd .k b{color:var(--tc);font-weight:800}
-.tp-hd .lap{font:600 10px var(--k-f-data);letter-spacing:.1em;color:var(--k-dim);font-variant-numeric:tabular-nums}
-.tp-spark{padding:13px 16px 15px;border-bottom:1px solid var(--k-line)}
-.tp-spark .row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px}
-.tp-spark .row s{font-style:normal;font:700 8px var(--k-f-data);letter-spacing:.16em;
-  text-transform:uppercase;color:var(--k-mute)}
-.tp-spark .row b{font:700 15px var(--k-f-data);color:var(--k-ink);font-variant-numeric:tabular-nums}
-.tp-spark .row b i{font-style:normal;font-size:8.5px;font-weight:600;color:var(--k-mute);
-  margin-left:4px;letter-spacing:.08em}
-.tp-spark svg{display:block;width:100%;height:58px}
-.tp-row{padding:14px 16px;border-bottom:1px solid var(--k-line);display:flex;flex-direction:column;gap:10px}
-.tp-row:last-child{border-bottom:0}
-.tp-row.split{flex-direction:row;align-items:baseline;justify-content:space-between}
-.tp-k{font:700 8px var(--k-f-data);letter-spacing:.17em;text-transform:uppercase;color:var(--k-mute)}
-.tp-big{font:700 34px/1 var(--k-f-data);letter-spacing:-.02em;color:var(--k-ink);font-variant-numeric:tabular-nums}
-.tp-big i{font-style:normal;font-size:10px;font-weight:600;color:var(--k-mute);margin-left:6px;letter-spacing:.06em}
-.tp-bar{height:10px;border-radius:3px;background:var(--k-void);border:1px solid var(--k-line);
-  position:relative;overflow:hidden}
-.tp-bar>i{position:absolute;top:-1px;bottom:-1px;display:block;border-radius:2px}
-.tp-bar>i.thr{left:-1px;background:linear-gradient(90deg,#1f8f6b,#3fe6a6);box-shadow:0 0 12px -2px #3fe6a6}
-.tp-bar>i.brk{right:-1px;background:linear-gradient(90deg,#ff8a5b,#ff5b5b);box-shadow:0 0 12px -2px #ff5b5b}
-.tp-nums{display:flex;justify-content:space-between;font:700 9px var(--k-f-data);color:var(--k-dim);
-  letter-spacing:.06em;font-variant-numeric:tabular-nums}
-.tp-seg{display:flex;gap:3px}
-.tp-seg>i{flex:1;height:14px;border-radius:2px;background:var(--k-void);border:1px solid var(--k-line)}
-.tp-seg>i.on{background:var(--tc);border-color:var(--tc);box-shadow:0 0 9px -2px var(--tc)}
-.tp-lin{height:7px;border-radius:4px;background:var(--k-void);border:1px solid var(--k-line);overflow:hidden}
-.tp-lin>i{display:block;height:100%;background:linear-gradient(90deg,#7c5cff,#b6a3ff);box-shadow:0 0 11px -1px #7c5cff}
-.tp-chip{align-self:flex-start;padding:6px 13px;border-radius:var(--k-r-s);border:1px solid var(--k-line);
-  background:var(--k-void);font:700 10px var(--k-f-data);letter-spacing:.13em;color:var(--k-dim)}
-.tp-chip.on{color:#05131a;background:var(--k-cyan);border-color:var(--k-cyan)}
-.tp-sub{font:700 11px var(--k-f-data);color:var(--k-dim);letter-spacing:.05em;font-variant-numeric:tabular-nums}
-</style>''' + f'''<div class="tp" style="--tc:{tc}">
-<div class="tp-hd"><span class="k">TELEMETR&#304; &#183; <b>{code}</b></span><span class="lap">{lap_label}</span></div>
-<div class="tp-spark"><div class="row"><s>HIZ &#304;Z&#304; &#183; {code}</s><b>{smax}<i>KM/S</i></b></div>{spark_svg}</div>
-<div class="tp-row"><div class="tp-k">HIZ &#183; ORTALAMA</div><div class="tp-big">{savg}<i>KM/S</i></div></div>
-<div class="tp-row"><div class="tp-k">GAZ / FREN</div>
-  <div class="tp-bar"><i class="thr" style="width:{thr}%"></i><i class="brk" style="width:{brk}%"></i></div>
-  <div class="tp-nums"><span>GAZ {thr}%</span><span>FREN {brk}%</span></div></div>
-<div class="tp-row"><div class="tp-k">V&#304;TES &#183; EN Y&#220;KSEK</div><div class="tp-big">{gmax}</div><div class="tp-seg">{seg}</div></div>
-<div class="tp-row"><div class="tp-k">DEV / DK &#183; TEPE</div>
-  <div class="tp-big">{rpm:,}<i>DEV/DK</i></div>
-  <div class="tp-lin"><i style="width:{rpm_pct}%"></i></div></div>
-<div class="tp-row"><div class="tp-k">DRS &#183; TUR BOYUNCA</div>{drs_chip}</div>
-<div class="tp-row split"><div class="tp-k">LAST&#304;K &#183; {compound}</div><div class="tp-sub">{tyre_txt}</div></div>
-<div class="tp-row split"><div class="tp-k">SON TUR &#183; &#916; ({other})</div>
-  <div class="tp-sub" style="color:{delta_col}">{delta_txt}</div></div>
-</div>''')
+def _duel_rail_spark_svg(vals):
+    """Sağ şerit hız-izi mini grafiği (statik SVG; hareketli imleç `#rl-cur` JS'te)."""
+    vals = [float(v) for v in (vals or []) if v is not None]
+    if len(vals) < 2:
+        return ''
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1.0
+    n = len(vals)
+    pts = ' '.join(f'{i / (n - 1) * 100:.2f},{27 - (v - lo) / rng * 23:.2f}' for i, v in enumerate(vals))
+    return (
+        '<svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">'
+        '<defs><linearGradient id="rlg" x1="0" y1="0" x2="0" y2="1">'
+        '<stop offset="0" stop-color="#33d6c8" stop-opacity="0.32"></stop>'
+        '<stop offset="1" stop-color="#33d6c8" stop-opacity="0"></stop>'
+        '</linearGradient></defs>'
+        f'<polygon points="0,30 {pts} 100,30" fill="url(#rlg)"></polygon>'
+        f'<polyline points="{pts}" fill="none" stroke="#33d6c8" stroke-width="1.5" '
+        'vector-effect="non-scaling-stroke" stroke-linejoin="round"></polyline>'
+        '<line id="rl-cur" x1="0" y1="0" x2="0" y2="30" stroke="#e8eef4" stroke-width="1" '
+        'vector-effect="non-scaling-stroke" opacity="0.65"></line>'
+        '</svg>'
+    )
 
 
 def _telemetry_trace_payload_v38(entries, grid_n=480):
@@ -13881,28 +13889,20 @@ def _router_page_telemetry():
                         duel_overlay = build_track_overlay(duel_tel_1, duel_lap_1, session)
                         duel_sectors_1 = [format_time(duel_lap_1.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
                         duel_sectors_2 = [format_time(duel_lap_2.get(column)) for column in ['Sector1Time', 'Sector2Time', 'Sector3Time']]
-                        _duel_delta_s = duel_lap_1['LapTime'].total_seconds() - duel_lap_2['LapTime'].total_seconds()
-                        _duel_left, _duel_right = st.columns([1.9, 1], gap="medium")
-                        with _duel_left:
-                            render_html_hud(
-                                two_driver_duel_html_repaired(
-                                    duel_tel_1, duel_tel_2, duel_driver_1, duel_driver_2, team_1, team_2,
-                                    colour_1, colour_2, format_time(duel_lap_1['LapTime']), format_time(duel_lap_2['LapTime']),
-                                    duel_lap_1['LapTime'].total_seconds(), duel_lap_2['LapTime'].total_seconds(), duel_overlay,
-                                    duel_sectors_1, duel_sectors_2
-                                ),
-                                height=1180,
-                                scrolling=True
-                            )
-                        with _duel_right:
-                            render_html_hud(
-                                duel_side_telemetry_html(_duel_side_metrics(
-                                    duel_lap_1, duel_tel_1, duel_driver_1, team_1, colour_1,
-                                    duel_driver_2, _duel_delta_s
-                                )),
-                                height=712,
-                                scrolling=True
-                            )
+                        _duel_comp_1 = duel_lap_1.get('Compound')
+                        _duel_life_1 = duel_lap_1.get('TyreLife')
+                        if _duel_life_1 is not None and pd.isna(_duel_life_1):
+                            _duel_life_1 = None
+                        render_html_hud(
+                            two_driver_duel_html_repaired(
+                                duel_tel_1, duel_tel_2, duel_driver_1, duel_driver_2, team_1, team_2,
+                                colour_1, colour_2, format_time(duel_lap_1['LapTime']), format_time(duel_lap_2['LapTime']),
+                                duel_lap_1['LapTime'].total_seconds(), duel_lap_2['LapTime'].total_seconds(), duel_overlay,
+                                duel_sectors_1, duel_sectors_2, _duel_comp_1, _duel_life_1
+                            ),
+                            height=1240,
+                            scrolling=True
+                        )
                         st.caption(get_speed_difference_insight(session, duel_driver_1, duel_driver_2, duel_tel_1, duel_tel_2))
 
             # --- MOD 3: DETAYLI TELEMETRİ & FREN ANALİZİ ---

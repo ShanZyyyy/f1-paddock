@@ -238,11 +238,14 @@ def test_two_driver_duel_html_uses_kit():
         tel(0), tel(0.6), "VER", "NOR", "Red Bull Racing", "McLaren",
         "#3671c6", "#ff8000", "1:28.2", "1:28.5", 88.2, 88.5,
         {"straights": [], "sectors": []}, [27.1, 31.2, 29.9], [27.3, 31.0, 30.2],
+        "SOFT", 9,
     )
     assert "--k-panel" in html and "fonts.googleapis.com" in html
     assert html.count("color-scheme:dark") == 1
     assert "__PAYLOAD__" not in html
-    assert html.count("<script>") == 1 and html.count("</script>") == 1
+    # ana motor <script>'u + sağ canlı telemetri şeridi <script>'u
+    assert html.count("<script>") == html.count("</script>") == 2
+    assert 'id="rl-spd"' in html and 'id="rl-gear"' in html and "d2-rail" in html
     assert app.two_driver_duel_html_repaired is not None
 
 
