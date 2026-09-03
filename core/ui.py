@@ -852,23 +852,28 @@ def how_to_hud(sections, *, title="Bu ekran nasıl okunur?", legend=None, note=N
 
 
 _TERM_VIZ = {
-    # DRS — arka kanadı temsil eden iki yatay yeşil neon çizgi; üstteki sol
-    # menteşesinden 30° açılıp bekler, kapanır (flap open/close).
-    "drs": (
-        "<div class='tv-art tv-drs'>"
-        "<span class='tv-drs-fixed'></span>"
-        "<span class='tv-drs-flap'></span>"
+    # Aktif Aero (2026) — DRS kaldırıldı. Ön + arka kanat düzlükte birlikte
+    # düzleşir (düşük sürtünme "Z-modu"), hava temizlenince hız çizgisi hızlanır,
+    # sonra viraj için tekrar yüklenir. Camgöbeği neon = "bu eski DRS değil".
+    "aero": (
+        "<div class='tv-art tv-aero'>"
+        "<span class='tv-aero-rail'></span>"
+        "<span class='tv-aero-w tv-aero-w1'></span>"
+        "<span class='tv-aero-w tv-aero-w2'></span>"
+        "<span class='tv-aero-streak'></span>"
         "</div>",
-        "arka kanat düzlükte açılır → sürtünme düşer → hız artar",
+        "düzlükte kanatlar düzleşir → sürtünme düşer → hız artar",
+        "AKTİF AERO",
     ),
-    # ERS — ince yatay pil iskeleti; mor neon dolgu %0→%100 dolar, dolarken
-    # parlaması artar, dolunca yanıp söner ve boşalır (push-to-pass döngüsü).
+    # ERS / Manuel Geçiş — ince yatay pil iskeleti; mor neon dolgu %0→%100
+    # dolar, dolarken parlaması artar, dolunca yanıp söner ve boşalır.
     "ers": (
         "<div class='tv-art tv-bat'>"
         "<span class='tv-bat-body'><span class='tv-bat-fill'></span></span>"
         "<span class='tv-bat-cap'></span>"
         "</div>",
-        "frende şarj olur → dolunca boşalır, ekstra güç verir (push-to-pass)",
+        "frende şarj olur → dolunca boşalır, ekstra güç verir (manuel geçiş)",
+        "ERS · PUSH",
     ),
     # Downforce — aşağı bakan üç kırmızı chevron; yukarıdan aşağı sırayla yanar
     # (hava akımı aracı yere bastırıyor hissi).
@@ -877,6 +882,7 @@ _TERM_VIZ = {
         "<span class='tv-df-c'></span><span class='tv-df-c'></span><span class='tv-df-c'></span>"
         "</div>",
         "kanatlar havayı aşağı iter → araç yere basar → virajda tutunma artar",
+        "DOWNFORCE",
     ),
     "wear": (
         "<svg viewBox='0 0 132 62' aria-hidden='true'>"
@@ -884,16 +890,23 @@ _TERM_VIZ = {
         "<circle r='22' fill='none' stroke='var(--tv-line)' stroke-width='8'/>"
         "<circle class='tv-tread' r='22' fill='none' stroke='#4ea981' stroke-width='8'"
         " stroke-dasharray='138' transform='rotate(-90)'/>"
+        "<circle class='tv-hub' r='6' fill='var(--tv-bg)' stroke='var(--tv-line)' stroke-width='2'/>"
         "</g></svg>",
         "tur geçtikçe diş aşınır: yeşil → sarı → kırmızı (bitik)",
+        "LASTİK AŞINMASI",
     ),
     "stint": (
         "<svg viewBox='0 0 132 62' aria-hidden='true'>"
+        "<g stroke='var(--tv-line)' stroke-width='1.5'>"
+        "<line x1='36' y1='24' x2='36' y2='38'/><line x1='58' y1='24' x2='58' y2='38'/>"
+        "<line x1='80' y1='24' x2='80' y2='38'/><line x1='102' y1='24' x2='102' y2='38'/>"
+        "</g>"
         "<rect x='14' y='27' width='104' height='8' rx='4' fill='var(--tv-bg)' stroke='var(--tv-line)'/>"
         "<rect class='tv-fill' x='14' y='27' width='0' height='8' rx='4' fill='#45c8ff'/>"
         "<circle class='tv-dot' cx='14' cy='31' r='6' fill='#ffd23f'/>"
         "</svg>",
         "iki pit arası aynı lastikle atılan tur bloğu — sonunda pit, yeni stint",
+        "STINT",
     ),
 }
 
@@ -907,15 +920,34 @@ def term_viz(kind, *, label=None):
     entry = _TERM_VIZ.get(kind)
     if not entry:
         return ""
-    art, caption = entry
+    art, caption, tag = (entry + ("",))[:3] if isinstance(entry, tuple) else (entry, "", "")
     caption = label or caption
+    tag_html = f"<b class='tv-tag'>{_esc(tag)}</b>" if tag else ""
     return (
         "<style>"
         ".fp-tv{--tv-line:#3a4a5e;--tv-mid:#7aa2c8;--tv-bg:#0a111b;display:flex;align-items:center;gap:12px;"
-        "border:1px solid var(--fp-line);border-radius:8px;background:var(--fp-bg-2);padding:9px 12px;margin:2px 0 10px}"
+        "border:1px solid var(--fp-line);border-left:3px solid var(--tv-mid);border-radius:8px;"
+        "background:var(--fp-bg-2);padding:9px 12px;margin:2px 0 10px}"
         ".fp-tv svg,.fp-tv .tv-art{width:112px;height:54px;flex:0 0 auto}"
         ".fp-tv .tv-art{display:flex;align-items:center;justify-content:center}"
         ".fp-tv figcaption{font:500 12px var(--fp-f-body),sans-serif;color:var(--fp-text-dim);line-height:1.45}"
+        ".fp-tv .tv-tag{display:inline-block;font:700 10px var(--fp-f-mono),ui-monospace,monospace;"
+        "letter-spacing:.11em;color:var(--fp-text-mute);border:1px solid var(--fp-line);border-radius:4px;"
+        "padding:1px 5px;margin-right:7px;vertical-align:1px;white-space:nowrap}"
+
+        # --- Aktif Aero (2026): ön+arka kanat düzleşir, hız çizgisi geçer ---
+        ".fp-tv .tv-aero{position:relative;width:104px;height:42px}"
+        ".fp-tv .tv-aero-rail{position:absolute;left:0;right:0;bottom:5px;height:2px;border-radius:2px;background:var(--tv-line)}"
+        ".fp-tv .tv-aero-w{position:absolute;height:3px;border-radius:2px;background:#45c8ff;"
+        "box-shadow:0 0 6px #45c8ff,0 0 13px rgba(69,200,255,.4);transform-origin:left center}"
+        ".fp-tv .tv-aero-w1{left:6px;top:9px;width:36px;animation:fp-tv-aero1 3.6s ease-in-out infinite}"
+        ".fp-tv .tv-aero-w2{left:54px;top:21px;width:28px;animation:fp-tv-aero2 3.6s ease-in-out infinite}"
+        ".fp-tv .tv-aero-streak{position:absolute;left:0;bottom:12px;width:18px;height:2px;border-radius:2px;"
+        "background:linear-gradient(90deg,transparent,#8fe3ff);opacity:0;animation:fp-tv-aerostreak 3.6s ease-in-out infinite}"
+        "@keyframes fp-tv-aero1{0%,18%{transform:rotate(-24deg)}36%,72%{transform:rotate(0)}88%,100%{transform:rotate(-24deg)}}"
+        "@keyframes fp-tv-aero2{0%,18%{transform:rotate(20deg)}36%,72%{transform:rotate(0)}88%,100%{transform:rotate(20deg)}}"
+        "@keyframes fp-tv-aerostreak{0%,30%{opacity:0;transform:translateX(0)}"
+        "42%{opacity:.95}66%{opacity:.95;transform:translateX(82px)}72%,100%{opacity:0;transform:translateX(82px)}}"
 
         # --- ERS: mor neon batarya dolumu ---
         ".fp-tv .tv-bat{gap:3px}"
@@ -932,16 +964,6 @@ def term_viz(kind, *, label=None):
         "80%{width:100%;box-shadow:0 0 10px 1px #b052ff}"
         "88%{width:0}100%{width:0;box-shadow:0 0 2px #b052ff}}"
 
-        # --- DRS: iki yeşil neon çizgi, üstteki menteşeli açılır ---
-        ".fp-tv .tv-drs{position:relative;width:92px;height:32px}"
-        ".fp-tv .tv-drs-fixed,.fp-tv .tv-drs-flap{position:absolute;left:0;width:100%;height:3px;"
-        "border-radius:2px;background:#3ee08f;box-shadow:0 0 6px #3ee08f,0 0 13px rgba(62,224,143,.45)}"
-        ".fp-tv .tv-drs-fixed{bottom:3px}"
-        ".fp-tv .tv-drs-flap{bottom:15px;transform-origin:left center;"
-        "animation:fp-tv-drs 3.2s ease-in-out infinite}"
-        "@keyframes fp-tv-drs{0%,24%{transform:rotate(0)}40%,76%{transform:rotate(-30deg)}"
-        "92%,100%{transform:rotate(0)}}"
-
         # --- Downforce: aşağı bakan üç kırmızı chevron, kademeli yanar ---
         ".fp-tv .tv-df{flex-direction:column;gap:3px}"
         ".fp-tv .tv-df-c{width:17px;height:17px;border-right:3px solid #ff4438;border-bottom:3px solid #ff4438;"
@@ -951,9 +973,10 @@ def term_viz(kind, *, label=None):
         "@keyframes fp-tv-df{0%,100%{opacity:.13;box-shadow:none}"
         "26%{opacity:1;box-shadow:3px 3px 9px rgba(255,68,56,.55)}55%{opacity:.13;box-shadow:none}}"
 
-        # --- lastik aşınması / stint (SVG, değişmedi) ---
+        # --- lastik aşınması: diş yeşilden kırmızıya aşınır, göbek sabit ---
         ".fp-tv .tv-tread{animation:fp-tv-wear 4.2s linear infinite}"
         "@keyframes fp-tv-wear{0%{stroke-dashoffset:0;stroke:#4ea981}50%{stroke:#ffd23f}78%{stroke:#ef5350}100%{stroke-dashoffset:138;stroke:#ef5350}}"
+        # --- stint: mavi dolgu tur tur ilerler, sonunda pit yanıp söner ---
         ".fp-tv .tv-fill{animation:fp-tv-stintfill 3.8s ease-in-out infinite}"
         "@keyframes fp-tv-stintfill{0%{width:0}78%{width:104px}84%,100%{width:0}}"
         ".fp-tv .tv-dot{animation:fp-tv-stintdot 3.8s ease-in-out infinite}"
@@ -961,10 +984,10 @@ def term_viz(kind, *, label=None):
 
         "@media(prefers-reduced-motion:reduce){.fp-tv *{animation:none !important}"
         ".fp-tv .tv-bat-fill{width:100%;box-shadow:0 0 10px #b052ff}"
-        ".fp-tv .tv-drs-flap{transform:rotate(-30deg)}.fp-tv .tv-df-c{opacity:1}"
+        ".fp-tv .tv-aero-w1,.fp-tv .tv-aero-w2{transform:rotate(0)}.fp-tv .tv-df-c{opacity:1}"
         ".fp-tv .tv-fill{width:60px}.fp-tv .tv-tread{stroke-dashoffset:60;stroke:#ffd23f}.fp-tv .tv-dot{cx:74px}}"
         "</style>"
-        f"<figure class='fp-tv'>{art}<figcaption>{_esc(caption)}</figcaption></figure>"
+        f"<figure class='fp-tv'>{art}<figcaption>{tag_html}{_esc(caption)}</figcaption></figure>"
     )
 
 

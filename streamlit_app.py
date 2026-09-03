@@ -6405,7 +6405,7 @@ def render_learning_centre_v20():
         ('2', 'Start ve ilk tur', 'İlk virajda konum kazanmak önemlidir; ama lastiği gereksiz yıpratmak sonraki turları zorlaştırır.', '#ff5a4d', None),
         ('3', 'Lastik kararı', 'Soft (kırmızı) hız verir, Hard (beyaz) uzun sürer, Medium (sarı) ortadadır. Tur geçtikçe lastik aşınır ve yavaşlar.', '#f5b843', 'wear'),
         ('4', 'Pit duvarı', 'Takım, trafiği ve lastik ömrünü izleyerek pit zamanını seçer. İki pit arası "stint" denir. Rakipten önce pit = "undercut", sonra pit = "overcut".', '#33d6c8', 'stint'),
-        ('5', 'Geçiş ve enerji', 'Düzlükte Straight Mode (yayında eski adıyla "DRS") sürtünmeyi azaltır; mücadelede Overtake Mode (ERS hücum / push-to-pass) ek elektrik gücü verir.', '#a78bfa', 'drs'),
+        ('5', 'Geçiş ve enerji', 'Düzlükte kanatlar düzleşir (aktif aero): sürtünme düşer, hız artar — 2024\'e kadarki "DRS"in yerini aldı. Öndekine yaklaşınca Manuel Geçiş ek elektrik gücü verir.', '#a78bfa', 'aero'),
         ('6', 'Yarış sonrası', 'Sonuçtan sonra en hızlı tur, pitler, sıra değişimi ve takım arkadaşları arasındaki fark okunur.', '#fb923c', None),
     ]
     for start in range(0, len(tracks), 3):

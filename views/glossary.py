@@ -76,7 +76,7 @@ def render():
         ('Pilotluk', 'Late Braking', 'Viraja rakibinden daha geç fren yaparak atak denemektir.', False),
     ]
     _term_viz = {
-        'Straight Mode': 'drs', 'Active Aero': 'drs',
+        'Straight Mode': 'aero', 'Active Aero': 'aero',
         'Overtake Mode': 'ers', 'ERS': 'ers', 'MGU-K': 'ers',
         'Recharge': 'ers', 'Boost Mode': 'ers',
         'Downforce': 'downforce', 'Corner Mode': 'downforce', 'Dirty Air': 'downforce',

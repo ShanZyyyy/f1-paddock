@@ -389,7 +389,7 @@ try{
 
 
 _DS1 = ("LAP 12/53   S1 28.441   S2 25.902   S3 24.115   SPD 337 KM/S   "
-        "DRS ACIK   ERS 84%   FUEL 41.2 KG")
+        "AKTIF AERO   ERS 84%   FUEL 41.2 KG")
 _DS2 = ("THR 100%   BRK 0%   GEAR 8   RPM 11 450   TYRE C4 SOFT L14   "
         "TRK 41 C   AIR 27 C   RUZGAR 1.2 M/S")
 
