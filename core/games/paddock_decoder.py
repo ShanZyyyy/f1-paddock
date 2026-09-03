@@ -3,8 +3,9 @@
 
 Oyuncuya gri-beyaz, bulanık ve kırpılmış bir görsel (2018+ takım logosu / pilot /
 pist) gösterilir; tahmin bir açılır listeden SEÇİLİR (Stewardle deseni, serbest
-yazı değil). 3 hak; her yanlışta kadraj biraz açılır ama görsel asla tam
-netleşmez. Pist haritaları çözülene dek döndürülüp aynalanır.
+yazı değil). Tahmin sınırsız; ilk birkaç yanlışta kadraj ~%40 açılıp sabitlenir,
+görsel asla tam netleşmez. Pist haritaları düz gösterilir (döndürme/aynalama YOK).
+Havuz geniş: güncel + geçmiş sezonlardan pilotlar ve pistler.
 
 Bu modül SAF: Streamlit/ağ yok. UI state sözlüğünü tutar ve şu akışı kullanır:
 
@@ -92,11 +93,12 @@ class DecoderTarget:
 
 
 # image = gerçek F1.com görseli (UI bulanıklaştırıp kırpar; 404 → silüet placeholder).
-_F1_LOGO = ("https://media.formula1.com/image/upload/c_fit%2Ch_256/q_auto/"
+# Tümü ~1080p+ çözünürlük: logo h_1080, pilot 9col-retina (~1994²), pist w_1920.
+_F1_LOGO = ("https://media.formula1.com/image/upload/c_fit%2Ch_1080/q_auto:best/"
             "v1740000001/common/f1/2025/{slug}/2025{slug}logowhite.webp")
 _F1_HEAD = ("https://www.formula1.com/content/dam/fom-website/drivers/"
-            "{yr}Drivers/{sur}.jpg.transform/2col/image.jpg")
-_F1_MAP = ("https://media.formula1.com/image/upload/f_auto,c_limit,w_1320,q_auto/"
+            "{yr}Drivers/{sur}.jpg.transform/9col-retina/image.jpg")
+_F1_MAP = ("https://media.formula1.com/image/upload/f_auto,c_limit,w_1920,q_auto:best/"
            "content/dam/fom-website/2018-redesign-assets/Circuit%20maps%2016x9/{map}_Circuit")
 
 
@@ -133,6 +135,12 @@ TARGETS: Dict[str, List[DecoderTarget]] = {
               "Enstone; bir Fransız üreticinin mavi-pembe arabaları."),
         _team("Haas F1 Team", "haas",
               "Kannapolis merkezli, tek Amerikan takımı; 2016'da katıldı."),
+        _team("Kick Sauber", "kicksauber",
+              "İsviçre ekibi; 2026'da bir Alman üreticinin fabrika takımına dönüşecek.",
+              ("sauber", "kick sauber", "stake")),
+        _team("Racing Bulls", "racingbulls",
+              "Faenza merkezli; ana enerji-içeceği ekibinin kardeş/geliştirme takımı.",
+              ("rb", "visa cash app rb", "alphatauri", "toro rosso")),
     ],
     "drivers": [
         _driver("Lewis Hamilton", "hamilton", 2025,
@@ -167,6 +175,46 @@ TARGETS: Dict[str, List[DecoderTarget]] = {
                 "Avustralyalı; 'shoey' kutlaması ve geç frenlemeleriyle tanınır."),
         _driver("Kevin Magnussen", "magnussen", 2024,
                 "Danimarkalı; babası da F1'de yarıştı, uzun süre Amerikan ekibinde."),
+        # --- güncel gridin diğer isimleri ---
+        _driver("Alexander Albon", "albon", 2025,
+                "Tayland bayrağıyla yarışır; ana ekipten düşüp bir yıl sonra Grove'da geri döndü."),
+        _driver("Lance Stroll", "stroll", 2025,
+                "Kanadalı; takım sahibinin oğlu, 2017 Bakü'de genç yaşta podyuma çıktı."),
+        _driver("Liam Lawson", "lawson", 2025,
+                "Yeni Zelandalı; 2023'te beş yarış vekâlet etti, 2025 başında kısa süre ana ekibe çıktı."),
+        _driver("Isack Hadjar", "hadjar", 2025,
+                "Fransız; 2024 F2 ikincisi, çaylak yılında beklenmedik bir podyum aldı."),
+        _driver("Oliver Bearman", "bearman", 2025,
+                "İngiliz; 18 yaşında Cidde'de bir gün önceden haber verilip Ferrari'yle puan aldı."),
+        _driver("Kimi Antonelli", "antonelli", 2025,
+                "İtalyan genç; bir Alman fabrika ekibinde yedi kez şampiyon pilottan boşalan koltuğu aldı."),
+        _driver("Jack Doohan", "doohan", 2025,
+                "Avustralyalı; motosiklet efsanesi bir babanın oğlu, sezon başında birkaç yarışta koştu."),
+        _driver("Franco Colapinto", "colapinto", 2024,
+                "Arjantinli; 2024 sonunda dokuz yarış Grove'da koştu, sonra mavi-pembe ekibe geçti."),
+        _driver("Guanyu Zhou", "zhou", 2024,
+                "İlk tam zamanlı Çinli F1 pilotu; 2022 Silverstone'da takla attı, halo hayat kurtardı."),
+        # --- geçmiş sezonların isimleri (2018+) ---
+        _driver("Sebastian Vettel", "vettel", 2022,
+                "Dört kez üst üste şampiyon; parmak kaldırma kutlaması ve arabalarına isim vermesiyle anılır."),
+        _driver("Kimi Räikkönen", "raikkonen", 2021,
+                "'Bwoah' telsizleriyle ünlü Finli; 2007 şampiyonu, en çok GP başlangıcı rekorunu kırdı."),
+        _driver("Daniil Kvyat", "kvyat", 2020,
+                "Rus; genç yaşta ana ekibe çıktı, 'torpido' lakabını bir yöneticiden aldı."),
+        _driver("Romain Grosjean", "grosjean", 2020,
+                "İsviçre doğumlu Fransız; 2020 Bahreyn'de aracı ikiye bölünüp alevlerin içinden çıktı."),
+        _driver("Antonio Giovinazzi", "giovinazzi", 2021,
+                "İtalyan; uzun aradan sonra ülkesinden gelen ilk tam zamanlı pilot, sonra dayanıklılığa geçti."),
+        _driver("Nikita Mazepin", "mazepin", 2021,
+                "Rus; babasının gübre şirketi takıma sponsordu, 2022'de yarışması engellendi."),
+        _driver("Nyck de Vries", "devries", 2023,
+                "Hollandalı; Formula E ve F2 şampiyonu, 2022 Monza'da vekâleten puan aldı."),
+        _driver("Mick Schumacher", "schumacher", 2022,
+                "Soyadı sporun en ünlülerinden; F2 şampiyonu, sonra bir üst ekibe yedek oldu."),
+        _driver("Logan Sargeant", "sargeant", 2023,
+                "Grove'dan ayrılan son Amerikalı; sezon ortasında koltuğunu kaybetti."),
+        _driver("Nicholas Latifi", "latifi", 2022,
+                "Kanadalı; 2021 Abu Dabi'de son turdaki kazası şampiyonluğun kaderini değiştirdi."),
     ],
     "tracks": [
         _track("Circuit de Monaco", "Monaco",
@@ -191,6 +239,65 @@ TARGETS: Dict[str, List[DecoderTarget]] = {
                ("albert park", "melbourne")),
         _track("Marina Bay Street Circuit", "Singapore",
                "İlk gece yarışı; nem ve duvarlar pilotları en çok yoran pist.", ("marina bay",)),
+        # --- güncel takvimin diğer pistleri ---
+        _track("Circuit of the Americas", "USA",
+               "Austin, Teksas; dik yokuş bir ilk viraj, ardından İngiltere'den ilhamlı hızlı esler.",
+               ("cota", "austin", "amerika")),
+        _track("Autódromo José Carlos Pace", "Brazil",
+               "São Paulo; saat yönünün tersine, iniş-çıkışlı kısa tur, 'S' virajıyla başlar.",
+               ("interlagos", "brezilya", "sao paulo")),
+        _track("Red Bull Ring", "Austria",
+               "Stiria dağlarında; kısa tur, birkaç sert fren ve çok sayıda irtifa değişimi.",
+               ("spielberg", "avusturya")),
+        _track("Baku City Circuit", "Baku",
+               "Hazar kıyısında; çok uzun tam gaz bölümü ile dar kale kesimi yan yana.",
+               ("baku", "azerbaycan")),
+        _track("Yas Marina Circuit", "Abu_Dhabi",
+               "Sezon finaline sık ev sahipliği yapar; gün batımında başlayıp gece biter.",
+               ("abu dhabi", "abudabi")),
+        _track("Jeddah Corniche Circuit", "Saudi_Arabia",
+               "Kıyı boyunca 27 viraj; sokak pisti olmasına rağmen ortalama hız çok yüksek.",
+               ("jeddah", "cidde", "suudi arabistan")),
+        _track("Miami International Autodrome", "Miami",
+               "Bir Amerikan futbol stadının çevresinde; sahte rıhtım dekoruyla anılır.",
+               ("miami",)),
+        _track("Las Vegas Strip Circuit", "Las_Vegas",
+               "Gece yarısı ana bulvarda; kumarhane ışıkları altında uzun tam gaz bölümleri.",
+               ("vegas", "las vegas")),
+        _track("Circuit Gilles Villeneuve", "Canada",
+               "Bir nehir adasında; çıkıştaki 'Şampiyon Duvarı' pek çok pilotu yakaladı.",
+               ("montreal", "kanada")),
+        _track("Circuit de Barcelona-Catalunya", "Spain",
+               "Takımların en iyi tanıdığı pist; kış testleri yıllarca burada yapıldı.",
+               ("barcelona", "catalunya", "ispanya", "montmelo")),
+        _track("Autódromo Hermanos Rodríguez", "Mexico",
+               "2200 m rakımda; ince hava motoru ve kanadı zorlar, stadyum bölümü ünlüdür.",
+               ("meksika", "mexico city")),
+        _track("Losail International Circuit", "Qatar",
+               "Çölde, MotoGP için yapıldı; süpürülen kum ve gece ışıkları, çok hızlı akan virajlar.",
+               ("katar", "lusail", "losail")),
+        _track("Autodromo Enzo e Dino Ferrari", "Emilia_Romagna",
+               "Bir İtalyan kasabasında, ters yönde akan eski bir pist; adını bir kurucu ve oğlundan alır.",
+               ("imola", "emilia romagna")),
+        # --- yalnızca geçmiş sezonlarda (2018–2023) yer alan pistler ---
+        _track("Istanbul Park", "Turkey",
+               "Saat yönünün tersine akar; dört apeksli sola dönen ünlü viraj burada, 2020–2021'de döndü.",
+               ("istanbul", "turkiye")),
+        _track("Autódromo Internacional do Algarve", "Portugal",
+               "Ülkenin güneyinde; hız trenini andıran sürekli iniş-çıkışlar, 2020–2021 takvimindeydi.",
+               ("portimao", "portekiz")),
+        _track("Circuit Paul Ricard", "France",
+               "Mavi-kırmızı boyalı geniş asfalt kaçış alanlarıyla tanınır; 2018–2022 arası takvimdeydi.",
+               ("le castellet", "fransa")),
+        _track("Sochi Autodrom", "Russia",
+               "Bir kış olimpiyat parkının çevresinde; upuzun 90° üçüncü viraj, 2014–2021 arası takvimde.",
+               ("soci", "rusya")),
+        _track("Hockenheimring", "Germany",
+               "Eskiden ormanda upuzun düzlükleri vardı; kısaltılmış hâliyle 2019'a kadar takvimde, stadyum virajları kaldı.",
+               ("hockenheim", "almanya")),
+        _track("Shanghai International Circuit", "China",
+               "Kalkışta uzayıp daralan sarmal ilk viraj; ara verdikten sonra 2024'te döndü.",
+               ("shanghai", "cin", "sangay")),
     ],
 }
 
@@ -425,11 +532,13 @@ def reveal_hint(state: DecoderRound) -> Optional[str]:
 
 
 def image_orientation(state: DecoderRound) -> Tuple[int, bool]:
-    """PİST haritaları ilk 2 yanlış boyunca 180° döndürülür (aynalama YOK — çok
-    kafa karıştırıyordu). Sonra ve çözülünce/geçilince düz."""
-    if state.category != "tracks" or state.over or state.attempts_used >= 2:
-        return (0, False)
-    return (180, False)
+    """Görsel HER ZAMAN düz gösterilir — döndürme ve aynalama YOK.
+
+    (Eski sürümde pist haritaları ilk tahminlerde 180° çevriliyordu; kullanıcı
+    geri bildirimiyle kaldırıldı — pisti tanımayı imkânsız hâle getiriyordu.)
+    ``(derece, aynala)`` imzası UI geriye dönük uyumu için korunuyor.
+    """
+    return (0, False)
 
 
 def public_state(state: DecoderRound) -> dict:

@@ -21,12 +21,16 @@ def test_reveal_steps_and_unlimited_guesses():
 
 
 def test_pools_are_large():
-    assert len(deco.TARGETS["teams"]) >= 7
-    assert len(deco.TARGETS["drivers"]) >= 12
-    assert len(deco.TARGETS["tracks"]) >= 7
+    assert len(deco.TARGETS["teams"]) >= 10
+    assert len(deco.TARGETS["drivers"]) >= 30      # güncel + geçmiş sezonlar
+    assert len(deco.TARGETS["tracks"]) >= 25
     for cat in deco.CATEGORIES:
         for t in deco.TARGETS[cat]:
             assert t.answer and t.image.startswith("https://") and t.hint
+    # kanonik adlar benzersiz (açılır liste çakışması olmasın)
+    for cat in deco.CATEGORIES:
+        names = [t.answer for t in deco.TARGETS[cat]]
+        assert len(names) == len(set(names))
 
 
 def test_pool_options_are_the_canonical_names():
@@ -87,21 +91,15 @@ def test_blur_never_reaches_zero_while_playing():
     assert deco.public_state(r)["blur_px"] > 0        # sabit ama açık değil
 
 
-# ---- pist rotasyonu ------------------------------------------------
+# ---- pist yönü: HİÇ döndürülmez / aynalanmaz -----------------------
 
-def test_tracks_flipped_for_first_two_guesses_only():
-    r = deco.new_round("tracks", target_index=0)
-    assert deco.image_orientation(r) == (180, False)
-    deco.submit_guess(r, "Suzuka Circuit")
-    assert deco.image_orientation(r) == (180, False)
-    deco.submit_guess(r, "Suzuka Circuit")           # 2. yanlış
-    assert deco.image_orientation(r) == (0, False)   # düzelir
-
-
-def test_tracks_no_mirror_ever():
+def test_tracks_never_flipped_or_mirrored():
     for i in range(len(deco.TARGETS["tracks"])):
         r = deco.new_round("tracks", target_index=i)
-        assert deco.image_orientation(r)[1] is False
+        assert deco.image_orientation(r) == (0, False)
+        for _ in range(RS + 2):
+            deco.submit_guess(r, "Suzuka Circuit")
+            assert deco.image_orientation(r) == (0, False)
 
 
 def test_non_track_never_rotates():
@@ -138,7 +136,7 @@ def test_hint_after_reveal_fixed():
 def test_public_state_shape():
     v = deco.public_state(deco.new_round("tracks", target_index=0))
     assert v["pool"] == deco.pool_options("tracks")
-    assert v["orientation"] == (180, False)
+    assert v["orientation"] == (0, False)
     assert v["reveal_steps"] == RS and v["revealed"] == 0.0
 
 

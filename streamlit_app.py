@@ -9972,7 +9972,8 @@ _DECO_REVEAL_STEPS = 4
 _DECO_OBSCURE = {
     "teams":   (28.0, 9.0, 2.7, 1.55),   # logo — basit şekil, en kapalı kalır
     "drivers": (20.0, 6.5, 2.2, 1.30),
-    "tracks":  (12.0, 3.0, 1.7, 1.12),   # pist — soyut zaten, en okunur açılır
+    "tracks":  (6.5, 1.2, 1.28, 1.03),   # pist — çizgi haritası; düz + hafif
+                                          # bulanık, sabitlenince neredeyse net
 }
 
 
