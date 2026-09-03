@@ -31,6 +31,27 @@ def test_guard_refuses_off_topic():
     assert a.intent == "REFUSE" and not a.ok
 
 
+def test_persona_engineer_is_unchanged_default():
+    # varsayılan mod == "engineer" == mevcut davranış (ek yok)
+    a_default = answer("Hamilton kariyerinde kaç pole aldı?")
+    a_eng = answer("Hamilton kariyerinde kaç pole aldı?", mode="engineer")
+    assert a_default.text == a_eng.text
+    assert "Kısaca" not in a_eng.text
+
+
+def test_persona_guide_expands_jargon_without_changing_meaning():
+    a_eng = answer("Undercut ne demek?", mode="engineer")
+    a_guide = answer("Undercut ne demek?", mode="guide")
+    assert a_guide.intent == a_eng.intent          # veri/niyet aynı
+    assert a_guide.text.startswith(a_eng.text)     # yalnızca ek eklenir
+    assert "Kısaca" in a_guide.text and "undercut" in a_guide.text.lower()
+
+
+def test_persona_guide_no_note_when_no_jargon():
+    a = answer("1994 dünya şampiyonu kim?", mode="guide")
+    assert a.intent == "SEASON_CHAMPION" and "Kısaca" not in a.text
+
+
 def test_guard_greets():
     a = answer("Merhaba")
     assert a.intent == "SMALLTALK" and a.ok

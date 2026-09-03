@@ -5786,6 +5786,17 @@ _PADDOCK_AI_CSS = """<style>
 /* girdi kutusu odak rengi */
 [data-testid="stChatInput"] textarea:focus{box-shadow:0 0 0 1px var(--fp-cyan) !important;border-color:var(--fp-cyan) !important}
 [data-testid="stChatInput"]:focus-within{border-color:var(--fp-cyan) !important}
+/* persona geçişi — segmentli pill (Kılavuz / Mühendis) */
+.stApp [class*="st-key-pa_mode_v9"] [role="radiogroup"]{display:inline-flex;gap:4px;
+  background:var(--fp-bg-2);border:1px solid var(--fp-line);border-radius:var(--fp-r-pill);padding:4px}
+.stApp [class*="st-key-pa_mode_v9"] [role="radiogroup"] label{margin:0;padding:6px 15px;border-radius:var(--fp-r-pill);
+  cursor:pointer;transition:background .14s,color .14s;color:var(--fp-text-mute)}
+.stApp [class*="st-key-pa_mode_v9"] [role="radiogroup"] label:hover{color:var(--fp-text-dim)}
+/* radyo yuvarlağını gizle (etak9234 gibi ilk, boş görsel katman) */
+.stApp [class*="st-key-pa_mode_v9"] [role="radiogroup"] label > div > div > div:first-child{display:none}
+.stApp [class*="st-key-pa_mode_v9"] [role="radiogroup"] label div{font:600 12px var(--fp-f-body)!important;letter-spacing:.02em}
+.stApp [class*="st-key-pa_mode_v9"] [role="radiogroup"] label[data-selected="true"]{
+  background:color-mix(in srgb,var(--fp-cyan) 16%,transparent);color:var(--fp-cyan)}
 </style>"""
 
 _PA_INTENT_V9 = {
@@ -5848,6 +5859,16 @@ def render_paddock_assistant_v20():
     if 'paddock_chat_v9' not in st.session_state:
         st.session_state['paddock_chat_v9'] = []
 
+    # --- Çift persona: Kılavuz (yeni başlayan) / Mühendis (detaylı) ---
+    st.markdown("<div class='pa-try' style='margin-top:16px'>Yanıt modu</div>",
+                unsafe_allow_html=True)
+    _pa_mode_label = st.radio(
+        "Yanıt modu", ["🎓 Kılavuz Modu", "🛠 Mühendis Modu"],
+        horizontal=True, key="pa_mode_v9", label_visibility="collapsed")
+    _pa_mode = "guide" if "Kılavuz" in _pa_mode_label else "engineer"
+    st.caption("Kılavuz Modu jargonu sade Türkçe ile açıklar · Mühendis Modu "
+               "sayı ve kaynak odaklı, kısa yanıt verir.")
+
     st.markdown("<div class='pa-try'>Dene</div>", unsafe_allow_html=True)
     examples = ["1961 Monako GP kazananı kimdi?", "1958 sezonu nerede başladı?",
                 "Kim lider?", "Leclerc kariyerinde kaç galibiyet aldı?"]
@@ -5870,9 +5891,11 @@ def render_paddock_assistant_v20():
         st.session_state['paddock_chat_v9'].append({'role': 'user', 'text': str(question)})
         with st.spinner('Veritabanı sorgulanıyor…'):
             try:
-                a = paddock_ai.answer(question, live=_APP_LIVE, this_year=2026)
+                a = paddock_ai.answer(question, live=_APP_LIVE, this_year=2026,
+                                      mode=_pa_mode)
                 turn = {'role': 'ai', 'text': a.text, 'source': a.source,
-                        'intent': a.intent, 'ok': a.ok, 'items': a.items}
+                        'intent': a.intent, 'ok': a.ok, 'items': a.items,
+                        'mode': _pa_mode}
             except Exception as _ai_err:  # noqa: BLE001
                 log_data_error('paddock_ai', _ai_err)
                 turn = {'role': 'ai', 'text': 'Şu an yanıt veremedim — birazdan tekrar dener misin?',

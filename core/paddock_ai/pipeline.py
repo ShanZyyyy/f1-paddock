@@ -17,7 +17,7 @@ from __future__ import annotations
 import datetime
 import logging
 
-from . import guard, intents, templates
+from . import guard, intents, persona, templates
 from .entities import EntityExtractor
 from .normalize import parse
 from .retrievers import careers, history_db, live_data, tech
@@ -253,7 +253,14 @@ def _retrieve(name, ent, u, live, this_year):
 
 
 def answer(question: str, *, live: live_data.LiveData = live_data.NULL,
-           this_year: int | None = None) -> templates.Answer:
+           this_year: int | None = None,
+           mode: str = persona.DEFAULT_MODE) -> templates.Answer:
+    """Soruyu yanıtla.
+
+    ``mode`` — yanıt personası: ``"engineer"`` (varsayılan, mevcut davranış) ya da
+    ``"guide"`` (yeni başlayan için jargonu sade Türkçe ile açan kısa ek). Cevabın
+    verisini/anlamını değiştirmez; yalnızca sunumunu uyarlar.
+    """
     this_year = this_year or datetime.datetime.now(datetime.timezone.utc).year
     u = parse(question)
     ent = _extractor().extract(u)
@@ -273,8 +280,10 @@ def answer(question: str, *, live: live_data.LiveData = live_data.NULL,
         out = None
     if out is not None:
         out.intent = out.intent or cls.name
-        return out
+        return persona.adapt(out, mode, question)
 
     if cls.name != "FALLBACK":
-        return templates.Answer(templates.NO_DATA, "Paddock Asistan", cls.name, ok=False)
-    return templates.fallback()
+        return persona.adapt(
+            templates.Answer(templates.NO_DATA, "Paddock Asistan", cls.name, ok=False),
+            mode, question)
+    return persona.adapt(templates.fallback(), mode, question)
