@@ -118,6 +118,9 @@ def test_strategy_wall_html_structure(replay_payload):
     # tur ekseni
     assert "class='tk'" in html
     assert "toplam 20 tur" in html
+    # Faz 1 — jargon tooltip'leri (stint + undercut/overcut) + 768px kırılım
+    assert 'class="k-info"' in html and "data-tip=" in html
+    assert "@media(max-width:768px)" in html
 
 
 def test_strategy_wall_html_handles_empty():
@@ -172,6 +175,9 @@ def test_telemetry_trace_html_structure(trace_payload):
     for key in ("speed", "throttle", "brake", "gear"):
         assert f'data-k="{key}"' in html
     assert "fonts.googleapis.com" in html
+    # Faz 1 — mobil responsive + jargon tooltip'i
+    assert "@media(max-width:768px)" in html
+    assert 'class="k-info"' in html and "data-tip=" in html    # Δ / Gaz-Fren baloncuğu
 
 
 def test_telemetry_trace_height_is_int():

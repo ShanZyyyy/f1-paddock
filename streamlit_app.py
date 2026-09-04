@@ -3623,11 +3623,23 @@ def telemetry_trace_html(payload):
 .chart canvas{width:100%;display:block;cursor:crosshair}
 .chart .lab{position:absolute;top:5px;left:9px;font:600 9px var(--k-f-data);letter-spacing:.12em;
   text-transform:uppercase;color:var(--k-mute);pointer-events:none}
-@media(max-width:640px){.wrap{grid-template-columns:1fr}}
+.jl{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:9px;font:600 9px var(--k-f-data);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--k-mute)}
+.jl span{display:inline-flex;align-items:center}
+/* mobil (≤768px): sağ panel + sol enstrümanlar sıkışmasın, temiz alt-alta yığın */
+@media(max-width:768px){
+  .wrap{grid-template-columns:1fr}
+  .left{gap:9px}
+  .cluster{padding:11px 12px}
+  .mapbox canvas{height:186px}
+  .sub{max-width:none}
+  .charts{gap:5px}
+}
 </style>
 <div class="hud">
   <div class="head">
-    <div><div class="title">Etkileşimli Telemetri</div><div class="sub">Fareyi grafiğin veya pistin üzerinde gezdir — imleç dört izi, pist noktasını ve sol enstrümanları eşzamanlı okur. Çipten odak pilotu değiştir; fren izindeki dikey sıçrama = fren noktası.</div></div>
+    <div><div class="title">Etkileşimli Telemetri</div><div class="sub">Fareyi grafiğin veya pistin üzerinde gezdir — imleç dört izi, pist noktasını ve sol enstrümanları eşzamanlı okur. Çipten odak pilotu değiştir; fren izindeki dikey sıçrama = fren noktası.</div>
+    <div class="jl"><span>&Delta; Delta<span class="k-info" tabindex="0" role="note" aria-label="Delta aciklamasi" data-tip="Delta — iki pilot (ya da iki tur) arasindaki anlik zaman/hiz farki. + isaret = odaktaki pilot onde ya da daha hizli.">i</span></span><span>Gaz / Fren<span class="k-info" tabindex="0" role="note" aria-label="Gaz fren aciklamasi" data-tip="Pedallarin kullanim orani (%). Fren izindeki dik cikis = pilotun fren noktasi.">i</span></span></div></div>
     <div class="tags" id="tags"></div>
   </div>
   <div class="wrap">
@@ -4633,9 +4645,11 @@ _STRAT_WALL_CSS = r"""
 .axis .tk{grid-column:2;position:relative;height:15px;border-top:1px solid var(--k-line)}
 .axis .tk span{position:absolute;top:3px;transform:translateX(-50%);font:600 8.5px var(--k-f-data);color:var(--k-mute)}
 .axis .tk span::before{content:"";position:absolute;top:-5px;left:50%;width:1px;height:4px;background:var(--k-line-lit)}
-@media(max-width:720px){
-  .ln,.axis{grid-template-columns:86px 1fr 42px;gap:8px}
+@media(max-width:768px){
+  .ln,.axis{grid-template-columns:78px 1fr 40px;gap:8px}
   .who s{display:none}
+  .hd .s{font-size:10.5px}
+  .lg{gap:9px 11px}
 }
 """
 
@@ -4727,9 +4741,12 @@ def strategy_wall_html(payload):
         + "<style>" + fp_kit.kit_css() + _STRAT_WALL_CSS + "</style>"
         + "<div class='wall'><div class='hd'>"
         + "<div class='t'>Lastik Strateji Duvarı</div>"
-        + f"<div class='s'>Her blok bir stint · blok soldan sağa koyulaşır = lastik aşınması · "
+        + f"<div class='s'>Her blok bir stint{fp_kit.info('Stint — iki pit stop arasinda ayni lastik setiyle atilan tur blogu.')} · "
+        + f"blok soldan saga koyulasir = lastik asinmasi · "
         + f"dikey çentik = pit (üstünde pit-lane süresi) · nokta = en hızlı tur (mor = seansın en hızlısı) · "
-        + f"yeşil etiket = kayıtlı veriden tespit edilen undercut/overcut · toplam {total} tur</div>"
+        + f"yeşil etiket = kayıtlı veriden tespit edilen undercut/overcut"
+        + f"{fp_kit.info('Undercut — rakipten once pite girip taze lastikle one gecme; overcut ise rakip pitteyken pistte kalip hizli turlarla one gecme.')} · "
+        + f"toplam {total} tur</div>"
         + "<div class='lg'>"
         + "<span><i style='background:#ff5b5b'></i>Soft</span>"
         + "<span><i style='background:#ffd23f'></i>Medium</span>"
@@ -13321,6 +13338,28 @@ def _home_cockpit_v44():
                    "Favori Paddock'tan ekle.")
 
     st.markdown(_home_quick_tiles_html(bool(fav_code)), unsafe_allow_html=True)
+    _home_jargon_strip_v66()
+
+
+def _home_jargon_strip_v66():
+    """Yeni başlayan için: ekranlarda en sık geçen terimler + üzerine gelince
+    açılan saf-CSS baloncuk. Tam liste F1 Sözlüğü'nde."""
+    terms = ("ERS", "DRS", "Delta", "Undercut", "Stint", "Pole")
+    chips = " ".join(f"<span class='hjz-c'>{fp_ui.jargon(t)}</span>" for t in terms)
+    st.markdown(
+        fp_ui.jargon_css()
+        + "<style>.hjz{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;"
+          "border:1px solid var(--fp-line);border-radius:9px;background:var(--fp-bg-2);"
+          "padding:11px 14px;margin:0 0 22px}"
+          ".hjz>s{font:700 9.5px var(--fp-f-mono);letter-spacing:.13em;text-transform:uppercase;"
+          "color:var(--fp-text-mute);text-decoration:none}"
+          ".hjz-c{font:600 12px var(--fp-f-body);color:var(--fp-text-dim)}"
+          "@media(max-width:768px){.hjz{gap:8px 14px}}</style>"
+        f"<div class='hjz'><s>Terimler</s>{chips}"
+        "<a href='?p=glossary' style='margin-left:auto;font:600 11px var(--fp-f-body);"
+        "color:var(--fp-cyan);text-decoration:none'>tam sözlük →</a></div>",
+        unsafe_allow_html=True,
+    )
 
 
 def _router_page_home():
