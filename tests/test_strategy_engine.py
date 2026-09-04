@@ -241,6 +241,20 @@ def test_race_pace_roster_when_no_longruns():
     assert se.estimate_race_pace([]).ok is False    # kadrosuz: eski davranış
 
 
+def test_race_pace_roster_estimates_from_short_runs():
+    # uzun run YOK ama Ferrari'nin birkaç temiz kısa turu var → tahmin
+    roster = ["Red Bull", "Mercedes", "Ferrari"]
+    laps = _long_run("VER", "Red Bull", 92.0) + _long_run("HAM", "Mercedes", 92.4)
+    for i in range(4):
+        laps.append({"driver": "LEC", "team": "Ferrari", "lap_time_s": 90.6 + 0.1 * i,
+                     "lap_number": 5 + i, "stint": 1, "compound": "SOFT",
+                     "is_accurate": True, "is_pit_lap": False})
+    est = se.estimate_race_pace(laps, team_roster=roster)
+    fer = next(t for t in est.teams if t["team"] == "Ferrari")
+    assert fer["no_data"] and fer["estimated"] and fer["pace_s"] is not None
+    assert fer["gap_s"] is not None
+
+
 # ---- 6.2 lastik aşınma tahmini -------------------------------------
 
 def test_degradation_recovers_known_rate():

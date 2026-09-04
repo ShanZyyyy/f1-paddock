@@ -530,16 +530,18 @@ def test_race_pace_deg_hud_structure(re_report):
     assert "+0.200" in html or "+0.2" in html          # McLaren farkı
     assert "<polyline" in html and "sn/tur" in html     # aşınma eğrileri
     assert "°C" in html and "pist" in html              # pist sıcaklığı satırı
-    # eksik takımlar (11 kadro) + drop-off satırı
-    assert "Cadillac" in html and "Audi" in html and "uzun tur yok" in html
-    assert "DROP-OFF" in html and "9. tur" in html
+    # eksik takımlar (11 kadro) — pace_s=None → "tur yok"
+    assert "Cadillac" in html and "Audi" in html and "tur yok" in html
+    # per-compound drop-off monospace paneli
+    assert "Drop-off" in html and "re-mono" in html and ". tur" in html
 
 
-def test_race_pace_deg_hud_no_roster_still_works(re_report):
-    re_report["race_pace"]["teams"] = [t for t in re_report["race_pace"]["teams"]
-                                       if not t.get("no_data")]
+def test_race_pace_deg_hud_shows_estimated_teams(re_report):
+    re_report["race_pace"]["teams"].append(
+        {"team": "Williams", "pace_s": 93.4, "gap_s": 1.3, "drivers": 0,
+         "no_data": True, "estimated": True})
     html = app.race_pace_deg_hud(re_report)
-    assert "uzun tur yok" not in html and "Red Bull" in html
+    assert "Williams" in html and "~+1.300" in html and "re-row est" in html
 
 
 def test_speed_hierarchy_hud_vmax_vmin(re_report):
@@ -550,34 +552,52 @@ def test_speed_hierarchy_hud_vmax_vmin(re_report):
     assert "-6" in html                                 # HAM Vmax farkı
 
 
-def test_drs_efficiency_hud_shows_gain(re_report):
+def test_straight_mode_hud_terminology(re_report):
     html = app.drs_efficiency_hud(re_report)
     _no_streamlit_widgets(html)
+    assert "Düzlük Modu (Straight Mode)" in html
+    assert "Düzlükte Hız Kazancı" in html and "düzlük hız deltası" in html
+    assert "DRS" not in html                            # eski terminoloji temizlendi
     assert "+12.4" in html and "re-gauge" in html
 
 
-def test_drs_efficiency_hud_2026_no_drs(re_report):
+def test_straight_mode_hud_no_channel(re_report):
     re_report["straights"]["drs_available"] = False
     re_report["straights"]["drs_gain_kmh"] = None
     html = app.drs_efficiency_hud(re_report)
-    assert "2026" in html and "DRS YOK" in html
+    assert "Düzlük Modu" in html and "DRS YOK" not in html and "2026 KURALI" not in html
+    assert "açık/kapalı" in html                        # nötr açıklama
 
 
-def test_driving_character_hud_profiles(re_report):
+def test_driving_character_hud_deep_metrics(re_report):
     html = app.driving_character_hud(re_report)
     _no_streamlit_widgets(html)
     assert "VER" in html and "HAM" in html
-    assert "agresif" in html and "yumuşak" in html      # etiket (CSS uppercase)
+    assert "agresif" in html and "yumuşak" in html
     assert "re-pp" in html
-    # derin metrikler
     assert "LIFT&amp;COAST" in html and "FREN BÖLGESİ" in html and "TUTARLILIK" in html
-    assert "re-cn" in html and "apex" in html           # viraj bazlı teknik satırları
+    # viraj bazlı apeks + trail-brake karşılaştırması
+    assert "re-cmp" in html and "APEKS km/s" in html and "TRAIL-BRAKE" in html
+
+
+def test_race_engineer_room_is_single_iframe(re_report):
+    html = app.race_engineer_room_html(re_report)
+    _no_streamlit_widgets(html)
+    # tek <style>, 4 panel, birleşik grid
+    assert html.count("<style>") == 1
+    assert "class='rr'" in html and "rr-2" in html
+    for title in ("Yarış Temposu", "Hız Hiyerarşisi",
+                  "Düzlük Modu (Straight Mode)", "Sürüş Karakteristiği"):
+        assert title in html
+    assert "rr-foot" in html                            # "nasıl okunur" gömülü
 
 
 def test_re_huds_degrade_gracefully_on_empty():
     for fn in (app.race_pace_deg_hud, app.speed_hierarchy_hud,
-               app.drs_efficiency_hud, app.driving_character_hud):
+               app.drs_efficiency_hud, app.driving_character_hud,
+               app.race_engineer_room_html):
         out = fn({"ok": True})
         assert isinstance(out, str) and "color-scheme:dark" in out
+
 
 

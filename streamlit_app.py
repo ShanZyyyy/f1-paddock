@@ -13812,75 +13812,95 @@ div[class*="st-key-tel_deck"] [data-testid="stCaptionContainer"]{
 @st.cache_data(ttl=60 * 60 * 6, show_spinner=False)
 def _race_engineer_report_v1(year, gp, session_type):
     """strategy_engine.analyze_practice() sarmalayıcısı — 6 saat önbellek.
-    2026 tam kadro (11 takım) geçilir: uzun tur verisi olmayan takımlar da listelenir."""
+    2026 tam kadro (11 takım) geçilir: uzun tur verisi olmayan takımlar da
+    kısa-run turlarından tahminle listelenir."""
+    roster = list(TEAM_DIRECTORY_2026.keys()) if int(year) >= 2026 else None
     try:
         return fp_strat.analyze_practice(
-            int(year), str(gp), session_name=str(session_type),
-            team_roster=list(TEAM_DIRECTORY_2026.keys()) if int(year) >= 2026 else None,
-        )
+            int(year), str(gp), session_name=str(session_type), team_roster=roster)
+    except TypeError:
+        # bayat modül (Streamlit alt-paketi hot-reload etmemiş) — eski imzaya düş
+        return fp_strat.analyze_practice(int(year), str(gp), session_name=str(session_type))
     except Exception as err:  # noqa: BLE001
         log_data_error("race engineer analyze", err)
         return {"ok": False, "reason": str(err)}
 
 
+def _clamp_local(v, lo, hi):
+    return max(lo, min(hi, v))
+
+
+# --- Yayın estetiği: TEK panel, sıfır Streamlit boşluğu. Bütün rakamlar mono,
+#     bütün etiketler küçük/gri/uppercase. `.re` panelleri CSS grid gap'i ile
+#     birleşir; iframe'ler arası siyah boşluk YOK. ---
 _RE_HUD_CSS = r"""
-.re{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);
-  padding:14px 16px;margin-bottom:4px}
+.rr{display:flex;flex-direction:column;gap:12px}
+.rr-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:12px}
+.rr-foot{font:500 10px/1.55 var(--k-f-data);letter-spacing:.03em;color:var(--k-mute);
+  border-top:1px solid var(--k-line);padding-top:9px;margin-top:2px}
+@media(max-width:820px){.rr-2{grid-template-columns:1fr}}
+.re{border:1px solid var(--k-line);border-radius:var(--k-r-l);background:var(--k-panel);padding:14px 16px}
 .re-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;
-  padding-bottom:10px;border-bottom:1px solid var(--k-line);margin-bottom:13px}
-.re-h .t{font:700 13px var(--k-f-ui);letter-spacing:.02em}
-.re-h .s{font:500 10px var(--k-f-data);letter-spacing:.06em;color:var(--k-mute);text-transform:uppercase}
-.re-row{display:grid;grid-template-columns:64px 1fr 88px;gap:10px;align-items:center;margin:6px 0}
-.re-row .cd{font:700 12px var(--k-f-ui);letter-spacing:.03em;color:var(--k-ink)}
-.re-bar{position:relative;height:12px;border-radius:3px;background:var(--k-raised);overflow:hidden}
+  padding-bottom:9px;border-bottom:1px solid var(--k-line);margin-bottom:12px}
+.re-h .t{font:700 13px var(--k-f-ui);letter-spacing:.02em;color:var(--k-ink)}
+.re-h .s{font:600 9px var(--k-f-data);letter-spacing:.11em;color:var(--k-mute);text-transform:uppercase}
+.re-row{display:grid;grid-template-columns:82px 1fr 92px;gap:10px;align-items:center;margin:5px 0}
+.re-row .cd{font:600 9px var(--k-f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--k-dim)}
+.re-bar{position:relative;height:11px;border-radius:3px;background:var(--k-raised);overflow:hidden}
 .re-bar>i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;
   background:linear-gradient(90deg,color-mix(in srgb,var(--acc,var(--k-cyan)) 85%,transparent),var(--acc,var(--k-cyan)));
   box-shadow:0 0 10px 0 color-mix(in srgb,var(--acc,var(--k-cyan)) 55%,transparent)}
+.re-row.est .re-bar>i{background:repeating-linear-gradient(90deg,var(--k-line) 0 5px,transparent 5px 9px)}
 .re-val{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums;text-align:right;color:var(--k-dim)}
 .re-val.lead{color:var(--k-cyan)}
-.re-sub{font:500 10px var(--k-f-data);color:var(--k-mute);letter-spacing:.04em;margin-top:12px;line-height:1.5}
-.re-deg{margin-top:14px;padding-top:13px;border-top:1px solid var(--k-line)}
+.re-sub{font:500 10px/1.55 var(--k-f-data);color:var(--k-mute);letter-spacing:.03em;margin-top:11px}
+.re-deg{margin-top:13px;padding-top:12px;border-top:1px solid var(--k-line)}
+.re-lbl{font:600 9px var(--k-f-data);letter-spacing:.13em;text-transform:uppercase;color:var(--k-mute)}
 .re-deg-lg{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font:600 9px var(--k-f-data);
-  letter-spacing:.09em;text-transform:uppercase;color:var(--k-mute)}
+  letter-spacing:.06em;text-transform:uppercase;color:var(--k-mute)}
 .re-deg-lg i{width:16px;height:3px;border-radius:2px;display:inline-block;vertical-align:2px;margin-right:5px}
+.re-deg-lg b{color:var(--k-dim)}
+.re-mono{margin-top:11px;border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-void);
+  padding:9px 11px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.re-mono div{display:flex;flex-direction:column;gap:3px}
+.re-mono s{font:600 8.5px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;color:var(--k-mute);text-decoration:none}
+.re-mono b{font:700 13px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-ink)}
 .re-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:768px){.re-grid2{grid-template-columns:1fr}.re-row{grid-template-columns:52px 1fr 74px}}
-.re-col .hd{font:700 9.5px var(--k-f-data);letter-spacing:.16em;text-transform:uppercase;color:var(--k-mute);
+@media(max-width:820px){.re-grid2{grid-template-columns:1fr}.re-row{grid-template-columns:66px 1fr 78px}}
+.re-col .hd{font:600 9px var(--k-f-data);letter-spacing:.14em;text-transform:uppercase;color:var(--k-mute);
   padding-bottom:8px;border-bottom:1px solid var(--k-line);margin-bottom:9px}
-.re-big{display:grid;grid-template-columns:60px 1fr auto;gap:10px;align-items:baseline;margin:9px 0}
-.re-big .cd{font:700 12px var(--k-f-ui);color:var(--k-ink)}
+.re-big{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:baseline;margin:9px 0}
+.re-big .cd{font:600 10px var(--k-f-data);letter-spacing:.06em;color:var(--k-dim)}
 .re-big .n{font:700 27px/1 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--k-ink)}
-.re-big .n u{font:600 9px var(--k-f-data);letter-spacing:.1em;color:var(--k-mute);text-decoration:none;margin-left:4px}
+.re-big .n u{font:600 8px var(--k-f-data);letter-spacing:.12em;color:var(--k-mute);text-decoration:none;margin-left:4px}
 .re-big .d{font:700 11px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-mute)}
 .re-big.lead .n{color:var(--k-cyan)}
-.re-gauge{display:flex;gap:3px;margin:14px 0 10px}
-.re-gauge i{flex:1;height:26px;border-radius:2px;background:var(--k-raised)}
+.re-gauge{display:flex;gap:3px;margin:13px 0 9px}
+.re-gauge i{flex:1;height:24px;border-radius:2px;background:var(--k-raised)}
 .re-gauge i.on{background:linear-gradient(180deg,#5ff0a8,#2fbf78);box-shadow:0 0 10px 0 rgba(62,224,143,.5)}
-.re-gnum{font:700 34px/1 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:#3ee08f}
-.re-gnum u{font:600 11px var(--k-f-data);letter-spacing:.1em;color:var(--k-mute);text-decoration:none;margin-left:5px}
-.re-off{font:700 12px var(--k-f-data);letter-spacing:.06em;color:var(--k-amber)}
-.re-drv{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-raised);
-  padding:11px 13px;margin:7px 0}
-.re-drv-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
-.re-drv-top .cd{font:700 13px var(--k-f-ui);letter-spacing:.03em}
-.re-tag{font:700 9px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;
+.re-gnum{font:700 33px/1 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:#3ee08f}
+.re-gnum u{font:600 10px var(--k-f-data);letter-spacing:.11em;color:var(--k-mute);text-decoration:none;margin-left:5px}
+.re-drv{border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-raised);padding:10px 12px;margin:7px 0}
+.re-drv-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.re-drv-top .cd{font:700 12px var(--k-f-data);letter-spacing:.05em;color:var(--k-ink)}
+.re-tag{font:600 8px var(--k-f-data);letter-spacing:.12em;text-transform:uppercase;
   border:1px solid var(--k-line);border-radius:99px;padding:2px 8px;color:var(--k-dim)}
-.re-pp{display:grid;grid-template-columns:44px 1fr 40px;gap:9px;align-items:center;margin:5px 0}
-.re-pp s{font:600 9px var(--k-f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--k-mute);text-decoration:none}
+.re-pp{display:grid;grid-template-columns:40px 1fr 34px;gap:9px;align-items:center;margin:4px 0}
+.re-pp s{font:600 8.5px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--k-mute);text-decoration:none}
 .re-pp .track{position:relative;height:7px;border-radius:4px;background:var(--k-void)}
 .re-pp .track>i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
 .re-pp .track>i.g{background:#3ee08f;box-shadow:0 0 8px 0 rgba(62,224,143,.5)}
 .re-pp .track>i.r{background:#ff4d4d;box-shadow:0 0 8px 0 rgba(255,77,77,.5)}
 .re-pp b{font:700 11px var(--k-f-data);font-variant-numeric:tabular-nums;text-align:right;color:var(--k-dim)}
-.re-mini{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font:600 9px var(--k-f-data);
-  letter-spacing:.05em;text-transform:uppercase;color:var(--k-mute)}
-.re-mini b{color:var(--k-dim);font-family:var(--k-f-data)}
-.re-cnwrap{margin-top:9px;border-top:1px solid var(--k-line);padding-top:8px;display:flex;
-  flex-direction:column;gap:4px}
-.re-cn{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font:600 9px var(--k-f-data);
-  letter-spacing:.03em;color:var(--k-mute)}
-.re-cn s{color:var(--k-cyan);text-decoration:none;font-weight:700;min-width:22px}
-.re-cn b{color:var(--k-dim)}
+.re-mini{display:flex;gap:10px 13px;flex-wrap:wrap;margin-top:7px;font:600 8px var(--k-f-data);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--k-mute)}
+.re-mini b{color:var(--k-dim);font-family:var(--k-f-data);font-variant-numeric:tabular-nums}
+.re-cmp{margin-top:9px;border-top:1px solid var(--k-line);padding-top:8px}
+.re-cmp-row{display:grid;grid-template-columns:56px repeat(var(--n,3),1fr);gap:8px;align-items:baseline;margin:3px 0}
+.re-cmp-row s{font:600 8px var(--k-f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--k-mute);text-decoration:none}
+.re-cmp-row.hd s{color:var(--k-cyan)}
+.re-cmp-row b{font:700 11px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-dim);text-align:right}
+.re-cmp-row.hd b{color:var(--k-mute);font-weight:600;font-size:8px;letter-spacing:.06em}
 """
 
 
@@ -13889,50 +13909,58 @@ def _re_shell(inner):
             + "</style><div class='k-pane' style='border:0;background:transparent'>" + inner + "</div>")
 
 
-def race_pace_deg_hud(rep):
-    """HUD 1 — takım yarış temposu farkları (yatay neon bar) + S/M/H aşınma eğrileri."""
+def _fmt_num(v):
+    return f"{v:.0f}" if isinstance(v, (int, float)) else "—"
+
+
+# ---------------------------------------------------------------------------
+#  PANEL KURUCULARI — çıplak `.re` div döndürür (tek iframe içinde birleşir).
+# ---------------------------------------------------------------------------
+def _re_pace_panel(rep):
     rp = (rep or {}).get("race_pace") or {}
     teams = rp.get("teams") or []
+    deg = (rep or {}).get("degradation") or {}
     if not teams:
-        return _re_shell("<div class='re'><div class='re-h'><span class='t'>Yarış Temposu &amp; Aşınma</span></div>"
-                         "<div class='re-sub'>Yeterli temiz uzun tur (long-run) verisi yok — FP2 seç.</div></div>")
-    with_data = [t for t in teams if not t.get("no_data")]
-    no_data = [t for t in teams if t.get("no_data")]
-    worst = max((float(t.get("gap_s") or 0) for t in with_data), default=0.0) or 1.0
+        return ("<div class='re'><div class='re-h'><span class='t'>Yarış Temposu &amp; Aşınma</span></div>"
+                "<div class='re-sub'>Yeterli temiz uzun tur (long-run) verisi yok — üstten seansı FP2 yap.</div></div>")
+
+    real = [t for t in teams if not t.get("no_data") and t.get("pace_s") is not None]
+    est = [t for t in teams if t.get("no_data") and t.get("estimated") and t.get("pace_s") is not None]
+    none_ = [t for t in teams if t.get("pace_s") is None]
+    gaps = [float(t.get("gap_s") or 0) for t in real + est]
+    worst = max(gaps, default=0.0) or 1.0
+
     rows = ""
-    for i, t in enumerate(with_data):
+    ordered = sorted(real, key=lambda t: t.get("pace_s") or 9e9) + sorted(est, key=lambda t: t.get("pace_s") or 9e9)
+    for i, t in enumerate(ordered):
         gap = float(t.get("gap_s") or 0)
         lead = i == 0
-        # lider = ince referans işareti; diğerleri farkı oranında dolar
+        is_est = t in est
         w = 9.0 if lead else 14.0 + 86.0 * min(1.0, gap / worst)
-        acc = "var(--k-cyan)" if lead else ("var(--k-amber)" if gap >= worst - 1e-6 else "var(--k-mute)")
+        acc = "var(--k-cyan)" if lead else ("var(--k-amber)" if gap >= worst - 1e-6 and not is_est else "var(--k-mute)")
+        val = "BAZ" if lead else (("~+" if is_est else "+") + f"{gap:.3f}")
         rows += (
-            f"<div class='re-row' style='--acc:{acc}'>"
+            f"<div class='re-row{' est' if is_est else ''}' style='--acc:{acc}'>"
             f"<span class='cd'>{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
             f"<span class='re-bar'><i style='width:{w:.1f}%'></i></span>"
-            f"<span class='re-val{' lead' if lead else ''}'>{'BAZ' if lead else f'+{gap:.3f}'}</span>"
-            f"</div>"
+            f"<span class='re-val{' lead' if lead else ''}'>{val}</span></div>"
         )
-    for t in no_data:
+    for t in none_:
         rows += (
             "<div class='re-row' style='--acc:var(--k-line)'>"
-            f"<span class='cd' style='color:var(--k-mute)'>{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
+            f"<span class='cd'>{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
             "<span class='re-bar'></span>"
-            "<span class='re-val' style='color:var(--k-mute)'>uzun tur yok</span></div>"
+            "<span class='re-val' style='color:var(--k-mute)'>tur yok</span></div>"
         )
 
-    # aşınma eğrileri: seans ölçümünü hamura göre topla, yoksa model önceliği
-    deg = (rep or {}).get("degradation") or {}
+    # aşınma eğrileri (S/M/H) — ölçüm yoksa model önceliği (kesik çizgi)
     by_comp = {}
     for d in deg.values():
         c = str(d.get("compound") or "").upper()
         if c in ("SOFT", "MEDIUM", "HARD") and d.get("deg_rate_temp_adjusted") is not None:
             by_comp.setdefault(c, []).append(float(d["deg_rate_temp_adjusted"]))
     palette = {"SOFT": "#ff5b5b", "MEDIUM": "#ffd23f", "HARD": "#eef2f7"}
-    laps_x = 18
-    curves, legend = "", ""
-    y_max = 0.001
-    series = []
+    laps_x, curves, legend, y_max, series = 18, "", "", 0.001, []
     for c in ("SOFT", "MEDIUM", "HARD"):
         vals = by_comp.get(c)
         rate = (sum(vals) / len(vals)) if vals else fp_strat.TYRES[c].deg
@@ -13944,136 +13972,114 @@ def race_pace_deg_hud(rep):
         dash = "" if measured else " stroke-dasharray='4 4'"
         curves += f"<polyline points='{poly}' fill='none' stroke='{palette[c]}' stroke-width='2'{dash}/>"
         legend += (f"<span><i style='background:{palette[c]}'></i>{c[0]} "
-                   f"{rate:.3f} sn/tur{'' if measured else ' (model)'}</span>")
-
-    svg = (f"<svg viewBox='0 0 300 100' style='width:100%;height:118px;display:block'>"
+                   f"<b>{rate:.3f}</b> sn/tur{'' if measured else ' · model'}</span>")
+    svg = (f"<svg viewBox='0 0 300 100' style='width:100%;height:110px;display:block'>"
            f"<line x1='6' y1='92' x2='294' y2='92' stroke='var(--k-line)'/>"
            f"<line x1='6' y1='14' x2='6' y2='92' stroke='var(--k-line)'/>{curves}</svg>")
 
-    # lastik "drop-off" (cliff) tahminleri — pilot bazlı
-    drops = sorted(
-        ((k, int(v["dropoff_lap"]), float(v.get("dropoff_loss_s") or 0))
-         for k, v in deg.items() if v.get("dropoff_lap")),
-        key=lambda x: x[1])
-    drop_html = ""
-    if drops:
-        chips = " ".join(
-            f"<span>{html_lib.escape(k)} <b>{lap}. tur</b>"
-            + (f" +{loss:.2f}" if loss else "") + "</span>"
-            for k, lap, loss in drops[:6])
-        drop_html = ("<div class='re-deg-lg' style='margin-top:11px'>"
-                     "<span style='color:var(--k-amber)'>DROP-OFF ·</span>" + chips + "</div>")
+    # per-compound "Drop-off" — monospace panel (tur sayısı)
+    comp_drop = {}
+    for v in deg.values():
+        c = str(v.get("compound") or "").upper()
+        if c in ("SOFT", "MEDIUM", "HARD") and v.get("dropoff_lap"):
+            comp_drop.setdefault(c, []).append(int(v["dropoff_lap"]))
+    mono = ""
+    for c in ("SOFT", "MEDIUM", "HARD"):
+        ls = sorted(comp_drop.get(c, []))
+        val = f"~{ls[len(ls) // 2]}. tur" if ls else "—"
+        mono += f"<div><s>{c}</s><b>{val}</b></div>"
+    mono_panel = ("<div class='re-lbl' style='margin-top:12px'>Drop-off · aşınmanın hızlandığı tur</div>"
+                  f"<div class='re-mono'>{mono}</div>")
 
     temp = rep.get("surface_temp_c")
     sub = rp.get("method", "")
     if temp is not None:
         sub += f" · pist ~{temp:.0f} °C"
-    return _re_shell(
+    if est:
+        sub += " · ~ = kısa run tahmini"
+    return (
         "<div class='re'>"
         "<div class='re-h'><span class='t'>Yarış Temposu &amp; Aşınma</span>"
         "<span class='s'>tahmini · antrenman uzun turları</span></div>"
         + rows
         + f"<div class='re-sub'>Takım farkları en hızlıya göre · {html_lib.escape(sub)}</div>"
-        + "<div class='re-deg'><span class='s' style='color:var(--k-mute)'>Aşınma eğrisi · tur başına kayıp</span>"
-        + svg + f"<div class='re-deg-lg'>{legend}</div>{drop_html}</div>"
+        + "<div class='re-deg'><span class='re-lbl'>Aşınma eğrisi · tur başına kayıp</span>"
+        + svg + f"<div class='re-deg-lg'>{legend}</div>{mono_panel}</div>"
         + "</div>"
     )
 
 
-def speed_hierarchy_hud(rep):
-    """HUD 2 — Vmax (en uzun düzlük) ve Vmin (en dar viraj) yan yana, dev mono."""
+def _re_speed_panel(rep):
     ts = (rep or {}).get("top_speed") or {}
-    vmax = ts.get("v_max_by_driver") or {}
-    vmax_d = ts.get("delta_to_best") or {}
+    vmax, vmax_d = ts.get("v_max_by_driver") or {}, ts.get("delta_to_best") or {}
     corners = (rep or {}).get("corner_compare") or []
     crit = min(corners, key=lambda r: min((r.get("v_min_by_driver") or {"x": 9e9}).values()), default=None) \
         if corners else None
 
-    def _col(title, pairs, deltas, unit):
+    def _col(title, pairs, deltas):
         if not pairs:
             return f"<div class='re-col'><div class='hd'>{title}</div><div class='re-sub'>veri yok</div></div>"
         order = sorted(pairs.items(), key=lambda kv: kv[1], reverse=True)
-        body = ""
-        for i, (cd, v) in enumerate(order):
-            d = deltas.get(cd, 0.0)
-            body += (f"<div class='re-big{' lead' if i == 0 else ''}'>"
-                     f"<span class='cd'>{html_lib.escape(cd)}</span>"
-                     f"<span class='n'>{v:.0f}<u>{unit}</u></span>"
-                     f"<span class='d'>{'—' if i == 0 else f'-{d:.0f}'}</span></div>")
+        body = "".join(
+            f"<div class='re-big{' lead' if i == 0 else ''}'>"
+            f"<span class='cd'>{html_lib.escape(cd)}</span>"
+            f"<span class='n'>{v:.0f}<u>km/s</u></span>"
+            f"<span class='d'>{'—' if i == 0 else f'-{deltas.get(cd, 0.0):.0f}'}</span></div>"
+            for i, (cd, v) in enumerate(order))
         return f"<div class='re-col'><div class='hd'>{title}</div>{body}</div>"
 
-    left = _col("VMAX · EN UZUN DÜZLÜK", vmax, vmax_d, "km/s")
-    if crit:
-        right = _col(f"VMIN · KRİTİK VİRAJ (~{crit['distance_m']:.0f} m)",
-                     crit.get("v_min_by_driver") or {}, crit.get("delta_to_best") or {}, "km/s")
-    else:
-        right = "<div class='re-col'><div class='hd'>VMIN · KRİTİK VİRAJ</div><div class='re-sub'>viraj verisi yok</div></div>"
-
-    return _re_shell(
+    left = _col("VMAX · EN UZUN DÜZLÜK", vmax, vmax_d)
+    right = (_col(f"VMIN · KRİTİK VİRAJ ~{crit['distance_m']:.0f} M",
+                  crit.get("v_min_by_driver") or {}, crit.get("delta_to_best") or {})
+             if crit else "<div class='re-col'><div class='hd'>VMIN · KRİTİK VİRAJ</div>"
+                          "<div class='re-sub'>viraj verisi yok</div></div>")
+    return (
         "<div class='re'>"
         "<div class='re-h'><span class='t'>Hız Hiyerarşisi</span>"
-        "<span class='s'>Vmax &amp; Vmin · en hızlı tur telemetrisi</span></div>"
+        "<span class='s'>Vmax &amp; Vmin · en hızlı tur</span></div>"
         f"<div class='re-grid2'>{left}{right}</div>"
-        "<div class='re-sub'>Vmax = düzlük sonu tepe hız · Vmin = apeksdeki en düşük hız. "
-        "Sağ sütun seansın en yavaş ortalama hızlı virajıdır.</div>"
+        "<div class='re-sub'>Vmax = düzlük sonu tepe hız · Vmin = apeksdeki en düşük hız · "
+        "sağ sütun seansın en yavaş virajı.</div>"
         "</div>"
     )
 
 
-def drs_efficiency_hud(rep):
-    """HUD 3 — DRS açıkken kazanılan Δ km/s: neon yeşil segmentli gösterge."""
+def _re_straight_panel(rep):
     st_ = (rep or {}).get("straights") or {}
+    longest = (st_.get("straights") or [{}])[0]
+    head = ("<div class='re-h'><span class='t'>Düzlük Modu (Straight Mode)</span>"
+            "<span class='s'>düzlük hız deltası · km/s</span></div>")
     if not st_.get("drs_available"):
-        return _re_shell(
-            "<div class='re'><div class='re-h'><span class='t'>DRS Verimliliği</span>"
-            "<span class='s'>Δ km/s · açık vs kapalı</span></div>"
-            "<div class='re-off'>DRS YOK · 2026 KURALI</div>"
-            "<div class='re-sub'>Bu seansın telemetrisinde DRS açık/kapalı ayrımı yok. 2026'da DRS "
-            "kaldırıldı; düzlük hızını artık aktif aero (kanat düzleşmesi) sağlıyor.</div></div>"
+        return (
+            "<div class='re'>" + head
+            + "<div class='re-gnum' style='color:var(--k-mute)'>—<u>km/s</u></div>"
+            + "<div class='re-sub'>Bu seansın telemetrisinde düzlük modu (aktif aero) açık/kapalı "
+              f"ayrımı bulunamadı. En uzun düzlük ~{longest.get('length_m', 0):.0f} m · "
+              f"tepe hız {st_.get('v_max_kmh', 0):.0f} km/s.</div></div>"
         )
     gain = float(st_.get("drs_gain_kmh") or 0.0)
     seg_n, seg_max = 14, 28.0
     on = int(round(_clamp_local(gain / seg_max, 0, 1) * seg_n))
     gauge = "".join(f"<i class='{'on' if k < on else ''}'></i>" for k in range(seg_n))
-    longest = (st_.get("straights") or [{}])[0]
-    return _re_shell(
-        "<div class='re'><div class='re-h'><span class='t'>DRS Verimliliği</span>"
-        "<span class='s'>Δ km/s · açık vs kapalı</span></div>"
-        f"<div class='re-gnum'>+{gain:.1f}<u>km/s</u></div>"
-        f"<div class='re-gauge'>{gauge}</div>"
-        f"<div class='re-sub'>En uzun düzlük ~{longest.get('length_m', 0):.0f} m · tepe hız "
-        f"{st_.get('v_max_kmh', 0):.0f} km/s. Segmentli gösterge 0–{seg_max:.0f} km/s aralığını "
-        f"gösterir; DRS açıkken tepe hız bu kadar artıyor.</div></div>"
+    return (
+        "<div class='re'>" + head
+        + "<div class='re-lbl'>Düzlükte Hız Kazancı</div>"
+        + f"<div class='re-gnum'>+{gain:.1f}<u>km/s</u></div>"
+        + f"<div class='re-gauge'>{gauge}</div>"
+        + f"<div class='re-sub'>En uzun düzlük ~{longest.get('length_m', 0):.0f} m · tepe hız "
+          f"{st_.get('v_max_kmh', 0):.0f} km/s. Gösterge 0–{seg_max:.0f} km/s: düzlük modu "
+          f"açıkken tepe hız bu kadar artıyor.</div></div>"
     )
 
 
-def _clamp_local(v, lo, hi):
-    return max(lo, min(hi, v))
-
-
-def driving_character_hud(rep):
-    """HUD 4 — pilot başına gaz (yeşil) / fren (kırmızı) agresifliği, telemetri stili."""
-    styles = (rep or {}).get("driving_style") or {}
-    styles = {d: v for d, v in styles.items() if v.get("ok")}
+def _re_char_panel(rep):
+    styles = {d: v for d, v in ((rep or {}).get("driving_style") or {}).items() if v.get("ok")}
     if not styles:
-        return _re_shell("<div class='re'><div class='re-h'><span class='t'>Sürüş Karakteristiği</span></div>"
-                         "<div class='re-sub'>Sürüş tarzı profili çıkarılamadı.</div></div>")
+        return ("<div class='re'><div class='re-h'><span class='t'>Sürüş Karakteristiği</span></div>"
+                "<div class='re-sub'>Sürüş tarzı profili çıkarılamadı.</div></div>")
     cards = ""
     for cd, s in sorted(styles.items()):
-        thr = float(s.get("throttle_aggression") or 0)
-        brk = float(s.get("brake_aggression") or 0)
-        # viraj bazlı teknik dökümü (derin metrik)
-        pc = [c for c in (s.get("per_corner") or []) if c.get("matched")]
-        pc_html = ""
-        if pc:
-            rows_pc = "".join(
-                f"<div class='re-cn'><s>V{c.get('corner_id', '?')}</s>"
-                f"<span>apex <b>{c.get('apex_speed_kmh', 0):.0f}</b></span>"
-                f"<span>fren Δ <b>{c.get('brake_delta_kmh', 0):.0f}</b></span>"
-                f"<span>trail <b>{c.get('trail_brake', 0):.2f}</b></span>"
-                f"<span>sert <b>{c.get('brake_aggression', 0):.2f}</b></span></div>"
-                for c in pc[:4])
-            pc_html = f"<div class='re-cnwrap'>{rows_pc}</div>"
+        thr, brk = float(s.get("throttle_aggression") or 0), float(s.get("brake_aggression") or 0)
         cards += (
             "<div class='re-drv'>"
             f"<div class='re-drv-top'><span class='cd'>{html_lib.escape(cd)}</span>"
@@ -14086,18 +14092,79 @@ def driving_character_hud(rep):
             f"<span>SERBEST <b>%{float(s.get('coast_frac') or 0) * 100:.0f}</b></span>"
             f"<span>LIFT&amp;COAST <b>%{float(s.get('lift_and_coast_frac') or 0) * 100:.0f}</b></span>"
             f"<span>FREN BÖLGESİ <b>{int(s.get('brake_zones') or 0)}</b></span>"
-            f"<span>TUTARLILIK <b>{float(s.get('brake_point_consistency') or 0):.2f}</b></span>"
-            f"<span>TRAIL <b>{float(s.get('trail_brake_index') or 0):.2f}</b></span></div>"
-            + pc_html
-            + "</div>"
+            f"<span>TUTARLILIK <b>{float(s.get('brake_point_consistency') or 0):.2f}</b></span></div>"
+            "</div>"
         )
-    return _re_shell(
+
+    # viraj bazlı APEKS HIZI + TRAIL-BRAKE karşılaştırması (pilotlar yan yana)
+    cc = (rep or {}).get("corner_compare") or []
+    cmp_html = ""
+    if cc:
+        drs = sorted({d for r in cc for d in (r.get("v_min_by_driver") or {})})[:4]
+        n = max(1, len(drs))
+        hd = "".join(f"<s>{html_lib.escape(d)}</s>" for d in drs)
+        apex_rows = "".join(
+            "<div class='re-cmp-row'><s>V" + str(r.get("corner_id", "?")) + "</s>"
+            + "".join(f"<b>{_fmt_num((r.get('v_min_by_driver') or {}).get(d))}</b>" for d in drs)
+            + "</div>"
+            for r in cc[:4])
+        # trail-brake: pilotun per_corner'ından, viraj id'sine göre
+        tb = {d: {c.get("corner_id"): c.get("trail_brake")
+                  for c in (styles.get(d, {}).get("per_corner") or []) if c.get("matched")}
+              for d in drs}
+
+        def _tb_cell(d, cid):
+            v = tb.get(d, {}).get(cid)
+            return f"{v:.2f}" if isinstance(v, (int, float)) else "—"
+
+        tb_rows = "".join(
+            "<div class='re-cmp-row'><s>V" + str(r.get("corner_id", "?")) + "</s>"
+            + "".join(f"<b>{_tb_cell(d, r.get('corner_id'))}</b>" for d in drs)
+            + "</div>"
+            for r in cc[:4])
+        cmp_html = (
+            f"<div class='re-cmp' style='--n:{n}'>"
+            f"<div class='re-cmp-row hd'><s>APEKS km/s</s>{hd}</div>{apex_rows}"
+            f"<div class='re-cmp-row hd' style='margin-top:7px'><s>TRAIL-BRAKE</s>{hd}</div>{tb_rows}"
+            f"</div>")
+
+    return (
         "<div class='re'><div class='re-h'><span class='t'>Sürüş Karakteristiği</span>"
-        "<span class='s'>gaz / fren agresifliği · viraj bazlı teknik</span></div>"
-        + cards
-        + "<div class='re-sub'>Yeşil = gaza basış sertliği, kırmızı = frene giriş sertliği (0–100). "
-        "Viraj satırları: apeks hızı, fren yükü (Δ km/s), trail-brake payı ve fren "
-        "sertliği. Lift&amp;coast = fren öncesi gazdan erken çekme.</div></div>"
+        "<span class='s'>gaz / fren · viraj bazlı teknik</span></div>"
+        + cards + cmp_html
+        + "<div class='re-sub'>Yeşil = gaza basış, kırmızı = frene giriş sertliği (0–100). "
+        "Alttaki tablo virajlarda apeks hızını ve trail-brake payını pilotlar arasında kıyaslar.</div></div>"
+    )
+
+
+# --- Geriye dönük uyum: bağımsız HUD sarmalayıcıları (testler + tekil kullanım) ---
+def race_pace_deg_hud(rep):
+    return _re_shell(_re_pace_panel(rep))
+
+
+def speed_hierarchy_hud(rep):
+    return _re_shell(_re_speed_panel(rep))
+
+
+def drs_efficiency_hud(rep):
+    return _re_shell(_re_straight_panel(rep))
+
+
+def driving_character_hud(rep):
+    return _re_shell(_re_char_panel(rep))
+
+
+def race_engineer_room_html(rep):
+    """4 paneli TEK iframe'de birleştiren Yarış Mühendisi Odası (sıfır boşluk)."""
+    return _re_shell(
+        "<div class='rr'>"
+        + _re_pace_panel(rep)
+        + _re_speed_panel(rep)
+        + "<div class='rr-2'>" + _re_straight_panel(rep) + _re_char_panel(rep) + "</div>"
+        + "<div class='rr-foot'>Barlar ve eğriler strategy_engine'in antrenman verisinden "
+          "türettiği TAHMİNLERDİR (yakıt + pist gelişimi normalize). Kesin yarış sonucu "
+          "değil, mühendislik göstergesidir.</div>"
+        + "</div>"
     )
 
 
@@ -14481,27 +14548,13 @@ def _router_page_telemetry():
             # --- MOD 7: YARIŞ MÜHENDİSİ ODASI ---
             elif analiz_turu == "Yarış Mühendisi Odası":
                 fp_ui.section_title(f"{session.event['EventName']} · Yarış Mühendisi Odası{header_suffix}")
-                if session_type not in ("FP1", "FP2", "FP3"):
-                    fp_ui.data_state(
-                        "EN İYİ FP2'DE", "Yarış temposu ve aşınma tahmini uzun antrenman "
-                        "turlarından (long-run) çıkar. Üstten seansı FP2 yap; sıralama/yarış "
-                        "seansında yalnızca hız ve sürüş profili anlamlıdır.", "info")
-                with st.spinner("Mühendis odası — 5 analiz motoru çalışıyor..."):
+                with st.spinner("Mühendis odası — analiz motorları çalışıyor..."):
                     _re_rep = _race_engineer_report_v1(year, gp, session_type)
                 if not _re_rep.get("ok"):
                     st.warning(f"Analiz üretilemedi: {_re_rep.get('reason', 'yeterli veri yok')}")
                 else:
-                    render_html_hud(race_pace_deg_hud(_re_rep), height=470, scrolling=True)
-                    render_html_hud(speed_hierarchy_hud(_re_rep), height=430, scrolling=True)
-                    _re_c1, _re_c2 = st.columns([1, 1.25])
-                    with _re_c1:
-                        render_html_hud(drs_efficiency_hud(_re_rep), height=300, scrolling=True)
-                    with _re_c2:
-                        render_html_hud(driving_character_hud(_re_rep), height=430, scrolling=True)
-                    fp_ui.data_state(
-                        "NASIL OKUNUR", "Barlar ve eğriler strategy_engine'in antrenman "
-                        "verisinden türettiği TAHMİNLERDİR (yakıt + pist gelişimi normalize). "
-                        "Kesin yarış sonucu değil, mühendislik göstergesidir.", "info")
+                    _re_h = 1240 if session_type in ("FP1", "FP2", "FP3") else 1120
+                    render_html_hud(race_engineer_room_html(_re_rep), height=_re_h, scrolling=True)
 
     except Exception as e:
         st.error(f"Veriler çekilirken hata oluştu: {e}")

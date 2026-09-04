@@ -631,7 +631,7 @@ def estimate_race_pace(
     """
     runs = _driver_runs(laps, min_run_len=min_run_len)
     if not runs:
-        return _empty_pace_with_roster(team_roster)
+        return _empty_pace_with_roster(team_roster, laps)
 
     team_of: Dict[str, str] = {}
     for lp in laps:
@@ -687,7 +687,8 @@ def estimate_race_pace(
         for r in team_rows:
             r["gap_s"] = round(r["pace_s"] - tref, 3)
 
-    team_rows += _roster_gap_rows(team_roster, {r["team"] for r in team_rows})
+    tref = team_rows[0]["pace_s"] if team_rows else ref
+    team_rows += _roster_gap_rows(team_roster, {r["team"] for r in team_rows}, laps, tref)
     drv_rows += _roster_driver_placeholders(team_roster, {r["team"] for r in drv_rows if r.get("team")})
 
     return RacePaceEstimate(
@@ -705,16 +706,46 @@ def _norm_team(name: str) -> str:
     return " ".join(str(name or "").lower().replace("f1 team", "").split())
 
 
-def _roster_gap_rows(team_roster, present) -> List[dict]:
-    """Kadroda olup uzun tur verisi olmayan takımlar için 'veri yok' satırları."""
+# Antrenman kısa-run turunun tahmini yarış temposuna kaba dönüşümü (quali-sim
+# turu ~1.8 sn hızlıdır; bu ofset "yarış trimi"ne yaklaştırır).
+_RACE_TRIM_S = 1.8
+
+
+def _team_short_run_estimate(laps: Sequence[dict], team_name: str) -> Optional[float]:
+    """Bir takımın temiz (uzun-run OLMAYAN) turlarından kaba yarış-tempo tahmini."""
+    norm = _norm_team(team_name)
+    times = [float(lp["lap_time_s"]) for lp in laps
+             if _norm_team(lp.get("team")) == norm
+             and lp.get("lap_time_s") and float(lp["lap_time_s"]) > 0
+             and not lp.get("is_pit_lap") and lp.get("is_accurate") is not False]
+    if len(times) < 2:
+        return None
+    fastest = min(times)
+    clean = [t for t in times if t <= fastest + 2.5]          # trafik/hata turlarını at
+    return round(_median(clean) + _RACE_TRIM_S, 3)
+
+
+def _roster_gap_rows(team_roster, present, laps=(), tref=0.0) -> List[dict]:
+    """Kadroda olup uzun tur verisi olmayan takımlar.
+
+    Herhangi bir temiz turu varsa kaba TAHMİN (``estimated=True``); hiç turu
+    yoksa ``pace_s=None`` (veri yok).
+    """
     if not team_roster:
         return []
     present_norm = {_norm_team(t) for t in present}
     out = []
     for name in team_roster:
-        if _norm_team(name) not in present_norm:
+        if _norm_team(name) in present_norm:
+            continue
+        est = _team_short_run_estimate(laps, name)
+        if est is not None:
+            out.append({"team": str(name), "pace_s": est, "drivers": 0,
+                        "no_data": True, "estimated": True,
+                        "gap_s": round(est - tref, 3) if tref else None})
+        else:
             out.append({"team": str(name), "pace_s": None, "gap_s": None,
-                        "drivers": 0, "no_data": True})
+                        "drivers": 0, "no_data": True, "estimated": False})
     return out
 
 
@@ -727,13 +758,23 @@ def _roster_driver_placeholders(team_roster, present) -> List[dict]:
             for name in team_roster if _norm_team(name) not in present_norm]
 
 
-def _empty_pace_with_roster(team_roster) -> "RacePaceEstimate":
-    rows = [{"team": str(n), "pace_s": None, "gap_s": None, "drivers": 0,
-             "no_data": True} for n in (team_roster or [])]
+def _empty_pace_with_roster(team_roster, laps=()) -> "RacePaceEstimate":
+    if not team_roster:
+        return RacePaceEstimate(ok=False, reference_s=0.0,
+                                method="yetersiz temiz uzun tur verisi")
+    ests = {str(n): _team_short_run_estimate(laps, n) for n in team_roster}
+    have = [v for v in ests.values() if v is not None]
+    tref = min(have) if have else 0.0
+    rows = []
+    for n in team_roster:
+        e = ests[str(n)]
+        rows.append({"team": str(n), "pace_s": e, "drivers": 0, "no_data": True,
+                     "estimated": e is not None,
+                     "gap_s": round(e - tref, 3) if (e is not None and tref) else None})
+    rows.sort(key=lambda r: (r["pace_s"] is None, r["pace_s"] or 0))
     return RacePaceEstimate(
-        ok=bool(rows), reference_s=0.0, drivers=[], teams=rows,
-        method="yetersiz temiz uzun tur verisi" if not rows
-               else "uzun tur verisi yok — takım listesi kadrodan",
+        ok=True, reference_s=tref, drivers=[], teams=rows,
+        method="uzun tur yok — kısa run turlarından tahmin (kadro)",
     )
 
 
