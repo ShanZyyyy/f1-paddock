@@ -13815,12 +13815,12 @@ div[class*="st-key-re_room"] [data-testid="stIFrame"]{border-radius:var(--fp-r-l
 # (keyed st.container + position:fixed overlay; @st.dialog gate deseninde
 # güvenilir değil — bkz. _game_intro_gate_v8). Ayrı, kendi ad alanında CSS.
 _RE_WELCOME_CSS = """<style>
-div[class*="st-key-re_welcome"]{position:fixed;inset:0;z-index:900;
+div[class*="st-key-re_welcome_wrap"]{position:fixed;inset:0;z-index:900;
   display:grid;place-items:center;padding:24px;overflow-y:auto}
-div[class*="st-key-re_welcome"]::before{content:"";position:fixed;inset:0;
+div[class*="st-key-re_welcome_wrap"]::before{content:"";position:fixed;inset:0;
   background:color-mix(in srgb,var(--fp-bg-0) 66%,transparent);
   backdrop-filter:blur(8px) saturate(1.1);-webkit-backdrop-filter:blur(8px) saturate(1.1)}
-div[class*="st-key-re_welcome"] > div{position:relative;width:min(440px,100%);
+div[class*="st-key-re_welcome_wrap"] > div{position:relative;width:min(440px,100%);
   background:color-mix(in srgb,var(--fp-bg-2) 92%,transparent);
   border:1px solid var(--fp-line-2);border-radius:16px;padding:24px 26px;
   box-shadow:0 34px 90px -18px rgba(0,0,0,.78)}
@@ -13834,7 +13834,7 @@ div[class*="st-key-re_welcome"] > div{position:relative;width:min(440px,100%);
   border:1px solid color-mix(in srgb,var(--fp-cyan) 40%,transparent);border-radius:50%;
   text-align:center;line-height:24px;height:26px;width:26px}
 .rew-list li b{color:var(--fp-text);font-weight:600}
-div[class*="st-key-re_welcome"] .stButton>button{margin-top:16px}
+div[class*="st-key-re_welcome_wrap"] .stButton>button{margin-top:16px}
 </style>"""
 
 
@@ -13866,7 +13866,7 @@ def _re_room_welcome_gate():
         f"<li><span class='n'>{i + 1}</span><span><b>{html_lib.escape(t)}</b><br>{html_lib.escape(d)}</span></li>"
         for i, (t, d) in enumerate(steps)
     )
-    with st.container(key="re_welcome"):
+    with st.container(key="re_welcome_wrap"):
         with st.container():
             st.markdown(
                 "<div class='rew-eb'>Mühendis Odası kılavuzu</div>"
@@ -13874,7 +13874,7 @@ def _re_room_welcome_gate():
                 f"<ol class='rew-list'>{rules_html}</ol>",
                 unsafe_allow_html=True,
             )
-            if st.button("Pit Duvarına Geç →", key="re_welcome_start", type="primary", width='stretch'):
+            if st.button("Pit Duvarına Geç →", key="re_wg_start", type="primary", width='stretch'):
                 if 're_room' not in seen:
                     seen.append('re_room')
                     fp_ui.set_pref('gi', seen)

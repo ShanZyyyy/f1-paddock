@@ -677,6 +677,39 @@ def test_race_engineer_room_hides_empty_sub_panels():
     assert "Pist Geneli Hız Analizi" not in html          # speed_trap yok + top_speed boş -> panel de gizlenir
 
 
+def test_race_engineer_room_has_jargon_tooltips(re_report):
+    # yeni başlayan rehberi: VMAX/VMIN/Delta/Trail-brake/Drop-off yanında ⓘ baloncuğu
+    html = app.race_engineer_room_html(re_report)
+    assert html.count("k-info") >= 5                     # en az 5 terim işaretlendi
+    for term in ("VMAX", "VMIN", "Delta (Δ)", "Trail-brake", "Drop-off"):
+        assert term in html, term
+    # baloncuklar gerçekten .hd/.re-sub/.re-lbl gibi grid/flex ebeveynler içinde
+    # tek bir çocuk olarak sarılı — sütun kaymasına yol açmaz
+    assert "<span>Hız Tuzağı (VMAX)" in html and "<span>VMIN" in html
+
+
+def test_re_room_welcome_gate_flow(monkeypatch):
+    store = {}
+    monkeypatch.setattr(app.fp_ui, "get_pref", lambda k, d=None: store.get(k, d))
+    monkeypatch.setattr(app.fp_ui, "set_pref", lambda k, v: store.__setitem__(k, v))
+    monkeypatch.setattr(app.st, "markdown", lambda *a, **k: None)
+    monkeypatch.setattr(app.st, "button", lambda *a, **k: False)
+
+    class _Ctx:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(app.st, "container", lambda *a, **k: _Ctx())
+
+    # ilk açılış -> True (oda verisi gösterilmeden önce rehber kapanmalı)
+    assert app._re_room_welcome_gate() is True
+    # oyun kapılarıyla AYNI 'gi' listesine 're_room' eklenince -> False
+    store["gi"] = ["re_room"]
+    assert app._re_room_welcome_gate() is False
+    # oyun anahtarlarından biriyle çakışmaz (ayrı liste elemanı)
+    store["gi"] = ["podium"]
+    assert app._re_room_welcome_gate() is True
+
+
 def test_re_huds_degrade_gracefully_on_empty():
     for fn in (app.race_pace_deg_hud, app.speed_hierarchy_hud,
                app.driving_character_hud, app.track_dominance_hud,
