@@ -480,10 +480,27 @@ def re_report():
                     "deg_rate_temp_adjusted": 0.13, "r2": 0.9, "clean_laps": 8,
                     "projected_loss_10_laps_s": 1.3, "dropoff_lap": 9, "dropoff_loss_s": 0.4},
         },
+        "compound_dropoff": {
+            "SOFT": {"dropoff_lap": 9, "measured": True, "sample_size": 1},
+            "MEDIUM": {"dropoff_lap": 14, "measured": True, "sample_size": 1},
+            "HARD": {"dropoff_lap": 22, "measured": False, "sample_size": 0},
+        },
         "straights": {
             "ok": True, "v_max_kmh": 318.0, "drs_available": True, "drs_gain_kmh": 12.4,
+            "estimated": False, "source": "",
             "straights": [{"start_m": 400.0, "end_m": 1300.0, "length_m": 900.0,
                            "v_max_kmh": 318.0, "v_mean_kmh": 280.0, "drs_open_frac": 0.5}],
+        },
+        "track_dominance": {
+            "ok": True,
+            "zones": [{"zone": "low", "start_m": 0.0, "end_m": 300.0, "length_m": 300.0},
+                     {"zone": "medium", "start_m": 300.0, "end_m": 700.0, "length_m": 400.0},
+                     {"zone": "high", "start_m": 700.0, "end_m": 1300.0, "length_m": 600.0}],
+            "by_team": {"Red Bull": {"low": 11.6, "medium": 6.0, "high": 3.4},
+                       "McLaren": {"low": 11.9, "medium": 6.0, "high": 3.4}},
+            "best_by_zone": {"low": {"team": "Red Bull", "seconds": 11.6}},
+            "insights": [{"team": "Red Bull", "zone": "low", "zone_tr": "Düşük Hız",
+                         "advantage_s": 0.2, "vs": "McLaren"}],
         },
         "critical_corners": [{"corner_id": 1, "distance_m": 1980.0, "v_min_kmh": 78.0,
                               "entry_speed_kmh": 250.0, "severity": 0.8}],
@@ -544,12 +561,36 @@ def test_race_pace_deg_hud_shows_estimated_teams(re_report):
     assert "Williams" in html and "~+1.300" in html and "re-row est" in html
 
 
+def test_race_pace_deg_hud_uses_real_team_colors(re_report):
+    html = app.race_pace_deg_hud(re_report)
+    assert "re-dot" in html
+    assert "--acc:var(--k-cyan)" not in html and "--acc:var(--k-amber)" not in html   # jenerik renk yok
+    assert app.season_team_colour("Red Bull", 2024) in html
+    assert app.season_team_colour("McLaren", 2024) in html
+
+
+def test_race_pace_deg_hud_has_axis_grid(re_report):
+    html = app.race_pace_deg_hud(re_report)
+    assert "re-svgtx" in html                            # eksen referans değerleri
+    assert html.count("<line") >= 8                       # yatay+dikey ızgara + eksenler
+
+
 def test_speed_hierarchy_hud_vmax_vmin(re_report):
     html = app.speed_hierarchy_hud(re_report)
     _no_streamlit_widgets(html)
     assert "VMAX" in html and "VMIN" in html
     assert "318" in html and "km/s" in html
-    assert "-6" in html                                 # HAM Vmax farkı
+    # "sıkıcı rakamlar" yerine ortalamayı merkez alan diverging bar
+    assert "re-div-row" in html and "re-div-bar" in html and "ORTALAMA" in html
+    assert "class='re-big" not in html                  # eski dikey rakam sütunu kaldırıldı
+    # gerçek F1 takım rengi (VER=Red Bull, HAM=Mercedes) — jenerik cyan/amber yok
+    assert app.season_team_colour("Red Bull", 2024) in html
+    assert app.season_team_colour("Mercedes", 2024) in html
+
+
+def test_speed_hierarchy_hud_hides_when_truly_empty():
+    html = app.speed_hierarchy_hud({"top_speed": {}, "corner_compare": []})
+    assert "<div class='re'>" not in html
 
 
 def test_straight_mode_hud_terminology(re_report):
@@ -569,6 +610,25 @@ def test_straight_mode_hud_no_channel(re_report):
     assert "açık/kapalı" in html                        # nötr açıklama
 
 
+def test_straight_mode_hud_estimated_fallback_not_blank(re_report):
+    # bu seans ölçülemedi — arayüz hata/boşluk basmak yerine işaretli tipik değer gösterir
+    re_report["straights"] = {"ok": True, "v_max_kmh": 0.0, "drs_available": True,
+                              "drs_gain_kmh": 10.0, "estimated": True,
+                              "source": "geçmiş seans ortalaması (bu seans için telemetri yetersiz)",
+                              "straights": []}
+    html = app.drs_efficiency_hud(re_report)
+    assert "Düzlük Modu" in html
+    assert "~10.0" in html and "tahmini" in html
+    assert "geçmiş seans ortalaması" in html
+    assert "—<u>km/s</u>" not in html                    # çıplak boş durum yok
+
+
+def test_straight_mode_hud_hides_when_truly_empty():
+    # ne ölçüm ne tahmin — "bulunamadı" metni yerine panel tamamen gizlenir
+    html = app.drs_efficiency_hud({"straights": {}})
+    assert "<div class='re'>" not in html
+
+
 def test_driving_character_hud_deep_metrics(re_report):
     html = app.driving_character_hud(re_report)
     _no_streamlit_widgets(html)
@@ -578,24 +638,67 @@ def test_driving_character_hud_deep_metrics(re_report):
     assert "LIFT&amp;COAST" in html and "FREN BÖLGESİ" in html and "TUTARLILIK" in html
     # viraj bazlı apeks + trail-brake karşılaştırması
     assert "re-cmp" in html and "APEKS km/s" in html and "TRAIL-BRAKE" in html
+    # pilot kartında gerçek takım rengi (nokta + isim rengi)
+    assert "re-dot" in html
+    assert app.season_team_colour("Red Bull", 2024) in html
+
+
+def test_driving_character_hud_hides_when_empty():
+    html = app.driving_character_hud({"driving_style": {}})
+    assert "<div class='re'>" not in html
+
+
+def test_track_dominance_hud_shows_zone_advantage(re_report):
+    html = app.track_dominance_hud(re_report)
+    _no_streamlit_widgets(html)
+    assert "Pist Hakimiyeti" in html
+    assert "Red Bull" in html and "Düşük Hız" in html and "McLaren" in html
+    assert "+0.20s" in html
+    assert "re-ins" in html
+
+
+def test_track_dominance_hud_no_insights_is_safe():
+    out = app.track_dominance_hud({"track_dominance": {"ok": False}})
+    assert "Pist Hakimiyeti" in out and "en az iki pilotun" in out
 
 
 def test_race_engineer_room_is_single_iframe(re_report):
     html = app.race_engineer_room_html(re_report)
     _no_streamlit_widgets(html)
-    # tek <style>, 4 panel, birleşik grid
+    # tek <style>, 5 panel, birleşik grid
     assert html.count("<style>") == 1
     assert "class='rr'" in html and "rr-2" in html
-    for title in ("Yarış Temposu", "Hız Hiyerarşisi",
+    for title in ("Yarış Temposu", "Hız Hiyerarşisi", "Pist Hakimiyeti",
                   "Düzlük Modu (Straight Mode)", "Sürüş Karakteristiği"):
         assert title in html
     assert "rr-foot" in html                            # "nasıl okunur" gömülü
 
 
+def test_race_engineer_room_shows_dominance_badges(re_report):
+    # ekranın üstünde fosforlu "Pist Hakimiyeti" rozetleri — gerçek türetilmiş veri
+    html = app.race_engineer_room_html(re_report)
+    assert "re-tags" in html and "re-tagbadge" in html
+    assert "KÖŞE CANAVARI" in html and "Red Bull" in html
+
+
+def test_race_engineer_room_hides_empty_sub_panels():
+    # düzlük + karakter verisi yok -> rr-2 ikilisi hiç basılmaz; oda yine de dolu panellerle döner
+    rep = {
+        "ok": True, "year": 2024,
+        "race_pace": {"teams": [{"team": "Ferrari", "pace_s": 90.0, "gap_s": 0.0,
+                                  "drivers": 1, "no_data": False}]},
+        "degradation": {}, "straights": {}, "driving_style": {},
+        "corner_compare": [], "top_speed": {},
+    }
+    html = app.race_engineer_room_html(rep)
+    assert "class='rr-2'" not in html
+    assert "Düzlük Modu" not in html and "Sürüş Karakteristiği" not in html
+
+
 def test_re_huds_degrade_gracefully_on_empty():
     for fn in (app.race_pace_deg_hud, app.speed_hierarchy_hud,
                app.drs_efficiency_hud, app.driving_character_hud,
-               app.race_engineer_room_html):
+               app.track_dominance_hud, app.race_engineer_room_html):
         out = fn({"ok": True})
         assert isinstance(out, str) and "color-scheme:dark" in out
 

@@ -13803,6 +13803,14 @@ div[class*="st-key-tel_deck"] [data-testid="stCaptionContainer"]{
   padding-left:9px;margin-top:4px}
 </style>"""
 
+# Yarış Mühendisi Odası: Streamlit'in kendi eleman-arası boşluğunu (flex gap 16px)
+# sıfıra yakın indirir — başlık + tek HUD iframe'i tek kompakt panel gibi görünür.
+_RE_ROOM_CSS = """<style>
+[data-testid="stVerticalBlock"][class*="st-key-re_room"]{gap:6px !important}
+div[class*="st-key-re_room"] .fp-section{margin:0 0 2px}
+div[class*="st-key-re_room"] [data-testid="stIFrame"]{border-radius:var(--fp-r-lg,12px);overflow:hidden}
+</style>"""
+
 
 # =========================================================================
 # YARIŞ MÜHENDİSİ ODASI — strategy_engine §6 motorlarının yayın HUD'ları
@@ -13901,6 +13909,32 @@ _RE_HUD_CSS = r"""
 .re-cmp-row.hd s{color:var(--k-cyan)}
 .re-cmp-row b{font:700 11px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-dim);text-align:right}
 .re-cmp-row.hd b{color:var(--k-mute);font-weight:600;font-size:8px;letter-spacing:.06em}
+.re-ins{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;
+  margin:6px 0;padding:8px 11px;border:1px solid var(--k-line);border-radius:var(--k-r-m);background:var(--k-raised)}
+.re-ins .cd{font:600 10px var(--k-f-data);letter-spacing:.05em;color:var(--k-ink)}
+.re-ins .z{font:600 9px var(--k-f-data);letter-spacing:.04em;color:var(--k-mute);flex:1;text-align:right;min-width:120px}
+/* --- F1 Insights revizyonu: gerçek takım renkleri + rozetler + diverging bar --- */
+.re-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px}
+.re-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.re-tagbadge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 9px;
+  border-radius:var(--k-r-pill);border:1px solid color-mix(in srgb,var(--c,var(--k-cyan)) 45%,var(--k-line));
+  background:color-mix(in srgb,var(--c,var(--k-cyan)) 14%,var(--k-panel));
+  font:700 8px var(--k-f-data);letter-spacing:.09em;text-transform:uppercase;
+  color:color-mix(in srgb,var(--c,var(--k-cyan)) 75%,var(--k-ink));
+  box-shadow:0 0 10px -3px var(--c,var(--k-cyan))}
+.re-tagbadge b{font:700 9px var(--k-f-data);letter-spacing:.03em;text-transform:none;color:var(--k-ink)}
+.re-svgtx{font:600 6.5px var(--k-f-data);fill:var(--k-mute)}
+.re-div-avg{font:600 8.5px var(--k-f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--k-mute);margin-bottom:9px}
+.re-div-avg b{color:var(--k-dim);font-family:var(--k-f-data)}
+.re-div-row{display:grid;grid-template-columns:42px 1fr 66px;gap:9px;align-items:center;margin:8px 0}
+.re-div-row .cd{font:700 10px var(--k-f-data);letter-spacing:.05em}
+.re-div-track{position:relative;height:12px}
+.re-div-mid{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--k-line-2)}
+.re-div-bar{position:absolute;top:1px;bottom:1px;border-radius:2px;transition:width .2s ease}
+.re-div-bar.pos{left:50%}
+.re-div-bar.neg{right:50%}
+.re-div-row .n{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums;text-align:right;color:var(--k-ink)}
+.re-div-row .n u{font:600 7px var(--k-f-data);letter-spacing:.08em;color:var(--k-mute);text-decoration:none;margin-left:2px}
 """
 
 
@@ -13930,6 +13964,7 @@ def _re_pace_panel(rep):
     gaps = [float(t.get("gap_s") or 0) for t in real + est]
     worst = max(gaps, default=0.0) or 1.0
 
+    _year = (rep or {}).get("year")
     rows = ""
     ordered = sorted(real, key=lambda t: t.get("pace_s") or 9e9) + sorted(est, key=lambda t: t.get("pace_s") or 9e9)
     for i, t in enumerate(ordered):
@@ -13937,18 +13972,21 @@ def _re_pace_panel(rep):
         lead = i == 0
         is_est = t in est
         w = 9.0 if lead else 14.0 + 86.0 * min(1.0, gap / worst)
-        acc = "var(--k-cyan)" if lead else ("var(--k-amber)" if gap >= worst - 1e-6 and not is_est else "var(--k-mute)")
+        acc = season_team_colour(t.get("team"), _year)
         val = "BAZ" if lead else (("~+" if is_est else "+") + f"{gap:.3f}")
         rows += (
             f"<div class='re-row{' est' if is_est else ''}' style='--acc:{acc}'>"
-            f"<span class='cd'>{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
+            f"<span class='cd'><i class='re-dot' style='background:{acc}'></i>"
+            f"{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
             f"<span class='re-bar'><i style='width:{w:.1f}%'></i></span>"
             f"<span class='re-val{' lead' if lead else ''}'>{val}</span></div>"
         )
     for t in none_:
+        acc = season_team_colour(t.get("team"), _year)
         rows += (
             "<div class='re-row' style='--acc:var(--k-line)'>"
-            f"<span class='cd'>{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
+            f"<span class='cd'><i class='re-dot' style='background:{acc};opacity:.45'></i>"
+            f"{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
             "<span class='re-bar'></span>"
             "<span class='re-val' style='color:var(--k-mute)'>tur yok</span></div>"
         )
@@ -13967,28 +14005,51 @@ def _re_pace_panel(rep):
         pts = [(x, rate * x) for x in range(0, laps_x + 1)]
         y_max = max(y_max, pts[-1][1])
         series.append((c, rate, pts, bool(vals)))
+    # kaymayan eksenler: ızgara çizgileri + kayıp (sn) ve tur referans değerleri
+    pad_l, pad_r, pad_t, pad_b = 32, 8, 10, 16
+    plot_w, plot_h = 300 - pad_l - pad_r, 100 - pad_t - pad_b
+
+    def _px(x):
+        return pad_l + (x / laps_x) * plot_w
+
+    def _py(y):
+        return pad_t + plot_h - (y / y_max) * plot_h
+
+    grid = ""
+    for i in range(5):
+        val = y_max * i / 4
+        gy = _py(val)
+        grid += f"<line x1='{pad_l}' y1='{gy:.1f}' x2='{pad_l + plot_w}' y2='{gy:.1f}' stroke='var(--k-line-soft)'/>"
+        grid += f"<text x='{pad_l - 4}' y='{gy:.1f}' text-anchor='end' dominant-baseline='middle' class='re-svgtx'>{val:.2f}</text>"
+    lap_step = max(1, laps_x // 6)
+    for lx in range(0, laps_x + 1, lap_step):
+        gx = _px(lx)
+        grid += f"<line x1='{gx:.1f}' y1='{pad_t}' x2='{gx:.1f}' y2='{pad_t + plot_h}' stroke='var(--k-line-soft)'/>"
+        grid += f"<text x='{gx:.1f}' y='{pad_t + plot_h + 10}' text-anchor='middle' class='re-svgtx'>T{lx}</text>"
+    axis = (f"<line x1='{pad_l}' y1='{pad_t + plot_h}' x2='{pad_l + plot_w}' y2='{pad_t + plot_h}' stroke='var(--k-line)'/>"
+            f"<line x1='{pad_l}' y1='{pad_t}' x2='{pad_l}' y2='{pad_t + plot_h}' stroke='var(--k-line)'/>")
     for c, rate, pts, measured in series:
-        poly = " ".join(f"{6 + x / laps_x * 288:.1f},{92 - (y / y_max) * 78:.1f}" for x, y in pts)
+        poly = " ".join(f"{_px(x):.1f},{_py(y):.1f}" for x, y in pts)
         dash = "" if measured else " stroke-dasharray='4 4'"
         curves += f"<polyline points='{poly}' fill='none' stroke='{palette[c]}' stroke-width='2'{dash}/>"
         legend += (f"<span><i style='background:{palette[c]}'></i>{c[0]} "
                    f"<b>{rate:.3f}</b> sn/tur{'' if measured else ' · model'}</span>")
-    svg = (f"<svg viewBox='0 0 300 100' style='width:100%;height:110px;display:block'>"
-           f"<line x1='6' y1='92' x2='294' y2='92' stroke='var(--k-line)'/>"
-           f"<line x1='6' y1='14' x2='6' y2='92' stroke='var(--k-line)'/>{curves}</svg>")
+    svg = (f"<svg viewBox='0 0 300 100' style='width:100%;height:120px;display:block'>"
+           f"{grid}{axis}{curves}</svg>")
 
-    # per-compound "Drop-off" — monospace panel (tur sayısı)
-    comp_drop = {}
-    for v in deg.values():
-        c = str(v.get("compound") or "").upper()
-        if c in ("SOFT", "MEDIUM", "HARD") and v.get("dropoff_lap"):
-            comp_drop.setdefault(c, []).append(int(v["dropoff_lap"]))
+    # per-compound "Drop-off" — HER ZAMAN 3 hamur (ölçülmeyenler oran-tahmini,
+    # estimate_all_compound_dropoffs zaten zorunlu üretir; burada yalnız render).
+    cdrop = (rep or {}).get("compound_dropoff") or {}
     mono = ""
     for c in ("SOFT", "MEDIUM", "HARD"):
-        ls = sorted(comp_drop.get(c, []))
-        val = f"~{ls[len(ls) // 2]}. tur" if ls else "—"
-        mono += f"<div><s>{c}</s><b>{val}</b></div>"
-    mono_panel = ("<div class='re-lbl' style='margin-top:12px'>Drop-off · aşınmanın hızlandığı tur</div>"
+        info = cdrop.get(c)
+        if info and info.get("dropoff_lap"):
+            prefix = "" if info.get("measured") else "~"
+            mono += f"<div><s>{c}</s><b>{prefix}{int(info['dropoff_lap'])}. tur</b></div>"
+        else:
+            mono += f"<div><s>{c}</s><b>—</b></div>"
+    mono_panel = ("<div class='re-lbl' style='margin-top:12px'>Drop-off · aşınmanın hızlandığı tur "
+                  "<span style='text-transform:none;letter-spacing:0'>(~ = ölçülemedi, orana göre tahmin)</span></div>"
                   f"<div class='re-mono'>{mono}</div>")
 
     temp = rep.get("surface_temp_c")
@@ -14010,45 +14071,74 @@ def _re_pace_panel(rep):
 
 
 def _re_speed_panel(rep):
+    """Vmax/Vmin: 'sıkıcı rakamlar' yerine ortalamayı merkez alan diverging bar —
+    her satır kendi pilotunun GERÇEK F1 takım rengiyle (jenerik cyan/amber yok)."""
     ts = (rep or {}).get("top_speed") or {}
-    vmax, vmax_d = ts.get("v_max_by_driver") or {}, ts.get("delta_to_best") or {}
+    vmax = ts.get("v_max_by_driver") or {}
     corners = (rep or {}).get("corner_compare") or []
     crit = min(corners, key=lambda r: min((r.get("v_min_by_driver") or {"x": 9e9}).values()), default=None) \
         if corners else None
+    team_of = _re_driver_team_map(rep)
+    year = (rep or {}).get("year")
 
-    def _col(title, pairs, deltas):
+    def _col(title, pairs):
         if not pairs:
-            return f"<div class='re-col'><div class='hd'>{title}</div><div class='re-sub'>veri yok</div></div>"
+            return ""
+        mean_v = sum(pairs.values()) / len(pairs)
         order = sorted(pairs.items(), key=lambda kv: kv[1], reverse=True)
-        body = "".join(
-            f"<div class='re-big{' lead' if i == 0 else ''}'>"
-            f"<span class='cd'>{html_lib.escape(cd)}</span>"
-            f"<span class='n'>{v:.0f}<u>km/s</u></span>"
-            f"<span class='d'>{'—' if i == 0 else f'-{deltas.get(cd, 0.0):.0f}'}</span></div>"
-            for i, (cd, v) in enumerate(order))
-        return f"<div class='re-col'><div class='hd'>{title}</div>{body}</div>"
+        max_dev = max(abs(v - mean_v) for v in pairs.values()) or 1.0
+        rows = ""
+        for cd, v in order:
+            dev = v - mean_v
+            pct = min(48.0, abs(dev) / max_dev * 46.0)
+            side = "pos" if dev >= 0 else "neg"
+            colour = _re_driver_color(cd, team_of, year)
+            rows += (
+                "<div class='re-div-row'>"
+                f"<span class='cd' style='color:{colour}'>{html_lib.escape(cd)}</span>"
+                "<span class='re-div-track'><i class='re-div-mid'></i>"
+                f"<i class='re-div-bar {side}' style='width:{pct:.1f}%;background:{colour};"
+                f"box-shadow:0 0 8px -1px {colour}'></i></span>"
+                f"<span class='n'>{v:.0f}<u>km/s</u></span></div>"
+            )
+        return (f"<div class='re-col'><div class='hd'>{title}</div>"
+                f"<div class='re-div-avg'>ORTALAMA <b>{mean_v:.0f} km/s</b> merkez alınmıştır</div>"
+                f"{rows}</div>")
 
-    left = _col("VMAX · EN UZUN DÜZLÜK", vmax, vmax_d)
-    right = (_col(f"VMIN · KRİTİK VİRAJ ~{crit['distance_m']:.0f} M",
-                  crit.get("v_min_by_driver") or {}, crit.get("delta_to_best") or {})
-             if crit else "<div class='re-col'><div class='hd'>VMIN · KRİTİK VİRAJ</div>"
-                          "<div class='re-sub'>viraj verisi yok</div></div>")
+    left = _col("VMAX · EN UZUN DÜZLÜK", vmax)
+    right = _col(f"VMIN · KRİTİK VİRAJ ~{crit['distance_m']:.0f} M", crit.get("v_min_by_driver") or {}) if crit else ""
+    parts = [p for p in (left, right) if p]
+    if not parts:
+        return ""
+    body = f"<div class='re-grid2'>{''.join(parts)}</div>" if len(parts) == 2 else parts[0]
     return (
         "<div class='re'>"
         "<div class='re-h'><span class='t'>Hız Hiyerarşisi</span>"
         "<span class='s'>Vmax &amp; Vmin · en hızlı tur</span></div>"
-        f"<div class='re-grid2'>{left}{right}</div>"
-        "<div class='re-sub'>Vmax = düzlük sonu tepe hız · Vmin = apeksdeki en düşük hız · "
-        "sağ sütun seansın en yavaş virajı.</div>"
+        + body
+        + "<div class='re-sub'>Vmax = düzlük sonu tepe hız · Vmin = apeksdeki en düşük hız · "
+        "barlar ortalamadan sapmayı gösterir (sağa = ortalamadan hızlı, sola = yavaş).</div>"
         "</div>"
     )
 
 
 def _re_straight_panel(rep):
     st_ = (rep or {}).get("straights") or {}
+    if not st_.get("estimated") and not st_.get("straights") and not st_.get("v_max_kmh"):
+        return ""  # gerçekten veri yok — "bulunamadı" metni yerine panel tamamen gizlenir
     longest = (st_.get("straights") or [{}])[0]
     head = ("<div class='re-h'><span class='t'>Düzlük Modu (Straight Mode)</span>"
             "<span class='s'>düzlük hız deltası · km/s</span></div>")
+    if st_.get("estimated"):
+        # bu seans için ölçülemedi — boş/hata basmak yerine AÇIKÇA işaretli tipik değer
+        gain = float(st_.get("drs_gain_kmh") or 0.0)
+        return (
+            "<div class='re'>" + head
+            + "<div class='re-lbl'>Düzlükte Hız Kazancı · tahmini</div>"
+            + f"<div class='re-gnum' style='color:var(--k-amber)'>~{gain:.1f}<u>km/s</u></div>"
+            + f"<div class='re-sub'>{html_lib.escape(str(st_.get('source') or 'geçmiş seans ortalaması'))}. "
+              "Bu bir ölçüm değildir — bu seansın telemetrisi düzlük analizine yetmedi.</div></div>"
+        )
     if not st_.get("drs_available"):
         return (
             "<div class='re'>" + head
@@ -14075,14 +14165,17 @@ def _re_straight_panel(rep):
 def _re_char_panel(rep):
     styles = {d: v for d, v in ((rep or {}).get("driving_style") or {}).items() if v.get("ok")}
     if not styles:
-        return ("<div class='re'><div class='re-h'><span class='t'>Sürüş Karakteristiği</span></div>"
-                "<div class='re-sub'>Sürüş tarzı profili çıkarılamadı.</div></div>")
+        return ""  # gerçekten veri yok — panel tamamen gizlenir
+    team_of = _re_driver_team_map(rep)
+    _year = (rep or {}).get("year")
     cards = ""
     for cd, s in sorted(styles.items()):
         thr, brk = float(s.get("throttle_aggression") or 0), float(s.get("brake_aggression") or 0)
+        _dc = _re_driver_color(cd, team_of, _year)
         cards += (
             "<div class='re-drv'>"
-            f"<div class='re-drv-top'><span class='cd'>{html_lib.escape(cd)}</span>"
+            f"<div class='re-drv-top'><span class='cd' style='color:{_dc}'>"
+            f"<i class='re-dot' style='background:{_dc}'></i>{html_lib.escape(cd)}</span>"
             f"<span class='re-tag'>{html_lib.escape(str(s.get('label', '—')))}</span></div>"
             f"<div class='re-pp'><s>Gaz</s><span class='track'><i class='g' style='width:{thr * 100:.0f}%'></i></span>"
             f"<b>{thr * 100:.0f}</b></div>"
@@ -14137,6 +14230,82 @@ def _re_char_panel(rep):
     )
 
 
+_ZONE_TR_LOCAL = {"low": "Düşük", "medium": "Orta", "high": "Yüksek"}
+
+
+def _re_driver_team_map(rep):
+    """race_pace.drivers -> {PILOT_KODU: takım adı} — gerçek renklendirme için."""
+    rows = ((rep or {}).get("race_pace") or {}).get("drivers") or []
+    return {str(r.get("driver", "")).upper(): str(r.get("team") or "") for r in rows if r.get("driver")}
+
+
+def _re_driver_color(code, team_of, year):
+    """Pilot kodundan resmi F1 takım rengi — jenerik cyan/amber/mute YOK.
+    Önce O SEANSA ait gerçek takım (team_of, tarihsel doğru); pilotun o an
+    hangi takımda olduğu bilinmiyorsa güncel kadro rengine düşer."""
+    code = str(code or "").upper()
+    team = (team_of or {}).get(code)
+    if team:
+        return season_team_colour(team, year)
+    c = DRIVER_TEAMS.get(code, {}).get("color")
+    return c or "#8fa0b4"
+
+
+def _re_insight_badges(rep):
+    """Ekranın üstündeki fosforlu 'Pist Hakimiyeti' rozetleri — _re_dominance_panel
+    ile AYNI track_dominance verisinden; her bölge türünün en avantajlı takımını
+    tek satıra özetler (uydurma yok, doğrudan türetilmiş gerçek telemetri)."""
+    td = (rep or {}).get("track_dominance") or {}
+    insights = [i for i in (td.get("insights") or []) if i.get("team")]
+    if not insights:
+        return ""
+    best_by_zone = {}
+    for ins in insights:
+        z = ins.get("zone")
+        cur = best_by_zone.get(z)
+        if cur is None or float(ins.get("advantage_s") or 0) > float(cur.get("advantage_s") or 0):
+            best_by_zone[z] = ins
+    labels = {"low": "KÖŞE CANAVARI", "high": "DÜZLÜK FÜZESİ", "medium": "ORTA HIZ USTASI"}
+    year = (rep or {}).get("year")
+    badges = ""
+    for z in ("high", "low", "medium"):
+        ins = best_by_zone.get(z)
+        if not ins:
+            continue
+        team = str(ins.get("team") or "")
+        colour = season_team_colour(team, year)
+        badges += (
+            f"<span class='re-tagbadge' style='--c:{colour}'>{labels[z]}"
+            f"<b>{html_lib.escape(team)}</b></span>"
+        )
+    return f"<div class='re-tags'>{badges}</div>" if badges else ""
+
+
+def _re_dominance_panel(rep):
+    """Pist Hakimiyeti — pist Düşük/Orta/Yüksek hız karakterine bölünür, hangi
+    takımın hangi bölüm TÜRÜNDE saniye kazandığı listelenir."""
+    td = (rep or {}).get("track_dominance") or {}
+    insights = td.get("insights") or []
+    head = ("<div class='re-h'><span class='t'>Pist Hakimiyeti</span>"
+            "<span class='s'>hız karakterine göre zaman farkı</span></div>")
+    if not td.get("ok") or not insights:
+        return ("<div class='re'>" + head
+                + "<div class='re-sub'>Bölge bazlı kıyas için en az iki pilotun telemetrisi gerekir.</div></div>")
+    rows = "".join(
+        "<div class='re-ins'>"
+        f"<span class='cd'>{html_lib.escape(str(ins['team'])[:16])}</span>"
+        f"<span class='z'>{html_lib.escape(ins['zone_tr'])} · {html_lib.escape(str(ins['vs'])[:14])}'ye göre</span>"
+        f"<span class='re-val lead'>+{float(ins['advantage_s']):.2f}s</span></div>"
+        for ins in insights[:6]
+    )
+    zone_lens = ", ".join(f"{_ZONE_TR_LOCAL.get(z['zone'], z['zone'])} {z['length_m']:.0f} m" for z in td.get("zones", [])[:6])
+    return (
+        "<div class='re'>" + head + rows
+        + f"<div class='re-sub'>Pist bölümleri: {html_lib.escape(zone_lens)}. Süreler telemetriden "
+          "(mesafe+hız) entegre edilmiş tahminidir; gerçek zaman kanalına dayanmaz.</div></div>"
+    )
+
+
 # --- Geriye dönük uyum: bağımsız HUD sarmalayıcıları (testler + tekil kullanım) ---
 def race_pace_deg_hud(rep):
     return _re_shell(_re_pace_panel(rep))
@@ -14154,13 +14323,29 @@ def driving_character_hud(rep):
     return _re_shell(_re_char_panel(rep))
 
 
+def track_dominance_hud(rep):
+    return _re_shell(_re_dominance_panel(rep))
+
+
 def race_engineer_room_html(rep):
-    """4 paneli TEK iframe'de birleştiren Yarış Mühendisi Odası (sıfır boşluk)."""
+    """5 paneli TEK iframe'de birleştiren Yarış Mühendisi Odası (sıfır boşluk).
+    Veri olmayan panel KESİNLİKLE basılmaz — boş `.re` kutucuğu yerine hiç yer kaplamaz."""
+    duo = [p for p in (_re_straight_panel(rep), _re_char_panel(rep)) if p]
+    duo_html = ""
+    if len(duo) == 2:
+        duo_html = "<div class='rr-2'>" + duo[0] + duo[1] + "</div>"
+    elif duo:
+        duo_html = duo[0]
+    body = "".join(p for p in (_re_pace_panel(rep), _re_speed_panel(rep), _re_dominance_panel(rep)) if p) + duo_html
+    if not body:
+        return _re_shell(
+            "<div class='re'><div class='re-sub'>Bu seans için mühendislik analizi üretecek "
+            "yeterli veri bulunamadı.</div></div>"
+        )
     return _re_shell(
         "<div class='rr'>"
-        + _re_pace_panel(rep)
-        + _re_speed_panel(rep)
-        + "<div class='rr-2'>" + _re_straight_panel(rep) + _re_char_panel(rep) + "</div>"
+        + _re_insight_badges(rep)
+        + body
         + "<div class='rr-foot'>Barlar ve eğriler strategy_engine'in antrenman verisinden "
           "türettiği TAHMİNLERDİR (yakıt + pist gelişimi normalize). Kesin yarış sonucu "
           "değil, mühendislik göstergesidir.</div>"
@@ -14547,14 +14732,16 @@ def _router_page_telemetry():
 
             # --- MOD 7: YARIŞ MÜHENDİSİ ODASI ---
             elif analiz_turu == "Yarış Mühendisi Odası":
-                fp_ui.section_title(f"{session.event['EventName']} · Yarış Mühendisi Odası{header_suffix}")
-                with st.spinner("Mühendis odası — analiz motorları çalışıyor..."):
-                    _re_rep = _race_engineer_report_v1(year, gp, session_type)
-                if not _re_rep.get("ok"):
-                    st.warning(f"Analiz üretilemedi: {_re_rep.get('reason', 'yeterli veri yok')}")
-                else:
-                    _re_h = 1240 if session_type in ("FP1", "FP2", "FP3") else 1120
-                    render_html_hud(race_engineer_room_html(_re_rep), height=_re_h, scrolling=True)
+                st.markdown(_RE_ROOM_CSS, unsafe_allow_html=True)
+                with st.container(key="re_room"):
+                    fp_ui.section_title(f"{session.event['EventName']} · Yarış Mühendisi Odası{header_suffix}")
+                    with st.spinner("Mühendis odası — analiz motorları çalışıyor..."):
+                        _re_rep = _race_engineer_report_v1(year, gp, session_type)
+                    if not _re_rep.get("ok"):
+                        st.warning(f"Analiz üretilemedi: {_re_rep.get('reason', 'yeterli veri yok')}")
+                    else:
+                        _re_h = 1520 if session_type in ("FP1", "FP2", "FP3") else 1400
+                        render_html_hud(race_engineer_room_html(_re_rep), height=_re_h, scrolling=True)
 
     except Exception as e:
         st.error(f"Veriler çekilirken hata oluştu: {e}")
