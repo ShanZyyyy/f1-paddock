@@ -446,3 +446,108 @@ def test_game_intro_gate_flow(monkeypatch):
     assert app._game_intro_gate_v8("podium") is False
     # tanımsız anahtar -> False
     assert app._game_intro_gate_v8("bilinmez") is False
+
+
+# --------------------------------------------------------------------------
+# Yarış Mühendisi Odası — 4 HUD (strategy_engine §6 çıktısından)
+# --------------------------------------------------------------------------
+@pytest.fixture
+def re_report():
+    """analyze_practice() biçiminde sentetik rapor (ağsız)."""
+    return {
+        "ok": True, "year": 2024, "gp": "Hungary", "session": "FP2",
+        "surface_temp_c": 47.5,
+        "race_pace": {
+            "ok": True, "reference_s": 92.1, "method": "yakıt 0.033 sn/tur",
+            "drivers": [
+                {"driver": "VER", "team": "Red Bull", "pace_s": 92.1, "gap_s": 0.0, "laps": 9, "compound": "MEDIUM"},
+                {"driver": "NOR", "team": "McLaren", "pace_s": 92.3, "gap_s": 0.2, "laps": 8, "compound": "SOFT"},
+                {"driver": "HAM", "team": "Mercedes", "pace_s": 92.7, "gap_s": 0.6, "laps": 10, "compound": "HARD"},
+            ],
+            "teams": [
+                {"team": "Red Bull", "pace_s": 92.1, "gap_s": 0.0, "drivers": 1},
+                {"team": "McLaren", "pace_s": 92.3, "gap_s": 0.2, "drivers": 1},
+                {"team": "Mercedes", "pace_s": 92.7, "gap_s": 0.6, "drivers": 1},
+            ],
+        },
+        "degradation": {
+            "VER": {"ok": True, "compound": "MEDIUM", "deg_rate_s_per_lap": 0.06,
+                    "deg_rate_temp_adjusted": 0.07, "r2": 0.95, "clean_laps": 9,
+                    "projected_loss_10_laps_s": 0.7},
+            "NOR": {"ok": True, "compound": "SOFT", "deg_rate_s_per_lap": 0.11,
+                    "deg_rate_temp_adjusted": 0.13, "r2": 0.9, "clean_laps": 8,
+                    "projected_loss_10_laps_s": 1.3},
+        },
+        "straights": {
+            "ok": True, "v_max_kmh": 318.0, "drs_available": True, "drs_gain_kmh": 12.4,
+            "straights": [{"start_m": 400.0, "end_m": 1300.0, "length_m": 900.0,
+                           "v_max_kmh": 318.0, "v_mean_kmh": 280.0, "drs_open_frac": 0.5}],
+        },
+        "critical_corners": [{"corner_id": 1, "distance_m": 1980.0, "v_min_kmh": 78.0,
+                              "entry_speed_kmh": 250.0, "severity": 0.8}],
+        "corner_compare": [{"corner_id": 1, "distance_m": 1980.0,
+                            "v_min_by_driver": {"VER": 78.0, "HAM": 74.0},
+                            "delta_to_best": {"VER": 0.0, "HAM": 4.0}}],
+        "top_speed": {"v_max_by_driver": {"VER": 318.0, "HAM": 312.0},
+                      "delta_to_best": {"VER": 0.0, "HAM": 6.0}},
+        "driving_style": {
+            "VER": {"ok": True, "full_throttle_frac": 0.62, "coast_frac": 0.05,
+                    "throttle_aggression": 0.8, "brake_aggression": 0.7,
+                    "trail_brake_index": 0.3, "peak_decel_kmh_s": 900.0, "label": "agresif"},
+            "HAM": {"ok": True, "full_throttle_frac": 0.58, "coast_frac": 0.12,
+                    "throttle_aggression": 0.4, "brake_aggression": 0.45,
+                    "trail_brake_index": 0.5, "peak_decel_kmh_s": 700.0, "label": "yumuşak"},
+        },
+    }
+
+
+def _no_streamlit_widgets(html):
+    for bad in ("data-testid=\"stMetric\"", "stDataFrame", "stProgress", "__PAYLOAD__"):
+        assert bad not in html
+    assert "color-scheme:dark" in html          # kit_css gömülü
+
+
+def test_race_pace_deg_hud_structure(re_report):
+    html = app.race_pace_deg_hud(re_report)
+    _no_streamlit_widgets(html)
+    assert "Yarış Temposu" in html and "Red Bull" in html
+    assert "+0.200" in html or "+0.2" in html          # McLaren farkı
+    assert "<polyline" in html and "sn/tur" in html     # aşınma eğrileri
+    assert "°C" in html and "pist" in html              # pist sıcaklığı satırı
+
+
+def test_speed_hierarchy_hud_vmax_vmin(re_report):
+    html = app.speed_hierarchy_hud(re_report)
+    _no_streamlit_widgets(html)
+    assert "VMAX" in html and "VMIN" in html
+    assert "318" in html and "km/s" in html
+    assert "-6" in html                                 # HAM Vmax farkı
+
+
+def test_drs_efficiency_hud_shows_gain(re_report):
+    html = app.drs_efficiency_hud(re_report)
+    _no_streamlit_widgets(html)
+    assert "+12.4" in html and "re-gauge" in html
+
+
+def test_drs_efficiency_hud_2026_no_drs(re_report):
+    re_report["straights"]["drs_available"] = False
+    re_report["straights"]["drs_gain_kmh"] = None
+    html = app.drs_efficiency_hud(re_report)
+    assert "2026" in html and "DRS YOK" in html
+
+
+def test_driving_character_hud_profiles(re_report):
+    html = app.driving_character_hud(re_report)
+    _no_streamlit_widgets(html)
+    assert "VER" in html and "HAM" in html
+    assert "agresif" in html and "yumuşak" in html      # etiket (CSS uppercase)
+    assert "re-pp" in html and "TRAIL-BRAKE" in html
+
+
+def test_re_huds_degrade_gracefully_on_empty():
+    for fn in (app.race_pace_deg_hud, app.speed_hierarchy_hud,
+               app.drs_efficiency_hud, app.driving_character_hud):
+        out = fn({"ok": True})
+        assert isinstance(out, str) and "color-scheme:dark" in out
+

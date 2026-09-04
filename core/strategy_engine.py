@@ -59,6 +59,7 @@ __all__ = [
     "analyze_straights",
     "critical_corners",
     "corner_vmin_compare",
+    "top_speed_compare",
     "driving_style",
     "load_practice_session",
     "extract_practice_laps",
@@ -973,6 +974,22 @@ def corner_vmin_compare(
     return rows
 
 
+def top_speed_compare(driver_samples: Dict[str, Sequence[dict]]) -> dict:
+    """Pilotların telemetrideki en yüksek hızı (Vmax) + en hızlıya fark (km/s)."""
+    per: Dict[str, float] = {}
+    for drv, samples in driver_samples.items():
+        sp = [float(s["speed"]) for s in samples if s.get("speed") is not None]
+        if sp:
+            per[str(drv).upper()] = round(max(sp), 1)
+    if not per:
+        return {"v_max_by_driver": {}, "delta_to_best": {}}
+    best = max(per.values())
+    return {
+        "v_max_by_driver": per,
+        "delta_to_best": {d: round(best - v, 1) for d, v in per.items()},
+    }
+
+
 # -------------------------------------------------------------------------
 # 6.5  GAZ / FREN KARAKTERİSTİĞİ — SÜRÜŞ TARZI PROFİLİ
 # -------------------------------------------------------------------------
@@ -1181,7 +1198,19 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
 
     pace = estimate_race_pace(laps)
 
-    drv_list = list(drivers) if drivers else [r["driver"] for r in pace.drivers[:6]]
+    if drivers:
+        drv_list = list(drivers)
+    elif pace.drivers:
+        drv_list = [r["driver"] for r in pace.drivers[:6]]
+    else:                       # long-run yok (Q/R) → seansın ilk pilotları
+        seen = []
+        for lp in laps:
+            d = str(lp.get("driver") or "").upper()
+            if d and d not in seen:
+                seen.append(d)
+            if len(seen) >= 6:
+                break
+        drv_list = seen
     samples_by_drv = {d: extract_lap_samples(sess, d) for d in drv_list}
     samples_by_drv = {d: s for d, s in samples_by_drv.items() if s}
 
@@ -1210,5 +1239,6 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
         "straights": straights.__dict__,
         "critical_corners": [c.__dict__ for c in corners],
         "corner_compare": corner_vmin_compare(samples_by_drv, corners),
+        "top_speed": top_speed_compare(samples_by_drv),
         "driving_style": style,
     }

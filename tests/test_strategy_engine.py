@@ -330,6 +330,16 @@ def test_critical_corners_dedupes_close_minima():
     assert len(corners) == 1
 
 
+def test_top_speed_compare_ranks_and_deltas():
+    fast = _straight_telemetry(drs_gain=0.0)
+    slow = [dict(s, speed=s["speed"] - 8.0) for s in fast]
+    out = se.top_speed_compare({"VER": fast, "HAM": slow})
+    assert out["v_max_by_driver"]["VER"] > out["v_max_by_driver"]["HAM"]
+    assert out["delta_to_best"]["VER"] == 0.0
+    assert abs(out["delta_to_best"]["HAM"] - 8.0) < 0.2
+    assert se.top_speed_compare({})["v_max_by_driver"] == {}
+
+
 def test_corner_vmin_compare_gives_delta_to_best():
     corners = se.critical_corners(_corner_telemetry(), n_corners=3)
     fast = _corner_telemetry()
