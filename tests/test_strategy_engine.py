@@ -160,3 +160,261 @@ def test_sc_model_feeds_simulation():
     # seed sabit → tekrar üretilebilir
     r2 = se.simulate_stint_plan(plan, total_laps=50, base_lap_s=91.0, sc_model=m, seed=11)
     assert r.total_time_s == r2.total_time_s
+
+
+# =====================================================================
+# 6) ANTRENMAN LABI — yarış mühendisi analiz motorları (saf, ağsız)
+# =====================================================================
+
+def _long_run(driver, team, base, *, deg=0.05, n=10, start_lap=6, stint=2,
+              compound="MEDIUM", sess_start=30):
+    """Sentetik temiz uzun tur: yakıt (-0.033/tur) + aşınma (deg/tur)."""
+    out = []
+    for i in range(n):
+        out.append({
+            "driver": driver, "team": team,
+            "lap_time_s": round(base - se.FUEL_EFFECT_PER_LAP * i + deg * i, 3),
+            "lap_number": start_lap + i, "stint": stint, "compound": compound,
+            "is_accurate": True, "is_pit_lap": False,
+            "session_lap_index": sess_start + i,
+        })
+    return out
+
+
+# ---- 6.1 FP yarış temposu ------------------------------------------
+
+def test_race_pace_orders_teams_and_computes_gaps():
+    laps = (_long_run("VER", "Red Bull", 92.0)
+            + _long_run("PER", "Red Bull", 92.4)
+            + _long_run("HAM", "Mercedes", 92.7)
+            + _long_run("RUS", "Mercedes", 92.9))
+    est = se.estimate_race_pace(laps)
+    assert est.ok
+    names = [d["driver"] for d in est.drivers]
+    assert names[0] == "VER" and names.index("VER") < names.index("HAM")
+    assert est.drivers[0]["gap_s"] == 0.0 and est.drivers[-1]["gap_s"] > 0.0
+    teams = [t["team"] for t in est.teams]
+    assert teams[0] == "Red Bull" and est.teams[0]["gap_s"] == 0.0
+    assert est.teams[-1]["gap_s"] > 0.0
+
+
+def test_race_pace_fuel_correction_removes_run_slope():
+    # saf yakıt burnu (aşınma yok) → düzeltilmiş tempo ~ base
+    laps = _long_run("VER", "Red Bull", 92.0, deg=0.0, n=12)
+    est = se.estimate_race_pace(laps, track_evolution_s_per_lap=0.0)
+    assert est.ok
+    assert abs(est.drivers[0]["pace_s"] - 92.0) < 0.05
+
+
+def test_race_pace_needs_min_run_length():
+    laps = _long_run("VER", "Red Bull", 92.0, n=3)
+    assert se.estimate_race_pace(laps, min_run_len=5).ok is False
+
+
+def test_race_pace_ignores_pit_and_inaccurate_laps():
+    laps = _long_run("VER", "Red Bull", 92.0, n=10)
+    laps.append({"driver": "VER", "team": "Red Bull", "lap_time_s": 140.0,
+                 "lap_number": 99, "stint": 2, "compound": "MEDIUM",
+                 "is_accurate": True, "is_pit_lap": True})
+    est = se.estimate_race_pace(laps)
+    assert est.ok and est.drivers[0]["pace_s"] < 100.0
+
+
+# ---- 6.2 lastik aşınma tahmini -------------------------------------
+
+def test_degradation_recovers_known_rate():
+    # net eğim 0.09 → +yakıt 0.033 → saf ~0.123
+    stint = [92.0 + 0.09 * i for i in range(16)]
+    de = se.estimate_degradation(stint, compound="MEDIUM")
+    assert de.ok and de.r2 > 0.98
+    assert abs(de.deg_rate_s_per_lap - (0.09 + se.FUEL_EFFECT_PER_LAP)) < 0.02
+    assert de.deg_rate_raw_s_per_lap < de.deg_rate_s_per_lap    # ham < saf (yakıt)
+
+
+def test_degradation_hotter_track_increases_rate():
+    stint = [92.0 + 0.08 * i for i in range(14)]
+    cool = se.estimate_degradation(stint, compound="MEDIUM", surface_temp_c=32.0)
+    hot = se.estimate_degradation(stint, compound="MEDIUM", surface_temp_c=52.0)
+    assert hot.deg_rate_temp_adjusted > cool.deg_rate_temp_adjusted
+    assert hot.projected_loss_10_laps_s > cool.projected_loss_10_laps_s
+
+
+def test_degradation_short_stint_falls_back_to_model_prior():
+    de = se.estimate_degradation([92.0, 92.1], compound="HARD")
+    assert de.ok is False
+    assert abs(de.deg_rate_s_per_lap - se.TYRES["HARD"].deg) < 1e-6
+
+
+def test_degradation_never_negative_after_blend():
+    # araç hızlanıyormuş gibi (fiziksel değil) — model 0 tabanına çeker
+    stint = [92.0 - 0.2 * i for i in range(12)]
+    de = se.estimate_degradation(stint, compound="MEDIUM")
+    assert de.deg_rate_s_per_lap >= -0.05
+
+
+# ---- 6.3 Vmax & DRS ------------------------------------------------
+
+def _straight_telemetry(drs_gain=12.0):
+    """İki uzun düzlük + aralarında yavaş virajlar. 2. düzlükte DRS açık."""
+    s = []
+    for i in range(600):
+        d = i * 8.0
+        on_straight_1 = 400 <= d <= 1600
+        on_straight_2 = 2600 <= d <= 3800
+        if on_straight_1:
+            s.append({"distance": d, "speed": 300.0, "throttle": 100.0, "drs": 0})
+        elif on_straight_2:
+            s.append({"distance": d, "speed": 300.0 + drs_gain, "throttle": 100.0, "drs": 12})
+        else:
+            s.append({"distance": d, "speed": 120.0, "throttle": 15.0, "drs": 0})
+    return s
+
+
+def test_straights_detected_and_vmax():
+    an = se.analyze_straights(_straight_telemetry())
+    assert an.ok and len(an.straights) >= 2
+    assert an.v_max_kmh >= 310
+    assert an.straights[0]["length_m"] >= 260
+
+
+def test_drs_gain_positive_when_open_faster():
+    an = se.analyze_straights(_straight_telemetry(drs_gain=14.0))
+    assert an.drs_available is True
+    assert 10.0 <= an.drs_gain_kmh <= 18.0
+
+
+def test_drs_unavailable_when_channel_missing():
+    tel = [{"distance": i * 8.0,
+            "speed": 300.0 if 400 <= i * 8.0 <= 1600 else 120.0,
+            "throttle": 100.0 if 400 <= i * 8.0 <= 1600 else 15.0}
+           for i in range(400)]
+    an = se.analyze_straights(tel)
+    assert an.ok and an.drs_available is False and an.drs_gain_kmh is None
+
+
+def test_straights_empty_input_is_safe():
+    assert se.analyze_straights([]).ok is False
+
+
+# ---- 6.4 Vmin kritik virajlar ------------------------------------
+
+def _corner_telemetry(vmins=(90.0, 70.0, 120.0), offset=0.0):
+    """3 V-şekilli viraj, aralarda 300 km/s düzlük."""
+    centers = [1500, 3000, 4500]
+    s = []
+    for i in range(700):
+        d = i * 8.0
+        sp = 300.0
+        for c, vm in zip(centers, vmins):
+            if abs(d - c) < 200:
+                sp = min(sp, vm + (abs(d - c) / 200.0) * (300.0 - vm))
+        s.append({"distance": d, "speed": round(sp + offset, 1)})
+    return s
+
+
+def test_critical_corners_finds_slowest_and_orders_by_distance():
+    corners = se.critical_corners(_corner_telemetry(vmins=(90, 70, 130)), n_corners=3)
+    assert len(corners) == 3
+    assert [c.distance_m for c in corners] == sorted(c.distance_m for c in corners)
+    slowest = min(corners, key=lambda c: c.v_min_kmh)
+    assert abs(slowest.v_min_kmh - 70.0) < 8.0
+    # en yavaş viraj en yüksek severity
+    assert slowest.severity == max(c.severity for c in corners)
+
+
+def test_critical_corners_dedupes_close_minima():
+    # düz plato bir virajda birden çok minimum üretmemeli
+    flat = [{"distance": i * 8.0, "speed": 300.0 if i < 100 or i > 140 else 95.0}
+            for i in range(240)]
+    corners = se.critical_corners(flat, n_corners=3)
+    assert len(corners) == 1
+
+
+def test_corner_vmin_compare_gives_delta_to_best():
+    corners = se.critical_corners(_corner_telemetry(), n_corners=3)
+    fast = _corner_telemetry()
+    slow = _corner_telemetry(offset=-6.0)          # her yerde 6 km/s daha yavaş
+    rows = se.corner_vmin_compare({"VER": fast, "HAM": slow}, corners)
+    assert rows and all("VER" in r["v_min_by_driver"] for r in rows)
+    for r in rows:
+        assert r["delta_to_best"]["VER"] == 0.0
+        assert r["delta_to_best"]["HAM"] >= 4.0
+
+
+# ---- 6.5 gaz/fren karakteristiği --------------------------------
+
+def _lap_trace(*, ramp_m=40.0, brake_len_m=90.0, coast_m=0.0):
+    """Bir tur: düzlük tam gaz → fren → viraj → kademeli gaz açılışı."""
+    s = []
+    d = 0.0
+    # tam gaz düzlük
+    while d < 1200:
+        s.append({"distance": d, "speed": 300.0, "throttle": 100.0, "brake": 0}); d += 10
+    # fren bölgesi
+    v = 300.0
+    for _ in range(int(brake_len_m / 10)):
+        v -= (300.0 - 90.0) / (brake_len_m / 10)
+        s.append({"distance": d, "speed": max(90.0, v), "throttle": 0.0, "brake": 1}); d += 10
+    # serbest (coast) — istenirse
+    for _ in range(int(coast_m / 10)):
+        s.append({"distance": d, "speed": 90.0, "throttle": 0.0, "brake": 0}); d += 10
+    # viraj
+    for _ in range(6):
+        s.append({"distance": d, "speed": 90.0, "throttle": 5.0, "brake": 0}); d += 10
+    # kademeli gaz açılışı
+    t = 0.0
+    while t < 100.0:
+        t += 100.0 / (ramp_m / 10)
+        s.append({"distance": d, "speed": 90.0 + t, "throttle": min(100.0, t), "brake": 0}); d += 10
+    # tekrar düzlük
+    for _ in range(40):
+        s.append({"distance": d, "speed": 290.0, "throttle": 100.0, "brake": 0}); d += 10
+    return s
+
+
+def test_driving_style_profile_shapes():
+    ds = se.driving_style(_lap_trace())
+    assert ds.ok
+    assert 0.0 <= ds.full_throttle_frac <= 1.0
+    assert 0.0 <= ds.throttle_aggression <= 1.0 and 0.0 <= ds.brake_aggression <= 1.0
+    assert ds.label in ("agresif", "yumuşak", "dengeli")
+
+
+def test_driving_style_aggressive_vs_smooth():
+    sharp = se.driving_style(_lap_trace(ramp_m=20.0, brake_len_m=60.0))
+    smooth = se.driving_style(_lap_trace(ramp_m=140.0, brake_len_m=200.0))
+    assert sharp.throttle_aggression > smooth.throttle_aggression
+    assert sharp.brake_aggression >= smooth.brake_aggression
+
+
+def test_driving_style_coasting_detected():
+    none = se.driving_style(_lap_trace(coast_m=0.0))
+    lots = se.driving_style(_lap_trace(coast_m=300.0))
+    assert lots.coast_frac > none.coast_frac
+
+
+def test_driving_style_empty_is_safe():
+    assert se.driving_style([]).ok is False
+
+
+# ---- 6.6 FastF1 katmanı — ortam yoksa nazikçe döner --------------
+
+def test_analyze_practice_without_fastf1_returns_reason():
+    if se._has_fastf1():
+        return                       # ortamda FastF1 varsa bu test atlanır
+    out = se.analyze_practice(2024, "Bahrain", session_name="FP2")
+    assert out["ok"] is False and "reason" in out
+
+
+def test_engine_module_import_is_stdlib_only():
+    # strategy_engine tek başına import edilince fastf1/pandas YÜKLENMEZ.
+    # (Tam suitte başka dosyalar fastf1'i çekmiş olabilir → ayrı süreçte doğrula.)
+    import subprocess
+    import sys
+    code = ("import sys, core.strategy_engine;"
+            "assert 'fastf1' not in sys.modules, 'fastf1 leaked';"
+            "assert 'pandas' not in sys.modules, 'pandas leaked';"
+            "print('ok')")
+    res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    assert "ok" in res.stdout
