@@ -21,6 +21,22 @@ def test_kit_css_has_core_tokens():
     assert css.count("{") == css.count("}")
 
 
+def test_kit_css_has_responsive_and_tooltip_primitives():
+    css = hud_kit.kit_css()
+    # Faz 1 — mobil responsive yardımcıları + jargon baloncuğu
+    assert "@media (max-width:768px)" in css
+    assert ".k-resp" in css and ".k-info" in css
+    assert "data-tip" in css                       # :hover ile açılan saf-CSS tooltip
+    assert css.count("{") == css.count("}")
+
+
+def test_info_helper_escapes_and_shapes():
+    out = hud_kit.info('Delta <b>fark</b> ("Δ")')
+    assert out.startswith('<span class="k-info"') and 'data-tip="' in out
+    assert "&quot;" in out and "&lt;b&gt;" in out and "<b>" not in out
+    assert 'class="k-info up"' in hud_kit.info("x", up=True)
+
+
 @pytest.mark.parametrize("name, expected", [
     ("SOFT", "#ff5b5b"), ("soft", "#ff5b5b"), ("Medium", "#ffd23f"),
     ("HARD", "#eef2f7"), ("INTERMEDIATE", "#3ecf8e"), ("", "#8fa0b4"), (None, "#8fa0b4"),

@@ -91,6 +91,44 @@ body{background:transparent;color:var(--k-ink);font-family:var(--k-f-ui);
 .k-chip:hover{background:var(--k-hover)}
 .k-chip[aria-pressed="true"]{box-shadow:inset 0 0 0 1px var(--team,var(--k-cyan))}
 
+/* --- jargon baloncuğu (saf CSS tooltip) --------------------------------
+   Kullanım:  <span class="k-info" tabindex="0" data-tip="kısa açıklama">i</span>
+   Varsayılan aşağı açılır (dar iframe'de üst kenara takılmasın); üstte yer
+   varsa .up ver. fp_kit.info("...") yardımcısı hazır işaretleme döndürür. */
+.k-info{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;margin:0 1px 0 4px;flex:0 0 auto;border-radius:50%;vertical-align:middle;
+  border:1px solid var(--k-line-lit);background:var(--k-raised);color:var(--k-mute);
+  font:700 9px/1 var(--k-f-ui);font-style:normal;text-transform:none;letter-spacing:0;
+  cursor:help;-webkit-user-select:none;user-select:none;transition:color .14s,border-color .14s}
+.k-info:hover,.k-info:focus-visible{color:var(--k-cyan);border-color:var(--k-cyan);outline:none}
+.k-info::after{content:attr(data-tip);position:absolute;top:calc(100% + 9px);left:50%;z-index:60;
+  transform:translateX(-50%) translateY(-3px);width:max-content;max-width:220px;padding:8px 10px;
+  border-radius:var(--k-r-m);background:var(--k-void);border:1px solid var(--k-line-lit);
+  box-shadow:0 12px 32px rgba(0,0,0,.55);
+  font:500 11px/1.5 var(--k-f-ui);letter-spacing:0;text-transform:none;text-align:left;
+  color:var(--k-dim);white-space:normal;opacity:0;pointer-events:none;
+  transition:opacity .14s ease,transform .14s ease}
+.k-info::before{content:"";position:absolute;top:calc(100% + 4px);left:50%;z-index:60;
+  width:8px;height:8px;background:var(--k-void);
+  border-left:1px solid var(--k-line-lit);border-top:1px solid var(--k-line-lit);
+  transform:translateX(-50%) rotate(45deg);opacity:0;transition:opacity .14s ease}
+.k-info.up::after{top:auto;bottom:calc(100% + 9px);transform:translateX(-50%) translateY(3px)}
+.k-info.up::before{top:auto;bottom:calc(100% + 4px);
+  border-left:0;border-top:0;border-right:1px solid var(--k-line-lit);border-bottom:1px solid var(--k-line-lit)}
+.k-info:hover::after,.k-info:focus-visible::after{opacity:1;transform:translateX(-50%) translateY(0)}
+.k-info:hover::before,.k-info:focus-visible::before{opacity:1}
+
+/* --- responsive yardımcıları (mobil ≤768px: sıkışma yerine temiz yığın) ---
+   .k-resp  : yatay grid/flex; ≤768px'te tek sütun / flex-column olur.
+   .k-hide-sm / .k-only-sm : mobilde gizle / yalnız mobilde göster. */
+.k-resp{display:flex;flex-wrap:wrap;gap:10px}
+@media (max-width:768px){
+  .k-resp{flex-direction:column;align-items:stretch}
+  .k-resp > *{width:100% !important;min-width:0 !important;flex:1 1 auto !important}
+  .k-hide-sm{display:none !important}
+}
+@media (min-width:769px){ .k-only-sm{display:none !important} }
+
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{
   animation-duration:.001ms !important;transition-duration:.001ms !important}}
 """
@@ -99,6 +137,19 @@ body{background:transparent;color:var(--k-ink);font-family:var(--k-f-ui);
 def kit_css():
     """HUD `<style>` bloğunun başına eklenecek ortak stil metni (etiketsiz)."""
     return ":root{color-scheme:dark;" + _root_vars() + "}" + _PRIMITIVES
+
+
+def info(tip, *, up=False):
+    """Jargon baloncuğu işaretlemesi — `<span class="k-info" …>i</span>`.
+
+    `tip` düz metin; çift tırnak/`<` kaçırılır. `up=True` baloncuğu yukarı açar
+    (öğenin altında yer yoksa). `.k-info` stili `kit_css()` içinde gelir.
+    """
+    safe = (str(tip or "")
+            .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;"))
+    cls = "k-info up" if up else "k-info"
+    return f'<span class="{cls}" tabindex="0" role="note" aria-label="{safe}" data-tip="{safe}">i</span>'
 
 
 def google_fonts_link():

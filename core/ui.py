@@ -991,6 +991,82 @@ def term_viz(kind, *, label=None):
     )
 
 
+# =====================================================================
+# JARGON BALONCUKLARI — sayfa (Streamlit markdown) tarafı, saf CSS tooltip
+# HUD iframe'leri için eşdeğeri: core.hud_kit.info() + kit_css() `.k-info`
+# =====================================================================
+
+# Kısa, yeni başlayana yönelik açıklamalar. views/glossary.py tam sözlük;
+# burada yalnızca ekranlarda geçen en sık kafa karıştıran terimler.
+_JARGON_TIPS = {
+    "ERS": "Enerji geri kazanım sistemi: frende toplanan elektrik enerjisini "
+           "ekstra güce çevirir (yayında 'push-to-pass' / Manuel Geçiş).",
+    "DRS": "2024'e kadar düzlükte arka kanadı açıp sürtünmeyi azaltan sistem. "
+           "2026'da kaldırıldı; yerini aktif aero aldı.",
+    "Delta": "İki tur ya da iki pilot arasındaki zaman farkı — 'Δ' ile gösterilir. "
+             "Δ +0,3 sn = öndeki 0,3 saniye daha hızlı.",
+    "Undercut": "Rakipten önce pite girip taze lastikle, o hâlâ eskiyken öne "
+                "geçme taktiği.",
+    "Overcut": "Rakip pite girince pistte kalıp hızlı turlarla çıkışta öne geçme "
+               "— undercut'ın tersi.",
+    "Stint": "İki pit stop arasında aynı lastik setiyle atılan tur bloğu.",
+    "Degradasyon": "Lastiğin tur geçtikçe performans (tutuş/hız) kaybetmesi.",
+    "Graining": "Lastik yüzeyinin taneciklenip geçici olarak tutuş kaybetmesi.",
+    "Pole": "Sıralamada en hızlı turu atıp yarışa ilk sıradan başlama hakkı.",
+    "VSC": "Sanal güvenlik aracı: pistte fiziksel araç yok ama herkese hız sınırı.",
+    "Safety Car": "Pistte tehlike varken sahayı toplayıp yavaşlatan güvenlik aracı.",
+    "Dirty Air": "Öndeki aracın bozduğu, arkadakinin yere basmasını düşüren "
+                 "türbülanslı hava.",
+}
+
+_JARGON_CSS = (
+    "<style>"
+    ".fp-jargon{white-space:nowrap}"
+    ".fp-info{position:relative;display:inline-flex;align-items:center;justify-content:center;"
+    "width:14px;height:14px;margin:0 1px 0 4px;flex:0 0 auto;border-radius:50%;vertical-align:middle;"
+    "border:1px solid var(--fp-line-2);background:var(--fp-bg-3,var(--fp-bg-2));color:var(--fp-text-mute);"
+    "font:700 9px/1 var(--fp-f-body),sans-serif;font-style:normal;letter-spacing:0;text-transform:none;"
+    "cursor:help;-webkit-user-select:none;user-select:none;transition:color .14s,border-color .14s}"
+    ".fp-info:hover,.fp-info:focus-visible{color:var(--fp-cyan);border-color:var(--fp-cyan);outline:none}"
+    ".fp-info::after{content:attr(data-tip);position:absolute;top:calc(100% + 9px);left:50%;z-index:120;"
+    "transform:translateX(-50%) translateY(-3px);width:max-content;max-width:230px;padding:9px 11px;"
+    "border-radius:var(--fp-r-md);background:var(--fp-bg-1,#0a0f17);border:1px solid var(--fp-line-2);"
+    "box-shadow:0 14px 36px rgba(0,0,0,.55);"
+    "font:500 11.5px/1.55 var(--fp-f-body),sans-serif;letter-spacing:0;text-transform:none;text-align:left;"
+    "white-space:normal;color:var(--fp-text-dim);opacity:0;pointer-events:none;"
+    "transition:opacity .14s ease,transform .14s ease}"
+    ".fp-info::before{content:'';position:absolute;top:calc(100% + 4px);left:50%;z-index:120;width:8px;height:8px;"
+    "background:var(--fp-bg-1,#0a0f17);border-left:1px solid var(--fp-line-2);border-top:1px solid var(--fp-line-2);"
+    "transform:translateX(-50%) rotate(45deg);opacity:0;transition:opacity .14s ease}"
+    ".fp-info.up::after{top:auto;bottom:calc(100% + 9px);transform:translateX(-50%) translateY(3px)}"
+    ".fp-info.up::before{top:auto;bottom:calc(100% + 4px);border-left:0;border-top:0;"
+    "border-right:1px solid var(--fp-line-2);border-bottom:1px solid var(--fp-line-2)}"
+    ".fp-info:hover::after,.fp-info:focus-visible::after{opacity:1;transform:translateX(-50%) translateY(0)}"
+    ".fp-info:hover::before,.fp-info:focus-visible::before{opacity:1}"
+    "@media(prefers-reduced-motion:reduce){.fp-info::after,.fp-info::before{transition:none}}"
+    "</style>"
+)
+
+
+def jargon_css():
+    """Sayfada bir kez basılır (``st.markdown(fp_ui.jargon_css(), unsafe_allow_html=True)``).
+    ``jargon()`` çağrılarının stilini sağlar."""
+    return _JARGON_CSS
+
+
+def jargon(term, tip=None, *, up=False):
+    """Terim + yanında saf-CSS 'ⓘ' baloncuğu. ``tip`` verilmezse `_JARGON_TIPS`'ten
+    bakılır; yoksa yalnız terim döner (bozulmaz)."""
+    label = str(term or "")
+    text = tip or _JARGON_TIPS.get(label) or _JARGON_TIPS.get(label.title())
+    if not text:
+        return _esc(label)
+    cls = "fp-info up" if up else "fp-info"
+    return (f"<span class='fp-jargon'>{_esc(label)}"
+            f"<span class='{cls}' tabindex='0' role='note' aria-label='{_esc(text)}' "
+            f"data-tip='{_esc(text)}'>i</span></span>")
+
+
 def result_hero(event, session_label, winner_name, team, gap_text, runners=None):
     """Yaris bitince: kim, hangi takim, kac saniye farkla kazandi.
 
