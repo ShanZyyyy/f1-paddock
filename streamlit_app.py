@@ -13710,51 +13710,108 @@ def _router_page_live():
 # SAYFA 3: TELEMETRİ VE DOMİNASYON HARİTASI
 
 
+_TEL_DECK_CSS = """<style>
+/* Telemetri konfig guvertesi — F1 pit-duvari kontrol paneli (yalniz .st-key-tel_deck / tel_pick) */
+div[class*="st-key-tel_deck"], div[class*="st-key-tel_pick"]{
+  background:var(--fp-bg-2);border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);
+  padding:15px 18px 17px;margin:2px 0 12px}
+div[class*="st-key-tel_deck"] .fp-section{font:700 11px/1 var(--fp-f-mono);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--fp-text-dim);border-left-width:2px;padding-left:9px;margin:0 0 15px}
+div[class*="st-key-tel_deck"] [data-testid="stWidgetLabel"] p,
+div[class*="st-key-tel_pick"] [data-testid="stWidgetLabel"] p{
+  font:700 8.5px/1.5 var(--fp-f-mono) !important;letter-spacing:.15em !important;
+  text-transform:uppercase !important;color:var(--fp-text-mute) !important}
+div[class*="st-key-tel_deck"] [data-testid="stSelectbox"] .react-aria-ComboBox [role="group"],
+div[class*="st-key-tel_deck"] [data-testid="stNumberInput"] [data-testid="stNumberInputContainer"],
+div[class*="st-key-tel_pick"] [data-testid="stSelectbox"] .react-aria-ComboBox [role="group"]{
+  background:var(--fp-bg-1) !important;border:1px solid var(--fp-line) !important;
+  border-radius:var(--fp-r-sm) !important;box-shadow:none !important;
+  transition:border-color .14s ease,box-shadow .14s ease}
+div[class*="st-key-tel_deck"] [data-testid="stSelectbox"] input,
+div[class*="st-key-tel_deck"] [data-testid="stNumberInput"] input,
+div[class*="st-key-tel_pick"] [data-testid="stSelectbox"] input{
+  font:600 13px var(--fp-f-mono) !important;color:var(--fp-text) !important;letter-spacing:.01em}
+div[class*="st-key-tel_deck"] [data-testid="stSelectbox"] .react-aria-ComboBox [role="group"]:focus-within,
+div[class*="st-key-tel_deck"] [data-testid="stNumberInput"] [data-testid="stNumberInputContainer"]:focus-within,
+div[class*="st-key-tel_pick"] [data-testid="stSelectbox"] .react-aria-ComboBox [role="group"]:focus-within{
+  border-color:var(--fp-cyan) !important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--fp-cyan) 16%,transparent) !important}
+div[class*="st-key-tel_deck"] [data-testid="stNumberInputStepUp"],
+div[class*="st-key-tel_deck"] [data-testid="stNumberInputStepDown"]{
+  background:var(--fp-bg-2) !important;color:var(--fp-text-dim) !important;border-color:var(--fp-line) !important}
+/* Gorunum — yayin sekme cubugu */
+div[class*="st-key-tel_deck"] [data-testid="stButtonGroup"] [role="radiogroup"]{
+  gap:0 !important;border:1px solid var(--fp-line);border-radius:var(--fp-r-sm);
+  background:var(--fp-bg-1);padding:3px;flex-wrap:wrap}
+div[class*="st-key-tel_deck"] [data-testid="stButtonGroup"] button[data-variant="segmented_control"]{
+  background:transparent !important;border:0 !important;
+  border-radius:calc(var(--fp-r-sm) - 2px) !important;color:var(--fp-text-mute) !important;
+  font:700 10px var(--fp-f-mono) !important;letter-spacing:.07em !important;
+  text-transform:uppercase !important;padding:8px 13px !important;position:relative;
+  transition:color .14s ease,background .14s ease}
+div[class*="st-key-tel_deck"] [data-testid="stButtonGroup"] button[data-variant="segmented_control"]:hover{
+  color:var(--fp-text) !important;background:var(--fp-bg-3) !important}
+div[class*="st-key-tel_deck"] [data-testid="stButtonGroup"] button[aria-checked="true"]{
+  color:var(--fp-text) !important;background:var(--fp-bg-3) !important}
+div[class*="st-key-tel_deck"] [data-testid="stButtonGroup"] button[aria-checked="true"]::after{
+  content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;
+  background:var(--fp-red);box-shadow:0 0 8px 0 var(--fp-red)}
+/* deck ici caption -> ince statu seridi (sezon durumu) */
+div[class*="st-key-tel_deck"] [data-testid="stCaptionContainer"]{
+  font:600 10px/1.5 var(--fp-f-mono) !important;letter-spacing:.04em;
+  color:var(--fp-text-mute) !important;border-left:2px solid var(--fp-amber);
+  padding-left:9px;margin-top:4px}
+</style>"""
+
+
 def _router_page_telemetry():
     fp_ui.page_header(T("page.telemetry.title"), T("page.telemetry.sub"), eyebrow=T("section.data"))
 
     # --- SEANS SEÇİMİ (artik sayfa govdesinde, sidebar yerine) ---
-    fp_ui.section_title("Seans Ayarları")
     if not st.session_state['telemetry_schedule_requested']:
+        fp_ui.section_title("Seans Ayarları")
         fp_ui.data_state("Takvim İsteğe Bağlı", "Sitenin hızlı açılması için takvim yalnızca sen istediğinde yüklenir.", "info")
         if st.button("Telemetri takvimini yukle", key="load_telemetry_schedule", width='stretch'):
             st.session_state['telemetry_schedule_requested'] = True
             st.rerun()
         st.stop()
 
-    _tc = st.columns([1, 2, 1.2])
-    year = _tc[0].number_input("Sezon", min_value=2018, max_value=2026, value=2026, key="tel_year")
-    _gp_list = get_season_schedule(year)
-    if not _gp_list:
-        _gp_list = ["Takvim verisi bekleniyor"]
-        _tc[1].caption("Takvim gecici olarak alinamadi; biraz sonra tekrar dene.")
-    _default_gp_idx = next((i for i, g in enumerate(_gp_list) if "Hungar" in g), 0)
-    gp = _tc[1].selectbox("Grand Prix", _gp_list, index=_default_gp_idx, key="tel_gp")
-    session_type = _tc[2].selectbox("Seans", ["Q", "R", "FP1", "FP2", "FP3"], key="tel_session")
-    render_season_status_v46(year)
+    st.markdown(_TEL_DECK_CSS, unsafe_allow_html=True)
+    with st.container(key="tel_deck"):
+        fp_ui.section_title("Seans Ayarları")
+        _tc = st.columns([1, 2, 1.2])
+        year = _tc[0].number_input("Sezon", min_value=2018, max_value=2026, value=2026, key="tel_year")
+        _gp_list = get_season_schedule(year)
+        if not _gp_list:
+            _gp_list = ["Takvim verisi bekleniyor"]
+            _tc[1].caption("Takvim gecici olarak alinamadi; biraz sonra tekrar dene.")
+        _default_gp_idx = next((i for i, g in enumerate(_gp_list) if "Hungar" in g), 0)
+        gp = _tc[1].selectbox("Grand Prix", _gp_list, index=_default_gp_idx, key="tel_gp")
+        session_type = _tc[2].selectbox("Seans", ["Q", "R", "FP1", "FP2", "FP3"], key="tel_session")
+        render_season_status_v46(year, compact=True)
 
-    target_q = None
-    q_sub_session = None
-    if session_type == "Q":
-        q_sub_session = st.selectbox(
-            "Sıralama elemesi",
-            ["Q3 (Final / Pole)", "Q2", "Q1", "Tüm Sıralama Seansı"], key="tel_qsub",
-        )
-        target_q = "Q3" if "Q3" in q_sub_session else "Q2" if "Q2" in q_sub_session else "Q1" if "Q1" in q_sub_session else None
+        target_q = None
+        q_sub_session = None
+        if session_type == "Q":
+            q_sub_session = st.selectbox(
+                "Sıralama elemesi",
+                ["Q3 (Final / Pole)", "Q2", "Q1", "Tüm Sıralama Seansı"], key="tel_qsub",
+            )
+            target_q = "Q3" if "Q3" in q_sub_session else "Q2" if "Q2" in q_sub_session else "Q1" if "Q1" in q_sub_session else None
 
-    _MODES = [
-        "Kuş Bakışı Pist Dominasyonu",
-        "2D Tur Düellosu",
-        "Telemetri & Fren Analizi",
-        "Top Hız & Sürücü Tablosu",
-        "Lastik Stratejisi & Stintler",
-        "Hava & Pist Evrimi",
-    ]
-    _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Top Hız", "Lastik Stratejisi", "Hava & Evrim"]
-    if hasattr(st, "segmented_control"):
-        _picked = st.segmented_control("Görünüm", _MODE_LABELS, default=_MODE_LABELS[0], key="tel_mode")
-    else:
-        _picked = st.radio("Görünüm", _MODE_LABELS, horizontal=True, key="tel_mode")
+        _MODES = [
+            "Kuş Bakışı Pist Dominasyonu",
+            "2D Tur Düellosu",
+            "Telemetri & Fren Analizi",
+            "Top Hız & Sürücü Tablosu",
+            "Lastik Stratejisi & Stintler",
+            "Hava & Pist Evrimi",
+        ]
+        _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Top Hız", "Lastik Stratejisi", "Hava & Evrim"]
+        if hasattr(st, "segmented_control"):
+            _picked = st.segmented_control("Görünüm", _MODE_LABELS, default=_MODE_LABELS[0], key="tel_mode")
+        else:
+            _picked = st.radio("Görünüm", _MODE_LABELS, horizontal=True, key="tel_mode")
     analiz_turu = _MODES[_MODE_LABELS.index(_picked)] if _picked in _MODE_LABELS else _MODES[0]
 
     st.write("")
@@ -13879,17 +13936,18 @@ def _router_page_telemetry():
             elif analiz_turu == "2D Tur Düellosu":
                 fp_ui.section_title(f"{session.event['EventName']} · 2D Tur Düellosu{header_suffix}")
 
-                duel_col_1, duel_col_2 = st.columns(2)
-                default_1 = drivers_list.index("VER") if "VER" in drivers_list else 0
-                default_2 = drivers_list.index("NOR") if "NOR" in drivers_list else (1 if len(drivers_list) > 1 else 0)
-                duel_driver_1 = duel_col_1.selectbox(
-                    "1. araç", drivers_list, index=default_1,
-                    format_func=lambda value: driver_options.get(value, value), key="duel_driver_1"
-                )
-                duel_driver_2 = duel_col_2.selectbox(
-                    "2. araç", drivers_list, index=default_2,
-                    format_func=lambda value: driver_options.get(value, value), key="duel_driver_2"
-                )
+                with st.container(key="tel_pick"):
+                    duel_col_1, duel_col_2 = st.columns(2)
+                    default_1 = drivers_list.index("VER") if "VER" in drivers_list else 0
+                    default_2 = drivers_list.index("NOR") if "NOR" in drivers_list else (1 if len(drivers_list) > 1 else 0)
+                    duel_driver_1 = duel_col_1.selectbox(
+                        "Pilot A", drivers_list, index=default_1,
+                        format_func=lambda value: driver_options.get(value, value), key="duel_driver_1"
+                    )
+                    duel_driver_2 = duel_col_2.selectbox(
+                        "Pilot B", drivers_list, index=default_2,
+                        format_func=lambda value: driver_options.get(value, value), key="duel_driver_2"
+                    )
 
                 if duel_driver_1 == duel_driver_2:
                     st.warning("Düello için iki farklı pilot seç kanka.")
