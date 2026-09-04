@@ -432,6 +432,49 @@ def test_top_speed_compare_ranks_and_deltas():
     assert se.top_speed_compare({})["v_max_by_driver"] == {}
 
 
+def test_top_speed_compare_covers_full_grid_not_just_a_handful():
+    fast = _straight_telemetry(drs_gain=0.0)
+    # 20 pilotluk tam grid — hiçbir slice/limit ile kırpılmamalı
+    samples = {f"D{i:02d}": [dict(s, speed=s["speed"] - i) for s in fast] for i in range(20)}
+    out = se.top_speed_compare(samples)
+    assert len(out["v_max_by_driver"]) == 20
+    assert len(out["ranking"]) == 20
+
+
+def test_top_speed_compare_ranking_is_sorted_with_team_and_delta():
+    fast = _straight_telemetry(drs_gain=0.0)
+    slow = [dict(s, speed=s["speed"] - 8.0) for s in fast]
+    out = se.top_speed_compare({"VER": fast, "HAM": slow}, team_of={"VER": "Red Bull Racing", "HAM": "Mercedes"})
+    ranking = out["ranking"]
+    assert [r["driver"] for r in ranking] == ["VER", "HAM"]
+    assert ranking[0]["rank"] == 1 and ranking[0]["team"] == "Red Bull Racing"
+    assert ranking[0]["delta_to_leader_kmh"] == 0.0
+    assert ranking[1]["team"] == "Mercedes"
+    assert abs(ranking[1]["delta_to_leader_kmh"] - 8.0) < 0.2
+
+
+def test_full_grid_speed_trap_ranks_all_drivers_from_official_column():
+    laps = [
+        {"driver": "VER", "team": "Red Bull Racing", "speed_trap": 340.0},
+        {"driver": "HAM", "team": "Mercedes", "speed_trap": 335.0},
+        {"driver": "HAM", "team": "Mercedes", "speed_trap": 331.0},  # daha yavaş tur, en iyisi kalır
+        {"driver": "PIA", "team": "McLaren", "speed_trap": 338.0},
+    ]
+    out = se.full_grid_speed_trap(laps)
+    assert [r["code"] for r in out] == ["VER", "PIA", "HAM"]
+    assert out[0]["v"] == 340.0
+    assert out[2]["v"] == 335.0
+    assert out[1]["team"] == "McLaren"
+
+
+def test_full_grid_speed_trap_skips_laps_without_official_measurement():
+    laps = [
+        {"driver": "VER", "team": "Red Bull Racing", "speed_trap": None},
+        {"driver": "HAM", "team": "Mercedes"},  # alan hiç yok
+    ]
+    assert se.full_grid_speed_trap(laps) == []
+
+
 # ---- Pist Hakimiyeti (Track Dominance) -----------------------------
 
 def _zone_track(low, medium, high, *, offset=0.0):

@@ -63,6 +63,7 @@ __all__ = [
     "critical_corners",
     "corner_vmin_compare",
     "top_speed_compare",
+    "full_grid_speed_trap",
     "TrackDominance",
     "track_dominance",
     "estimate_all_compound_dropoffs",
@@ -1149,19 +1150,37 @@ def corner_vmin_compare(
     return rows
 
 
-def top_speed_compare(driver_samples: Dict[str, Sequence[dict]]) -> dict:
-    """Pilotların telemetrideki en yüksek hızı (Vmax) + en hızlıya fark (km/s)."""
+def top_speed_compare(driver_samples: Dict[str, Sequence[dict]],
+                       team_of: Optional[Dict[str, str]] = None) -> dict:
+    """Pilotların telemetrideki en yüksek hızı (Vmax) — GRİDDEKİ HERKES için
+    (çağıran taraf artık pilot sayısını kısıtlamıyor). Lidere göre farkı
+    (km/s), takım eşleşmesini ve en hızlıdan en yavaşa sıralı listeyi
+    (``ranking``) döner."""
     per: Dict[str, float] = {}
     for drv, samples in driver_samples.items():
         sp = [float(s["speed"]) for s in samples if s.get("speed") is not None]
         if sp:
             per[str(drv).upper()] = round(max(sp), 1)
     if not per:
-        return {"v_max_by_driver": {}, "delta_to_best": {}}
+        return {"v_max_by_driver": {}, "delta_to_best": {}, "ranking": []}
     best = max(per.values())
+    delta = {d: round(best - v, 1) for d, v in per.items()}
+    team_of = team_of or {}
+    ordered = sorted(per.items(), key=lambda kv: kv[1], reverse=True)
+    ranking = [
+        {
+            "rank": i + 1,
+            "driver": d,
+            "team": team_of.get(d, ""),
+            "v_max_kmh": v,
+            "delta_to_leader_kmh": delta[d],
+        }
+        for i, (d, v) in enumerate(ordered)
+    ]
     return {
         "v_max_by_driver": per,
-        "delta_to_best": {d: round(best - v, 1) for d, v in per.items()},
+        "delta_to_best": delta,
+        "ranking": ranking,
     }
 
 
@@ -1576,6 +1595,10 @@ def extract_practice_laps(session) -> List[dict]:
         pit_out = row.get("PitOutTime")
         is_pit = bool((pit_in is not None and pit_in == pit_in)
                       or (pit_out is not None and pit_out == pit_out))
+        def _speed_col(name):
+            v = row.get(name)
+            return float(v) if v is not None and v == v else None
+
         out.append({
             "driver": str(row.get("Driver") or ""),
             "team": str(row.get("Team") or ""),
@@ -1587,8 +1610,36 @@ def extract_practice_laps(session) -> List[dict]:
             "is_accurate": bool(row.get("IsAccurate")) if row.get("IsAccurate") == row.get("IsAccurate") else None,
             "is_pit_lap": is_pit,
             "session_lap_index": idx,
+            # resmi hız tuzağı ölçüm noktaları (FastF1: Intermediate 1/2, Finish Line, Speed Trap)
+            "speed_i1": _speed_col("SpeedI1"),
+            "speed_i2": _speed_col("SpeedI2"),
+            "speed_fl": _speed_col("SpeedFL"),
+            "speed_trap": _speed_col("SpeedST"),
         })
     return out
+
+
+def full_grid_speed_trap(laps: Sequence[dict]) -> List[dict]:
+    """Seansa katılan TÜM pilotların resmi Hız Tuzağı (Speed Trap) sıralaması,
+    en hızlıdan en yavaşa — ``[{code, team, v}]``.
+
+    ``extract_practice_laps`` zaten yüklü tur tablosundan (SpeedST alanı)
+    türetilir — pilot başına ekstra telemetri/ağ çağrısı GEREKTİRMEZ, bu
+    yüzden gridin tamamını (20+ pilot) kısıtlama olmadan kapsar. Resmi ölçüm
+    yoksa (SpeedST eksikse) o pilot listeye girmez (uydurma veri yok)."""
+    best: Dict[str, float] = {}
+    team_of: Dict[str, str] = {}
+    for lp in laps:
+        d = str(lp.get("driver") or "").upper()
+        v = lp.get("speed_trap")
+        if not d or v is None:
+            continue
+        if d not in best or v > best[d]:
+            best[d] = float(v)
+        if lp.get("team"):
+            team_of.setdefault(d, str(lp["team"]))
+    ordered = sorted(best.items(), key=lambda kv: kv[1], reverse=True)
+    return [{"code": d, "team": team_of.get(d, ""), "v": round(v, 1)} for d, v in ordered]
 
 
 def extract_lap_samples(session, driver: str, lap_selector="fastest") -> List[dict]:
@@ -1664,15 +1715,14 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
     if drivers:
         drv_list = list(drivers)
     elif pace.drivers:
-        drv_list = [r["driver"] for r in pace.drivers if r.get("driver")][:8]
-    else:                       # long-run yok (Q/R) → seansın ilk pilotları
+        # tam grid — VMAX/telemetri motorları artık pilot sayısına göre kısıtlanmıyor
+        drv_list = [r["driver"] for r in pace.drivers if r.get("driver")]
+    else:                       # long-run yok (Q/R) → seansta görülen tüm pilotlar
         seen = []
         for lp in laps:
             d = str(lp.get("driver") or "").upper()
             if d and d not in seen:
                 seen.append(d)
-            if len(seen) >= 8:
-                break
         drv_list = seen
     samples_by_drv = {d: extract_lap_samples(sess, d) for d in drv_list}
     samples_by_drv = {d: s for d, s in samples_by_drv.items() if s}
@@ -1723,7 +1773,8 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
         "straights": straights.__dict__,
         "critical_corners": [c.__dict__ for c in corners],
         "corner_compare": corner_vmin_compare(samples_by_drv, corners),
-        "top_speed": top_speed_compare(samples_by_drv),
+        "top_speed": top_speed_compare(samples_by_drv, team_of),
+        "speed_trap": full_grid_speed_trap(laps),
         "track_dominance": dominance.__dict__,
         "driving_style": style,
         "braking_profiles": brake_profiles,
