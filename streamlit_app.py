@@ -13803,6 +13803,51 @@ div[class*="st-key-tel_deck"] [data-testid="stCaptionContainer"]{
   padding-left:9px;margin-top:4px}
 </style>"""
 
+# Pit Duvarı Kum Havuzu — kontrol paneli guvertesi (_TEL_DECK_CSS ile AYNI
+# pit-duvarı estetiği: koyu zemin, neon vurgu). Sadece .st-key-sbx_deck.
+_SBX_DECK_CSS = """<style>
+div[class*="st-key-sbx_deck"]{
+  background:var(--fp-bg-2);border:1px solid var(--fp-line);border-radius:var(--fp-r-lg);
+  padding:18px 20px 14px;margin:4px 0 16px}
+div[class*="st-key-sbx_deck"] .fp-section{font:700 11px/1 var(--fp-f-mono);letter-spacing:.16em;
+  text-transform:uppercase;color:var(--fp-text-dim);border-left-width:2px;padding-left:9px;margin:0 0 16px}
+div[class*="st-key-sbx_deck"] [data-testid="stWidgetLabel"] p{
+  font:700 9px/1.5 var(--fp-f-mono) !important;letter-spacing:.14em !important;
+  text-transform:uppercase !important;color:var(--fp-text-mute) !important}
+/* number_input / selectbox — telemetri guvertesiyle aynı çerçeve dili */
+div[class*="st-key-sbx_deck"] [data-testid="stSelectbox"] .react-aria-ComboBox [role="group"],
+div[class*="st-key-sbx_deck"] [data-testid="stNumberInput"] [data-testid="stNumberInputContainer"]{
+  background:var(--fp-bg-1) !important;border:1px solid var(--fp-line) !important;
+  border-radius:var(--fp-r-sm) !important;box-shadow:none !important;
+  transition:border-color .14s ease,box-shadow .14s ease}
+div[class*="st-key-sbx_deck"] [data-testid="stSelectbox"] input,
+div[class*="st-key-sbx_deck"] [data-testid="stNumberInput"] input{
+  font:700 15px var(--fp-f-mono) !important;color:var(--fp-text) !important;letter-spacing:.01em}
+div[class*="st-key-sbx_deck"] [data-testid="stSelectbox"] .react-aria-ComboBox [role="group"]:focus-within,
+div[class*="st-key-sbx_deck"] [data-testid="stNumberInput"] [data-testid="stNumberInputContainer"]:focus-within{
+  border-color:var(--fp-cyan) !important;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--fp-cyan) 16%,transparent) !important}
+div[class*="st-key-sbx_deck"] [data-testid="stNumberInputStepUp"],
+div[class*="st-key-sbx_deck"] [data-testid="stNumberInputStepDown"]{
+  background:var(--fp-bg-2) !important;color:var(--fp-text-dim) !important;border-color:var(--fp-line) !important}
+/* slider — Aşınma Çarpanı + Pist Sıcaklığı: neon cyan iz + büyük değer rozeti */
+div[class*="st-key-sbx_deck"] [data-testid="stSlider"]{padding-top:2px}
+div[class*="st-key-sbx_deck"] [data-testid="stSliderThumbValue"]{
+  font:800 13px var(--fp-f-mono) !important;color:var(--fp-void,#05131a) !important;
+  background:var(--fp-cyan) !important;border-radius:var(--fp-r-sm) !important;
+  padding:2px 8px !important;box-shadow:0 0 12px 0 color-mix(in srgb,var(--fp-cyan) 55%,transparent)}
+div[class*="st-key-sbx_deck"] [data-testid="stTickBarMin"],
+div[class*="st-key-sbx_deck"] [data-testid="stTickBarMax"]{
+  font:700 9px var(--fp-f-mono) !important;color:var(--fp-text-mute) !important}
+div[class*="st-key-sbx_deck"] [data-baseweb="slider"] [role="slider"]{
+  background:var(--fp-cyan) !important;box-shadow:0 0 0 4px color-mix(in srgb,var(--fp-cyan) 22%,transparent) !important}
+div[class*="st-key-sbx_deck"] [data-baseweb="slider"] > div > div{background:var(--fp-cyan) !important}
+div[class*="st-key-sbx_deck"] [data-testid="stCaptionContainer"]{
+  font:600 10px/1.5 var(--fp-f-mono) !important;letter-spacing:.04em;
+  color:var(--fp-text-mute) !important;border-left:2px solid var(--fp-cyan);
+  padding-left:9px;margin-top:2px}
+</style>"""
+
 # Yarış Mühendisi Odası: Streamlit'in kendi eleman-arası boşluğunu (flex gap 16px)
 # sıfıra yakın indirir — başlık + tek HUD iframe'i tek kompakt panel gibi görünür.
 _RE_ROOM_CSS = """<style>
@@ -14450,6 +14495,116 @@ def race_engineer_room_html(rep):
     )
 
 
+# =========================================================================
+# PİT DUVARI KUM HAVUZU — interaktif strateji simülatörü (strategy_engine.
+# simulate_custom_strategy) çıktısını devasa, F1 yayın standardında bir
+# "Strateji Kıyaslama" ekranına çevirir. Ayrı ad alanı (.sbx-*) — Mühendis
+# Odası'nın .re-* sınıflarıyla ÇAKIŞMAZ, kendi shell'i kendi CSS'ini taşır.
+# =========================================================================
+_SBX_HUD_CSS = r"""
+.sbx{padding:28px 30px 26px}
+.sbx-h{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding-bottom:16px;border-bottom:1px solid var(--k-line);margin-bottom:26px}
+.sbx-h .t{font:800 21px var(--k-f-ui);letter-spacing:.005em;color:var(--k-ink)}
+.sbx-h .s{font:700 10.5px var(--k-f-data);letter-spacing:.15em;text-transform:uppercase;color:var(--k-mute)}
+.sbx-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:26px;align-items:stretch}
+.sbx-box{border:1px solid var(--k-line);border-radius:var(--k-r-l);padding:26px 28px;
+  display:flex;flex-direction:column;gap:16px;background:var(--k-panel);min-width:0}
+.sbx-box.ai{border-top:4px solid var(--k-cyan)}
+.sbx-box.user{border-top:4px solid var(--k-amber)}
+.sbx-box-lbl{font:800 12.5px var(--k-f-ui);letter-spacing:.09em;text-transform:uppercase}
+.sbx-box.ai .sbx-box-lbl{color:var(--k-cyan)}
+.sbx-box.user .sbx-box-lbl{color:var(--k-amber)}
+.sbx-pit{font:700 12px var(--k-f-data);letter-spacing:.06em;color:var(--k-dim);text-transform:uppercase}
+.sbx-pit b{font:800 17px var(--k-f-data);color:var(--k-ink);margin-left:8px;letter-spacing:0}
+.sbx-time{font:800 48px/1.05 var(--k-f-data);font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;color:var(--k-ink);margin:4px 0;word-break:break-word}
+.sbx-sub{font:600 11.5px/1.65 var(--k-f-data);color:var(--k-mute);letter-spacing:.015em}
+.sbx-delta{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:8px 14px;min-width:168px}
+.sbx-delta-lbl{font:800 10.5px var(--k-f-data);letter-spacing:.17em;text-transform:uppercase;color:var(--k-mute)}
+.sbx-delta-num{font:900 56px/1 var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.03em;white-space:nowrap}
+.sbx-delta-num.slower{color:var(--k-red-bright,var(--k-red));
+  text-shadow:0 0 26px color-mix(in srgb,var(--k-red) 60%,transparent)}
+.sbx-delta-num.faster{color:var(--k-green);
+  text-shadow:0 0 26px color-mix(in srgb,var(--k-green) 60%,transparent)}
+.sbx-delta-num.tie{color:var(--k-mute);text-shadow:none}
+.sbx-delta-num u{font:700 15px var(--k-f-data);text-decoration:none;letter-spacing:0;margin-left:2px}
+.sbx-delta-verdict{font:800 11.5px var(--k-f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--k-dim);
+  text-align:center}
+.sbx-foot{margin-top:24px;padding-top:16px;border-top:1px solid var(--k-line);
+  font:600 11.5px/1.7 var(--k-f-data);color:var(--k-mute);letter-spacing:.01em}
+@media(max-width:900px){
+  .sbx{padding:20px 18px 20px}
+  .sbx-grid{grid-template-columns:1fr;gap:16px}
+  .sbx-delta{flex-direction:row;padding:14px 6px;min-width:0}
+  .sbx-delta-num{font-size:40px}
+  .sbx-time{font-size:38px}
+}
+"""
+
+
+def _sbx_shell(inner):
+    return (fp_kit.google_fonts_link() + "<style>" + fp_kit.kit_css() + _SBX_HUD_CSS
+            + "</style><div class='k-pane' style='border:0;background:transparent'>" + inner + "</div>")
+
+
+def _fmt_sbx_time(total_s):
+    if total_s is None:
+        return "—"
+    total_s = float(total_s)
+    h, rem = divmod(total_s, 3600)
+    m, s = divmod(rem, 60)
+    if h >= 1:
+        return f"{int(h)}:{int(m):02d}:{s:06.3f}"
+    return f"{int(m)}:{s:06.3f}"
+
+
+def strategy_sandbox_html(sim):
+    """'Pit Duvarı Kum Havuzu': strategy_engine.CustomStrategyResult'ı devasa
+    Sol (Yapay Zeka Optimum) / Merkez (Delta) / Sağ (Senin Planın) broadcast
+    HUD'una çevirir. ``sim.ok`` False ise (yarış çok kısa vb.) boş döner —
+    çağıran taraf ``sim.reason``'ı ayrıca gösterir."""
+    if not getattr(sim, "ok", False):
+        return ""
+    delta = float(sim.delta_to_optimal_s)
+    cls = "tie" if sim.verdict == "eşit" else ("slower" if delta > 0 else "faster")
+    sign = "+" if delta > 0 else ("−" if delta < 0 else "±")
+    delta_txt = f"{sign}{abs(delta):.1f}<u>sn</u>"
+    ai_sub = f"{sim.start_compound} → {sim.second_compound} · {sim.total_laps} tur senaryosu"
+    user_dropoff = (f"Lastik drop-off ~ tur {sim.user_dropoff_lap}" if sim.user_dropoff_lap
+                     else "Bu stint uçuruma ulaşmadan bitiyor")
+    temp_txt = f"{'+' if sim.track_temp_delta_c >= 0 else ''}{sim.track_temp_delta_c:g}°C"
+    return _sbx_shell(
+        "<div class='sbx'>"
+        "<div class='sbx-h'><span class='t'>Strateji Kıyaslama</span>"
+        "<span class='s'>Yapay Zeka Optimum · vs · Senin Planın</span></div>"
+        "<div class='sbx-grid'>"
+        "<div class='sbx-box ai'>"
+        "<div class='sbx-box-lbl'>◆ Yapay Zeka Optimum Stratejisi</div>"
+        f"<div class='sbx-pit'>PIT TURU<b>{sim.optimal_pit_lap}</b></div>"
+        f"<div class='sbx-time'>{_fmt_sbx_time(sim.optimal_total_time_s)}</div>"
+        f"<div class='sbx-sub'>{html_lib.escape(ai_sub)}</div>"
+        "</div>"
+        "<div class='sbx-delta'>"
+        "<div class='sbx-delta-lbl'>Zaman Deltası</div>"
+        f"<div class='sbx-delta-num {cls}'>{delta_txt}</div>"
+        f"<div class='sbx-delta-verdict'>{html_lib.escape(sim.verdict)}</div>"
+        "</div>"
+        "<div class='sbx-box user'>"
+        "<div class='sbx-box-lbl'>● Senin Manuel Stratejin</div>"
+        f"<div class='sbx-pit'>PIT TURU<b>{sim.user_pit_lap}</b></div>"
+        f"<div class='sbx-time'>{_fmt_sbx_time(sim.user_total_time_s)}</div>"
+        f"<div class='sbx-sub'>{html_lib.escape(user_dropoff)}</div>"
+        "</div>"
+        "</div>"
+        f"<div class='sbx-foot'>Aşınma Çarpanı ×{sim.degradation_multiplier:g} · "
+        f"Pist Sıcaklığı {temp_txt} · Kum havuzu simülasyonudur, gerçek yarış sonucu değildir — "
+        "strategy_engine.simulate_custom_strategy'nin tahminidir.</div>"
+        "</div>"
+    )
+
+
 def _router_page_telemetry():
     fp_ui.page_header(T("page.telemetry.title"), T("page.telemetry.sub"), eyebrow=T("section.data"))
 
@@ -14821,6 +14976,57 @@ def _router_page_telemetry():
                             )
                         st.caption("Ham veri: tüm grid VMAX/Vmin, tahmini yarış temposu, lastik aşınma "
                                    "drop-off'u ve sürüş karakteristiği — pilot başına tek satır/nesne.")
+
+                # Pit Duvarı Kum Havuzu — re_room'un DIŞINDA, ayrı bir bölüm (o
+                # container'ın gap:6px sıkıştırması buraya SIZMASIN; bkz. kullanıcının
+                # "yazılar iç içe giriyor" şikayeti — bilinçli olarak ayrık tutuldu).
+                if _re_rep.get("ok"):
+                    st.write("")
+                    st.markdown(_SBX_DECK_CSS, unsafe_allow_html=True)
+                    fp_ui.section_title("Pit Duvarı Kum Havuzu · İnteraktif Strateji Simülatörü")
+                    st.caption("Kendi senaryonu kur: aşınma çarpanı, pist sıcaklığı ve pit turunu değiştir — "
+                               "yarışı baştan hesaplar, modelin KENDİ önerdiği optimum stratejiyle kıyaslar.")
+                    _sbx_base_lap = float((_re_rep.get("race_pace") or {}).get("reference_s") or 90.0)
+                    with st.container(key="sbx_deck"):
+                        fp_ui.section_title("Simülasyon Girdileri")
+                        _sbx_c1, _sbx_c2, _sbx_c3 = st.columns(3)
+                        with _sbx_c1:
+                            _sbx_deg_mult = st.slider(
+                                "Aşınma Çarpanı", 0.5, 2.5, 1.0, 0.05, key="sbx_deg_mult",
+                                help="1.0 normal aşınma · 1.5 = %50 daha hızlı aşınma")
+                        with _sbx_c2:
+                            _sbx_temp_delta = st.slider(
+                                "Pist Sıcaklığı Değişimi (°C)", -15, 15, 0, 1, key="sbx_temp_delta",
+                                help="Referansa göre pist sıcaklığı farkı — sıcak pist lastiği daha çabuk tüketir")
+                        with _sbx_c3:
+                            _sbx_target_lap = st.number_input(
+                                "Hedef Pit Turu", min_value=2, max_value=89, value=25, step=1,
+                                key="sbx_target_lap", help="Modelin önerdiği tur yerine SENİN seçtiğin pit turu")
+                        with st.expander("Gelişmiş: yarış mesafesi ve lastik hamurları"):
+                            _sbx_c4, _sbx_c5, _sbx_c6 = st.columns(3)
+                            with _sbx_c4:
+                                _sbx_total_laps = st.number_input(
+                                    "Yarış Mesafesi (tur)", min_value=4, max_value=90, value=55, step=1,
+                                    key="sbx_total_laps")
+                            with _sbx_c5:
+                                _sbx_start_c = st.selectbox(
+                                    "Başlangıç Hamuru", ["SOFT", "MEDIUM", "HARD"], index=1,
+                                    key="sbx_start_compound")
+                            with _sbx_c6:
+                                _sbx_second_c = st.selectbox(
+                                    "İkinci Hamur", ["SOFT", "MEDIUM", "HARD"], index=2,
+                                    key="sbx_second_compound")
+
+                    _sbx_sim = fp_strat.simulate_custom_strategy(
+                        total_laps=_sbx_total_laps, base_lap_s=_sbx_base_lap,
+                        target_pit_lap=int(_sbx_target_lap), start_compound=_sbx_start_c,
+                        second_compound=_sbx_second_c, degradation_multiplier=float(_sbx_deg_mult),
+                        track_temp_delta_c=float(_sbx_temp_delta),
+                    )
+                    if not _sbx_sim.ok:
+                        st.warning(f"Simülasyon üretilemedi: {_sbx_sim.reason}")
+                    else:
+                        render_html_hud(strategy_sandbox_html(_sbx_sim), height=560, scrolling=True)
 
     except Exception as e:
         st.error(f"Veriler çekilirken hata oluştu: {e}")
