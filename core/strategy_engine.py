@@ -75,6 +75,14 @@ __all__ = [
     "estimate_all_compound_dropoffs",
     "driving_style",
     "braking_zones",
+    "MicroSectorMap",
+    "micro_sector_dominance",
+    "LiftCoastProfile",
+    "lift_and_coast_profile",
+    "coasting_grid",
+    "estimate_pit_loss",
+    "simulate_pit_window",
+    "pit_window_grid",
     "load_practice_session",
     "extract_practice_laps",
     "extract_lap_samples",
@@ -1713,7 +1721,327 @@ def driving_style(samples: Sequence[dict], *, corners: Optional[Sequence] = None
 
 
 # -------------------------------------------------------------------------
-# 6.6  FASTF1 ÇIKARMA KATMANI  (tembel import — modül seviyesi stdlib kalır)
+# 6.6  MİNİ-SEKTÖR HAKİMİYETİ (Micro-Sector Mapping)
+# -------------------------------------------------------------------------
+@dataclass
+class MicroSectorMap:
+    ok: bool
+    n_sectors: int = 0
+    track_length_m: float = 0.0
+    sector_length_m: float = 0.0
+    sectors: List[dict] = field(default_factory=list)        # [{sector,start_m,end_m,best_driver,best_team,best_time_s,ranking}]
+    driver_wins: Dict[str, int] = field(default_factory=dict)   # pilot -> kazanılan mini-sektör sayısı
+    team_wins: Dict[str, int] = field(default_factory=dict)
+
+
+def micro_sector_dominance(
+    driver_samples: Dict[str, Sequence[dict]],
+    team_of: Optional[Dict[str, str]] = None,
+    *,
+    n_sectors: int = 25,
+) -> MicroSectorMap:
+    """Pisti standart 3 sektör yerine ``n_sectors`` (>=20) eşit mesafeli
+    mini-sektöre böler; her mini-sektörde en hızlı pilodu/takımı bulur.
+
+    Yalnızca ``distance`` + ``speed`` gerekir — her mini-sektörün süresi
+    ``_cum_time_curve``/``_time_lookup`` ile (gerçek zaman kanalı olmadan)
+    integre edilir; ``track_dominance`` ile aynı yöntem, yalnız 3 geniş bölge
+    yerine çok sayıda dar mesafe dilimi kullanır. Bir pilotun telemetrisi o
+    dilimi kapsamıyorsa sıralamadan düşer (uydurma veri yok).
+    """
+    team_of = team_of or {}
+    samples_ok = {d: s for d, s in driver_samples.items() if s}
+    if len(samples_ok) < 2:
+        return MicroSectorMap(ok=False)
+
+    ref = max(samples_ok.values(), key=len)
+    dists_ref = [float(s["distance"]) for s in ref if s.get("distance") is not None]
+    if len(dists_ref) < 6:
+        return MicroSectorMap(ok=False)
+    start0, end0 = min(dists_ref), max(dists_ref)
+    track_len = end0 - start0
+    if track_len <= 0:
+        return MicroSectorMap(ok=False)
+
+    n = max(20, int(n_sectors))
+    sector_len = track_len / n
+
+    curves: Dict[str, Tuple[List[float], List[float]]] = {}
+    for d, samples in samples_ok.items():
+        dists, times = _cum_time_curve(samples)
+        if len(dists) >= 2:
+            curves[d] = (dists, times)
+    if len(curves) < 2:
+        return MicroSectorMap(ok=False)
+
+    sectors: List[dict] = []
+    driver_wins: Dict[str, int] = {}
+    team_wins: Dict[str, int] = {}
+    for i in range(n):
+        s0 = start0 + i * sector_len
+        s1 = s0 + sector_len
+        times_here: List[Tuple[str, float]] = []
+        for d, (dists, times) in curves.items():
+            t0 = _time_lookup(dists, times, s0)
+            t1 = _time_lookup(dists, times, s1)
+            if t0 is None or t1 is None:
+                continue
+            dt = t1 - t0
+            if dt > 0:
+                times_here.append((d, dt))
+        if not times_here:
+            continue
+        times_here.sort(key=lambda x: x[1])
+        best_driver, best_time = times_here[0]
+        best_team = team_of.get(best_driver, "")
+        ranking = [
+            {"driver": d, "team": team_of.get(d, ""), "time_s": round(t, 4),
+             "delta_s": round(t - best_time, 4)}
+            for d, t in times_here
+        ]
+        sectors.append({
+            "sector": i + 1, "start_m": round(s0, 1), "end_m": round(s1, 1),
+            "best_driver": best_driver, "best_team": best_team,
+            "best_time_s": round(best_time, 4), "ranking": ranking,
+        })
+        driver_wins[best_driver] = driver_wins.get(best_driver, 0) + 1
+        if best_team:
+            team_wins[best_team] = team_wins.get(best_team, 0) + 1
+
+    if not sectors:
+        return MicroSectorMap(ok=False)
+
+    return MicroSectorMap(
+        ok=True, n_sectors=len(sectors), track_length_m=round(track_len, 1),
+        sector_length_m=round(sector_len, 1), sectors=sectors,
+        driver_wins=driver_wins, team_wins=team_wins,
+    )
+
+
+# -------------------------------------------------------------------------
+# 6.7  LIFT-AND-COAST ANALİZİ — gaz bırak / frene bas arası süzülme
+# -------------------------------------------------------------------------
+@dataclass
+class LiftCoastProfile:
+    ok: bool
+    events: List[dict] = field(default_factory=list)   # [{start_m,end_m,length_m,duration_s}]
+    event_count: int = 0
+    total_coast_m: float = 0.0
+    mean_length_m: float = 0.0
+    mean_duration_s: float = 0.0
+    coasting_score: float = 0.0     # 0..1 — turun ne kadarı süzülerek geçildi
+
+
+def lift_and_coast_profile(
+    samples: Sequence[dict], *, full_throttle_pct: float = 95.0, release_pct: float = 10.0,
+) -> LiftCoastProfile:
+    """Bir turda her fren bölgesinden ÖNCEKİ "süzülme" (lift-and-coast) olayını
+    bulur: tam gazın (``>=full_throttle_pct``) bırakıldığı an ile frene
+    basıldığı an (bkz. ``braking_zones``) arasındaki mesafe/süre.
+
+    Frenden önce gaz erken kesilip serbest kalınmışsa (yakıt tasarrufu/lastik
+    koruma sinyali) bu bir "coast" olayı sayılır; ``coasting_score`` turun ne
+    kadarının bu şekilde geçildiğini 0..1 arasında özetler. Gaz doğrudan
+    frene kadar açık kalıyorsa (süzülme yok) olay üretilmez.
+    """
+    rows = [s for s in samples
+            if s.get("distance") is not None and s.get("speed") is not None
+            and s.get("throttle") is not None]
+    if len(rows) < 12:
+        return LiftCoastProfile(False)
+
+    dist = [float(s["distance"]) for s in rows]
+    thr = [_clamp(float(s["throttle"]), 0.0, 100.0) for s in rows]
+    brk = [1.0 if bool(s.get("brake")) and float(s.get("brake") or 0) > 0 else 0.0 for s in rows]
+    total_len = max(1e-6, dist[-1] - dist[0])
+
+    zones = braking_zones(rows)
+    dists_t, times_t = _cum_time_curve(rows)
+
+    events: List[dict] = []
+    for z in zones:
+        bp_i = min(range(len(rows)), key=lambda k: abs(dist[k] - z["start_m"]))
+        # geriye doğru: gaz zaten kesik (< release_pct) ve fren yokken yürü
+        k = bp_i
+        while k > 0 and thr[k - 1] < release_pct and brk[k - 1] < 0.5:
+            k -= 1
+        if k >= bp_i:
+            continue                      # doğrudan gazdan frene — süzülme yok
+        # süzülmenin gerçek başlangıcı: tam gazın (>=full_throttle_pct) bırakıldığı an
+        j = k
+        while j > 0 and thr[j - 1] < full_throttle_pct:
+            j -= 1
+        start_i = j
+        if dist[bp_i] - dist[start_i] <= 0:
+            continue
+        t0 = _time_lookup(dists_t, times_t, dist[start_i]) if dists_t else None
+        t1 = _time_lookup(dists_t, times_t, dist[bp_i]) if dists_t else None
+        duration = round(t1 - t0, 3) if (t0 is not None and t1 is not None) else None
+        events.append({
+            "start_m": round(dist[start_i], 1), "end_m": round(dist[bp_i], 1),
+            "length_m": round(dist[bp_i] - dist[start_i], 1),
+            "duration_s": duration,
+        })
+
+    lengths = [e["length_m"] for e in events]
+    durations = [e["duration_s"] for e in events if e["duration_s"] is not None]
+    total_coast = sum(lengths)
+    score = round(_clamp(total_coast / total_len, 0.0, 1.0), 3)
+
+    return LiftCoastProfile(
+        ok=True, events=events, event_count=len(events),
+        total_coast_m=round(total_coast, 1),
+        mean_length_m=round(_mean(lengths), 1) if lengths else 0.0,
+        mean_duration_s=round(_mean(durations), 3) if durations else 0.0,
+        coasting_score=score,
+    )
+
+
+def coasting_grid(
+    driver_samples: Dict[str, Sequence[dict]], team_of: Optional[Dict[str, str]] = None,
+) -> List[dict]:
+    """Tüm pilotların Lift-and-Coast (süzülme) Skoru'nu, en yüksekten en
+    düşüğe sıralar — ``[{driver,team,coasting_score,event_count,
+    total_coast_m,mean_length_m,mean_duration_s}]``.
+
+    Yüksek skor = pilot fren noktalarından önce gazı daha erken/uzun bırakıyor
+    (yakıt tasarrufu veya lastik koruma eğilimi); düşük skor = doğrudan gazdan
+    frene (agresif, "geç fren").
+    """
+    team_of = team_of or {}
+    rows: List[dict] = []
+    for d, samples in driver_samples.items():
+        prof = lift_and_coast_profile(samples)
+        if not prof.ok:
+            continue
+        rows.append({
+            "driver": d, "team": team_of.get(d, ""),
+            "coasting_score": prof.coasting_score,
+            "event_count": prof.event_count,
+            "total_coast_m": prof.total_coast_m,
+            "mean_length_m": prof.mean_length_m,
+            "mean_duration_s": prof.mean_duration_s,
+        })
+    rows.sort(key=lambda r: -r["coasting_score"])
+    return rows
+
+
+# -------------------------------------------------------------------------
+# 6.8  DİNAMİK PİT PENCERESİ SİMÜLASYONU (Pit Window / Trafik Projeksiyonu)
+# -------------------------------------------------------------------------
+def estimate_pit_loss(
+    laps: Sequence[dict], *, default_s: float = 21.0, min_s: float = 16.0, max_s: float = 30.0,
+) -> float:
+    """Bu seansın gerçek pit giriş/çıkış turlarından pit-stop net zaman
+    kaybını tahmin eder: ardışık in-lap + out-lap süresi − 2×temiz tur
+    temposu (bkz. ``streamlit_app._strat_pit_loss_v67`` ile aynı yöntem,
+    burada FastF1'e değil ``extract_practice_laps`` çıktısına bağlı).
+
+    Temiz bir pit giriş/çıkış çifti yoksa (antrenmanda pit stop az/hiç
+    yoktur) ``default_s`` döner — F1'de tipik pit yolu kaybı; uydurma ÖLÇÜM
+    YAZILMAZ, yalnızca makul bir varsayılan kullanılır.
+    """
+    clean = [float(lp["lap_time_s"]) for lp in laps
+             if lp.get("lap_time_s") and not lp.get("is_pit_lap")
+             and lp.get("is_accurate") is not False]
+    if not clean:
+        return default_s
+    baseline = _median(clean)
+
+    by_driver: Dict[str, List[dict]] = {}
+    for lp in laps:
+        d = str(lp.get("driver") or "")
+        if d:
+            by_driver.setdefault(d, []).append(lp)
+
+    losses: List[float] = []
+    for dl in by_driver.values():
+        dl = sorted(dl, key=lambda x: int(x.get("lap_number") or 0))
+        for i in range(len(dl) - 1):
+            cur, nxt = dl[i], dl[i + 1]
+            if not cur.get("is_pit_lap") or not nxt.get("is_pit_lap"):
+                continue
+            if int(nxt.get("lap_number") or 0) != int(cur.get("lap_number") or 0) + 1:
+                continue
+            in_t, out_t = cur.get("lap_time_s"), nxt.get("lap_time_s")
+            if in_t is None or out_t is None:
+                continue
+            losses.append(float(in_t) + float(out_t) - 2 * baseline)
+
+    if not losses:
+        return default_s
+    return round(_clamp(_median(losses), min_s, max_s), 1)
+
+
+def simulate_pit_window(standings: Sequence[dict], target_driver: str, pit_loss_s: float) -> dict:
+    """*Şu an* pite giren ``target_driver``'ın piste hangi iki pilot arasında
+    ve kaç saniye farkla (Δ) döneceğini hesaplar.
+
+    ``standings``: ``[{driver,team,gap_s}]`` — ``gap_s`` referansa göre
+    kümülatif fark (sn). Uygulamada ``estimate_race_pace`` çıktısındaki
+    tahmini tempo farkı "sanal sıralama" olarak kullanılır — bu GERÇEK canlı
+    yarış boşluğu DEĞİLDİR, tempo tahminine dayalı bir projeksiyondur.
+    """
+    rows = [r for r in standings if r.get("driver")]
+    target = next((r for r in rows if str(r["driver"]).upper() == str(target_driver).upper()), None)
+    if target is None or len(rows) < 2:
+        return {"ok": False, "reason": "pilot bulunamadı veya sıralama yetersiz"}
+
+    current_gap = float(target.get("gap_s") or 0.0)
+    projected_gap = current_gap + max(0.0, float(pit_loss_s))
+
+    others = sorted(
+        (r for r in rows if str(r["driver"]).upper() != str(target_driver).upper()),
+        key=lambda r: float(r.get("gap_s") or 0.0),
+    )
+
+    ahead = None
+    behind = None
+    for r in others:
+        g = float(r.get("gap_s") or 0.0)
+        if g <= projected_gap:
+            ahead = r
+        else:
+            behind = r
+            break
+
+    positions_lost = sum(1 for r in others
+                         if current_gap < float(r.get("gap_s") or 0.0) <= projected_gap)
+
+    return {
+        "ok": True,
+        "driver": target["driver"], "team": target.get("team", ""),
+        "pit_loss_s": round(float(pit_loss_s), 1),
+        "current_gap_s": round(current_gap, 3),
+        "projected_gap_s": round(projected_gap, 3),
+        "positions_lost": positions_lost,
+        "rejoin_ahead": ({"driver": ahead["driver"], "team": ahead.get("team", ""),
+                          "gap_s": round(float(ahead.get("gap_s") or 0.0), 3),
+                          "delta_s": round(projected_gap - float(ahead.get("gap_s") or 0.0), 3)}
+                         if ahead else None),
+        "rejoin_behind": ({"driver": behind["driver"], "team": behind.get("team", ""),
+                           "gap_s": round(float(behind.get("gap_s") or 0.0), 3),
+                           "delta_s": round(float(behind.get("gap_s") or 0.0) - projected_gap, 3)}
+                          if behind else None),
+    }
+
+
+def pit_window_grid(standings: Sequence[dict], pit_loss_s: float) -> Dict[str, dict]:
+    """``simulate_pit_window``'u sıralamadaki HER pilot için çalıştırır —
+    ``{driver: projection}``. Mühendis Odası'nda herhangi bir pilot
+    seçildiğinde anında bakılabilir; hesap saf sıralama üzerinde çalışır,
+    ekstra FastF1/telemetri çağrısı gerektirmez."""
+    out: Dict[str, dict] = {}
+    for r in standings:
+        d = r.get("driver")
+        if not d:
+            continue
+        out[str(d).upper()] = simulate_pit_window(standings, str(d), pit_loss_s)
+    return out
+
+
+# -------------------------------------------------------------------------
+# 6.9  FASTF1 ÇIKARMA KATMANI  (tembel import — modül seviyesi stdlib kalır)
 # -------------------------------------------------------------------------
 def _has_fastf1() -> bool:
     try:
@@ -1891,6 +2219,12 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
              for d, s in samples_by_drv.items()}
     brake_profiles = {d: braking_zones(s) for d, s in samples_by_drv.items()}
     dominance = track_dominance(samples_by_drv, team_of)
+    micro_sectors = micro_sector_dominance(samples_by_drv, team_of)
+    coasting = coasting_grid(samples_by_drv, team_of)
+    pit_loss_est = estimate_pit_loss(laps)
+    standings = [{"driver": r["driver"], "team": r.get("team", ""), "gap_s": r.get("gap_s")}
+                 for r in pace.drivers if r.get("driver") and r.get("gap_s") is not None]
+    pit_window = pit_window_grid(standings, pit_loss_est) if len(standings) >= 2 else {}
 
     # aşınma: her pilotun en uzun stint'i. Bir hamur için tek seansta 2'den az
     # temiz uzun-run varsa (S/H genelde FP2'de nadir) diğer FP seansını ekleyip
@@ -1934,6 +2268,10 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
         "track_dominance": dominance.__dict__,
         "driving_style": style,
         "braking_profiles": brake_profiles,
+        "micro_sectors": micro_sectors.__dict__,
+        "lift_and_coast": coasting,
+        "pit_loss_estimate_s": pit_loss_est,
+        "pit_window": pit_window,
     }
 
 

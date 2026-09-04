@@ -833,3 +833,208 @@ def test_export_engineer_data_unknown_format_raises():
 def test_export_engineer_data_empty_report_still_returns_valid_header():
     out = se.export_engineer_data({}, fmt="csv")
     assert out.strip().splitlines()[0].split(",") == se.EXPORT_COLUMNS
+
+
+# =====================================================================
+# 6.6 Mini-Sektör Hakimiyeti (Micro-Sector Mapping)
+# =====================================================================
+
+def _straight_track(speed, *, n=200, step=10.0):
+    s, d = [], 0.0
+    for _ in range(n):
+        s.append({"distance": d, "speed": speed})
+        d += step
+    return s
+
+
+def _two_speed_track(v1, v2, *, n_each=100, step=10.0):
+    """İlk yarı ``v1``, ikinci yarı ``v2`` — tek sürekli mesafe ekseni."""
+    s, d = [], 0.0
+    for _ in range(n_each):
+        s.append({"distance": d, "speed": v1}); d += step
+    for _ in range(n_each):
+        s.append({"distance": d, "speed": v2}); d += step
+    return s
+
+
+def test_micro_sector_dominance_needs_two_drivers():
+    assert se.micro_sector_dominance({"VER": _straight_track(300)}, {}).ok is False
+    assert se.micro_sector_dominance({}, {}).ok is False
+
+
+def test_micro_sector_dominance_splits_into_20_plus_sectors():
+    samples = {"VER": _straight_track(300), "HAM": _straight_track(295)}
+    ms = se.micro_sector_dominance(samples, {"VER": "Red Bull", "HAM": "Mercedes"})
+    assert ms.ok
+    assert ms.n_sectors >= 20
+    assert len(ms.sectors) == ms.n_sectors
+
+
+def test_micro_sector_dominance_faster_driver_wins_all_sectors():
+    samples = {"VER": _straight_track(320), "HAM": _straight_track(300)}
+    ms = se.micro_sector_dominance(samples, {"VER": "Red Bull", "HAM": "Mercedes"})
+    assert ms.ok
+    assert ms.driver_wins.get("VER") == ms.n_sectors
+    assert "HAM" not in ms.driver_wins
+    assert ms.team_wins.get("Red Bull") == ms.n_sectors
+
+
+def test_micro_sector_dominance_splits_wins_between_two_halves():
+    ver = _two_speed_track(320, 280)   # ilk yarıda hızlı
+    ham = _two_speed_track(280, 320)   # ikinci yarıda hızlı
+    ms = se.micro_sector_dominance({"VER": ver, "HAM": ham},
+                                    {"VER": "Red Bull", "HAM": "Mercedes"})
+    assert ms.ok
+    assert ms.driver_wins.get("VER", 0) > 0
+    assert ms.driver_wins.get("HAM", 0) > 0
+    first_half = [s for s in ms.sectors if s["end_m"] <= 950.0]
+    second_half = [s for s in ms.sectors if s["start_m"] >= 1050.0]
+    assert first_half and all(s["best_driver"] == "VER" for s in first_half)
+    assert second_half and all(s["best_driver"] == "HAM" for s in second_half)
+
+
+def test_micro_sector_dominance_ranking_includes_delta():
+    samples = {"VER": _straight_track(320), "HAM": _straight_track(300)}
+    ms = se.micro_sector_dominance(samples)
+    ranking = {r["driver"]: r for r in ms.sectors[0]["ranking"]}
+    assert ranking["VER"]["delta_s"] == 0.0
+    assert ranking["HAM"]["delta_s"] > 0.0
+
+
+# =====================================================================
+# 6.7 Lift-and-Coast Analizi (Coasting Score)
+# =====================================================================
+
+def _coast_lap(*, coast_m=150.0, brake_len_m=90.0):
+    """Düzlük tam gaz → (varsa) frenden önce süzülme → fren → viraj → çıkış."""
+    s, d = [], 0.0
+    while d < 1000:
+        s.append({"distance": d, "speed": 300.0, "throttle": 100.0, "brake": 0}); d += 10
+    for _ in range(int(coast_m / 10)):
+        s.append({"distance": d, "speed": 300.0, "throttle": 0.0, "brake": 0}); d += 10
+    v = 300.0
+    for _ in range(int(brake_len_m / 10)):
+        v -= (300.0 - 90.0) / (brake_len_m / 10)
+        s.append({"distance": d, "speed": max(90.0, v), "throttle": 0.0, "brake": 1}); d += 10
+    for _ in range(6):
+        s.append({"distance": d, "speed": 90.0, "throttle": 5.0, "brake": 0}); d += 10
+    for _ in range(40):
+        s.append({"distance": d, "speed": 290.0, "throttle": 100.0, "brake": 0}); d += 10
+    return s
+
+
+def test_lift_and_coast_detects_pre_brake_coasting():
+    prof = se.lift_and_coast_profile(_coast_lap(coast_m=150.0))
+    assert prof.ok
+    assert prof.event_count == 1
+    assert prof.events[0]["length_m"] >= 140.0
+    assert prof.coasting_score > 0.0
+
+
+def test_lift_and_coast_direct_to_brake_has_no_event():
+    prof = se.lift_and_coast_profile(_coast_lap(coast_m=0.0))
+    assert prof.ok
+    assert prof.event_count == 0
+    assert prof.coasting_score == 0.0
+
+
+def test_lift_and_coast_longer_coast_yields_higher_score():
+    short = se.lift_and_coast_profile(_coast_lap(coast_m=50.0))
+    long_ = se.lift_and_coast_profile(_coast_lap(coast_m=300.0))
+    assert long_.coasting_score > short.coasting_score
+    assert long_.events[0]["duration_s"] > 0.0
+
+
+def test_lift_and_coast_empty_is_safe():
+    assert se.lift_and_coast_profile([]).ok is False
+
+
+def test_coasting_grid_ranks_drivers_by_score():
+    samples = {"VER": _coast_lap(coast_m=300.0), "HAM": _coast_lap(coast_m=20.0)}
+    rows = se.coasting_grid(samples, {"VER": "Red Bull", "HAM": "Mercedes"})
+    assert [r["driver"] for r in rows] == ["VER", "HAM"]
+    assert rows[0]["coasting_score"] > rows[1]["coasting_score"]
+    assert rows[0]["team"] == "Red Bull"
+
+
+# =====================================================================
+# 6.8 Dinamik Pit Penceresi Simülasyonu (Pit Window / Trafik Projeksiyonu)
+# =====================================================================
+
+def _pit_pair_laps(driver, team, *, base=90.0, in_lap=110.0, out_lap=115.0,
+                    n_clean=5, pit_lap_num=10):
+    laps = []
+    for i in range(n_clean):
+        laps.append({"driver": driver, "team": team, "lap_time_s": base,
+                     "lap_number": i + 1, "is_pit_lap": False, "is_accurate": True})
+    laps.append({"driver": driver, "team": team, "lap_time_s": in_lap,
+                 "lap_number": pit_lap_num, "is_pit_lap": True, "is_accurate": True})
+    laps.append({"driver": driver, "team": team, "lap_time_s": out_lap,
+                 "lap_number": pit_lap_num + 1, "is_pit_lap": True, "is_accurate": True})
+    for i in range(n_clean):
+        laps.append({"driver": driver, "team": team, "lap_time_s": base,
+                     "lap_number": pit_lap_num + 2 + i, "is_pit_lap": False, "is_accurate": True})
+    return laps
+
+
+def test_estimate_pit_loss_clamps_extreme_values_to_max():
+    laps = _pit_pair_laps("VER", "Red Bull", base=90.0, in_lap=112.0, out_lap=113.0)
+    # (112+113) - 2*90 = 45 -> 30 sn tavanına kırpılır
+    assert se.estimate_pit_loss(laps) == 30.0
+
+
+def test_estimate_pit_loss_realistic_value_within_bounds():
+    laps = _pit_pair_laps("VER", "Red Bull", base=90.0, in_lap=99.0, out_lap=103.0)
+    # (99+103) - 2*90 = 22
+    assert se.estimate_pit_loss(laps) == 22.0
+
+
+def test_estimate_pit_loss_falls_back_to_default_without_pit_laps():
+    laps = _pit_pair_laps("VER", "Red Bull")[:5]   # yalnız temiz turlar, pit yok
+    assert se.estimate_pit_loss(laps) == 21.0
+
+
+def test_estimate_pit_loss_empty_is_safe():
+    assert se.estimate_pit_loss([]) == 21.0
+
+
+def _standings(*pairs):
+    return [{"driver": d, "team": t, "gap_s": g} for d, t, g in pairs]
+
+
+def test_simulate_pit_window_finds_rejoin_bracket():
+    standings = _standings(
+        ("VER", "Red Bull", 0.0), ("HAM", "Mercedes", 2.0),
+        ("LEC", "Ferrari", 5.0), ("NOR", "McLaren", 9.0),
+        ("PIA", "McLaren", 14.0),
+    )
+    out = se.simulate_pit_window(standings, "HAM", 6.0)
+    assert out["ok"]
+    assert out["projected_gap_s"] == 8.0
+    assert out["rejoin_ahead"]["driver"] == "LEC"
+    assert out["rejoin_behind"]["driver"] == "NOR"
+    assert out["rejoin_ahead"]["delta_s"] == 3.0
+    assert out["rejoin_behind"]["delta_s"] == 1.0
+    assert out["positions_lost"] == 1   # yalnız LEC artık önünde
+
+
+def test_simulate_pit_window_leader_can_end_up_with_nobody_behind():
+    standings = _standings(("VER", "Red Bull", 0.0), ("HAM", "Mercedes", 1.0))
+    out = se.simulate_pit_window(standings, "VER", 20.0)
+    assert out["ok"]
+    assert out["rejoin_ahead"]["driver"] == "HAM"
+    assert out["rejoin_behind"] is None
+
+
+def test_simulate_pit_window_unknown_driver_is_safe():
+    standings = _standings(("VER", "Red Bull", 0.0), ("HAM", "Mercedes", 2.0))
+    out = se.simulate_pit_window(standings, "XXX", 5.0)
+    assert out["ok"] is False
+
+
+def test_pit_window_grid_covers_every_driver():
+    standings = _standings(("VER", "Red Bull", 0.0), ("HAM", "Mercedes", 2.0),
+                            ("LEC", "Ferrari", 5.0))
+    grid = se.pit_window_grid(standings, 4.0)
+    assert set(grid) == {"VER", "HAM", "LEC"}
+    assert grid["HAM"]["ok"]
