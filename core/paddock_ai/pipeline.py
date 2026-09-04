@@ -26,13 +26,15 @@ _log = logging.getLogger(__name__)
 
 try:
     from core.f1_constants import (DRIVER_DISPLAY, F1_WORLD_CHAMPIONS,
-                                   TEAM_NAME_ALIASES)
+                                   TEAM_DIRECTORY_2026, TEAM_NAME_ALIASES)
 except ImportError:
     DRIVER_DISPLAY, F1_WORLD_CHAMPIONS, TEAM_NAME_ALIASES = {}, {}, {}
+    TEAM_DIRECTORY_2026 = {}
 
-_CANON_TEAMS_2026 = ("Red Bull Racing", "Ferrari", "Mercedes", "McLaren",
-                     "Aston Martin", "Alpine", "Williams", "Racing Bulls",
-                     "Haas F1 Team", "Audi", "Cadillac F1 Team")
+# 2026 tam kadro — tek kaynak: core.f1_constants.TEAM_DIRECTORY_2026 (11 takım).
+_CANON_TEAMS_2026 = tuple(TEAM_DIRECTORY_2026) or (
+    "Red Bull Racing", "Ferrari", "Mercedes", "McLaren", "Aston Martin",
+    "Alpine", "Williams", "Racing Bulls", "Haas F1 Team", "Audi", "Cadillac")
 
 
 def _name_by_code(code: str) -> str:

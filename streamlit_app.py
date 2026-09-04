@@ -13811,9 +13811,13 @@ div[class*="st-key-tel_deck"] [data-testid="stCaptionContainer"]{
 
 @st.cache_data(ttl=60 * 60 * 6, show_spinner=False)
 def _race_engineer_report_v1(year, gp, session_type):
-    """strategy_engine.analyze_practice() sarmalayıcısı — 6 saat önbellek."""
+    """strategy_engine.analyze_practice() sarmalayıcısı — 6 saat önbellek.
+    2026 tam kadro (11 takım) geçilir: uzun tur verisi olmayan takımlar da listelenir."""
     try:
-        return fp_strat.analyze_practice(int(year), str(gp), session_name=str(session_type))
+        return fp_strat.analyze_practice(
+            int(year), str(gp), session_name=str(session_type),
+            team_roster=list(TEAM_DIRECTORY_2026.keys()) if int(year) >= 2026 else None,
+        )
     except Exception as err:  # noqa: BLE001
         log_data_error("race engineer analyze", err)
         return {"ok": False, "reason": str(err)}
@@ -13871,6 +13875,12 @@ _RE_HUD_CSS = r"""
 .re-mini{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font:600 9px var(--k-f-data);
   letter-spacing:.05em;text-transform:uppercase;color:var(--k-mute)}
 .re-mini b{color:var(--k-dim);font-family:var(--k-f-data)}
+.re-cnwrap{margin-top:9px;border-top:1px solid var(--k-line);padding-top:8px;display:flex;
+  flex-direction:column;gap:4px}
+.re-cn{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font:600 9px var(--k-f-data);
+  letter-spacing:.03em;color:var(--k-mute)}
+.re-cn s{color:var(--k-cyan);text-decoration:none;font-weight:700;min-width:22px}
+.re-cn b{color:var(--k-dim)}
 """
 
 
@@ -13886,9 +13896,11 @@ def race_pace_deg_hud(rep):
     if not teams:
         return _re_shell("<div class='re'><div class='re-h'><span class='t'>Yarış Temposu &amp; Aşınma</span></div>"
                          "<div class='re-sub'>Yeterli temiz uzun tur (long-run) verisi yok — FP2 seç.</div></div>")
-    worst = max((float(t.get("gap_s") or 0) for t in teams), default=0.0) or 1.0
+    with_data = [t for t in teams if not t.get("no_data")]
+    no_data = [t for t in teams if t.get("no_data")]
+    worst = max((float(t.get("gap_s") or 0) for t in with_data), default=0.0) or 1.0
     rows = ""
-    for i, t in enumerate(teams):
+    for i, t in enumerate(with_data):
         gap = float(t.get("gap_s") or 0)
         lead = i == 0
         # lider = ince referans işareti; diğerleri farkı oranında dolar
@@ -13900,6 +13912,13 @@ def race_pace_deg_hud(rep):
             f"<span class='re-bar'><i style='width:{w:.1f}%'></i></span>"
             f"<span class='re-val{' lead' if lead else ''}'>{'BAZ' if lead else f'+{gap:.3f}'}</span>"
             f"</div>"
+        )
+    for t in no_data:
+        rows += (
+            "<div class='re-row' style='--acc:var(--k-line)'>"
+            f"<span class='cd' style='color:var(--k-mute)'>{html_lib.escape(str(t.get('team', '—'))[:16])}</span>"
+            "<span class='re-bar'></span>"
+            "<span class='re-val' style='color:var(--k-mute)'>uzun tur yok</span></div>"
         )
 
     # aşınma eğrileri: seans ölçümünü hamura göre topla, yoksa model önceliği
@@ -13931,6 +13950,20 @@ def race_pace_deg_hud(rep):
            f"<line x1='6' y1='92' x2='294' y2='92' stroke='var(--k-line)'/>"
            f"<line x1='6' y1='14' x2='6' y2='92' stroke='var(--k-line)'/>{curves}</svg>")
 
+    # lastik "drop-off" (cliff) tahminleri — pilot bazlı
+    drops = sorted(
+        ((k, int(v["dropoff_lap"]), float(v.get("dropoff_loss_s") or 0))
+         for k, v in deg.items() if v.get("dropoff_lap")),
+        key=lambda x: x[1])
+    drop_html = ""
+    if drops:
+        chips = " ".join(
+            f"<span>{html_lib.escape(k)} <b>{lap}. tur</b>"
+            + (f" +{loss:.2f}" if loss else "") + "</span>"
+            for k, lap, loss in drops[:6])
+        drop_html = ("<div class='re-deg-lg' style='margin-top:11px'>"
+                     "<span style='color:var(--k-amber)'>DROP-OFF ·</span>" + chips + "</div>")
+
     temp = rep.get("surface_temp_c")
     sub = rp.get("method", "")
     if temp is not None:
@@ -13942,7 +13975,7 @@ def race_pace_deg_hud(rep):
         + rows
         + f"<div class='re-sub'>Takım farkları en hızlıya göre · {html_lib.escape(sub)}</div>"
         + "<div class='re-deg'><span class='s' style='color:var(--k-mute)'>Aşınma eğrisi · tur başına kayıp</span>"
-        + svg + f"<div class='re-deg-lg'>{legend}</div></div>"
+        + svg + f"<div class='re-deg-lg'>{legend}</div>{drop_html}</div>"
         + "</div>"
     )
 
@@ -14029,6 +14062,18 @@ def driving_character_hud(rep):
     for cd, s in sorted(styles.items()):
         thr = float(s.get("throttle_aggression") or 0)
         brk = float(s.get("brake_aggression") or 0)
+        # viraj bazlı teknik dökümü (derin metrik)
+        pc = [c for c in (s.get("per_corner") or []) if c.get("matched")]
+        pc_html = ""
+        if pc:
+            rows_pc = "".join(
+                f"<div class='re-cn'><s>V{c.get('corner_id', '?')}</s>"
+                f"<span>apex <b>{c.get('apex_speed_kmh', 0):.0f}</b></span>"
+                f"<span>fren Δ <b>{c.get('brake_delta_kmh', 0):.0f}</b></span>"
+                f"<span>trail <b>{c.get('trail_brake', 0):.2f}</b></span>"
+                f"<span>sert <b>{c.get('brake_aggression', 0):.2f}</b></span></div>"
+                for c in pc[:4])
+            pc_html = f"<div class='re-cnwrap'>{rows_pc}</div>"
         cards += (
             "<div class='re-drv'>"
             f"<div class='re-drv-top'><span class='cd'>{html_lib.escape(cd)}</span>"
@@ -14039,15 +14084,20 @@ def driving_character_hud(rep):
             f"<b>{brk * 100:.0f}</b></div>"
             f"<div class='re-mini'><span>TAM GAZ <b>%{float(s.get('full_throttle_frac') or 0) * 100:.0f}</b></span>"
             f"<span>SERBEST <b>%{float(s.get('coast_frac') or 0) * 100:.0f}</b></span>"
-            f"<span>TRAIL-BRAKE <b>{float(s.get('trail_brake_index') or 0):.2f}</b></span></div>"
-            "</div>"
+            f"<span>LIFT&amp;COAST <b>%{float(s.get('lift_and_coast_frac') or 0) * 100:.0f}</b></span>"
+            f"<span>FREN BÖLGESİ <b>{int(s.get('brake_zones') or 0)}</b></span>"
+            f"<span>TUTARLILIK <b>{float(s.get('brake_point_consistency') or 0):.2f}</b></span>"
+            f"<span>TRAIL <b>{float(s.get('trail_brake_index') or 0):.2f}</b></span></div>"
+            + pc_html
+            + "</div>"
         )
     return _re_shell(
         "<div class='re'><div class='re-h'><span class='t'>Sürüş Karakteristiği</span>"
-        "<span class='s'>gaz / fren agresifliği · en hızlı tur</span></div>"
+        "<span class='s'>gaz / fren agresifliği · viraj bazlı teknik</span></div>"
         + cards
         + "<div class='re-sub'>Yeşil = gaza basış sertliği, kırmızı = frene giriş sertliği (0–100). "
-        "Trail-brake = apekse fren taşıma eğilimi.</div></div>"
+        "Viraj satırları: apeks hızı, fren yükü (Δ km/s), trail-brake payı ve fren "
+        "sertliği. Lift&amp;coast = fren öncesi gazdan erken çekme.</div></div>"
     )
 
 

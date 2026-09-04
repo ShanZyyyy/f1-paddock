@@ -220,6 +220,27 @@ def test_race_pace_ignores_pit_and_inaccurate_laps():
     assert est.ok and est.drivers[0]["pace_s"] < 100.0
 
 
+def test_race_pace_roster_fills_missing_teams():
+    roster = ["Red Bull", "Mercedes", "Ferrari", "McLaren", "Alpine",
+              "Racing Bulls", "Haas", "Williams", "Audi", "Aston Martin", "Cadillac"]
+    laps = _long_run("VER", "Red Bull", 92.0) + _long_run("HAM", "Mercedes", 92.5)
+    est = se.estimate_race_pace(laps, team_roster=roster)
+    assert len(est.teams) == 11
+    got = [t for t in est.teams if not t.get("no_data")]
+    missing = [t for t in est.teams if t.get("no_data")]
+    assert {t["team"] for t in got} == {"Red Bull", "Mercedes"}
+    assert len(missing) == 9 and all(t["pace_s"] is None for t in missing)
+    # kadrosuz çağrı eskisi gibi
+    assert len(se.estimate_race_pace(laps).teams) == 2
+
+
+def test_race_pace_roster_when_no_longruns():
+    roster = ["Red Bull", "Mercedes", "Ferrari"]
+    est = se.estimate_race_pace([], team_roster=roster)
+    assert est.ok and len(est.teams) == 3 and all(t["no_data"] for t in est.teams)
+    assert se.estimate_race_pace([]).ok is False    # kadrosuz: eski davranış
+
+
 # ---- 6.2 lastik aşınma tahmini -------------------------------------
 
 def test_degradation_recovers_known_rate():
@@ -250,6 +271,20 @@ def test_degradation_never_negative_after_blend():
     stint = [92.0 - 0.2 * i for i in range(12)]
     de = se.estimate_degradation(stint, compound="MEDIUM")
     assert de.deg_rate_s_per_lap >= -0.05
+
+
+def test_degradation_detects_dropoff_lap():
+    # 10 tur nazik + 6 tur uçurum (11. turdan itibaren hızlanan kayıp)
+    stint = [92.0 + 0.05 * i for i in range(10)] + [93.0 + 0.30 * i for i in range(6)]
+    de = se.estimate_degradation(stint, compound="SOFT")
+    assert de.dropoff_lap is not None and 9 <= de.dropoff_lap <= 13
+    assert de.dropoff_loss_s > 0.1
+
+
+def test_degradation_no_dropoff_on_linear_stint():
+    stint = [92.0 + 0.06 * i for i in range(16)]
+    de = se.estimate_degradation(stint, compound="MEDIUM")
+    assert de.dropoff_lap is None
 
 
 # ---- 6.3 Vmax & DRS ------------------------------------------------
@@ -405,6 +440,38 @@ def test_driving_style_coasting_detected():
 
 def test_driving_style_empty_is_safe():
     assert se.driving_style([]).ok is False
+
+
+def test_braking_zones_profile():
+    lap = _lap_trace(brake_len_m=90.0)
+    zones = se.braking_zones(lap)
+    assert zones and all(z["delta_kmh"] > 20 for z in zones)
+    z = zones[0]
+    for k in ("start_m", "end_m", "length_m", "entry_speed_kmh", "apex_speed_kmh",
+              "delta_kmh", "peak_decel", "trail_brake", "brake_point_m"):
+        assert k in z
+    assert 0.0 <= z["trail_brake"] <= 1.0
+
+
+def test_driving_style_per_corner_deep_metrics():
+    sam = _corner_telemetry(vmins=(90, 70, 130))
+    # köşe telemetrisine gaz/fren ekle
+    for s in sam:
+        fast = s["speed"] > 250
+        s["throttle"] = 100.0 if fast else 0.0
+        s["brake"] = 0 if fast else 1
+    corners = se.critical_corners(sam, n_corners=3)
+    ds = se.driving_style(sam, corners=corners)
+    assert ds.ok
+    assert ds.brake_zones >= 1 and ds.mean_brake_len_m > 0
+    assert 0.0 <= ds.brake_point_consistency <= 1.0
+    assert 0.0 <= ds.lift_and_coast_frac <= 1.0
+    matched = [c for c in ds.per_corner if c.get("matched")]
+    assert matched, "en az bir viraj fren bölgesiyle eşleşmeli"
+    for c in matched:
+        assert "apex_speed_kmh" in c and "trail_brake" in c and "brake_aggression" in c
+    # corners verilmezse per_corner boş, geriye dönük uyum
+    assert se.driving_style(sam).per_corner == []
 
 
 # ---- 6.6 FastF1 katmanı — ortam yoksa nazikçe döner --------------

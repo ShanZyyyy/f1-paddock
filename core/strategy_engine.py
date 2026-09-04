@@ -61,6 +61,7 @@ __all__ = [
     "corner_vmin_compare",
     "top_speed_compare",
     "driving_style",
+    "braking_zones",
     "load_practice_session",
     "extract_practice_laps",
     "extract_lap_samples",
@@ -612,6 +613,7 @@ def estimate_race_pace(
     fuel_correction_s_per_lap: float = FUEL_EFFECT_PER_LAP,
     track_evolution_s_per_lap: float = 0.0,
     min_run_len: int = 5,
+    team_roster: Optional[Sequence[str]] = None,
 ) -> RacePaceEstimate:
     """Antrenman (özellikle FP2) uzun turlarından tahmini yarış temposu.
 
@@ -623,11 +625,13 @@ def estimate_race_pace(
         tutuş için ``track_evolution_s_per_lap * idx`` eklenir.
     Bloğun temsili temposu = düzeltilmiş turların kırpılmış ortalaması.
     Pilotun temposu = en hızlı bloğu. Takım = pilotlarının ortalaması.
+
+    ``team_roster`` verilirse (ör. 2026'nın 11 takımı) uzun tur verisi olmayan
+    takımlar da tabloda görünür — ``pace_s=None``, ``no_data=True`` ile en alta.
     """
     runs = _driver_runs(laps, min_run_len=min_run_len)
     if not runs:
-        return RacePaceEstimate(ok=False, reference_s=0.0,
-                                method="yetersiz temiz uzun tur verisi")
+        return _empty_pace_with_roster(team_roster)
 
     team_of: Dict[str, str] = {}
     for lp in laps:
@@ -674,13 +678,17 @@ def estimate_race_pace(
     for r in drv_rows:
         if r["team"]:
             teams.setdefault(r["team"], []).append(r["pace_s"])
-    team_rows = [{"team": t, "pace_s": round(_mean(v), 3), "drivers": len(v)}
+    team_rows = [{"team": t, "pace_s": round(_mean(v), 3), "drivers": len(v),
+                  "no_data": False}
                  for t, v in teams.items()]
     team_rows.sort(key=lambda r: r["pace_s"])
     if team_rows:
         tref = team_rows[0]["pace_s"]
         for r in team_rows:
             r["gap_s"] = round(r["pace_s"] - tref, 3)
+
+    team_rows += _roster_gap_rows(team_roster, {r["team"] for r in team_rows})
+    drv_rows += _roster_driver_placeholders(team_roster, {r["team"] for r in drv_rows if r.get("team")})
 
     return RacePaceEstimate(
         ok=True,
@@ -690,6 +698,42 @@ def estimate_race_pace(
         method=(f"yakıt {fuel_correction_s_per_lap:.3f} sn/tur"
                 + (f" · pist gelişimi {track_evolution_s_per_lap:.3f} sn/tur"
                    if track_evolution_s_per_lap else "")),
+    )
+
+
+def _norm_team(name: str) -> str:
+    return " ".join(str(name or "").lower().replace("f1 team", "").split())
+
+
+def _roster_gap_rows(team_roster, present) -> List[dict]:
+    """Kadroda olup uzun tur verisi olmayan takımlar için 'veri yok' satırları."""
+    if not team_roster:
+        return []
+    present_norm = {_norm_team(t) for t in present}
+    out = []
+    for name in team_roster:
+        if _norm_team(name) not in present_norm:
+            out.append({"team": str(name), "pace_s": None, "gap_s": None,
+                        "drivers": 0, "no_data": True})
+    return out
+
+
+def _roster_driver_placeholders(team_roster, present) -> List[dict]:
+    if not team_roster:
+        return []
+    present_norm = {_norm_team(t) for t in present}
+    return [{"driver": "", "team": str(name), "pace_s": None, "gap_s": None,
+             "laps": 0, "compound": "", "no_data": True}
+            for name in team_roster if _norm_team(name) not in present_norm]
+
+
+def _empty_pace_with_roster(team_roster) -> "RacePaceEstimate":
+    rows = [{"team": str(n), "pace_s": None, "gap_s": None, "drivers": 0,
+             "no_data": True} for n in (team_roster or [])]
+    return RacePaceEstimate(
+        ok=bool(rows), reference_s=0.0, drivers=[], teams=rows,
+        method="yetersiz temiz uzun tur verisi" if not rows
+               else "uzun tur verisi yok — takım listesi kadrodan",
     )
 
 
@@ -707,6 +751,30 @@ class DegradationEstimate:
     r2: float
     surface_temp_c: Optional[float] = None
     projected_loss_10_laps_s: float = 0.0
+    dropoff_lap: Optional[int] = None         # aşınmanın hızlandığı tahmini tur (cliff)
+    dropoff_loss_s: float = 0.0               # o turdan sonra tur başına ekstra kayıp
+
+
+def _detect_dropoff(times: Sequence[float], fuel_corr: float) -> Tuple[Optional[int], float]:
+    """Yakıt-düzeltmeli stint serisinde aşınmanın belirgin hızlandığı turu bul.
+
+    İlk yarıya doğru uydurulan eğime göre, son turlardaki fazladan yavaşlama
+    eşiği aşarsa o tur 'drop-off' (cliff başlangıcı) sayılır.
+    """
+    n = len(times)
+    if n < 6:
+        return (None, 0.0)
+    corr = [t + fuel_corr * i for i, t in enumerate(times)]
+    half = max(3, n // 2)
+    base_slope, base_int, _ = _linfit(list(range(half)), corr[:half])
+    resid = [corr[i] - (base_int + base_slope * i) for i in range(n)]
+    step = _median([abs(corr[i] - corr[i - 1]) for i in range(1, half)]) or 0.05
+    for i in range(half, n):
+        if resid[i] > max(0.25, 2.2 * step) and resid[i] > resid[i - 1]:
+            tail_slope, _, _ = _linfit(list(range(i, n)), corr[i:])
+            extra = max(0.0, tail_slope - base_slope)
+            return (i + 1, round(extra, 3))          # 1-indexli tur
+    return (None, 0.0)
 
 
 def estimate_degradation(
@@ -738,6 +806,7 @@ def estimate_degradation(
             deg_rate_temp_adjusted=round(model.deg, 4),
             clean_laps=len(times), r2=0.0, surface_temp_c=surface_temp_c,
             projected_loss_10_laps_s=round(model.deg * 10, 3),
+            dropoff_lap=None, dropoff_loss_s=0.0,
         )
 
     if drop_outliers and len(times) >= 5:
@@ -759,6 +828,8 @@ def estimate_degradation(
         factor = _clamp(1.0 + 0.03 * (float(surface_temp_c) - 40.0), 0.7, 1.8)
         temp_adj = blended * factor
 
+    drop_lap, drop_loss = _detect_dropoff(times, fuel_correction_s_per_lap)
+
     return DegradationEstimate(
         ok=True,
         compound=comp,
@@ -769,6 +840,8 @@ def estimate_degradation(
         r2=round(r2, 3),
         surface_temp_c=surface_temp_c,
         projected_loss_10_laps_s=round(temp_adj * 10, 3),
+        dropoff_lap=drop_lap,
+        dropoff_loss_s=drop_loss,
     )
 
 
@@ -1003,14 +1076,98 @@ class DrivingStyle:
     trail_brake_index: float                  # 0..1 — apekse fren taşıma eğilimi
     peak_decel_kmh_s: float
     label: str = ""
+    # --- derin metrikler ---
+    brake_zones: int = 0                      # belirgin fren bölgesi sayısı
+    mean_brake_len_m: float = 0.0             # ortalama fren bölgesi uzunluğu
+    brake_point_consistency: float = 0.0      # 0..1 — fren noktası tutarlılığı
+    lift_and_coast_frac: float = 0.0          # fren öncesi gazdan erken çekme payı
+    per_corner: List[dict] = field(default_factory=list)   # viraj bazlı teknik
 
 
-def driving_style(samples: Sequence[dict]) -> DrivingStyle:
+def braking_zones(samples: Sequence[dict], *, min_drop_kmh: float = 25.0) -> List[dict]:
+    """Bir turun telemetrisindeki belirgin fren bölgeleri (fren agresiflik profili).
+
+    Her bölge: ``{start_m,end_m,length_m,entry_speed_kmh,apex_speed_kmh,
+    delta_kmh,peak_decel,trail_brake,brake_point_m}``. ``brake`` kanalı yoksa
+    hız düşüşünden çıkarılır.
+    """
+    rows = [s for s in samples
+            if s.get("distance") is not None and s.get("speed") is not None]
+    if len(rows) < 12:
+        return []
+    dist = [float(s["distance"]) for s in rows]
+    spd = [float(s["speed"]) for s in rows]
+    thr = [_clamp(float(s.get("throttle") or 0), 0.0, 100.0) for s in rows]
+    brk = [1.0 if bool(s.get("brake")) and float(s.get("brake") or 0) > 0 else 0.0 for s in rows]
+    have_brake = any(brk)
+
+    zones: List[dict] = []
+    i = 1
+    n = len(rows)
+    while i < n:
+        braking = brk[i] >= 0.5 if have_brake else (spd[i - 1] - spd[i]) / max(1e-6, dist[i] - dist[i - 1]) > 0.12
+        if not braking:
+            i += 1
+            continue
+        j = i
+        while j + 1 < n and (brk[j + 1] >= 0.5 if have_brake
+                             else (spd[j] - spd[j + 1]) / max(1e-6, dist[j + 1] - dist[j]) > 0.04):
+            j += 1
+        entry = max(spd[max(0, i - 3):i + 1])
+        apex_idx = min(range(i, min(n, j + 6)), key=lambda k: spd[k])
+        apex = spd[apex_idx]
+        if entry - apex < min_drop_kmh:
+            i = j + 1
+            continue
+        seg_len = dist[j] - dist[i]
+        decels = [(spd[k - 1] - spd[k]) / max(1e-6, dist[k] - dist[k - 1]) for k in range(i + 1, j + 1)]
+        peak = round((max(decels) if decels else 0.0) * _mean(spd), 1)
+        overlap = sum(1 for k in range(i, j + 1) if brk[k] >= 0.5 and thr[k] > 8)
+        trail = round(_clamp(overlap / max(1, j - i + 1), 0.0, 1.0), 3)
+        zones.append({
+            "start_m": round(dist[i], 1), "end_m": round(dist[j], 1),
+            "length_m": round(seg_len, 1),
+            "brake_point_m": round(dist[i], 1),
+            "entry_speed_kmh": round(entry, 1),
+            "apex_speed_kmh": round(apex, 1),
+            "delta_kmh": round(entry - apex, 1),
+            "peak_decel": peak,
+            "trail_brake": trail,
+        })
+        i = j + 1
+    return zones
+
+
+def _corner_technique(zones: Sequence[dict], corners: Sequence, *, tol_m: float = 90.0) -> List[dict]:
+    """Kritik virajları en yakın fren bölgesiyle eşleştir → viraj bazlı teknik."""
+    out = []
+    for c in corners:
+        cd = float(getattr(c, "distance_m", c.get("distance_m") if isinstance(c, dict) else 0) or 0)
+        cid = int(getattr(c, "corner_id", c.get("corner_id", 0) if isinstance(c, dict) else 0) or 0)
+        near = [z for z in zones if abs(z["end_m"] - cd) <= tol_m or z["start_m"] <= cd <= z["end_m"] + tol_m]
+        if not near:
+            out.append({"corner_id": cid, "distance_m": round(cd, 1), "matched": False})
+            continue
+        z = min(near, key=lambda z: abs(z["end_m"] - cd))
+        out.append({
+            "corner_id": cid, "distance_m": round(cd, 1), "matched": True,
+            "brake_point_m": z["brake_point_m"],
+            "entry_speed_kmh": z["entry_speed_kmh"],
+            "apex_speed_kmh": z["apex_speed_kmh"],
+            "brake_delta_kmh": z["delta_kmh"],
+            "trail_brake": z["trail_brake"],
+            "brake_aggression": round(math.tanh(z["peak_decel"] / 160.0), 3),
+        })
+    return out
+
+
+def driving_style(samples: Sequence[dict], *, corners: Optional[Sequence] = None) -> DrivingStyle:
     """Bir turun telemetrisinden sürüş tarzı profili.
 
     ``samples``: ``distance`` + ``speed`` + ``throttle`` (0-100) gerekir; ``brake``
-    (bool/0-100) varsa fren metrikleri keskinleşir. Etiket: "agresif" / "yumuşak"
-    / "dengeli".
+    (bool/0-100) varsa fren metrikleri keskinleşir. ``corners`` verilirse (bkz.
+    ``critical_corners``) viraj bazlı teknik dökümü de üretilir (``per_corner``).
+    Etiket: "agresif" / "yumuşak" / "dengeli".
     """
     rows = [s for s in samples
             if s.get("distance") is not None and s.get("speed") is not None
@@ -1071,6 +1228,27 @@ def driving_style(samples: Sequence[dict]) -> DrivingStyle:
     else:
         label = "dengeli"
 
+    # --- derin metrikler: fren bölgeleri + lift&coast + tutarlılık ---
+    zones = braking_zones(rows)
+    brake_lens = [z["length_m"] for z in zones]
+    # fren noktası tutarlılığı: bölge uzunluklarının değişkenliği düşükse yüksek
+    if len(brake_lens) >= 2:
+        m = _mean(brake_lens) or 1.0
+        var = _mean([(x - m) ** 2 for x in brake_lens]) ** 0.5
+        consistency = round(_clamp(1.0 - var / m, 0.0, 1.0), 3)
+    else:
+        consistency = 0.0
+    # lift & coast: fren başlamadan önce gazın erken kesilip serbest kalması
+    lac = 0.0
+    for z in zones:
+        bp_i = min(range(len(rows)), key=lambda k: abs(dist[k] - z["start_m"]))
+        pre = [k for k in range(max(0, bp_i - 12), bp_i) if thr[k] < 15 and brk[k] < 0.5]
+        if len(pre) >= 2:
+            lac += (dist[bp_i] - dist[pre[0]])
+    lift_coast = round(_clamp(lac / total_len, 0.0, 1.0), 3)
+
+    per_corner = _corner_technique(zones, corners or [])
+
     return DrivingStyle(
         ok=True,
         full_throttle_frac=round(full_throttle, 3),
@@ -1080,6 +1258,11 @@ def driving_style(samples: Sequence[dict]) -> DrivingStyle:
         trail_brake_index=round(trail, 3),
         peak_decel_kmh_s=peak_decel,
         label=label,
+        brake_zones=len(zones),
+        mean_brake_len_m=round(_mean(brake_lens), 1),
+        brake_point_consistency=consistency,
+        lift_and_coast_frac=lift_coast,
+        per_corner=per_corner,
     )
 
 
@@ -1171,11 +1354,14 @@ def extract_lap_samples(session, driver: str, lap_selector="fastest") -> List[di
 
 
 def analyze_practice(year: int, gp, *, session_name: str = "FP2",
-                     drivers: Optional[Sequence[str]] = None) -> dict:
+                     drivers: Optional[Sequence[str]] = None,
+                     team_roster: Optional[Sequence[str]] = None) -> dict:
     """Uçtan uca: FP seansını yükle → 5 motoru çalıştır → tek rapor sözlüğü.
 
     Ağ/FastF1 yoksa ``{"ok": False, "reason": ...}``. Saf motorlar ayrıca
-    doğrudan (sentetik veriyle) çağrılabilir ve test edilir.
+    doğrudan (sentetik veriyle) çağrılabilir ve test edilir. ``team_roster``
+    (ör. 2026'nın 11 takımı) verilirse uzun tur verisi olmayan takımlar da
+    tabloda görünür.
     """
     if not _has_fastf1():
         return {"ok": False, "reason": "FastF1 ortamda yok"}
@@ -1196,7 +1382,7 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
         except Exception:
             surface_t = None
 
-    pace = estimate_race_pace(laps)
+    pace = estimate_race_pace(laps, team_roster=team_roster)
 
     if drivers:
         drv_list = list(drivers)
@@ -1217,7 +1403,9 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
     ref_samples = next(iter(samples_by_drv.values()), [])
     straights = analyze_straights(ref_samples)
     corners = critical_corners(ref_samples)
-    style = {d: driving_style(s).__dict__ for d, s in samples_by_drv.items()}
+    style = {d: driving_style(s, corners=corners).__dict__
+             for d, s in samples_by_drv.items()}
+    brake_profiles = {d: braking_zones(s) for d, s in samples_by_drv.items()}
 
     # aşınma: her pilotun en uzun stint'i
     deg_by_drv = {}
@@ -1241,4 +1429,5 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
         "corner_compare": corner_vmin_compare(samples_by_drv, corners),
         "top_speed": top_speed_compare(samples_by_drv),
         "driving_style": style,
+        "braking_profiles": brake_profiles,
     }

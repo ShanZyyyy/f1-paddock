@@ -465,18 +465,20 @@ def re_report():
                 {"driver": "HAM", "team": "Mercedes", "pace_s": 92.7, "gap_s": 0.6, "laps": 10, "compound": "HARD"},
             ],
             "teams": [
-                {"team": "Red Bull", "pace_s": 92.1, "gap_s": 0.0, "drivers": 1},
-                {"team": "McLaren", "pace_s": 92.3, "gap_s": 0.2, "drivers": 1},
-                {"team": "Mercedes", "pace_s": 92.7, "gap_s": 0.6, "drivers": 1},
+                {"team": "Red Bull", "pace_s": 92.1, "gap_s": 0.0, "drivers": 1, "no_data": False},
+                {"team": "McLaren", "pace_s": 92.3, "gap_s": 0.2, "drivers": 1, "no_data": False},
+                {"team": "Mercedes", "pace_s": 92.7, "gap_s": 0.6, "drivers": 1, "no_data": False},
+                {"team": "Cadillac", "pace_s": None, "gap_s": None, "drivers": 0, "no_data": True},
+                {"team": "Audi", "pace_s": None, "gap_s": None, "drivers": 0, "no_data": True},
             ],
         },
         "degradation": {
             "VER": {"ok": True, "compound": "MEDIUM", "deg_rate_s_per_lap": 0.06,
                     "deg_rate_temp_adjusted": 0.07, "r2": 0.95, "clean_laps": 9,
-                    "projected_loss_10_laps_s": 0.7},
+                    "projected_loss_10_laps_s": 0.7, "dropoff_lap": 14, "dropoff_loss_s": 0.22},
             "NOR": {"ok": True, "compound": "SOFT", "deg_rate_s_per_lap": 0.11,
                     "deg_rate_temp_adjusted": 0.13, "r2": 0.9, "clean_laps": 8,
-                    "projected_loss_10_laps_s": 1.3},
+                    "projected_loss_10_laps_s": 1.3, "dropoff_lap": 9, "dropoff_loss_s": 0.4},
         },
         "straights": {
             "ok": True, "v_max_kmh": 318.0, "drs_available": True, "drs_gain_kmh": 12.4,
@@ -493,10 +495,24 @@ def re_report():
         "driving_style": {
             "VER": {"ok": True, "full_throttle_frac": 0.62, "coast_frac": 0.05,
                     "throttle_aggression": 0.8, "brake_aggression": 0.7,
-                    "trail_brake_index": 0.3, "peak_decel_kmh_s": 900.0, "label": "agresif"},
+                    "trail_brake_index": 0.3, "peak_decel_kmh_s": 900.0, "label": "agresif",
+                    "brake_zones": 7, "mean_brake_len_m": 92.0,
+                    "brake_point_consistency": 0.83, "lift_and_coast_frac": 0.04,
+                    "per_corner": [
+                        {"corner_id": 1, "distance_m": 1980.0, "matched": True,
+                         "brake_point_m": 1850.0, "entry_speed_kmh": 250.0,
+                         "apex_speed_kmh": 78.0, "brake_delta_kmh": 172.0,
+                         "trail_brake": 0.4, "brake_aggression": 0.9}]},
             "HAM": {"ok": True, "full_throttle_frac": 0.58, "coast_frac": 0.12,
                     "throttle_aggression": 0.4, "brake_aggression": 0.45,
-                    "trail_brake_index": 0.5, "peak_decel_kmh_s": 700.0, "label": "yumuşak"},
+                    "trail_brake_index": 0.5, "peak_decel_kmh_s": 700.0, "label": "yumuşak",
+                    "brake_zones": 7, "mean_brake_len_m": 110.0,
+                    "brake_point_consistency": 0.6, "lift_and_coast_frac": 0.11,
+                    "per_corner": [
+                        {"corner_id": 1, "distance_m": 1980.0, "matched": True,
+                         "brake_point_m": 1880.0, "entry_speed_kmh": 246.0,
+                         "apex_speed_kmh": 74.0, "brake_delta_kmh": 172.0,
+                         "trail_brake": 0.6, "brake_aggression": 0.6}]},
         },
     }
 
@@ -514,6 +530,16 @@ def test_race_pace_deg_hud_structure(re_report):
     assert "+0.200" in html or "+0.2" in html          # McLaren farkı
     assert "<polyline" in html and "sn/tur" in html     # aşınma eğrileri
     assert "°C" in html and "pist" in html              # pist sıcaklığı satırı
+    # eksik takımlar (11 kadro) + drop-off satırı
+    assert "Cadillac" in html and "Audi" in html and "uzun tur yok" in html
+    assert "DROP-OFF" in html and "9. tur" in html
+
+
+def test_race_pace_deg_hud_no_roster_still_works(re_report):
+    re_report["race_pace"]["teams"] = [t for t in re_report["race_pace"]["teams"]
+                                       if not t.get("no_data")]
+    html = app.race_pace_deg_hud(re_report)
+    assert "uzun tur yok" not in html and "Red Bull" in html
 
 
 def test_speed_hierarchy_hud_vmax_vmin(re_report):
@@ -542,7 +568,10 @@ def test_driving_character_hud_profiles(re_report):
     _no_streamlit_widgets(html)
     assert "VER" in html and "HAM" in html
     assert "agresif" in html and "yumuşak" in html      # etiket (CSS uppercase)
-    assert "re-pp" in html and "TRAIL-BRAKE" in html
+    assert "re-pp" in html
+    # derin metrikler
+    assert "LIFT&amp;COAST" in html and "FREN BÖLGESİ" in html and "TUTARLILIK" in html
+    assert "re-cn" in html and "apex" in html           # viraj bazlı teknik satırları
 
 
 def test_re_huds_degrade_gracefully_on_empty():
@@ -550,4 +579,5 @@ def test_re_huds_degrade_gracefully_on_empty():
                app.drs_efficiency_hud, app.driving_character_hud):
         out = fn({"ok": True})
         assert isinstance(out, str) and "color-scheme:dark" in out
+
 
