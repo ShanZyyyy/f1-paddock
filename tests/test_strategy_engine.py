@@ -162,6 +162,111 @@ def test_sc_model_feeds_simulation():
     assert r.total_time_s == r2.total_time_s
 
 
+def test_simulate_stint_plan_tyre_overrides_replace_global_model():
+    plan = se.StintPlan("MEDIUM", [(20, "HARD")])
+    baseline = se.simulate_stint_plan(plan, total_laps=40, base_lap_s=90.0, pit_loss_s=22.0)
+    # MEDIUM'u yapay olarak çok daha yavaş bir modelle değiştir — override edilen
+    # hamurun kullanıldığı stint'te sonuç DEĞİŞMELİ, geri kalanı bozulmamalı.
+    slow_medium = se.TyreModel("MEDIUM", offset=5.0, deg=0.05, cliff=26)
+    overridden = se.simulate_stint_plan(
+        plan, total_laps=40, base_lap_s=90.0, pit_loss_s=22.0,
+        tyre_overrides={"MEDIUM": slow_medium},
+    )
+    assert overridden.total_time_s > baseline.total_time_s
+    assert se.TYRES["MEDIUM"].offset == 0.0   # global sabit BOZULMADI
+
+
+# ---- 5b) İnteraktif Strateji Simülatörü (Kum Havuzu) ----------------
+
+def test_scaled_tyre_model_multiplier_scales_linear_deg():
+    base = se.tyre_model("MEDIUM")
+    scaled = se._scaled_tyre_model("MEDIUM", deg_multiplier=1.5)
+    assert abs(scaled.deg - base.deg * 1.5) < 1e-9
+    assert scaled.offset == base.offset       # taze-lastik farkı etkilenmez
+
+
+def test_scaled_tyre_model_hotter_track_shortens_cliff():
+    base = se.tyre_model("MEDIUM")
+    hotter = se._scaled_tyre_model("MEDIUM", track_temp_delta_c=10.0)
+    colder = se._scaled_tyre_model("MEDIUM", track_temp_delta_c=-10.0)
+    assert hotter.cliff < base.cliff < colder.cliff
+
+
+def test_scaled_tyre_model_never_mutates_global_tyres():
+    se._scaled_tyre_model("MEDIUM", deg_multiplier=3.0, track_temp_delta_c=15.0)
+    assert se.TYRES["MEDIUM"].deg == 0.050
+    assert se.TYRES["MEDIUM"].cliff == 26
+
+
+def test_simulate_custom_strategy_rejects_too_short_race():
+    out = se.simulate_custom_strategy(total_laps=3, base_lap_s=90.0, target_pit_lap=1)
+    assert out.ok is False and out.reason
+
+
+def test_simulate_custom_strategy_far_from_optimal_is_slower():
+    # 55 turluk MEDIUM->HARD yarışında çok erken (tur 3) pit yapmak optimalden
+    # belirgin şekilde yavaş olmalı.
+    out = se.simulate_custom_strategy(
+        total_laps=55, base_lap_s=90.0, target_pit_lap=3,
+        start_compound="MEDIUM", second_compound="HARD",
+    )
+    assert out.ok
+    assert out.delta_to_optimal_s > 0.0
+    assert out.verdict == "daha yavaş"
+    assert out.optimal_pit_lap != 3
+
+
+def test_simulate_custom_strategy_at_models_own_optimum_is_a_tie():
+    probe = se.simulate_custom_strategy(
+        total_laps=50, base_lap_s=90.0, target_pit_lap=25,
+        start_compound="MEDIUM", second_compound="HARD",
+    )
+    at_optimum = se.simulate_custom_strategy(
+        total_laps=50, base_lap_s=90.0, target_pit_lap=probe.optimal_pit_lap,
+        start_compound="MEDIUM", second_compound="HARD",
+    )
+    assert at_optimum.user_pit_lap == at_optimum.optimal_pit_lap
+    assert at_optimum.verdict == "eşit"
+    assert abs(at_optimum.delta_to_optimal_s) < 0.05
+
+
+def test_simulate_custom_strategy_higher_degradation_multiplier_costs_more_time():
+    normal = se.simulate_custom_strategy(
+        total_laps=50, base_lap_s=90.0, target_pit_lap=25, degradation_multiplier=1.0,
+    )
+    high_deg = se.simulate_custom_strategy(
+        total_laps=50, base_lap_s=90.0, target_pit_lap=25, degradation_multiplier=1.8,
+    )
+    assert high_deg.user_total_time_s > normal.user_total_time_s
+
+
+def test_simulate_custom_strategy_dropoff_lap_uses_scaled_cliff():
+    out = se.simulate_custom_strategy(
+        total_laps=60, base_lap_s=90.0, target_pit_lap=20,
+        start_compound="MEDIUM", second_compound="HARD", degradation_multiplier=1.0,
+    )
+    scaled_hard = se._scaled_tyre_model("HARD", deg_multiplier=1.0, track_temp_delta_c=0.0)
+    assert out.user_dropoff_lap == 20 + scaled_hard.cliff
+
+
+def test_simulate_custom_strategy_dropoff_lap_none_when_stint_too_short():
+    # 2. stint uçuruma ulaşamayacak kadar kısaysa (yarış hemen bitiyor) None dönmeli
+    out = se.simulate_custom_strategy(
+        total_laps=25, base_lap_s=90.0, target_pit_lap=24,
+        start_compound="MEDIUM", second_compound="HARD",
+    )
+    assert out.user_dropoff_lap is None
+
+
+def test_simulate_custom_strategy_never_mutates_global_tyres():
+    se.simulate_custom_strategy(
+        total_laps=50, base_lap_s=90.0, target_pit_lap=25,
+        degradation_multiplier=2.5, track_temp_delta_c=12.0,
+    )
+    assert se.TYRES["MEDIUM"].deg == 0.050
+    assert se.TYRES["HARD"].cliff == 38
+
+
 # =====================================================================
 # 6) ANTRENMAN LABI — yarış mühendisi analiz motorları (saf, ağsız)
 # =====================================================================

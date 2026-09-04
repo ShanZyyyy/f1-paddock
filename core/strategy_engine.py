@@ -54,6 +54,9 @@ __all__ = [
     "StintPlan",
     "simulate_stint_plan",
     "compare_plans",
+    # 5b) İnteraktif Strateji Simülatörü — kum havuzu
+    "CustomStrategyResult",
+    "simulate_custom_strategy",
     # 6) Antrenman Labı — yarış mühendisi analiz motorları
     "RacePaceEstimate",
     "DegradationEstimate",
@@ -427,11 +430,16 @@ def simulate_stint_plan(
     vsc_windows: Optional[Sequence[Tuple[int, int]]] = None,
     sc_model: Optional[SafetyCarModel] = None,
     seed: Optional[int] = None,
+    tyre_overrides: Optional[Dict[str, TyreModel]] = None,
 ) -> RaceResult:
     """Bir stint planını tur-tur simüle et; toplam yarış süresini döndür.
 
     SC/VSC pencereleri ya doğrudan verilir (gerçek yarış) ya da ``sc_model``
     ile örneklenir (farazi). Hiçbiri yoksa SC'siz temiz yarış.
+
+    ``tyre_overrides`` verilirse (ör. Strateji Simülatörü'nün aşınma çarpanı/
+    pist sıcaklığı ile ÖLÇEKLENMİŞ modelleri) o hamur için global ``TYRES``
+    yerine kullanılır — geri kalanlar normal ``tyre_model()`` araması yapar.
     """
     total_laps = max(1, int(total_laps))
     if sc_windows is None and vsc_windows is None and sc_model is not None:
@@ -448,7 +456,7 @@ def simulate_stint_plan(
 
     for lap in range(1, total_laps + 1):
         comp, age = plan.compound_at(lap)
-        model = tyre_model(comp)
+        model = (tyre_overrides or {}).get(_norm_compound(comp)) or tyre_model(comp)
         cur_stint += 1
 
         under_sc = in_window(lap, sc_windows)
@@ -504,6 +512,149 @@ def compare_plans(
     scored.sort(key=lambda x: x[1])
     best = scored[0][1] if scored else 0.0
     return [(name, t, round(t - best, 3)) for name, t in scored]
+
+
+# =========================================================================
+# 5b) İNTERAKTİF STRATEJİ SİMÜLATÖRÜ (Kum Havuzu) — kullanıcı override'ları
+# =========================================================================
+# Kullanıcı üç dış parametreyi değiştirebilir: Aşınma Çarpanı, Pist Sıcaklığı
+# farkı, Hedef Pit Turu. Bunlar TYRES sabitini asla MUTASYONA UĞRATMAZ —
+# her çağrıda taze, ölçeklenmiş TyreModel kopyaları üretilir
+# (simulate_stint_plan'ın tyre_overrides parametresiyle enjekte edilir).
+
+
+def _scaled_tyre_model(compound: str, *, deg_multiplier: float = 1.0,
+                        track_temp_delta_c: float = 0.0) -> TyreModel:
+    """Aşınma çarpanı + pist sıcaklığı farkına göre ölçeklenmiş lastik modeli.
+
+    ``deg_multiplier``: lineer aşınma eğimini (ve uçurum sonrası büyümeyi)
+    çarpar — 1.0 normal, 1.5 → %50 daha hızlı aşınma.
+    ``track_temp_delta_c``: referansa göre pist sıcaklığı farkı (°C). Her
+    +1°C uçurum turunu (~%1.2) öne çeker (daha sıcak pist → daha hızlı
+    lastik ömrü tükenir); soğukta tersi. Global ``TYRES`` DEĞİŞTİRİLMEZ.
+    """
+    base = tyre_model(compound)
+    deg_multiplier = max(0.1, float(deg_multiplier))
+    temp_factor = max(0.55, min(1.6, 1.0 - 0.012 * float(track_temp_delta_c)))
+    return TyreModel(
+        name=base.name,
+        offset=base.offset,
+        deg=round(base.deg * deg_multiplier, 5),
+        cliff=max(3, round(base.cliff * temp_factor)),
+        cliff_grow=round(base.cliff_grow * deg_multiplier, 5),
+    )
+
+
+@dataclass
+class CustomStrategyResult:
+    """``simulate_custom_strategy`` çıktısı — kullanıcı planı vs modelin
+    kendi (aynı varsayımlar altındaki) önerdiği optimum plan kıyaslaması."""
+
+    ok: bool
+    reason: str = ""
+    total_laps: int = 0
+    degradation_multiplier: float = 1.0
+    track_temp_delta_c: float = 0.0
+    start_compound: str = ""
+    second_compound: str = ""
+    user_pit_lap: Optional[int] = None
+    user_total_time_s: float = 0.0
+    user_dropoff_lap: Optional[int] = None        # 2. stint'te uçurumun başladığı MUTLAK tur
+    optimal_pit_lap: Optional[int] = None
+    optimal_total_time_s: float = 0.0
+    delta_to_optimal_s: float = 0.0                # + = kullanıcı planı daha YAVAŞ
+    verdict: str = ""                               # "daha hızlı" | "daha yavaş" | "eşit"
+
+
+def _optimal_pit_lap(
+    *, total_laps: int, base_lap_s: float, start_compound: str, second_compound: str,
+    pit_loss_s: float, tyre_overrides: Dict[str, TyreModel],
+    sc_windows: Optional[Sequence[Tuple[int, int]]], vsc_windows: Optional[Sequence[Tuple[int, int]]],
+) -> Tuple[int, float]:
+    """Tek duraklı planlar arasında brute-force arama — en düşük toplam süreyi
+    veren pit turu (aynı aşınma/sıcaklık varsayımları altında, kullanıcıyla
+    ADİL kıyas için)."""
+    best_lap, best_time = 2, None
+    for lap in range(2, max(3, total_laps)):
+        plan = StintPlan(start_compound, [(lap, second_compound)])
+        res = simulate_stint_plan(
+            plan, total_laps=total_laps, base_lap_s=base_lap_s, pit_loss_s=pit_loss_s,
+            sc_windows=sc_windows, vsc_windows=vsc_windows, tyre_overrides=tyre_overrides,
+        )
+        if best_time is None or res.total_time_s < best_time:
+            best_time, best_lap = res.total_time_s, lap
+    return best_lap, round(best_time if best_time is not None else 0.0, 3)
+
+
+def simulate_custom_strategy(
+    *,
+    total_laps: int,
+    base_lap_s: float,
+    target_pit_lap: int,
+    start_compound: str = "MEDIUM",
+    second_compound: str = "HARD",
+    pit_loss_s: float = 21.0,
+    degradation_multiplier: float = 1.0,
+    track_temp_delta_c: float = 0.0,
+    sc_windows: Optional[Sequence[Tuple[int, int]]] = None,
+    vsc_windows: Optional[Sequence[Tuple[int, int]]] = None,
+) -> CustomStrategyResult:
+    """'Strateji Simülatörü' kum havuzu: kullanıcı Aşınma Çarpanı, Pist
+    Sıcaklığı farkı ve Hedef Pit Turu'nu değiştirdiğinde tek-duraklı yarışı
+    BAŞTAN hesaplar ve modelin KENDİ önerdiği (aynı varsayımlar altında
+    brute-force aranan en hızlı) pit turuna göre farkı (Delta Time) döner.
+
+    Örn. ``delta_to_optimal_s=3.2`` → kullanıcının seçtiği tur modelin
+    önerisinden 3.2 sn daha yavaş. Mevcut ``simulate_stint_plan``/
+    ``compare_plans`` API'sini BOZMAZ — üstüne inşa edilir.
+    """
+    total_laps = max(1, int(total_laps))
+    if total_laps < 4:
+        return CustomStrategyResult(ok=False, reason="yarış çok kısa (min. 4 tur gerekir)")
+
+    target_pit_lap = int(max(2, min(total_laps - 1, int(target_pit_lap))))
+
+    overrides = {
+        _norm_compound(start_compound): _scaled_tyre_model(
+            start_compound, deg_multiplier=degradation_multiplier, track_temp_delta_c=track_temp_delta_c),
+        _norm_compound(second_compound): _scaled_tyre_model(
+            second_compound, deg_multiplier=degradation_multiplier, track_temp_delta_c=track_temp_delta_c),
+    }
+
+    user_plan = StintPlan(start_compound, [(target_pit_lap, second_compound)])
+    user_res = simulate_stint_plan(
+        user_plan, total_laps=total_laps, base_lap_s=base_lap_s, pit_loss_s=pit_loss_s,
+        sc_windows=sc_windows, vsc_windows=vsc_windows, tyre_overrides=overrides,
+    )
+
+    optimal_lap, optimal_time = _optimal_pit_lap(
+        total_laps=total_laps, base_lap_s=base_lap_s, start_compound=start_compound,
+        second_compound=second_compound, pit_loss_s=pit_loss_s, tyre_overrides=overrides,
+        sc_windows=sc_windows, vsc_windows=vsc_windows,
+    )
+
+    second_stint_len = total_laps - target_pit_lap
+    second_model = overrides[_norm_compound(second_compound)]
+    dropoff_lap = (target_pit_lap + second_model.cliff) if second_model.cliff <= second_stint_len else None
+
+    delta = round(user_res.total_time_s - optimal_time, 3)
+    verdict = "eşit" if abs(delta) < 0.05 else ("daha yavaş" if delta > 0 else "daha hızlı")
+
+    return CustomStrategyResult(
+        ok=True,
+        total_laps=total_laps,
+        degradation_multiplier=round(float(degradation_multiplier), 3),
+        track_temp_delta_c=round(float(track_temp_delta_c), 1),
+        start_compound=_norm_compound(start_compound),
+        second_compound=_norm_compound(second_compound),
+        user_pit_lap=target_pit_lap,
+        user_total_time_s=user_res.total_time_s,
+        user_dropoff_lap=dropoff_lap,
+        optimal_pit_lap=optimal_lap,
+        optimal_total_time_s=optimal_time,
+        delta_to_optimal_s=delta,
+        verdict=verdict,
+    )
 
 
 # =========================================================================
