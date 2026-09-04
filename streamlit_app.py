@@ -13935,6 +13935,24 @@ _RE_HUD_CSS = r"""
 .re-div-bar.neg{right:50%}
 .re-div-row .n{font:700 12px var(--k-f-data);font-variant-numeric:tabular-nums;text-align:right;color:var(--k-ink)}
 .re-div-row .n u{font:600 7px var(--k-f-data);letter-spacing:.08em;color:var(--k-mute);text-decoration:none;margin-left:2px}
+/* --- Hız Tuzağı: tüm pilot gridi (tam genişlik, kaydırmalı) --- */
+.re-col .hd{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.re-col .hd .ct{font:600 8px var(--k-f-data);letter-spacing:.04em;text-transform:none;color:var(--k-mute)}
+.st-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;max-height:420px;overflow-y:auto;
+  padding-right:4px;scrollbar-width:thin;scrollbar-color:var(--k-line-2) var(--k-void)}
+.st-grid::-webkit-scrollbar{width:6px}
+.st-grid::-webkit-scrollbar-track{background:var(--k-void);border-radius:3px}
+.st-grid::-webkit-scrollbar-thumb{background:var(--k-line-2);border-radius:3px}
+.st-grid::-webkit-scrollbar-thumb:hover{background:var(--k-mute)}
+.st-row{display:grid;grid-template-columns:20px 38px 1fr 44px;gap:6px;align-items:baseline;
+  padding:6px 8px 6px 9px;border-left:3px solid var(--tc,var(--k-cyan));border-radius:2px;background:var(--k-raised)}
+.st-row .rk{font:700 8px var(--k-f-data);color:var(--k-mute);letter-spacing:.02em}
+.st-row .cd{font:700 10px var(--k-f-data);letter-spacing:.04em;color:var(--k-ink)}
+.st-row .v{font:800 15px var(--k-f-data);font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+  color:var(--tc,var(--k-ink));text-align:right}
+.st-row .v u{font:600 7px var(--k-f-data);letter-spacing:.06em;color:var(--k-mute);text-decoration:none;margin-left:2px}
+.st-row .d{font:700 9px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-mute);text-align:right}
+@media(max-width:820px){.st-grid{grid-template-columns:1fr}}
 """
 
 
@@ -14071,15 +14089,43 @@ def _re_pace_panel(rep):
 
 
 def _re_speed_panel(rep):
-    """Vmax/Vmin: 'sıkıcı rakamlar' yerine ortalamayı merkez alan diverging bar —
-    her satır kendi pilotunun GERÇEK F1 takım rengiyle (jenerik cyan/amber yok)."""
-    ts = (rep or {}).get("top_speed") or {}
-    vmax = ts.get("v_max_by_driver") or {}
+    """Pist Geneli Hız Analizi: TÜM pilotların Hız Tuzağı sıralaması
+    (rep['speed_trap'] varsa — router tüm gridi ekler; yoksa analyze_practice'in
+    sınırlı top_speed'ine düşer, geriye dönük uyum) + VMIN kritik viraj diverging
+    bar. Jenerik renk yok — her satır kendi pilotunun GERÇEK F1 takım rengiyle."""
+    team_of = _re_driver_team_map(rep)
+    year = (rep or {}).get("year")
+
+    grid = list((rep or {}).get("speed_trap") or [])
+    if not grid:
+        vmax = ((rep or {}).get("top_speed") or {}).get("v_max_by_driver") or {}
+        grid = [{"code": cd, "team": team_of.get(cd, ""), "v": v} for cd, v in vmax.items()]
+
+    trap_html = ""
+    if grid:
+        ordered = sorted(grid, key=lambda r: r.get("v") or 0, reverse=True)
+        best = ordered[0].get("v") or 0
+        rows = ""
+        for i, r in enumerate(ordered):
+            code = str(r.get("code") or "—")
+            v = float(r.get("v") or 0)
+            colour = r.get("colour") or _re_driver_color(code, team_of, year)
+            rows += (
+                f"<div class='st-row' style='--tc:{colour}'>"
+                f"<span class='rk'>#{i + 1}</span>"
+                f"<span class='cd'>{html_lib.escape(code)}</span>"
+                f"<span class='v'>{v:.0f}<u>km/s</u></span>"
+                f"<span class='d'>{'BAZ' if i == 0 else f'-{best - v:.0f}'}</span></div>"
+            )
+        trap_html = (
+            "<div class='re-col'><div class='hd'>Hız Tuzağı · Tüm Pilotlar"
+            f"<span class='ct'>{len(ordered)} pilot</span></div>"
+            f"<div class='st-grid'>{rows}</div></div>"
+        )
+
     corners = (rep or {}).get("corner_compare") or []
     crit = min(corners, key=lambda r: min((r.get("v_min_by_driver") or {"x": 9e9}).values()), default=None) \
         if corners else None
-    team_of = _re_driver_team_map(rep)
-    year = (rep or {}).get("year")
 
     def _col(title, pairs):
         if not pairs:
@@ -14105,60 +14151,20 @@ def _re_speed_panel(rep):
                 f"<div class='re-div-avg'>ORTALAMA <b>{mean_v:.0f} km/s</b> merkez alınmıştır</div>"
                 f"{rows}</div>")
 
-    left = _col("VMAX · EN UZUN DÜZLÜK", vmax)
-    right = _col(f"VMIN · KRİTİK VİRAJ ~{crit['distance_m']:.0f} M", crit.get("v_min_by_driver") or {}) if crit else ""
-    parts = [p for p in (left, right) if p]
+    vmin_html = _col(f"VMIN · KRİTİK VİRAJ ~{crit['distance_m']:.0f} M", crit.get("v_min_by_driver") or {}) if crit else ""
+    parts = [p for p in (trap_html, vmin_html) if p]
     if not parts:
         return ""
     body = f"<div class='re-grid2'>{''.join(parts)}</div>" if len(parts) == 2 else parts[0]
     return (
         "<div class='re'>"
-        "<div class='re-h'><span class='t'>Hız Hiyerarşisi</span>"
-        "<span class='s'>Vmax &amp; Vmin · en hızlı tur</span></div>"
+        "<div class='re-h'><span class='t'>Pist Geneli Hız Analizi</span>"
+        "<span class='s'>hız tuzağı · Vmin · en hızlı tur</span></div>"
         + body
-        + "<div class='re-sub'>Vmax = düzlük sonu tepe hız · Vmin = apeksdeki en düşük hız · "
-        "barlar ortalamadan sapmayı gösterir (sağa = ortalamadan hızlı, sola = yavaş).</div>"
+        + "<div class='re-sub'>Hız tuzağı FastF1'in resmi Speed Trap ölçümünü (yoksa telemetri tepe "
+        "hızını) sıralar · Vmin = apeksdeki en düşük hız, barlar ortalamadan sapmayı gösterir "
+        "(sağa = ortalamadan hızlı, sola = yavaş).</div>"
         "</div>"
-    )
-
-
-def _re_straight_panel(rep):
-    st_ = (rep or {}).get("straights") or {}
-    if not st_.get("estimated") and not st_.get("straights") and not st_.get("v_max_kmh"):
-        return ""  # gerçekten veri yok — "bulunamadı" metni yerine panel tamamen gizlenir
-    longest = (st_.get("straights") or [{}])[0]
-    head = ("<div class='re-h'><span class='t'>Düzlük Modu (Straight Mode)</span>"
-            "<span class='s'>düzlük hız deltası · km/s</span></div>")
-    if st_.get("estimated"):
-        # bu seans için ölçülemedi — boş/hata basmak yerine AÇIKÇA işaretli tipik değer
-        gain = float(st_.get("drs_gain_kmh") or 0.0)
-        return (
-            "<div class='re'>" + head
-            + "<div class='re-lbl'>Düzlükte Hız Kazancı · tahmini</div>"
-            + f"<div class='re-gnum' style='color:var(--k-amber)'>~{gain:.1f}<u>km/s</u></div>"
-            + f"<div class='re-sub'>{html_lib.escape(str(st_.get('source') or 'geçmiş seans ortalaması'))}. "
-              "Bu bir ölçüm değildir — bu seansın telemetrisi düzlük analizine yetmedi.</div></div>"
-        )
-    if not st_.get("drs_available"):
-        return (
-            "<div class='re'>" + head
-            + "<div class='re-gnum' style='color:var(--k-mute)'>—<u>km/s</u></div>"
-            + "<div class='re-sub'>Bu seansın telemetrisinde düzlük modu (aktif aero) açık/kapalı "
-              f"ayrımı bulunamadı. En uzun düzlük ~{longest.get('length_m', 0):.0f} m · "
-              f"tepe hız {st_.get('v_max_kmh', 0):.0f} km/s.</div></div>"
-        )
-    gain = float(st_.get("drs_gain_kmh") or 0.0)
-    seg_n, seg_max = 14, 28.0
-    on = int(round(_clamp_local(gain / seg_max, 0, 1) * seg_n))
-    gauge = "".join(f"<i class='{'on' if k < on else ''}'></i>" for k in range(seg_n))
-    return (
-        "<div class='re'>" + head
-        + "<div class='re-lbl'>Düzlükte Hız Kazancı</div>"
-        + f"<div class='re-gnum'>+{gain:.1f}<u>km/s</u></div>"
-        + f"<div class='re-gauge'>{gauge}</div>"
-        + f"<div class='re-sub'>En uzun düzlük ~{longest.get('length_m', 0):.0f} m · tepe hız "
-          f"{st_.get('v_max_kmh', 0):.0f} km/s. Gösterge 0–{seg_max:.0f} km/s: düzlük modu "
-          f"açıkken tepe hız bu kadar artıyor.</div></div>"
     )
 
 
@@ -14315,10 +14321,6 @@ def speed_hierarchy_hud(rep):
     return _re_shell(_re_speed_panel(rep))
 
 
-def drs_efficiency_hud(rep):
-    return _re_shell(_re_straight_panel(rep))
-
-
 def driving_character_hud(rep):
     return _re_shell(_re_char_panel(rep))
 
@@ -14328,15 +14330,14 @@ def track_dominance_hud(rep):
 
 
 def race_engineer_room_html(rep):
-    """5 paneli TEK iframe'de birleştiren Yarış Mühendisi Odası (sıfır boşluk).
+    """TEK iframe'de birleştiren Yarış Mühendisi Odası (sıfır boşluk). Düzlük
+    Modu paneli kaldırıldı — Hız Tuzağı artık tüm pilot gridini kapsıyor.
     Veri olmayan panel KESİNLİKLE basılmaz — boş `.re` kutucuğu yerine hiç yer kaplamaz."""
-    duo = [p for p in (_re_straight_panel(rep), _re_char_panel(rep)) if p]
-    duo_html = ""
-    if len(duo) == 2:
-        duo_html = "<div class='rr-2'>" + duo[0] + duo[1] + "</div>"
-    elif duo:
-        duo_html = duo[0]
-    body = "".join(p for p in (_re_pace_panel(rep), _re_speed_panel(rep), _re_dominance_panel(rep)) if p) + duo_html
+    body = "".join(
+        p for p in (
+            _re_pace_panel(rep), _re_speed_panel(rep), _re_dominance_panel(rep), _re_char_panel(rep),
+        ) if p
+    )
     if not body:
         return _re_shell(
             "<div class='re'><div class='re-sub'>Bu seans için mühendislik analizi üretecek "
@@ -14392,12 +14393,11 @@ def _router_page_telemetry():
             "Kuş Bakışı Pist Dominasyonu",
             "2D Tur Düellosu",
             "Telemetri & Fren Analizi",
-            "Top Hız & Sürücü Tablosu",
             "Lastik Stratejisi & Stintler",
             "Hava & Pist Evrimi",
             "Yarış Mühendisi Odası",
         ]
-        _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Top Hız", "Lastik Stratejisi", "Hava & Evrim", "Mühendis Odası"]
+        _MODE_LABELS = ["Pist Dominasyonu", "2D Tur Düellosu", "Fren Analizi", "Lastik Stratejisi", "Hava & Evrim", "Mühendis Odası"]
         if hasattr(st, "segmented_control"):
             _picked = st.segmented_control("Görünüm", _MODE_LABELS, default=_MODE_LABELS[0], key="tel_mode")
         else:
@@ -14634,47 +14634,6 @@ def _router_page_telemetry():
                         fp_ui.data_state("GEÇ FRENLEME İPUCU", "Fren izindeki dikey sıçrama fren noktasıdır; hangi pilotunki daha sağdaysa o pilot viraja daha geç fren yapmıştır. Hız izinde çizgiler ayrışan yerde bir pilot belirgin hızlıdır.", "info")
                         fp_ui.data_state("İÇGÖRÜ", get_speed_difference_insight(session, d1, d2, tel1, tel2), "success")
 
-            # --- MOD 4: TOP HIZ & SÜRÜCÜ TABLOSU ---
-            elif analiz_turu == _MODES[3]:
-                fp_ui.section_title(f"{session.event['EventName']} · Top Hız Tablosu{header_suffix}")
-                
-                summary_data = []
-                for drv in drivers_list:
-                    try:
-                        drv_lap = get_driver_fastest_lap(session, drv, target_q)
-                        if drv_lap is not None:
-                            drv_tel = drv_lap.get_telemetry()
-                            max_speed = drv_tel['Speed'].max()
-                            lap_distance_km = drv_tel['Distance'].max() / 1000
-                            lap_hours = drv_lap['LapTime'].total_seconds() / 3600
-                            avg_speed = lap_distance_km / lap_hours if lap_hours > 0 else np.nan
-                            drv_number = drv_lap['DriverNumber']
-                            compound = drv_lap.get('Compound', '-')
-                            def official_speed(column):
-                                value = pd.to_numeric(drv_lap.get(column), errors='coerce')
-                                return round(float(value), 1) if pd.notna(value) else '—'
-
-                            summary_data.append({
-                                "No": f"#{drv_number}",
-                                "Pilot": drv,
-                                f"Tur Zamanı {header_suffix}": format_time(drv_lap['LapTime']),
-                                "Lastik": compound,
-                                "Resmî Speed Trap (km/h)": official_speed('SpeedST'),
-                                "I1 / I2 (km/h)": f"{official_speed('SpeedI1')} / {official_speed('SpeedI2')}",
-                                "Telemetri Maks. Hız (km/h)": round(max_speed, 1),
-                                "Tur Ortalama Hızı (km/h)": round(avg_speed, 1),
-                                "_saniye": drv_lap['LapTime'].total_seconds()
-                            })
-                    except Exception:
-                        pass
-
-                if summary_data:
-                    df_summary = pd.DataFrame(summary_data).sort_values(by="_saniye", ascending=True).drop(columns="_saniye")
-                    st.dataframe(df_summary, width='stretch')
-                    st.caption("Resmî Speed Trap / I1 / I2 FastF1'in ilgili seans ölçüm alanından gelir. Telemetri Maks. Hız ise turdaki en yüksek örneklenmiş hızdır; ikisi aynı şey değildir.")
-                else:
-                    st.warning("Veri çekilemedi.")
-
             # --- MOD 4: LASTİK STRATEJİSİ ---
             elif analiz_turu == "Lastik Stratejisi & Stintler":
                 fp_ui.section_title(f"{session.event['EventName']} · Lastik Stratejisi{header_suffix}")
@@ -14714,8 +14673,8 @@ def _router_page_telemetry():
                     st.pyplot(figure, width='stretch')
                     st.dataframe(strategy, width='stretch', hide_index=True)
 
-            # --- MOD 6: HAVA & PİST EVRİMİ ---
-            elif analiz_turu == _MODES[5]:
+            # --- MOD 5: HAVA & PİST EVRİMİ ---
+            elif analiz_turu == "Hava & Pist Evrimi":
                 fp_ui.section_title(f"{session.event['EventName']} · Hava & Pist Evrimi{header_suffix}")
                 with st.spinner("Hava ve tur zamanı verisi hazırlanıyor..."):
                     _wx_evo = get_weather_evolution_v42(year, gp, session_type)
@@ -14740,6 +14699,9 @@ def _router_page_telemetry():
                     if not _re_rep.get("ok"):
                         st.warning(f"Analiz üretilemedi: {_re_rep.get('reason', 'yeterli veri yok')}")
                     else:
+                        # rep['speed_trap'] artık backend'den (analyze_practice ->
+                        # full_grid_speed_trap) geliyor — tüm gridi kapsar, ekstra
+                        # sorgu gerekmez.
                         _re_h = 1520 if session_type in ("FP1", "FP2", "FP3") else 1400
                         render_html_hud(race_engineer_room_html(_re_rep), height=_re_h, scrolling=True)
 

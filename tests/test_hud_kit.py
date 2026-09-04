@@ -578,54 +578,35 @@ def test_race_pace_deg_hud_has_axis_grid(re_report):
 def test_speed_hierarchy_hud_vmax_vmin(re_report):
     html = app.speed_hierarchy_hud(re_report)
     _no_streamlit_widgets(html)
-    assert "VMAX" in html and "VMIN" in html
+    assert "Pist Geneli Hız Analizi" in html and "VMIN" in html
     assert "318" in html and "km/s" in html
-    # "sıkıcı rakamlar" yerine ortalamayı merkez alan diverging bar
-    assert "re-div-row" in html and "re-div-bar" in html and "ORTALAMA" in html
+    # top_speed.v_max_by_driver'a düşen Hız Tuzağı tam-grid paneli (speed_trap yoksa)
+    assert "Hız Tuzağı" in html and "st-grid" in html and "st-row" in html
     assert "class='re-big" not in html                  # eski dikey rakam sütunu kaldırıldı
+    # VMIN hâlâ ortalamayı merkez alan diverging bar
+    assert "re-div-row" in html and "re-div-bar" in html and "ORTALAMA" in html
     # gerçek F1 takım rengi (VER=Red Bull, HAM=Mercedes) — jenerik cyan/amber yok
     assert app.season_team_colour("Red Bull", 2024) in html
     assert app.season_team_colour("Mercedes", 2024) in html
 
 
+def test_speed_hierarchy_hud_uses_full_speed_trap_grid(re_report):
+    # router tüm pilot gridini rep['speed_trap']'e ekleyince panel ONU kullanır
+    re_report["speed_trap"] = [
+        {"code": "LEC", "team": "Ferrari", "v": 341.0},
+        {"code": "VER", "team": "Red Bull", "v": 338.0},
+        {"code": "HAM", "team": "Mercedes", "v": 335.0},
+        {"code": "NOR", "team": "McLaren", "v": 333.0},
+    ]
+    html = app.speed_hierarchy_hud(re_report)
+    assert "341" in html and "#1" in html
+    assert "-6" in html                                  # LEC-HAM farkı (341-335)
+    assert html.count("st-row") >= 4
+    assert app.season_team_colour("Ferrari", 2024) in html
+
+
 def test_speed_hierarchy_hud_hides_when_truly_empty():
     html = app.speed_hierarchy_hud({"top_speed": {}, "corner_compare": []})
-    assert "<div class='re'>" not in html
-
-
-def test_straight_mode_hud_terminology(re_report):
-    html = app.drs_efficiency_hud(re_report)
-    _no_streamlit_widgets(html)
-    assert "Düzlük Modu (Straight Mode)" in html
-    assert "Düzlükte Hız Kazancı" in html and "düzlük hız deltası" in html
-    assert "DRS" not in html                            # eski terminoloji temizlendi
-    assert "+12.4" in html and "re-gauge" in html
-
-
-def test_straight_mode_hud_no_channel(re_report):
-    re_report["straights"]["drs_available"] = False
-    re_report["straights"]["drs_gain_kmh"] = None
-    html = app.drs_efficiency_hud(re_report)
-    assert "Düzlük Modu" in html and "DRS YOK" not in html and "2026 KURALI" not in html
-    assert "açık/kapalı" in html                        # nötr açıklama
-
-
-def test_straight_mode_hud_estimated_fallback_not_blank(re_report):
-    # bu seans ölçülemedi — arayüz hata/boşluk basmak yerine işaretli tipik değer gösterir
-    re_report["straights"] = {"ok": True, "v_max_kmh": 0.0, "drs_available": True,
-                              "drs_gain_kmh": 10.0, "estimated": True,
-                              "source": "geçmiş seans ortalaması (bu seans için telemetri yetersiz)",
-                              "straights": []}
-    html = app.drs_efficiency_hud(re_report)
-    assert "Düzlük Modu" in html
-    assert "~10.0" in html and "tahmini" in html
-    assert "geçmiş seans ortalaması" in html
-    assert "—<u>km/s</u>" not in html                    # çıplak boş durum yok
-
-
-def test_straight_mode_hud_hides_when_truly_empty():
-    # ne ölçüm ne tahmin — "bulunamadı" metni yerine panel tamamen gizlenir
-    html = app.drs_efficiency_hud({"straights": {}})
     assert "<div class='re'>" not in html
 
 
@@ -665,12 +646,13 @@ def test_track_dominance_hud_no_insights_is_safe():
 def test_race_engineer_room_is_single_iframe(re_report):
     html = app.race_engineer_room_html(re_report)
     _no_streamlit_widgets(html)
-    # tek <style>, 5 panel, birleşik grid
+    # tek <style>, panel başlıkları, Düzlük Modu kaldırıldı
     assert html.count("<style>") == 1
-    assert "class='rr'" in html and "rr-2" in html
-    for title in ("Yarış Temposu", "Hız Hiyerarşisi", "Pist Hakimiyeti",
-                  "Düzlük Modu (Straight Mode)", "Sürüş Karakteristiği"):
+    assert "class='rr'" in html
+    for title in ("Yarış Temposu", "Pist Geneli Hız Analizi", "Pist Hakimiyeti",
+                  "Sürüş Karakteristiği"):
         assert title in html
+    assert "Düzlük Modu" not in html and "Straight Mode" not in html
     assert "rr-foot" in html                            # "nasıl okunur" gömülü
 
 
@@ -682,7 +664,7 @@ def test_race_engineer_room_shows_dominance_badges(re_report):
 
 
 def test_race_engineer_room_hides_empty_sub_panels():
-    # düzlük + karakter verisi yok -> rr-2 ikilisi hiç basılmaz; oda yine de dolu panellerle döner
+    # karakter + hız verisi yok -> o paneller hiç basılmaz; oda yine de dolu panellerle döner
     rep = {
         "ok": True, "year": 2024,
         "race_pace": {"teams": [{"team": "Ferrari", "pace_s": 90.0, "gap_s": 0.0,
@@ -691,14 +673,14 @@ def test_race_engineer_room_hides_empty_sub_panels():
         "corner_compare": [], "top_speed": {},
     }
     html = app.race_engineer_room_html(rep)
-    assert "class='rr-2'" not in html
-    assert "Düzlük Modu" not in html and "Sürüş Karakteristiği" not in html
+    assert "Sürüş Karakteristiği" not in html
+    assert "Pist Geneli Hız Analizi" not in html          # speed_trap yok + top_speed boş -> panel de gizlenir
 
 
 def test_re_huds_degrade_gracefully_on_empty():
     for fn in (app.race_pace_deg_hud, app.speed_hierarchy_hud,
-               app.drs_efficiency_hud, app.driving_character_hud,
-               app.track_dominance_hud, app.race_engineer_room_html):
+               app.driving_character_hud, app.track_dominance_hud,
+               app.race_engineer_room_html):
         out = fn({"ok": True})
         assert isinstance(out, str) and "color-scheme:dark" in out
 
