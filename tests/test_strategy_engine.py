@@ -632,3 +632,99 @@ def test_engine_module_import_is_stdlib_only():
     res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert res.returncode == 0, res.stderr
     assert "ok" in res.stdout
+
+
+# ---- 6.5 Veri İhracat Motoru (export) -----------------------------
+
+def _sample_engineer_report():
+    """analyze_practice() dönüş şeklini taklit eden sentetik rapor — ağ/FastF1 yok."""
+    return {
+        "ok": True, "year": 2026, "gp": "Hungary", "session": "FP2",
+        "top_speed": {
+            "v_max_by_driver": {"VER": 332.0, "HAM": 328.0},
+            "delta_to_best": {"VER": 0.0, "HAM": 4.0},
+        },
+        "speed_trap": [
+            {"code": "VER", "team": "Red Bull Racing", "v": 335.0},
+            {"code": "HAM", "team": "Mercedes", "v": 330.0},
+        ],
+        "corner_compare": [
+            {"corner_id": 1, "v_min_by_driver": {"VER": 95.0, "HAM": 92.0}},
+            {"corner_id": 2, "v_min_by_driver": {"VER": 140.0, "HAM": 138.0}},
+        ],
+        "race_pace": {
+            "drivers": [
+                {"driver": "VER", "team": "Red Bull Racing", "pace_s": 80.1, "gap_s": 0.0,
+                 "compound": "MEDIUM", "laps": 12},
+                {"driver": "HAM", "team": "Mercedes", "pace_s": 80.6, "gap_s": 0.5,
+                 "compound": "MEDIUM", "laps": 10},
+            ],
+        },
+        "degradation": {
+            "VER": {"compound": "MEDIUM", "deg_rate_s_per_lap": 0.045, "dropoff_lap": 18, "dropoff_loss_s": 0.6},
+            "HAM": {"compound": "MEDIUM", "deg_rate_s_per_lap": 0.052, "dropoff_lap": 16, "dropoff_loss_s": 0.7},
+        },
+        "driving_style": {
+            "VER": {"label": "Agresif", "throttle_aggression": 0.8, "brake_aggression": 0.75,
+                    "lift_and_coast_frac": 0.02, "brake_zones": 9, "brake_point_consistency": 0.91},
+            "HAM": {"label": "Dengeli", "throttle_aggression": 0.6, "brake_aggression": 0.6,
+                    "lift_and_coast_frac": 0.05, "brake_zones": 9, "brake_point_consistency": 0.88},
+        },
+    }
+
+
+def test_export_rows_merges_all_engines_per_driver():
+    rows = se._export_rows(_sample_engineer_report())
+    by_drv = {r["driver"]: r for r in rows}
+    assert set(by_drv) == {"VER", "HAM"}
+    ver = by_drv["VER"]
+    assert ver["team"] == "Red Bull Racing"
+    assert ver["vmax_kmh"] == 332.0
+    assert ver["speed_trap_kmh"] == 335.0
+    assert ver["vmin_critical_corner_kmh"] == 95.0    # en kritik (en düşük) viraj seçilir
+    assert ver["race_pace_s"] == 80.1
+    assert ver["degradation_dropoff_lap"] == 18
+    assert ver["driving_style_label"] == "Agresif"
+
+
+def test_export_rows_missing_engine_leaves_none_not_fabricated():
+    rep = _sample_engineer_report()
+    del rep["degradation"]["HAM"]
+    rows = {r["driver"]: r for r in se._export_rows(rep)}
+    assert rows["HAM"]["degradation_dropoff_lap"] is None
+    assert rows["HAM"]["degradation_rate_s_per_lap"] is None
+    # VER etkilenmemeli
+    assert rows["VER"]["degradation_dropoff_lap"] == 18
+
+
+def test_export_engineer_data_csv_has_standard_header_and_rows():
+    out = se.export_engineer_data(_sample_engineer_report(), fmt="csv")
+    lines = out.strip().splitlines()
+    header = lines[0].split(",")
+    assert header == se.EXPORT_COLUMNS
+    assert len(lines) == 3  # başlık + 2 pilot
+    assert "VER" in out and "HAM" in out
+    assert "Red Bull Racing" in out
+
+
+def test_export_engineer_data_json_round_trips():
+    import json
+    out = se.export_engineer_data(_sample_engineer_report(), fmt="json")
+    payload = json.loads(out)
+    assert payload["gp"] == "Hungary" and payload["session"] == "FP2"
+    drivers = {d["driver"]: d for d in payload["drivers"]}
+    assert drivers["VER"]["vmax_kmh"] == 332.0
+    assert drivers["HAM"]["race_pace_gap_s"] == 0.5
+
+
+def test_export_engineer_data_unknown_format_raises():
+    try:
+        se.export_engineer_data(_sample_engineer_report(), fmt="xml")
+        assert False, "beklenmeyen format sessizce kabul edilmemeli"
+    except ValueError:
+        pass
+
+
+def test_export_engineer_data_empty_report_still_returns_valid_header():
+    out = se.export_engineer_data({}, fmt="csv")
+    assert out.strip().splitlines()[0].split(",") == se.EXPORT_COLUMNS

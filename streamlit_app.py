@@ -13811,6 +13811,77 @@ div[class*="st-key-re_room"] .fp-section{margin:0 0 2px}
 div[class*="st-key-re_room"] [data-testid="stIFrame"]{border-radius:var(--fp-r-lg,12px);overflow:hidden}
 </style>"""
 
+# İlk-bakış rehberi (onboarding) — oyun "Nasıl Oynanır" kapısıyla AYNI mimari
+# (keyed st.container + position:fixed overlay; @st.dialog gate deseninde
+# güvenilir değil — bkz. _game_intro_gate_v8). Ayrı, kendi ad alanında CSS.
+_RE_WELCOME_CSS = """<style>
+div[class*="st-key-re_welcome"]{position:fixed;inset:0;z-index:900;
+  display:grid;place-items:center;padding:24px;overflow-y:auto}
+div[class*="st-key-re_welcome"]::before{content:"";position:fixed;inset:0;
+  background:color-mix(in srgb,var(--fp-bg-0) 66%,transparent);
+  backdrop-filter:blur(8px) saturate(1.1);-webkit-backdrop-filter:blur(8px) saturate(1.1)}
+div[class*="st-key-re_welcome"] > div{position:relative;width:min(440px,100%);
+  background:color-mix(in srgb,var(--fp-bg-2) 92%,transparent);
+  border:1px solid var(--fp-line-2);border-radius:16px;padding:24px 26px;
+  box-shadow:0 34px 90px -18px rgba(0,0,0,.78)}
+.rew-eb{font:700 9px var(--fp-f-mono,ui-monospace);letter-spacing:.22em;text-transform:uppercase;color:var(--fp-cyan)}
+.rew-h{font:700 23px/1.12 var(--fp-f-display,Inter);letter-spacing:-.02em;color:var(--fp-text);
+  margin:8px 0 0;text-wrap:balance;padding-bottom:14px;border-bottom:1px solid var(--fp-line)}
+.rew-list{list-style:none;margin:16px 0 4px;padding:0;display:flex;flex-direction:column;gap:13px}
+.rew-list li{display:grid;grid-template-columns:26px 1fr;gap:11px;align-items:start;
+  font:400 13px/1.55 var(--fp-f-body,Inter);color:var(--fp-text-dim)}
+.rew-list li .n{font:700 12px var(--fp-f-mono,ui-monospace);color:var(--fp-cyan);
+  border:1px solid color-mix(in srgb,var(--fp-cyan) 40%,transparent);border-radius:50%;
+  text-align:center;line-height:24px;height:26px;width:26px}
+.rew-list li b{color:var(--fp-text);font-weight:600}
+div[class*="st-key-re_welcome"] .stButton>button{margin-top:16px}
+</style>"""
+
+
+def _re_room_welcome_gate():
+    """Yarış Mühendisi Odası ilk-bakış rehberi: sabit-ortalanmış glassmorphism
+    panel, 3 kısa maddeyle ekranı okumayı anlatır. Oyun kapılarıyla AYNI
+    kalıcılık mekanizması (`fp_ui` prefs 'gi' listesi — session_state +
+    `?fp=` URL kodlu) ile yalnız BİR kez gösterilir. İlk açılışsa True döner
+    (çağıran `return` eder — oda verisi rehber kapanmadan görünmez)."""
+    seen = fp_ui.get_pref('gi')
+    seen = list(seen) if isinstance(seen, (list, tuple)) else []
+    reopen = st.session_state.get('_re_welcome_reopen')
+    if 're_room' in seen and not reopen:
+        return False
+
+    st.markdown(_RE_WELCOME_CSS, unsafe_allow_html=True)
+    steps = [
+        ("Renkler takımı gösterir",
+         "Her satırdaki nokta ve renkli şerit o pilotun GERÇEK takım rengidir — "
+         "Ferrari kırmızı, McLaren turuncu, Mercedes turkuaz gibi."),
+        ("ⓘ işaretine dikkat et",
+         "VMAX, VMIN, Trail-brake, Drop-off gibi mühendislik terimlerinin yanındaki "
+         "küçük ⓘ ikonuna gelince (veya dokununca) kısa bir açıklama açılır."),
+        ("Barlar ortalamayı gösterir",
+         "Sağa uzayan bar ortalamadan hızlı, sola uzayan bar ortalamadan yavaş "
+         "demektir — sıfır noktası pistteki ortalama değerdir."),
+    ]
+    rules_html = "".join(
+        f"<li><span class='n'>{i + 1}</span><span><b>{html_lib.escape(t)}</b><br>{html_lib.escape(d)}</span></li>"
+        for i, (t, d) in enumerate(steps)
+    )
+    with st.container(key="re_welcome"):
+        with st.container():
+            st.markdown(
+                "<div class='rew-eb'>Mühendis Odası kılavuzu</div>"
+                "<div class='rew-h'>Yarış Mühendisi Odasına Hoş Geldin</div>"
+                f"<ol class='rew-list'>{rules_html}</ol>",
+                unsafe_allow_html=True,
+            )
+            if st.button("Pit Duvarına Geç →", key="re_welcome_start", type="primary", width='stretch'):
+                if 're_room' not in seen:
+                    seen.append('re_room')
+                    fp_ui.set_pref('gi', seen)
+                st.session_state.pop('_re_welcome_reopen', None)
+                st.rerun()
+    return True
+
 
 # =========================================================================
 # YARIŞ MÜHENDİSİ ODASI — strategy_engine §6 motorlarının yayın HUD'ları
@@ -14066,7 +14137,9 @@ def _re_pace_panel(rep):
             mono += f"<div><s>{c}</s><b>{prefix}{int(info['dropoff_lap'])}. tur</b></div>"
         else:
             mono += f"<div><s>{c}</s><b>—</b></div>"
-    mono_panel = ("<div class='re-lbl' style='margin-top:12px'>Drop-off · aşınmanın hızlandığı tur "
+    mono_panel = ("<div class='re-lbl' style='margin-top:12px'>Drop-off"
+                  + fp_kit.info("Drop-off: lastiğin performansını aniden kaybettiği, aşınmanın hızlandığı tur.")
+                  + " · aşınmanın hızlandığı tur "
                   "<span style='text-transform:none;letter-spacing:0'>(~ = ölçülemedi, orana göre tahmin)</span></div>"
                   f"<div class='re-mono'>{mono}</div>")
 
@@ -14081,7 +14154,9 @@ def _re_pace_panel(rep):
         "<div class='re-h'><span class='t'>Yarış Temposu &amp; Aşınma</span>"
         "<span class='s'>tahmini · antrenman uzun turları</span></div>"
         + rows
-        + f"<div class='re-sub'>Takım farkları en hızlıya göre · {html_lib.escape(sub)}</div>"
+        + "<div class='re-sub'>Δ"
+        + fp_kit.info("Delta (Δ): iki değer arasındaki fark. Burada her takımın en hızlı takıma göre tur zamanı farkı (saniye).")
+        + f" Takım farkları en hızlıya göre · {html_lib.escape(sub)}</div>"
         + "<div class='re-deg'><span class='re-lbl'>Aşınma eğrisi · tur başına kayıp</span>"
         + svg + f"<div class='re-deg-lg'>{legend}</div>{mono_panel}</div>"
         + "</div>"
@@ -14118,8 +14193,10 @@ def _re_speed_panel(rep):
                 f"<span class='d'>{'BAZ' if i == 0 else f'-{best - v:.0f}'}</span></div>"
             )
         trap_html = (
-            "<div class='re-col'><div class='hd'>Hız Tuzağı · Tüm Pilotlar"
-            f"<span class='ct'>{len(ordered)} pilot</span></div>"
+            "<div class='re-col'><div class='hd'><span>Hız Tuzağı (VMAX)"
+            + fp_kit.info("VMAX / Hız Tuzağı: pilotun turdaki en yüksek ölçülen hızı — "
+                          "FastF1'in resmi Speed Trap noktasında kaydedilir.")
+            + f"</span><span class='ct'>{len(ordered)} pilot</span></div>"
             f"<div class='st-grid'>{rows}</div></div>"
         )
 
@@ -14151,7 +14228,11 @@ def _re_speed_panel(rep):
                 f"<div class='re-div-avg'>ORTALAMA <b>{mean_v:.0f} km/s</b> merkez alınmıştır</div>"
                 f"{rows}</div>")
 
-    vmin_html = _col(f"VMIN · KRİTİK VİRAJ ~{crit['distance_m']:.0f} M", crit.get("v_min_by_driver") or {}) if crit else ""
+    _vmin_title = (
+        "<span>VMIN" + fp_kit.info("VMIN: bir virajın en dar noktasında (apeks) ölçülen en düşük hız.")
+        + f" · KRİTİK VİRAJ ~{crit['distance_m']:.0f} M</span>"
+    ) if crit else ""
+    vmin_html = _col(_vmin_title, crit.get("v_min_by_driver") or {}) if crit else ""
     parts = [p for p in (trap_html, vmin_html) if p]
     if not parts:
         return ""
@@ -14224,7 +14305,11 @@ def _re_char_panel(rep):
         cmp_html = (
             f"<div class='re-cmp' style='--n:{n}'>"
             f"<div class='re-cmp-row hd'><s>APEKS km/s</s>{hd}</div>{apex_rows}"
-            f"<div class='re-cmp-row hd' style='margin-top:7px'><s>TRAIL-BRAKE</s>{hd}</div>{tb_rows}"
+            f"<div class='re-cmp-row hd' style='margin-top:7px'><s>TRAIL-BRAKE"
+            + fp_kit.info("Trail-brake: viraja girerken freni tamamen bırakmadan direksiyonu çevirmeye "
+                          "başlama tekniği. Değer 0'a yakınsa fren erken bırakılmış, yükseğe yakınsa "
+                          "virajın içine kadar taşınmış demektir.")
+            + f"</s>{hd}</div>{tb_rows}"
             f"</div>")
 
     return (
@@ -14694,6 +14779,8 @@ def _router_page_telemetry():
                 st.markdown(_RE_ROOM_CSS, unsafe_allow_html=True)
                 with st.container(key="re_room"):
                     fp_ui.section_title(f"{session.event['EventName']} · Yarış Mühendisi Odası{header_suffix}")
+                    if _re_room_welcome_gate():
+                        return
                     with st.spinner("Mühendis odası — analiz motorları çalışıyor..."):
                         _re_rep = _race_engineer_report_v1(year, gp, session_type)
                     if not _re_rep.get("ok"):
@@ -14704,6 +14791,23 @@ def _router_page_telemetry():
                         # sorgu gerekmez.
                         _re_h = 1520 if session_type in ("FP1", "FP2", "FP3") else 1400
                         render_html_hud(race_engineer_room_html(_re_rep), height=_re_h, scrolling=True)
+
+                        _re_fname = f"{gp}_{year}_{session_type}_muhendis_odasi".replace(" ", "_").lower()
+                        _re_dl1, _re_dl2, _re_dl3 = st.columns([1, 1, 4])
+                        with _re_dl1:
+                            st.download_button(
+                                "⬇ CSV indir", data=fp_strat.export_engineer_data(_re_rep, fmt="csv"),
+                                file_name=f"{_re_fname}.csv", mime="text/csv",
+                                width='stretch', key="re_export_csv",
+                            )
+                        with _re_dl2:
+                            st.download_button(
+                                "⬇ JSON indir", data=fp_strat.export_engineer_data(_re_rep, fmt="json"),
+                                file_name=f"{_re_fname}.json", mime="application/json",
+                                width='stretch', key="re_export_json",
+                            )
+                        st.caption("Ham veri: tüm grid VMAX/Vmin, tahmini yarış temposu, lastik aşınma "
+                                   "drop-off'u ve sürüş karakteristiği — pilot başına tek satır/nesne.")
 
     except Exception as e:
         st.error(f"Veriler çekilirken hata oluştu: {e}")

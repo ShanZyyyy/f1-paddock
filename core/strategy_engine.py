@@ -30,6 +30,9 @@ Kullanım::
 
 from __future__ import annotations
 
+import csv
+import io
+import json
 import logging
 import math
 import random
@@ -73,6 +76,8 @@ __all__ = [
     "extract_practice_laps",
     "extract_lap_samples",
     "analyze_practice",
+    "EXPORT_COLUMNS",
+    "export_engineer_data",
 ]
 
 # =========================================================================
@@ -1779,3 +1784,123 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
         "driving_style": style,
         "braking_profiles": brake_profiles,
     }
+
+
+# -------------------------------------------------------------------------
+# 6.5  VERİ İHRACAT MOTORU (Data Exporter) — Mühendis Odası → CSV/JSON
+# -------------------------------------------------------------------------
+# Sütun adları standartlaştırılmış (snake_case, birim adda) — hardcore
+# taraftarların kendi analizlerinde doğrudan kullanabilmesi için. Saf/stdlib:
+# FastF1/pandas'a bağımlı değil, analyze_practice()'in DÖNÜŞ SÖZLÜĞÜNÜ işler.
+EXPORT_COLUMNS: List[str] = [
+    "year", "gp", "session",
+    "driver", "team",
+    "vmax_kmh", "vmax_delta_to_leader_kmh",
+    "speed_trap_kmh",
+    "vmin_critical_corner_kmh",
+    "race_pace_s", "race_pace_gap_s", "race_pace_compound", "race_pace_laps",
+    "degradation_compound", "degradation_rate_s_per_lap",
+    "degradation_dropoff_lap", "degradation_dropoff_loss_s",
+    "driving_style_label", "throttle_aggression", "brake_aggression",
+    "lift_and_coast_frac", "brake_zones", "brake_point_consistency",
+]
+
+
+def _export_rows(rep: Optional[dict]) -> List[dict]:
+    """``analyze_practice()`` raporunu pilot başına TEK satıra indirger.
+
+    VMAX/hız tuzağı, kritik virajdaki Vmin, tahmini yarış temposu (delta
+    dahil), lastik aşınma drop-off'u ve sürüş karakteristiği aynı satırda
+    birleşir. Bir motor o pilot için veri üretmediyse hücre ``None`` kalır —
+    uydurma değer YAZILMAZ."""
+    rep = rep or {}
+    meta = {"year": rep.get("year"), "gp": rep.get("gp"), "session": rep.get("session")}
+
+    top_speed = rep.get("top_speed") or {}
+    vmax = top_speed.get("v_max_by_driver") or {}
+    vmax_delta = top_speed.get("delta_to_best") or {}
+
+    trap_by_driver: Dict[str, float] = {}
+    team_by_driver: Dict[str, str] = {}
+    for r in rep.get("speed_trap") or []:
+        code = r.get("code")
+        if not code:
+            continue
+        trap_by_driver[code] = r.get("v")
+        if r.get("team"):
+            team_by_driver[code] = r["team"]
+
+    corners = rep.get("corner_compare") or []
+    crit = min(
+        corners,
+        key=lambda r: min((r.get("v_min_by_driver") or {"_": 9e9}).values()),
+        default=None,
+    ) if corners else None
+    vmin_by_driver = (crit or {}).get("v_min_by_driver") or {}
+
+    pace_by_driver = {
+        r["driver"]: r for r in (rep.get("race_pace") or {}).get("drivers") or [] if r.get("driver")
+    }
+    deg_by_driver = rep.get("degradation") or {}
+    style_by_driver = rep.get("driving_style") or {}
+
+    drivers = set(vmax) | set(trap_by_driver) | set(vmin_by_driver) \
+        | set(pace_by_driver) | set(deg_by_driver) | set(style_by_driver)
+
+    rows: List[dict] = []
+    for d in sorted(drivers):
+        pace = pace_by_driver.get(d) or {}
+        deg = deg_by_driver.get(d) or {}
+        style = style_by_driver.get(d) or {}
+        team = pace.get("team") or team_by_driver.get(d) or ""
+        rows.append({
+            **meta,
+            "driver": d, "team": team,
+            "vmax_kmh": vmax.get(d),
+            "vmax_delta_to_leader_kmh": vmax_delta.get(d),
+            "speed_trap_kmh": trap_by_driver.get(d),
+            "vmin_critical_corner_kmh": vmin_by_driver.get(d),
+            "race_pace_s": pace.get("pace_s"),
+            "race_pace_gap_s": pace.get("gap_s"),
+            "race_pace_compound": pace.get("compound"),
+            "race_pace_laps": pace.get("laps"),
+            "degradation_compound": deg.get("compound"),
+            "degradation_rate_s_per_lap": deg.get("deg_rate_s_per_lap"),
+            "degradation_dropoff_lap": deg.get("dropoff_lap"),
+            "degradation_dropoff_loss_s": deg.get("dropoff_loss_s"),
+            "driving_style_label": style.get("label"),
+            "throttle_aggression": style.get("throttle_aggression"),
+            "brake_aggression": style.get("brake_aggression"),
+            "lift_and_coast_frac": style.get("lift_and_coast_frac"),
+            "brake_zones": style.get("brake_zones"),
+            "brake_point_consistency": style.get("brake_point_consistency"),
+        })
+    return rows
+
+
+def export_engineer_data(rep: Optional[dict], *, fmt: str = "csv") -> str:
+    """Yarış Mühendisi Odası raporunu (``analyze_practice`` çıktısı) indirilebilir
+    düz metne çevirir — ``fmt="csv"`` (varsayılan) veya ``fmt="json"``.
+
+    Pilot başına tek satır/nesne; sütunlar :data:`EXPORT_COLUMNS`'ta sabit ve
+    standartlaştırılmıştır, böylece hardcore taraftarlar veriyi kendi
+    tablolama/analiz araçlarına doğrudan içe aktarabilir. Arayüz tarafı bu
+    string'i doğrudan ``st.download_button(data=...)``'a verebilir."""
+    rows = _export_rows(rep)
+    key = (fmt or "csv").strip().lower()
+    if key == "json":
+        payload = {
+            "year": (rep or {}).get("year"),
+            "gp": (rep or {}).get("gp"),
+            "session": (rep or {}).get("session"),
+            "drivers": rows,
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2)
+    if key != "csv":
+        raise ValueError(f"desteklenmeyen export formatı: {fmt!r} (csv veya json bekleniyor)")
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=EXPORT_COLUMNS, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return buf.getvalue()
