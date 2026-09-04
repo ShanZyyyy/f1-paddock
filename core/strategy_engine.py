@@ -30,10 +30,13 @@ Kullanım::
 
 from __future__ import annotations
 
+import logging
 import math
 import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
+
+_log = logging.getLogger(__name__)
 
 __all__ = [
     "TyreModel",
@@ -60,6 +63,9 @@ __all__ = [
     "critical_corners",
     "corner_vmin_compare",
     "top_speed_compare",
+    "TrackDominance",
+    "track_dominance",
+    "estimate_all_compound_dropoffs",
     "driving_style",
     "braking_zones",
     "load_practice_session",
@@ -886,6 +892,41 @@ def estimate_degradation(
     )
 
 
+def estimate_all_compound_dropoffs(deg_by_driver: Dict[str, dict]) -> Dict[str, dict]:
+    """SOFT/MEDIUM/HARD'ın ÜÇÜ için de bir drop-off turu — zorunlu.
+
+    Ölçülmüş uzun-run'ı olan hamurlar doğrudan (``measured=True``) kullanılır.
+    Ölçümü olmayan hamurlar için: ölçülen hamur(lar)ın gerçek/model-cliff
+    oranı çıkarılır, aynı oran diğer hamurların ``TyreModel.cliff``'ine
+    uygulanır (``measured=False`` — bu pistin ölçülen eğilimine göre tahmin,
+    ham model değeri değil).
+
+    ``deg_by_driver``: {pilot: DegradationEstimate.__dict__} (``analyze_practice``
+    çıktısı formatında — ``compound`` + ``dropoff_lap`` alanları kullanılır).
+    """
+    measured_laps: Dict[str, List[int]] = {}
+    for v in deg_by_driver.values():
+        c = str(v.get("compound") or "").upper()
+        if c in TYRES and v.get("dropoff_lap"):
+            measured_laps.setdefault(c, []).append(int(v["dropoff_lap"]))
+
+    ratios = [
+        _median(laps_) / TYRES[c].cliff
+        for c, laps_ in measured_laps.items() if TYRES[c].cliff
+    ]
+    ratio = _clamp(_mean(ratios), 0.4, 2.5) if ratios else 1.0
+
+    out: Dict[str, dict] = {}
+    for c in ("SOFT", "MEDIUM", "HARD"):
+        if c in measured_laps:
+            out[c] = {"dropoff_lap": int(round(_median(measured_laps[c]))),
+                      "measured": True, "sample_size": len(measured_laps[c])}
+        else:
+            out[c] = {"dropoff_lap": max(3, round(TYRES[c].cliff * ratio)),
+                      "measured": False, "sample_size": 0}
+    return out
+
+
 # -------------------------------------------------------------------------
 # 6.3  VMAX & DRS VERİMLİLİK ANALİZİ
 # -------------------------------------------------------------------------
@@ -896,6 +937,14 @@ class StraightAnalysis:
     straights: List[dict] = field(default_factory=list)   # [{start_m,end_m,length_m,v_max,v_mean,drs_open_frac}]
     drs_available: bool = False
     drs_gain_kmh: Optional[float] = None                  # açık vs kapalı tepe hız farkı
+    estimated: bool = False                               # bu seans ölçülemedi — tipik değer
+    source: str = ""
+
+
+# Bu seans için düzlük modu hesaplanamazsa (yetersiz örnek) gösterilecek tipik
+# kazanç — 2018-2025 DRS / 2026 aktif-aero düzlük kazançlarının kaba ortalaması.
+# AÇIKÇA ``estimated=True`` ile işaretlenir; ölçüm olarak sunulmaz.
+_TYPICAL_STRAIGHT_GAIN_KMH = 10.0
 
 
 def _detect_straights(samples: Sequence[dict], *, speed_frac: float, min_len_m: float) -> List[Tuple[int, int]]:
@@ -936,15 +985,27 @@ def analyze_straights(
     *,
     speed_frac: float = 0.85,
     min_straight_len_m: float = 260.0,
+    allow_typical_fallback: bool = True,
 ) -> StraightAnalysis:
-    """Telemetri örneklerinden ana düzlükleri, Vmax'ı ve DRS hız kazancını çıkar.
+    """Telemetri örneklerinden ana düzlükleri, Vmax'ı ve düzlük modu hız kazancını çıkar.
 
     ``samples`` en az ``distance`` + ``speed`` içermeli; ``throttle`` varsa düzlük
     tespiti keskinleşir, ``drs`` varsa açık/kapalı hız farkı hesaplanır.
-    2026'da DRS yok → ``drs`` kanalı hep kapalı/eksik ise ``drs_available=False``.
+    2026'da DRS yok → ``drs`` kanalı hep kapalı/eksik ise ``drs_available=False``
+    (bu GERÇEK bir durumdur, "veri yok" değildir — arayüz nötr gösterir).
+
+    Telemetri gerçekten yetersizse (``ok=False`` yerine) ve ``allow_typical_fallback``
+    açıksa, arayüze boş/hata basmamak için AÇIKÇA ``estimated=True`` işaretli tipik
+    bir değer döner (ölçüm değil — geçmiş seans ortalaması).
     """
     samples = [s for s in samples if s.get("distance") is not None and s.get("speed") is not None]
     if len(samples) < 8:
+        if allow_typical_fallback:
+            return StraightAnalysis(
+                ok=True, v_max_kmh=0.0, drs_available=True,
+                drs_gain_kmh=_TYPICAL_STRAIGHT_GAIN_KMH, estimated=True,
+                source="geçmiş seans ortalaması (bu seans için telemetri yetersiz)",
+            )
         return StraightAnalysis(ok=False, v_max_kmh=0.0)
 
     vmax_all = max(float(s["speed"]) for s in samples)
@@ -1102,6 +1163,175 @@ def top_speed_compare(driver_samples: Dict[str, Sequence[dict]]) -> dict:
         "v_max_by_driver": per,
         "delta_to_best": {d: round(best - v, 1) for d, v in per.items()},
     }
+
+
+# -------------------------------------------------------------------------
+# 6.4b  PİST HAKİMİYETİ (TRACK DOMINANCE) — hız karakterine göre zaman farkı
+# -------------------------------------------------------------------------
+@dataclass
+class TrackDominance:
+    ok: bool
+    zones: List[dict] = field(default_factory=list)          # [{zone,start_m,end_m,length_m}]
+    by_team: Dict[str, Dict[str, float]] = field(default_factory=dict)   # takım -> {low,medium,high: sn}
+    best_by_zone: Dict[str, dict] = field(default_factory=dict)          # zone -> {team, seconds}
+    insights: List[dict] = field(default_factory=list)       # [{team,zone,advantage_s,vs}] azalan avantaj
+
+
+_ZONE_TR = {"low": "Düşük Hız", "medium": "Orta Hız", "high": "Yüksek Hız"}
+
+
+def _zone_of_speed(v: float, vmax: float, *, low_frac: float, high_frac: float) -> str:
+    f = v / vmax if vmax else 0.0
+    if f < low_frac:
+        return "low"
+    if f >= high_frac:
+        return "high"
+    return "medium"
+
+
+def _zone_segments(ref_samples: Sequence[dict], *, low_frac: float = 0.45,
+                   high_frac: float = 0.78, min_zone_len_m: float = 40.0) -> List[dict]:
+    """Referans pilotun hız izinden pisti Düşük/Orta/Yüksek hız bölümlerine ayır."""
+    pts = sorted(((float(s["distance"]), float(s["speed"])) for s in ref_samples
+                  if s.get("distance") is not None and s.get("speed") is not None),
+                 key=lambda p: p[0])
+    if len(pts) < 6:
+        return []
+    vmax = max(v for _, v in pts) or 1.0
+    segs: List[dict] = []
+    cur = _zone_of_speed(pts[0][1], vmax, low_frac=low_frac, high_frac=high_frac)
+    start = pts[0][0]
+    for i in range(1, len(pts)):
+        d, v = pts[i]
+        z = _zone_of_speed(v, vmax, low_frac=low_frac, high_frac=high_frac)
+        if z != cur:
+            segs.append({"zone": cur, "start_m": start, "end_m": pts[i - 1][0]})
+            cur, start = z, pts[i - 1][0]
+    segs.append({"zone": cur, "start_m": start, "end_m": pts[-1][0]})
+
+    # kısa/gürültülü parçaları komşusuna birleştir
+    merged: List[dict] = []
+    for s in segs:
+        if merged and (s["end_m"] - s["start_m"]) < min_zone_len_m:
+            merged[-1]["end_m"] = s["end_m"]
+        else:
+            merged.append(dict(s))
+    for s in merged:
+        s["length_m"] = round(s["end_m"] - s["start_m"], 1)
+        s["start_m"] = round(s["start_m"], 1)
+        s["end_m"] = round(s["end_m"], 1)
+    return merged
+
+
+def _cum_time_curve(samples: Sequence[dict]) -> Tuple[List[float], List[float]]:
+    """(mesafe, hız) örneklerinden kümülatif süre eğrisi — v ortalamasıyla trapez
+    integrasyonu (zaman kanalı gerekmez, yalnız distance+speed)."""
+    pts = sorted({(float(s["distance"]), float(s["speed"])) for s in samples
+                  if s.get("distance") is not None and s.get("speed") is not None
+                  and float(s["speed"]) > 0}, key=lambda p: p[0])
+    if len(pts) < 2:
+        return [], []
+    dists, times = [pts[0][0]], [0.0]
+    for i in range(1, len(pts)):
+        d0, v0 = pts[i - 1]
+        d1, v1 = pts[i]
+        dd = d1 - d0
+        if dd <= 0:
+            continue
+        v_avg_ms = max(1.0, (v0 + v1) / 2.0) / 3.6      # km/s -> m/sn
+        times.append(times[-1] + dd / v_avg_ms)
+        dists.append(d1)
+    return dists, times
+
+
+def _time_lookup(dists: Sequence[float], times: Sequence[float], d: float) -> Optional[float]:
+    if not dists:
+        return None
+    if d <= dists[0]:
+        return times[0]
+    if d >= dists[-1]:
+        return times[-1]
+    lo, hi = 0, len(dists) - 1
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if dists[mid] < d:
+            lo = mid + 1
+        else:
+            hi = mid
+    d1, t1 = dists[lo], times[lo]
+    d0, t0 = dists[lo - 1], times[lo - 1]
+    if d1 == d0:
+        return t0
+    frac = (d - d0) / (d1 - d0)
+    return t0 + frac * (t1 - t0)
+
+
+def track_dominance(
+    driver_samples: Dict[str, Sequence[dict]],
+    team_of: Optional[Dict[str, str]] = None,
+    *,
+    low_frac: float = 0.45,
+    high_frac: float = 0.78,
+) -> TrackDominance:
+    """Pisti Düşük/Orta/Yüksek hız karakterine böler, her takımın o bölüm
+    TÜRÜNDE topladığı süreyi kıyaslar ve "kim nerede ne kadar avantajlı"
+    içgörüsünü üretir (ör. "McLaren düşük hızda +0.2s avantajlı").
+
+    Yalnızca ``distance`` + ``speed`` gerekir (bkz. ``_cum_time_curve`` — zaman
+    kanalı integre edilir, gerçek FastF1 ``Time`` kanalına ihtiyaç yok).
+    """
+    team_of = team_of or {}
+    samples_ok = {d: s for d, s in driver_samples.items() if s}
+    if len(samples_ok) < 2:
+        return TrackDominance(ok=False)
+
+    ref = max(samples_ok.values(), key=len)               # en zengin iz = pist düzeni
+    zones = _zone_segments(ref, low_frac=low_frac, high_frac=high_frac)
+    if not zones:
+        return TrackDominance(ok=False)
+
+    per_driver_zone_time: Dict[str, Dict[str, float]] = {}
+    for d, samples in samples_ok.items():
+        dists, times = _cum_time_curve(samples)
+        if len(dists) < 2:
+            continue
+        totals = {"low": 0.0, "medium": 0.0, "high": 0.0}
+        for seg in zones:
+            t0 = _time_lookup(dists, times, seg["start_m"])
+            t1 = _time_lookup(dists, times, seg["end_m"])
+            if t0 is None or t1 is None:
+                continue
+            totals[seg["zone"]] += max(0.0, t1 - t0)
+        per_driver_zone_time[d] = totals
+
+    team_zone: Dict[str, Dict[str, List[float]]] = {}
+    for d, totals in per_driver_zone_time.items():
+        team = team_of.get(d, d)
+        acc = team_zone.setdefault(team, {"low": [], "medium": [], "high": []})
+        for z, v in totals.items():
+            if v > 0:
+                acc[z].append(v)
+    by_team = {t: {z: round(_mean(v), 3) for z, v in zz.items() if v}
+              for t, zz in team_zone.items()}
+    by_team = {t: zz for t, zz in by_team.items() if zz}
+
+    best_by_zone: Dict[str, dict] = {}
+    insights: List[dict] = []
+    for z in ("low", "medium", "high"):
+        ranked = sorted(((t, vals[z]) for t, vals in by_team.items() if z in vals),
+                        key=lambda x: x[1])
+        if not ranked:
+            continue
+        best_by_zone[z] = {"team": ranked[0][0], "seconds": round(ranked[0][1], 3)}
+        if len(ranked) >= 2:
+            adv = round(ranked[1][1] - ranked[0][1], 3)
+            if adv > 0.01:
+                insights.append({"team": ranked[0][0], "zone": z, "zone_tr": _ZONE_TR[z],
+                                 "advantage_s": adv, "vs": ranked[1][0]})
+    insights.sort(key=lambda r: -r["advantage_s"])
+
+    return TrackDominance(ok=True, zones=zones, by_team=by_team,
+                          best_by_zone=best_by_zone, insights=insights)
 
 
 # -------------------------------------------------------------------------
@@ -1425,32 +1655,55 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
 
     pace = estimate_race_pace(laps, team_roster=team_roster)
 
+    team_of: Dict[str, str] = {}
+    for lp in laps:
+        d = str(lp.get("driver") or "").upper()
+        if d and lp.get("team"):
+            team_of.setdefault(d, str(lp["team"]))
+
     if drivers:
         drv_list = list(drivers)
     elif pace.drivers:
-        drv_list = [r["driver"] for r in pace.drivers[:6]]
+        drv_list = [r["driver"] for r in pace.drivers if r.get("driver")][:8]
     else:                       # long-run yok (Q/R) → seansın ilk pilotları
         seen = []
         for lp in laps:
             d = str(lp.get("driver") or "").upper()
             if d and d not in seen:
                 seen.append(d)
-            if len(seen) >= 6:
+            if len(seen) >= 8:
                 break
         drv_list = seen
     samples_by_drv = {d: extract_lap_samples(sess, d) for d in drv_list}
     samples_by_drv = {d: s for d, s in samples_by_drv.items() if s}
 
-    ref_samples = next(iter(samples_by_drv.values()), [])
+    # referans iz = en zengin örnek seti (tek pilotun eksik telemetrisine bağımlı kalma)
+    ref_samples = max(samples_by_drv.values(), key=len, default=[])
     straights = analyze_straights(ref_samples)
     corners = critical_corners(ref_samples)
     style = {d: driving_style(s, corners=corners).__dict__
              for d, s in samples_by_drv.items()}
     brake_profiles = {d: braking_zones(s) for d, s in samples_by_drv.items()}
+    dominance = track_dominance(samples_by_drv, team_of)
 
-    # aşınma: her pilotun en uzun stint'i
-    deg_by_drv = {}
+    # aşınma: her pilotun en uzun stint'i. Bir hamur için tek seansta 2'den az
+    # temiz uzun-run varsa (S/H genelde FP2'de nadir) diğer FP seansını ekleyip
+    # dene — yalnız aşınma hesabı için (tempo/stil karışmasın).
     runs = _driver_runs(laps, min_run_len=5)
+    covered = {_norm_compound(b[0].get("compound")) for blocks in runs.values() for b in blocks}
+    if len(covered & {"SOFT", "MEDIUM", "HARD"}) < 2 and session_name in ("FP1", "FP2", "FP3"):
+        other_session = {"FP1": "FP2", "FP2": "FP1", "FP3": "FP1"}.get(session_name)
+        try:
+            sess2 = load_practice_session(year, gp, other_session)
+            laps2 = extract_practice_laps(sess2)
+            offset = (max((lp.get("session_lap_index") or 0) for lp in laps) + 1) if laps else 0
+            for lp in laps2:
+                lp["session_lap_index"] = int(lp.get("session_lap_index") or 0) + offset
+            runs = _driver_runs(laps + laps2, min_run_len=5)
+        except Exception as err:  # noqa: BLE001 — interpolasyon opsiyonel, sessizce vazgeç
+            _log.warning("analyze_practice: %s birleştirme başarısız (%s)", other_session, err)
+
+    deg_by_drv = {}
     for d, blocks in runs.items():
         longest = max(blocks, key=len)
         comp = _norm_compound(longest[0].get("compound"))
@@ -1458,6 +1711,7 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
             [lp["lap_time_s"] for lp in longest],
             compound=comp, surface_temp_c=surface_t,
         ).__dict__
+    compound_dropoff = estimate_all_compound_dropoffs(deg_by_drv)
 
     return {
         "ok": True,
@@ -1465,10 +1719,12 @@ def analyze_practice(year: int, gp, *, session_name: str = "FP2",
         "surface_temp_c": surface_t,
         "race_pace": pace.__dict__,
         "degradation": deg_by_drv,
+        "compound_dropoff": compound_dropoff,
         "straights": straights.__dict__,
         "critical_corners": [c.__dict__ for c in corners],
         "corner_compare": corner_vmin_compare(samples_by_drv, corners),
         "top_speed": top_speed_compare(samples_by_drv),
+        "track_dominance": dominance.__dict__,
         "driving_style": style,
         "braking_profiles": brake_profiles,
     }

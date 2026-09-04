@@ -301,6 +301,35 @@ def test_degradation_no_dropoff_on_linear_stint():
     assert de.dropoff_lap is None
 
 
+# ---- akıllı aşınma: TÜM hamurlar için zorunlu drop-off -------------
+
+def test_compound_dropoffs_all_three_present_even_if_unmeasured():
+    # yalnız MEDIUM ölçülmüş — SOFT/HARD yine de bir tur numarası döner
+    deg = {"VER": {"compound": "MEDIUM", "dropoff_lap": 22},
+           "HAM": {"compound": "MEDIUM", "dropoff_lap": 24}}
+    out = se.estimate_all_compound_dropoffs(deg)
+    assert set(out) == {"SOFT", "MEDIUM", "HARD"}
+    assert out["MEDIUM"]["measured"] is True and out["MEDIUM"]["dropoff_lap"] == 23
+    assert out["SOFT"]["measured"] is False and out["SOFT"]["dropoff_lap"] > 0
+    assert out["HARD"]["measured"] is False and out["HARD"]["dropoff_lap"] > out["SOFT"]["dropoff_lap"]
+
+
+def test_compound_dropoffs_scale_by_measured_ratio():
+    # ölçülen MEDIUM modelden (26) belirgin ERKEN aşınıyor (18) → oran ~0.69
+    # SOFT/HARD tahminleri de aynı oranda erkene çekilmeli (ham model değil)
+    deg = {"VER": {"compound": "MEDIUM", "dropoff_lap": 18}}
+    out = se.estimate_all_compound_dropoffs(deg)
+    assert out["SOFT"]["dropoff_lap"] < se.TYRES["SOFT"].cliff
+    assert out["HARD"]["dropoff_lap"] < se.TYRES["HARD"].cliff
+
+
+def test_compound_dropoffs_pure_model_when_nothing_measured():
+    out = se.estimate_all_compound_dropoffs({})
+    assert all(not v["measured"] for v in out.values())
+    for c in ("SOFT", "MEDIUM", "HARD"):
+        assert out[c]["dropoff_lap"] == se.TYRES[c].cliff
+
+
 # ---- 6.3 Vmax & DRS ------------------------------------------------
 
 def _straight_telemetry(drs_gain=12.0):
@@ -341,8 +370,22 @@ def test_drs_unavailable_when_channel_missing():
     assert an.ok and an.drs_available is False and an.drs_gain_kmh is None
 
 
-def test_straights_empty_input_is_safe():
-    assert se.analyze_straights([]).ok is False
+def test_straights_empty_input_falls_back_to_typical_estimate():
+    # boş/hata yerine açıkça işaretli tipik değer — arayüz asla çıplak "veri yok" görmez
+    an = se.analyze_straights([])
+    assert an.ok is True and an.estimated is True
+    assert an.drs_gain_kmh == se._TYPICAL_STRAIGHT_GAIN_KMH
+    assert an.source and "ortalama" in an.source
+
+
+def test_straights_fallback_can_be_disabled():
+    an = se.analyze_straights([], allow_typical_fallback=False)
+    assert an.ok is False and an.estimated is False
+
+
+def test_straights_real_data_is_not_marked_estimated():
+    an = se.analyze_straights(_straight_telemetry())
+    assert an.ok and an.estimated is False
 
 
 # ---- 6.4 Vmin kritik virajlar ------------------------------------
@@ -387,6 +430,43 @@ def test_top_speed_compare_ranks_and_deltas():
     assert out["delta_to_best"]["VER"] == 0.0
     assert abs(out["delta_to_best"]["HAM"] - 8.0) < 0.2
     assert se.top_speed_compare({})["v_max_by_driver"] == {}
+
+
+# ---- Pist Hakimiyeti (Track Dominance) -----------------------------
+
+def _zone_track(low, medium, high, *, offset=0.0):
+    """Düşük/orta/yüksek üç ayrı hız bölümünden oluşan basit bir tur."""
+    s, d = [], 0.0
+    for v in (low, medium, high):
+        for _ in range(25):
+            s.append({"distance": d, "speed": v + offset})
+            d += 10.0
+    return s
+
+
+def test_track_dominance_segments_into_three_zones():
+    samples = {"VER": _zone_track(90, 180, 320), "HAM": _zone_track(88, 178, 318)}
+    td = se.track_dominance(samples, {"VER": "Red Bull", "HAM": "Mercedes"})
+    assert td.ok
+    zone_types = {z["zone"] for z in td.zones}
+    assert zone_types == {"low", "medium", "high"}
+    assert set(td.by_team) == {"Red Bull", "Mercedes"}
+
+
+def test_track_dominance_finds_zone_specific_advantage():
+    # Red Bull SADECE düşük hızda hızlı, orta/yüksekte aynı — avantaj yalnız "low"da çıkmalı
+    ver = _zone_track(100, 180, 320)                 # düşük hızda hızlı
+    ham = _zone_track(85, 180, 320)                  # düşük hızda 15 km/s yavaş
+    td = se.track_dominance({"VER": ver, "HAM": ham}, {"VER": "Red Bull", "HAM": "Mercedes"})
+    assert td.ok and td.insights
+    top = td.insights[0]
+    assert top["team"] == "Red Bull" and top["zone"] == "low" and top["advantage_s"] > 0
+    assert top["zone_tr"] == "Düşük Hız"
+
+
+def test_track_dominance_needs_at_least_two_drivers():
+    assert se.track_dominance({"VER": _zone_track(90, 180, 320)}, {}).ok is False
+    assert se.track_dominance({}, {}).ok is False
 
 
 def test_corner_vmin_compare_gives_delta_to_best():
