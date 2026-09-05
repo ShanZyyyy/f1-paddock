@@ -531,6 +531,36 @@ def re_report():
                          "apex_speed_kmh": 74.0, "brake_delta_kmh": 172.0,
                          "trail_brake": 0.6, "brake_aggression": 0.6}]},
         },
+        "micro_sectors": {
+            "ok": True, "n_sectors": 3, "track_length_m": 300.0, "sector_length_m": 100.0,
+            "sectors": [
+                {"sector": 1, "start_m": 0.0, "end_m": 100.0, "best_driver": "VER", "best_team": "Red Bull",
+                 "best_time_s": 1.2, "ranking": [{"driver": "VER", "team": "Red Bull", "time_s": 1.2, "delta_s": 0.0}]},
+                {"sector": 2, "start_m": 100.0, "end_m": 200.0, "best_driver": "HAM", "best_team": "Mercedes",
+                 "best_time_s": 1.15, "ranking": [{"driver": "HAM", "team": "Mercedes", "time_s": 1.15, "delta_s": 0.0}]},
+                {"sector": 3, "start_m": 200.0, "end_m": 300.0, "best_driver": "VER", "best_team": "Red Bull",
+                 "best_time_s": 1.1, "ranking": [{"driver": "VER", "team": "Red Bull", "time_s": 1.1, "delta_s": 0.0}]},
+            ],
+            "driver_wins": {"VER": 2, "HAM": 1},
+            "team_wins": {"Red Bull": 2, "Mercedes": 1},
+        },
+        "lift_and_coast": [
+            {"driver": "HAM", "team": "Mercedes", "coasting_score": 0.18, "event_count": 3,
+             "total_coast_m": 210.0, "mean_length_m": 70.0, "mean_duration_s": 1.1},
+            {"driver": "VER", "team": "Red Bull", "coasting_score": 0.05, "event_count": 1,
+             "total_coast_m": 40.0, "mean_length_m": 40.0, "mean_duration_s": 0.4},
+        ],
+        "pit_loss_estimate_s": 21.5,
+        "pit_window": {
+            "VER": {"ok": True, "driver": "VER", "team": "Red Bull", "pit_loss_s": 21.5,
+                    "current_gap_s": 0.0, "projected_gap_s": 21.5, "positions_lost": 2,
+                    "rejoin_ahead": {"driver": "LEC", "team": "Ferrari", "gap_s": 18.0, "delta_s": 3.5},
+                    "rejoin_behind": {"driver": "PIA", "team": "McLaren", "gap_s": 25.0, "delta_s": 3.5}},
+            "HAM": {"ok": True, "driver": "HAM", "team": "Mercedes", "pit_loss_s": 21.5,
+                    "current_gap_s": 5.0, "projected_gap_s": 26.5, "positions_lost": 1,
+                    "rejoin_ahead": {"driver": "PIA", "team": "McLaren", "gap_s": 25.0, "delta_s": 1.5},
+                    "rejoin_behind": None},
+        },
     }
 
 
@@ -629,6 +659,24 @@ def test_driving_character_hud_hides_when_empty():
     assert "<div class='re'>" not in html
 
 
+def test_driving_character_hud_shows_coasting_score(re_report):
+    # HAM'in coasting_score'u (0.18) VER'inkinden (0.05) yüksek — mor Coast barı
+    # gaz/fren barlarının YANINA eklendi, mevcut LIFT&COAST istatistiği silinmedi.
+    html = app.driving_character_hud(re_report)
+    assert "track>i.c" in html or "'c'" in html or "class='c'" in html
+    assert "18" in html and "5" in html          # yüzdeye çevrilmiş skorlar
+    assert "LIFT&amp;COAST" in html               # eski istatistik hâlâ duruyor
+
+
+def test_driving_character_hud_coasting_optional(re_report):
+    # lift_and_coast verisi hiç yoksa panel yine çalışır, sadece Coast barı basılmaz
+    rep = dict(re_report)
+    del rep["lift_and_coast"]
+    html = app.driving_character_hud(rep)
+    assert "VER" in html and "HAM" in html
+    assert "re-pp" in html
+
+
 def test_track_dominance_hud_shows_zone_advantage(re_report):
     html = app.track_dominance_hud(re_report)
     _no_streamlit_widgets(html)
@@ -641,6 +689,56 @@ def test_track_dominance_hud_shows_zone_advantage(re_report):
 def test_track_dominance_hud_no_insights_is_safe():
     out = app.track_dominance_hud({"track_dominance": {"ok": False}})
     assert "Pist Hakimiyeti" in out and "en az iki pilotun" in out
+
+
+# ---- Mini-Sektör Hakimiyeti + Pit Penceresi (strategy_engine §6.6-6.8) ----
+
+def test_micro_sector_panel_paints_official_team_colours(re_report):
+    html = app._re_micro_sector_panel(re_report)
+    assert "Mini-Sektör Hakimiyeti" in html
+    assert app.season_team_colour("Red Bull", 2024) in html
+    assert app.season_team_colour("Mercedes", 2024) in html
+    # 3 sentetik dilimin HER biri bir <div> segmenti olarak basılmalı
+    assert html.count("title=") >= 3
+    # kazanan takım özeti (team_wins lejantı)
+    assert "re-ms-legend" in html and "<b>2</b>" in html
+
+
+def test_micro_sector_panel_hides_gracefully_without_data():
+    out = app._re_micro_sector_panel({"micro_sectors": {"ok": False}})
+    assert "Mini-Sektör Hakimiyeti" in out and "en az iki pilotun" in out
+
+
+def test_pit_window_panel_shows_ahead_and_behind_bracket(re_report):
+    html = app._re_pit_window_panel(re_report, "VER")
+    assert "Pit Penceresi" in html
+    assert "VER" in html and "LEC" in html and "PIA" in html
+    assert "21.5" in html   # pit kaybı
+    assert "+3.5" in html or "3.5" in html
+
+
+def test_pit_window_panel_handles_nobody_behind(re_report):
+    # HAM projeksiyonunda rejoin_behind None — "sahada kimse yok" gibi güvenli metin basılmalı, KeyError yok
+    html = app._re_pit_window_panel(re_report, "HAM")
+    assert "HAM" in html and "PIA" in html
+    assert "—" in html or "kimse" in html.lower()
+
+
+def test_pit_window_panel_falls_back_to_first_driver_without_target(re_report):
+    html = app._re_pit_window_panel(re_report, None)
+    assert "Pit Penceresi" in html
+
+
+def test_pit_window_panel_hides_gracefully_without_data():
+    out = app._re_pit_window_panel({"pit_window": {}})
+    assert "Pit Penceresi" in out and "yeterli sanal sıralama" in out
+
+
+def test_race_engineer_room_includes_hardcore_panels(re_report):
+    html = app.race_engineer_room_html(re_report, pit_target_driver="VER")
+    assert "Mini-Sektör Hakimiyeti" in html
+    assert "Pit Penceresi" in html
+    assert html.count("<style>") == 1   # yeni paneller ekstra iframe/style eklemiyor
 
 
 def test_race_engineer_room_is_single_iframe(re_report):
