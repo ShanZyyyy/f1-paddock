@@ -14080,6 +14080,34 @@ _RE_HUD_CSS = r"""
 .st-row .v u{font:600 8px var(--k-f-data);letter-spacing:.05em;color:var(--k-mute);text-decoration:none;margin-left:3px}
 .st-row .d{font:700 10.5px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-mute);text-align:right;white-space:nowrap}
 @media(max-width:820px){.st-grid{grid-template-columns:1fr}}
+/* Coasting Skoru barı — .re-pp'nin üçüncü rengi (Gaz=yeşil, Fren=kırmızı, Coast=mor) */
+.re-pp .track>i.c{background:#8a7bff;box-shadow:0 0 8px 0 rgba(138,123,255,.55)}
+/* Mini-Sektör Hakimiyeti — 20+ dilimlik yatay şerit, her dilim en hızlı takımın rengi */
+.re-ms-strip{display:flex;gap:2px;height:54px;border-radius:var(--k-r-s);overflow:hidden;margin:6px 0 12px}
+.re-ms-seg{flex:1;min-width:3px;position:relative;transition:transform .12s ease,filter .12s ease}
+.re-ms-seg:hover{transform:scaleY(1.1);filter:brightness(1.18);z-index:2}
+.re-ms-legend{display:flex;gap:9px 18px;flex-wrap:wrap;margin-top:2px}
+.re-ms-legend span{display:flex;align-items:center;gap:6px;font:700 10px var(--k-f-data);letter-spacing:.04em;color:var(--k-dim)}
+.re-ms-legend i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:0 0 auto}
+.re-ms-legend b{color:var(--k-ink)}
+/* Pit Penceresi — "şimdi pite girerse" 3 düğümlü zaman çizelgesi */
+.re-pw-track{display:flex;align-items:stretch;gap:0;margin:6px 0 4px}
+.re-pw-node{flex:1;min-width:0;text-align:center;padding:15px 12px;border:1px solid var(--k-line);
+  border-radius:var(--k-r-m);background:var(--k-raised)}
+.re-pw-node.target{border-color:var(--k-amber);background:color-mix(in srgb,var(--k-amber) 11%,var(--k-raised));
+  box-shadow:0 0 18px -5px color-mix(in srgb,var(--k-amber) 60%,transparent)}
+.re-pw-node .lbl{font:800 8.5px var(--k-f-data);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--k-mute);display:block;margin-bottom:8px}
+.re-pw-node.target .lbl{color:var(--k-amber)}
+.re-pw-node .cd{font:800 17px var(--k-f-data);letter-spacing:.03em;color:var(--k-ink)}
+.re-pw-node .gp{font:700 11px var(--k-f-data);font-variant-numeric:tabular-nums;color:var(--k-dim);margin-top:5px}
+.re-pw-arrow{flex:0 0 40px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--k-mute);font:800 12px var(--k-f-data);gap:2px}
+.re-pw-arrow b{color:var(--k-ink);font-size:12px}
+.re-pw-stat{display:flex;gap:10px 20px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--k-line)}
+.re-pw-stat div{font:700 9.5px var(--k-f-data);color:var(--k-mute);letter-spacing:.06em;text-transform:uppercase}
+.re-pw-stat b{color:var(--k-ink);font-size:13px;margin-left:5px;font-variant-numeric:tabular-nums}
+@media(max-width:700px){.re-pw-track{flex-direction:column;gap:8px}.re-pw-arrow{flex-direction:row;width:100%;padding:2px 0}}
 """
 
 
@@ -14311,10 +14339,20 @@ def _re_char_panel(rep):
         return ""  # gerçekten veri yok — panel tamamen gizlenir
     team_of = _re_driver_team_map(rep)
     _year = (rep or {}).get("year")
+    coast_by_driver = {r["driver"]: r for r in (rep or {}).get("lift_and_coast") or [] if r.get("driver")}
     cards = ""
     for cd, s in sorted(styles.items()):
         thr, brk = float(s.get("throttle_aggression") or 0), float(s.get("brake_aggression") or 0)
         _dc = _re_driver_color(cd, team_of, _year)
+        _coast = coast_by_driver.get(cd)
+        coast_row = ""
+        if _coast is not None:
+            _cs = float(_coast.get("coasting_score") or 0) * 100
+            coast_row = (
+                f"<div class='re-pp'><s>Coast{fp_kit.info('Coasting Skoru: tam gazın bırakılıp frene basılana kadar geçen süzülme mesafesinin tur uzunluğuna oranı — yüksekse pilot frenden ÖNCE erken gazı bırakıyor (yakıt/lastik koruma).')}</s>"
+                f"<span class='track'><i class='c' style='width:{_cs:.0f}%'></i></span>"
+                f"<b>{_cs:.0f}</b></div>"
+            )
         cards += (
             "<div class='re-drv'>"
             f"<div class='re-drv-top'><span class='cd' style='color:{_dc}'>"
@@ -14324,6 +14362,7 @@ def _re_char_panel(rep):
             f"<b>{thr * 100:.0f}</b></div>"
             f"<div class='re-pp'><s>Fren</s><span class='track'><i class='r' style='width:{brk * 100:.0f}%'></i></span>"
             f"<b>{brk * 100:.0f}</b></div>"
+            + coast_row +
             f"<div class='re-mini'><span>TAM GAZ <b>%{float(s.get('full_throttle_frac') or 0) * 100:.0f}</b></span>"
             f"<span>SERBEST <b>%{float(s.get('coast_frac') or 0) * 100:.0f}</b></span>"
             f"<span>LIFT&amp;COAST <b>%{float(s.get('lift_and_coast_frac') or 0) * 100:.0f}</b></span>"
@@ -14372,8 +14411,9 @@ def _re_char_panel(rep):
         "<div class='re'><div class='re-h'><span class='t'>Sürüş Karakteristiği</span>"
         "<span class='s'>gaz / fren · viraj bazlı teknik</span></div>"
         + f"<div class='re-drv-grid'>{cards}</div>" + cmp_html
-        + "<div class='re-sub'>Yeşil = gaza basış, kırmızı = frene giriş sertliği (0–100). "
-        "Alttaki tablo virajlarda apeks hızını ve trail-brake payını pilotlar arasında kıyaslar.</div></div>"
+        + "<div class='re-sub'>Yeşil = gaza basış, kırmızı = frene giriş sertliği (0–100), mor = Coasting "
+        "Skoru (0–100 · turun ne kadarının süzülerek geçildiği). Alttaki tablo virajlarda apeks hızını "
+        "ve trail-brake payını pilotlar arasında kıyaslar.</div></div>"
     )
 
 
@@ -14453,6 +14493,106 @@ def _re_dominance_panel(rep):
     )
 
 
+def _re_micro_sector_panel(rep):
+    """Mini-Sektör Hakimiyeti — pisti 20+ eşit mesafeli dilime böler; her
+    dilimi o bölgede telemetriye göre en hızlı takımın resmi F1 rengiyle
+    boyayan yatay bir "fotobitiş" şeridi (bkz. strategy_engine.micro_sector_dominance)."""
+    ms = (rep or {}).get("micro_sectors") or {}
+    sectors = ms.get("sectors") or []
+    head = ("<div class='re-h'><span class='t'>Mini-Sektör Hakimiyeti</span>"
+            f"<span class='s'>{int(ms.get('n_sectors') or 0)} dilim · en hızlı takım</span></div>")
+    if not ms.get("ok") or not sectors:
+        return ("<div class='re'>" + head
+                + "<div class='re-sub'>Mini-sektör kıyası için en az iki pilotun telemetrisi gerekir.</div></div>")
+    team_of = _re_driver_team_map(rep)
+    year = (rep or {}).get("year")
+    segs = ""
+    for s in sectors:
+        team = s.get("best_team") or ""
+        colour = season_team_colour(team, year) if team else "#3a4a5c"
+        drv = html_lib.escape(str(s.get("best_driver") or "—"))
+        team_esc = html_lib.escape(team or "—")
+        best_t = s.get("best_time_s")
+        t_txt = f"{float(best_t):.3f}s" if isinstance(best_t, (int, float)) else "—"
+        tip = html_lib.escape(f"Mini-Sektör {s.get('sector')} · {team or '—'} · {s.get('best_driver') or '—'} · {t_txt}")
+        segs += f"<div class='re-ms-seg' style='background:{colour}' title='{tip}'></div>"
+
+    team_wins = ms.get("team_wins") or {}
+    ranked_teams = sorted(team_wins.items(), key=lambda kv: -kv[1])[:8]
+    legend = "".join(
+        f"<span><i style='background:{season_team_colour(t, year)}'></i>{html_lib.escape(t)} "
+        f"<b>{n}</b></span>"
+        for t, n in ranked_teams
+    )
+    return (
+        "<div class='re'>" + head
+        + f"<div class='re-ms-strip'>{segs}</div>"
+        + f"<div class='re-ms-legend'>{legend}</div>"
+        + f"<div class='re-sub'>Pist {int(ms.get('n_sectors') or 0)} eşit mesafeli mini-sektöre bölündü "
+        f"(~{float(ms.get('sector_length_m') or 0):.0f} m/dilim) · her dilim o bölgede telemetriye göre "
+        "en hızlı takımın resmi rengiyle boyalı. Bir dilimin üzerine gelince pilot/süre detayı görünür.</div></div>"
+    )
+
+
+def _re_pit_window_panel(rep, target_driver=None):
+    """Pit Penceresi — "şu an pite girerse" projeksiyonu: hedef pilotun
+    piste hangi iki pilot arasında ve kaç saniye farkla döneceği (bkz.
+    strategy_engine.simulate_pit_window/pit_window_grid)."""
+    pw = (rep or {}).get("pit_window") or {}
+    head = ("<div class='re-h'><span class='t'>Pit Penceresi</span>"
+            "<span class='s'>şimdi pite girerse · trafik projeksiyonu</span></div>")
+    if not pw:
+        return ("<div class='re'>" + head
+                + "<div class='re-sub'>Pit penceresi için yeterli sanal sıralama verisi yok.</div></div>")
+    code = str(target_driver or "").upper()
+    proj = pw.get(code) or next(iter(pw.values()), None)
+    if not proj or not proj.get("ok"):
+        return ("<div class='re'>" + head
+                + "<div class='re-sub'>Seçili pilot için pit projeksiyonu üretilemedi.</div></div>")
+
+    team_of = _re_driver_team_map(rep)
+    year = (rep or {}).get("year")
+
+    def _node(role, entry):
+        if not entry:
+            return (f"<div class='re-pw-node'><span class='lbl'>{html_lib.escape(role)}</span>"
+                    "<span class='cd' style='color:var(--k-mute)'>—</span>"
+                    "<span class='gp'>Sahada kimse yok</span></div>")
+        cd = html_lib.escape(str(entry.get("driver") or "—"))
+        d = float(entry.get("delta_s") or 0.0)
+        gp_txt = f"{'+' if d >= 0 else '−'}{abs(d):.1f}s"
+        colour = _re_driver_color(entry.get("driver"), team_of, year)
+        return (f"<div class='re-pw-node'><span class='lbl'>{html_lib.escape(role)}</span>"
+                f"<span class='cd' style='color:{colour}'>{cd}</span>"
+                f"<span class='gp'>{gp_txt}</span></div>")
+
+    target_colour = _re_driver_color(proj.get("driver"), team_of, year)
+    track = (
+        "<div class='re-pw-track'>"
+        + _node("ÖNÜNE ÇIKAR", proj.get("rejoin_ahead"))
+        + "<div class='re-pw-arrow'>→</div>"
+        + "<div class='re-pw-node target'><span class='lbl'>PİTE GİRİYOR</span>"
+        f"<span class='cd' style='color:{target_colour}'>{html_lib.escape(str(proj.get('driver') or '—'))}</span>"
+        f"<span class='gp'>+{float(proj.get('pit_loss_s') or 0):.1f}s pit kaybı</span></div>"
+        + "<div class='re-pw-arrow'>→</div>"
+        + _node("ARKASINDAN ÇIKAR", proj.get("rejoin_behind"))
+        + "</div>"
+    )
+    stats = (
+        "<div class='re-pw-stat'>"
+        f"<div>ŞU AN <b>{float(proj.get('current_gap_s') or 0):.1f}s</b></div>"
+        f"<div>PİT SONRASI <b>{float(proj.get('projected_gap_s') or 0):.1f}s</b></div>"
+        f"<div>KAYBEDİLEN SIRA <b>{int(proj.get('positions_lost') or 0)}</b></div>"
+        "</div>"
+    )
+    return (
+        "<div class='re'>" + head + track + stats
+        + "<div class='re-sub'>Bu GERÇEK canlı yarış boşluğu değildir — tahmini yarış temposu farkına "
+        "dayalı bir sanal sıralama projeksiyonudur. Pit kaybı bu seansın gerçek giriş/çıkış turlarından "
+        "tahmin edilir.</div></div>"
+    )
+
+
 # --- Geriye dönük uyum: bağımsız HUD sarmalayıcıları (testler + tekil kullanım) ---
 def race_pace_deg_hud(rep):
     return _re_shell(_re_pace_panel(rep))
@@ -14470,13 +14610,17 @@ def track_dominance_hud(rep):
     return _re_shell(_re_dominance_panel(rep))
 
 
-def race_engineer_room_html(rep):
+def race_engineer_room_html(rep, *, pit_target_driver=None):
     """TEK iframe'de birleştiren Yarış Mühendisi Odası (sıfır boşluk). Düzlük
     Modu paneli kaldırıldı — Hız Tuzağı artık tüm pilot gridini kapsıyor.
-    Veri olmayan panel KESİNLİKLE basılmaz — boş `.re` kutucuğu yerine hiç yer kaplamaz."""
+    Veri olmayan panel KESİNLİKLE basılmaz — boş `.re` kutucuğu yerine hiç yer kaplamaz.
+    ``pit_target_driver`` verilmezse Pit Penceresi paneli sıralamadaki ilk
+    pilotu (geriye dönük uyum için) gösterir."""
     body = "".join(
         p for p in (
-            _re_pace_panel(rep), _re_speed_panel(rep), _re_dominance_panel(rep), _re_char_panel(rep),
+            _re_pace_panel(rep), _re_speed_panel(rep), _re_dominance_panel(rep),
+            _re_micro_sector_panel(rep), _re_pit_window_panel(rep, pit_target_driver),
+            _re_char_panel(rep),
         ) if p
     )
     if not body:
@@ -14957,8 +15101,19 @@ def _router_page_telemetry():
                         # sorgu gerekmez.
                         # Sürüş Karakteristiği artık grid (çok sütunlu) olsa da tam grid
                         # (20+ pilot) veri yoğunluğu yüksek — cömert yükseklik + scrolling=True güvenlik ağı.
+                        _re_pw_options = sorted((_re_rep.get("pit_window") or {}).keys())
+                        _re_pw_driver = None
+                        if _re_pw_options:
+                            _re_pw_driver = st.selectbox(
+                                "Pit Penceresi: hangi pilot şimdi pite giriyor?", _re_pw_options,
+                                key="re_pw_driver",
+                                help="Aşağıdaki Pit Penceresi paneli bu pilot için hesaplanır — "
+                                     "seçim değişince anında güncellenir.")
                         _re_h = 4000 if session_type in ("FP1", "FP2", "FP3") else 3800
-                        render_html_hud(race_engineer_room_html(_re_rep), height=_re_h, scrolling=True)
+                        render_html_hud(
+                            race_engineer_room_html(_re_rep, pit_target_driver=_re_pw_driver),
+                            height=_re_h, scrolling=True,
+                        )
 
                         _re_fname = f"{gp}_{year}_{session_type}_muhendis_odasi".replace(" ", "_").lower()
                         _re_dl1, _re_dl2, _re_dl3 = st.columns([1, 1, 4])
