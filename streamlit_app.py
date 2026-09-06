@@ -13490,7 +13490,13 @@ def live_timing_tower_html(data, live):
         elif r['pos'] == 1:
             mid = "<span class='lt-lead'>LİDER</span>"
         else:
-            mid = html_lib.escape(r['gap'] or r['status'] or '')
+            _itv = (r.get('interval') or '').strip()
+            _gap = (r['gap'] or r['status'] or '').strip()
+            mid = html_lib.escape(_gap)
+            if _itv and _itv not in ('', '-', _gap):
+                mid += f" <i class='itv'>{html_lib.escape(_itv)}</i>"
+        if live and r.get('in_pit') and not r['out'] and not is_quali:
+            mid += " <i class='pit'>PIT</i>"
         body += (
             f"<div class='lt-row{' out' if r['out'] else ''}' style='--c:{r['colour']}'>"
             f"<span class='lt-p'>{pos}</span>"
@@ -13499,8 +13505,18 @@ def live_timing_tower_html(data, live):
             f"<span class='lt-g'>{mid} {move}</span></div>"
         )
     head_label = "CANLI ZAMANLAMA" if live else "RESMİ SONUÇ"
-    head_note = (f"son kontrol {data['checked_at']} TSİ · resmî zamanlama beslemesinden"
+    _flag = ''
+    if live and data.get('track_txt'):
+        _flag = (f"<span class='flag' style='--fc:{data.get('track_col') or '#8ea4bc'}'>"
+                 f"{html_lib.escape(data['track_txt'])}</span>")
+    _lapinfo = ''
+    if data.get('cur_lap'):
+        _lapinfo = (f"TUR {data['cur_lap']}"
+                    + (f"/{data['tot_lap']}" if data.get('tot_lap') else ""))
+    head_note = (f"son kontrol {data['checked_at']} TSİ · F1 resmî zamanlama feed'i"
                  if live else "kesin klasman")
+    if _lapinfo:
+        head_note = f"{_lapinfo} · {head_note}"
     return f"""
     <style>
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
@@ -13524,19 +13540,238 @@ def live_timing_tower_html(data, live):
       .lt-g{{font:700 12px 'JetBrains Mono',monospace;color:#e8eef4;white-space:nowrap;text-align:right}}
       .lt-g i{{font-style:normal;font-size:10px;margin-left:5px}}
       .lt-g .up{{color:#3ecf8e}} .lt-g .dn{{color:#ff8a70}}
+      .lt-g .itv{{color:#8a9bb0;font-size:10px}}
+      .lt-g .pit{{color:#141a24;background:#f5b843;border-radius:3px;padding:1px 4px;font-size:9px;font-weight:800;letter-spacing:.04em}}
       .lt-lead{{color:#f5b843}} .lt-out{{color:#ff8a70;font-size:11px}}
+      .lt-hd .flag{{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:4px;
+        font:800 9.5px 'Inter',system-ui,sans-serif;letter-spacing:.06em;
+        color:var(--fc);border:1px solid var(--fc)}}
       .lt-ft{{padding:9px 15px;border-top:1px solid #232c3a;font:500 10.5px 'Inter',system-ui,sans-serif;
         color:#6d7a8c;line-height:1.5}}
     </style>
     <div class="lt">
       <div class="lt-hd"><b><span class="dot"></span>{head_label}</b>
-        <span class="ev"> · {html_lib.escape(data['event'])} · {html_lib.escape(data['session'])}</span>
+        <span class="ev"> · {html_lib.escape(data['event'])} · {html_lib.escape(data['session'])}</span>{_flag}
         <s>{head_note}</s></div>
       <div class="lt-body">{body}</div>
       <div class="lt-ft">Konum haritası ve araç animasyonu yok — bu tablo yalnızca resmî sıralama/aralık
       verisidir. Site canlı seansta sahte araç hareketi çizmez.</div>
     </div>
     """
+
+
+# =========================================================================
+# CANLI ZAMANLAMA — F1 RESMÎ LIVE TIMING FEED (livetiming.formula1.com)
+# FastF1 canlı seansta veri VERMEZ: `session.results` yalnız seans bitince
+# dolar. Bu katman F1'in kendi statik feed'inden (kimlik doğrulaması yok)
+# anlık klasmanı çeker — pozisyon, lidere fark, aralık, pit, bayrak, tur.
+# Konum / harita / GPS YOK; F1'in yayınladığı sayısal zamanlama verisidir.
+# =========================================================================
+_F1LT_BASE = "https://livetiming.formula1.com/static/"
+_F1LT_SESSION_NAMES = {
+    'R': 'Race', 'Q': 'Qualifying', 'SQ': 'Sprint Qualifying', 'S': 'Sprint',
+    'FP1': 'Practice 1', 'FP2': 'Practice 2', 'FP3': 'Practice 3',
+}
+_F1LT_TRACK_STATUS = {
+    '1': ('YEŞİL', '#3ecf8e'), '2': ('SARI BAYRAK', '#f5b843'),
+    '3': ('YARIŞ DURDU', '#ff8a70'), '4': ('GÜVENLİK ARACI', '#f5b843'),
+    '5': ('KIRMIZI BAYRAK', '#ff4757'), '6': ('SANAL GÜVENLİK ARACI', '#f5b843'),
+    '7': ('VSC BİTİYOR', '#3ecf8e'),
+}
+_F1LT_FINISHED_STATES = {'finished', 'ends', 'finalised', 'complete'}
+
+
+def _f1lt_fetch(rel_path, *, timeout=7, as_text=False):
+    """livetiming.formula1.com statik dosyası. HTTP hata (403/404) → yükseltir;
+    çağıran taraf 'feed henüz açık değil' diye yorumlar."""
+    req = urllib.request.Request(
+        _F1LT_BASE + rel_path,
+        headers={'User-Agent': 'BestHTTP', 'Accept': 'application/json'},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read().decode('utf-8-sig', errors='replace')
+    return raw if as_text else json.loads(raw)
+
+
+def _f1lt_merge_stream(text):
+    """`<hh:mm:ss.mmm>{json}` satırlı bir jsonStream'i tek duruma indirger
+    (delta'lar derin birleştirilir). Snapshot panosu için son durum yeter."""
+    state = {}
+
+    def _merge(dst, src):
+        if not isinstance(src, dict):
+            return src
+        for k, v in src.items():
+            if isinstance(v, dict) and isinstance(dst.get(k), dict):
+                _merge(dst[k], v)
+            else:
+                dst[k] = v
+        return dst
+
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        brace = line.find('{')
+        if brace < 0:
+            continue
+        try:
+            _merge(state, json.loads(line[brace:]))
+        except (ValueError, TypeError):
+            continue
+    return state
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _f1lt_session_path_v62(year, gp_name, session_code):
+    """Yıl `Index.json`'undan (grand prix, seans) → statik feed yolu.
+
+    Seans yolu Index'e henüz düşmediyse kardeş seansın yolundan + seans
+    tarih/adından türetir (yarış feed'i çoğu zaman yeşil bayrakla açılır)."""
+    try:
+        idx = _f1lt_fetch(f"{int(year)}/Index.json", timeout=8)
+    except Exception:
+        return {'ok': False, 'reason': 'F1 takvim indeksi alınamadı'}
+    want_gp = str(gp_name or '').strip().lower()
+    want_sess = _F1LT_SESSION_NAMES.get(session_code, str(session_code)).strip().lower()
+    meeting = None
+    for mt in idx.get('Meetings', []):
+        nm = str(mt.get('Name') or '').strip().lower()
+        loc = str(mt.get('Location') or '').strip().lower()
+        if want_gp and (want_gp in nm or nm in want_gp or (loc and loc in want_gp)):
+            meeting = mt
+            break
+    if meeting is None:
+        return {'ok': False, 'reason': 'hafta sonu F1 indeksinde yok'}
+    sessions = meeting.get('Sessions', [])
+    sess = next(
+        (s for s in sessions if str(s.get('Name') or '').strip().lower() == want_sess), None)
+    if sess is None:
+        return {'ok': False, 'reason': 'seans F1 indeksinde yok'}
+    path = sess.get('Path')
+    derived = False
+    if not path:
+        sib = next((s.get('Path') for s in sessions if s.get('Path')), None)
+        sd = str(sess.get('StartDate') or '')[:10]
+        if sib and sd:
+            prefix = sib.rsplit('/', 2)[0]
+            path = f"{prefix}/{sd}_{str(sess.get('Name') or '').replace(' ', '_')}/"
+            derived = True
+    if not path:
+        return {'ok': False, 'reason': 'seans yolu henüz oluşmadı', 'pending': True}
+    return {'ok': True, 'path': path, 'derived': derived,
+            'session_name': sess.get('Name'), 'meeting_name': meeting.get('Name')}
+
+
+@st.cache_data(ttl=25, show_spinner=False)
+def _f1_livetiming_v62(year, gp_name, session_code):
+    """F1 resmî statik feed'inden canlı/biten seansın klasman tablosu.
+
+    Dönüş `_live_timing_v61` ile aynı sözleşme (`ok`, `rows`, `event`,
+    `session`, `checked_at`) + canlı ekstralar (`live`, `track_txt`,
+    `cur_lap`, `tot_lap`). Feed açık değilse `{'ok': False, 'pending': True}`
+    HIZLI döner (403 → <1 sn) — sayfa asılı kalmaz."""
+    meta = _f1lt_session_path_v62(year, gp_name, session_code)
+    if not meta.get('ok'):
+        return {'ok': False, 'reason': meta.get('reason', 'feed yok'),
+                'pending': bool(meta.get('pending'))}
+    path = meta['path']
+    try:
+        drivers = _f1lt_fetch(path + 'DriverList.json', timeout=7)
+    except Exception:
+        return {'ok': False, 'reason': 'F1 zamanlama feed\'i henüz açık değil', 'pending': True}
+    if not isinstance(drivers, dict) or not drivers:
+        return {'ok': False, 'reason': 'sürücü listesi boş', 'pending': True}
+
+    sess_state = ''
+    try:
+        ss = _f1lt_merge_stream(
+            _f1lt_fetch(path + 'SessionStatus.jsonStream', timeout=6, as_text=True))
+        sess_state = str(ss.get('Status') or '').strip()
+    except Exception:
+        pass
+
+    try:
+        timing = _f1lt_merge_stream(
+            _f1lt_fetch(path + 'TimingData.jsonStream', timeout=12, as_text=True))
+    except Exception:
+        return {'ok': False, 'reason': 'zamanlama akışı yok', 'pending': True}
+    lines = timing.get('Lines') or {}
+    if not isinstance(lines, dict) or not lines:
+        return {'ok': False, 'reason': 'klasman henüz boş', 'pending': True}
+
+    track_txt = track_col = ''
+    try:
+        ts = _f1lt_merge_stream(
+            _f1lt_fetch(path + 'TrackStatus.jsonStream', timeout=6, as_text=True))
+        track_txt, track_col = _F1LT_TRACK_STATUS.get(str(ts.get('Status') or ''), ('', ''))
+    except Exception:
+        pass
+    cur_lap = tot_lap = None
+    try:
+        lc = _f1lt_merge_stream(
+            _f1lt_fetch(path + 'LapCount.jsonStream', timeout=6, as_text=True))
+        cur_lap = pd.to_numeric(lc.get('CurrentLap'), errors='coerce')
+        tot_lap = pd.to_numeric(lc.get('TotalLaps'), errors='coerce')
+    except Exception:
+        pass
+
+    is_quali = session_code in ('Q', 'SQ', 'FP1', 'FP2', 'FP3')
+    rows = []
+    for num, ln in lines.items():
+        if not isinstance(ln, dict):
+            continue
+        d = drivers.get(str(num), {}) if isinstance(drivers, dict) else {}
+        code = str(d.get('Tla') or ln.get('RacingNumber') or num).strip()
+        if not code:
+            continue
+        pos = pd.to_numeric(ln.get('Position'), errors='coerce')
+        retired = bool(ln.get('Retired')) or bool(ln.get('Stopped'))
+        knocked = bool(ln.get('KnockedOut'))
+        tcol = str(d.get('TeamColour') or '').strip()
+        colour = ('#' + tcol.lstrip('#')) if tcol and tcol.lower() != 'nan' \
+            else season_team_colour(d.get('TeamName', ''), year)
+        if is_quali:
+            best = ln.get('BestLapTime')
+            gap = (best.get('Value') if isinstance(best, dict) else '') or ''
+        else:
+            g = ln.get('GapToLeader')
+            gap = (g.get('Value') if isinstance(g, dict) else g) or ''
+        itv = ln.get('IntervalToPositionAhead')
+        interval = str((itv.get('Value') if isinstance(itv, dict) else itv) or '')
+        status_txt = 'DNF' if retired else ('ELENDİ' if knocked else '')
+        rows.append({
+            'pos': int(pos) if pd.notna(pos) else None,
+            'code': code,
+            'team': str(d.get('TeamName') or '').strip(),
+            'colour': colour,
+            'status': status_txt,
+            'out': retired or knocked,
+            'gap': str(gap) if (is_quali or (pd.notna(pos) and int(pos) != 1)) else '',
+            'interval': interval,
+            'grid': None,
+            'flap': str(gap) if is_quali else '',
+            'in_pit': bool(ln.get('InPit')),
+        })
+    rows = [r for r in rows if r['code']]
+    rows.sort(key=lambda r: (r['pos'] is None, r['pos'] or 999))
+    if not rows:
+        return {'ok': False, 'reason': 'klasman boş', 'pending': True}
+
+    finished = sess_state.lower() in _F1LT_FINISHED_STATES
+    return {
+        'ok': True, 'rows': rows,
+        'event': meta.get('meeting_name') or str(gp_name),
+        'session': str(session_code),
+        'live': not finished,
+        'finished': finished,
+        'session_state': sess_state,
+        'track_txt': track_txt, 'track_col': track_col,
+        'cur_lap': int(cur_lap) if pd.notna(cur_lap) else None,
+        'tot_lap': int(tot_lap) if pd.notna(tot_lap) else None,
+        'checked_at': datetime.datetime.now(datetime.timezone.utc).astimezone(
+            datetime.timezone(datetime.timedelta(hours=3))).strftime('%H:%M:%S'),
+    }
 
 
 def _router_page_live():
@@ -13572,19 +13807,44 @@ def _router_page_live():
                                     height=live_timing_tower_component_height(_lt), scrolling=True)
         elif is_live_now:
             _lc1, _lc2 = st.columns([3, 1])
-            _lc1.caption(f"{gp_name} · {target_s_name} şu an sürüyor. Aşağıdaki tablo resmî "
-                         "zamanlama beslemesinden gelir — konum haritası veya araç hareketi yok.")
+            _lc1.caption(f"{gp_name} · {target_s_name} şu an sürüyor. Tablo F1'in resmî canlı "
+                         "zamanlama feed'inden gelir — pozisyon, fark, aralık, bayrak ve tur. "
+                         "Konum haritası veya araç hareketi yok.")
             if _lc2.button("Yenile", key="live_timing_refresh_v61", width='stretch'):
+                _f1_livetiming_v62.clear()
                 _live_timing_v61.clear()
-            _auto = st.toggle("30 saniyede bir otomatik yenile", value=False, key="live_timing_auto_v61")
+            _auto = st.toggle("30 saniyede bir otomatik yenile", value=True, key="live_timing_auto_v61")
 
             def _render_live_timing():
-                _lt = _live_timing_v61(2026, gp_name, _sc)
+                # 1) F1 resmî canlı feed (asıl kaynak — canlı seansta çalışan tek yol)
+                _lt = _f1_livetiming_v62(2026, gp_name, _sc)
                 if _lt.get('ok'):
-                    render_html_hud(live_timing_tower_html(_lt, live=True),
+                    render_html_hud(live_timing_tower_html(_lt, live=_lt.get('live', True)),
                                     height=live_timing_tower_component_height(_lt), scrolling=True)
+                    return
+                # 2) FastF1 resmî sonuç — YALNIZ feed 'pending' değilse dene
+                #    (pending = yarış henüz başlamadı → FastF1'de de veri yok, üstelik
+                #     canlı seansta .load() ~50 sn asılı kalır; boşuna bekletme).
+                if not _lt.get('pending'):
+                    _ff = _live_timing_v61(2026, gp_name, _sc)
+                    if _ff.get('ok'):
+                        render_html_hud(live_timing_tower_html(_ff, live=False),
+                                        height=live_timing_tower_component_height(_ff), scrolling=True)
+                        return
+                # 3) Feed henüz açık değil → hafta sonunun sıralama sonucu (başlangıç gridi)
+                if _lt.get('pending'):
+                    st.info(f"{target_s_name} henüz yeşil bayrak almadı — F1 resmî zamanlama "
+                            "feed'i seans başlangıcında açılır. Aşağıda bu hafta sonunun "
+                            "sıralama sonucu (başlangıç gridi).")
                 else:
-                    st.info(f"{target_s_name} için resmî klasman henüz oluşmadı — seans başlar başlamaz burada görünür.")
+                    st.warning(f"{target_s_name} için resmî zamanlama alınamadı "
+                               f"({_lt.get('reason', 'bilinmiyor')}).")
+                _grid = _f1_livetiming_v62(2026, gp_name, 'Q')
+                if not _grid.get('ok'):
+                    _grid = _live_timing_v61(2026, gp_name, 'Q')
+                if _grid.get('ok'):
+                    render_html_hud(live_timing_tower_html(_grid, live=False),
+                                    height=live_timing_tower_component_height(_grid), scrolling=True)
 
             if _auto and hasattr(st, 'fragment'):
                 @st.fragment(run_every="30s")
@@ -13596,11 +13856,14 @@ def _router_page_live():
         else:
             st.caption("Aktif hafta sonunun son tamamlanan seansının resmî klasmanı.")
             _lt = _live_timing_v61(2026, gp_name, _sc)
+            if not _lt.get('ok'):
+                # FastF1 gecikiyorsa F1 resmî feed'inin biten-seans klasmanı
+                _lt = _f1_livetiming_v62(2026, gp_name, _sc)
             if _lt.get('ok'):
                 render_html_hud(live_timing_tower_html(_lt, live=False),
                                 height=live_timing_tower_component_height(_lt), scrolling=True)
             else:
-                st.warning(f"Seans verisi henüz FastF1'e düşmedi ({target_s_name}).")
+                st.warning(f"Seans verisi henüz resmî kaynaklara düşmedi ({target_s_name}).")
 
     with replay_tab:
         _cur_year = datetime.datetime.now(datetime.timezone.utc).year
