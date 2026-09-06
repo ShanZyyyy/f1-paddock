@@ -11,6 +11,8 @@ import urllib.error
 import unicodedata
 import json
 import re
+import base64
+import zlib
 import html as html_lib
 import logging
 import xml.etree.ElementTree as ET
@@ -13520,8 +13522,7 @@ def live_timing_tower_html(data, live):
     return f"""
     <style>
       body{{margin:0;background:transparent;font-family:'Inter',system-ui,sans-serif;color:#eef2f7}}
-      .lt{{border:1px solid #232c3a;border-left:3px solid {'#ff4757' if live else '#33d6c8'};
-        border-radius:12px;background:#141a24;overflow:hidden}}
+      .lt{{border:1px solid #232c3a;border-radius:12px;background:#141a24;overflow:hidden}}
       .lt-hd{{padding:12px 15px 9px;border-bottom:1px solid #232c3a}}
       .lt-hd b{{font:800 13px 'Inter',system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase}}
       .lt-hd .ev{{color:#c9d2de;font:600 12px 'Inter',system-ui,sans-serif}}
@@ -13774,6 +13775,176 @@ def _f1_livetiming_v62(year, gp_name, session_code):
     }
 
 
+# -------------------------------------------------------------------------
+# CANLI PİST HARİTASI — gerçek araç konumları (F1 Position.z akışı)
+# FastF1'in tur telemetrisi ile AYNI koordinat sistemi; pist çizgisi bir
+# kez FastF1'den (hafta sonunun sıralaması), araç noktaları her ~10 sn'de
+# F1'in Position.z feed'inin SON karesinden. Uydurma hareket yok — F1'in
+# yayınladığı gerçek GPS konumu.
+# -------------------------------------------------------------------------
+@st.cache_data(ttl=604800, show_spinner=False)
+def _live_track_outline_v62(year, gp_name):
+    """Hafta sonunun bir seansından temiz bir turun (X, Y) izi → pist çizgisi.
+    FastF1 (telemetri) — Position.z ile aynı koordinat çerçevesi."""
+    for yr in (int(year), int(year) - 1):
+        for code in ('Q', 'R', 'FP3', 'FP2', 'SQ', 'FP1'):
+            try:
+                sess = fastf1.get_session(yr, gp_name, code)
+                sess.load(telemetry=True, weather=False, messages=False)
+                drv = sess.laps['Driver'].dropna().iloc[0]
+                tel = sess.laps.pick_drivers(drv).pick_fastest().get_telemetry()
+                xy = tel[['X', 'Y']].dropna()
+                if len(xy) >= 50:
+                    step = max(1, len(xy) // 500)
+                    pts = [[round(float(x), 1), round(float(y), 1)]
+                           for x, y in xy.iloc[::step].to_numpy()]
+                    return {'ok': True, 'pts': pts}
+            except Exception:
+                continue
+    return {'ok': False}
+
+
+def _f1lt_decode_z(line):
+    """`<ts>"<base64(zlib-deflate JSON)>"` satırını çöz → dict (ya da None)."""
+    q = line.find('"')
+    if q < 0:
+        return None
+    payload = line[q + 1:line.rfind('"')]
+    try:
+        raw = base64.b64decode(payload)
+    except Exception:
+        return None
+    for wbits in (-zlib.MAX_WBITS, zlib.MAX_WBITS):
+        try:
+            return json.loads(zlib.decompress(raw, wbits))
+        except Exception:
+            continue
+    return None
+
+
+@st.cache_data(ttl=10, show_spinner=False)
+def _f1_live_positions_v62(year, gp_name, session_code):
+    """F1 Position.z feed'inin SON karesinden anlık araç konumları.
+
+    Dosyanın yalnız kuyruğunu (HTTP Range) çeker — tam yarışta bile <50 KB.
+    Her satır tam bir anlık görüntüdür (delta değil), son geçerli satır yeter."""
+    meta = _f1lt_session_path_v62(year, gp_name, session_code)
+    if not meta.get('ok'):
+        return {'ok': False}
+    path = meta['path']
+    try:
+        drivers = _f1lt_fetch(path + 'DriverList.json', timeout=6)
+    except Exception:
+        return {'ok': False}
+    try:
+        req = urllib.request.Request(
+            _F1LT_BASE + path + 'Position.z.jsonStream',
+            headers={'User-Agent': 'BestHTTP', 'Range': 'bytes=-60000'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            tail = resp.read().decode('utf-8-sig', errors='replace')
+    except Exception:
+        return {'ok': False}
+
+    frame = None
+    for line in reversed([l for l in tail.splitlines() if l.strip()]):
+        d = _f1lt_decode_z(line)
+        entries = None
+        if isinstance(d, dict):
+            seq = d.get('Position')
+            if isinstance(seq, list) and seq:
+                entries = (seq[-1] or {}).get('Entries')
+        if isinstance(entries, dict) and entries:
+            frame = entries
+            break
+    if not frame:
+        return {'ok': False}
+
+    cars = []
+    for num, e in frame.items():
+        if not isinstance(e, dict):
+            continue
+        x, y = e.get('X'), e.get('Y')
+        if x is None or y is None:
+            continue
+        dv = drivers.get(str(num), {}) if isinstance(drivers, dict) else {}
+        tcol = str(dv.get('TeamColour') or '').strip()
+        cars.append({
+            'code': str(dv.get('Tla') or num).strip(),
+            'colour': ('#' + tcol.lstrip('#')) if tcol and tcol.lower() != 'nan'
+            else season_team_colour(dv.get('TeamName', ''), year),
+            'x': float(x), 'y': float(y),
+            'on': str(e.get('Status') or 'OnTrack') == 'OnTrack',
+        })
+    cars = [c for c in cars if c['code']]
+    return {'ok': bool(cars), 'cars': cars}
+
+
+def live_track_map_component_height():
+    return 430
+
+
+def live_track_map_html(outline, positions):
+    """Pist çizgisi (SVG polyline) + gerçek araç noktaları. Konum F1'in resmî
+    Position.z feed'inden; hareket enterpolasyonu / tahmini YOK — son kare."""
+    pts = (outline or {}).get('pts') or []
+    cars = (positions or {}).get('cars') or []
+    if len(pts) < 20 or not cars:
+        return ''
+    xs = [p[0] for p in pts] + [c['x'] for c in cars]
+    ys = [p[1] for p in pts] + [c['y'] for c in cars]
+    minx, maxx, miny, maxy = min(xs), max(xs), min(ys), max(ys)
+    span = max(maxx - minx, maxy - miny) or 1.0
+    pad = span * 0.06
+    vb_w = (maxx - minx) + 2 * pad
+    vb_h = (maxy - miny) + 2 * pad
+
+    def _sx(x):
+        return round(x - minx + pad, 1)
+
+    def _sy(y):                                  # F1 Y ekseni yukarı → SVG ters
+        return round(maxy - y + pad, 1)
+
+    track_d = "M " + " L ".join(f"{_sx(x)},{_sy(y)}" for x, y in pts) + " Z"
+    r = round(span * 0.012, 1)
+    dots = ""
+    for c in sorted(cars, key=lambda c: c['on']):
+        op = "1" if c['on'] else "0.32"
+        dots += (
+            f"<circle cx='{_sx(c['x'])}' cy='{_sy(c['y'])}' r='{r}' fill='{c['colour']}' "
+            f"stroke='#0b0f16' stroke-width='{round(r * 0.35, 1)}' opacity='{op}'/>"
+            f"<text x='{_sx(c['x'])}' y='{_sy(c['y']) - r * 1.6}' fill='#eef2f7' opacity='{op}' "
+            f"font-size='{round(span * 0.020, 1)}' text-anchor='middle' "
+            f"font-family='JetBrains Mono,monospace' font-weight='700'>{html_lib.escape(c['code'])}</text>"
+        )
+    return f"""
+    <style>
+      body{{margin:0;background:transparent}}
+      .ltm{{border:1px solid #232c3a;border-radius:12px;background:#0d121a;overflow:hidden}}
+      .ltm-hd{{padding:10px 14px;border-bottom:1px solid #232c3a;
+        font:800 11px 'Inter',system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#c9d2de}}
+      .ltm-hd i{{font-style:normal;color:#6d7a8c;font-weight:600;letter-spacing:.03em;text-transform:none;margin-left:8px}}
+      .ltm-wrap{{padding:12px}}
+      .ltm svg{{width:100%;height:340px;display:block}}
+      .ltm-ft{{padding:8px 14px;border-top:1px solid #232c3a;font:500 10px 'Inter',system-ui,sans-serif;color:#6d7a8c}}
+    </style>
+    <div class="ltm">
+      <div class="ltm-hd">Pist Üzerinde
+        <i>gerçek araç konumu · F1 Position feed'i</i></div>
+      <div class="ltm-wrap">
+        <svg viewBox="0 0 {round(vb_w,1)} {round(vb_h,1)}" preserveAspectRatio="xMidYMid meet">
+          <path d="{track_d}" fill="none" stroke="#2b3644" stroke-width="{round(span*0.012,1)}"
+                stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="{track_d}" fill="none" stroke="#3a4756" stroke-width="{round(span*0.004,1)}"
+                stroke-linejoin="round" stroke-linecap="round"/>
+          {dots}
+        </svg>
+      </div>
+      <div class="ltm-ft">Konumlar F1'in resmî Position feed'inin son karesinden — enterpolasyon yok,
+      gerçek GPS. Tam 2D tekrar ve tur-tur kontrol için "Yarış Tekrarı" sekmesi.</div>
+    </div>
+    """
+
+
 def _router_page_live():
     curr_event, target_s_name, target_s_time, is_live_now = get_current_or_next_event()
     gp_name = curr_event['EventName'] if 'EventName' in curr_event else "Hungarian Grand Prix"
@@ -13807,11 +13978,12 @@ def _router_page_live():
                                     height=live_timing_tower_component_height(_lt), scrolling=True)
         elif is_live_now:
             _lc1, _lc2 = st.columns([3, 1])
-            _lc1.caption(f"{gp_name} · {target_s_name} şu an sürüyor. Tablo F1'in resmî canlı "
-                         "zamanlama feed'inden gelir — pozisyon, fark, aralık, bayrak ve tur. "
-                         "Konum haritası veya araç hareketi yok.")
+            _lc1.caption(f"{gp_name} · {target_s_name} şu an sürüyor. Pist haritasındaki noktalar "
+                         "F1'in resmî konum feed'inin son karesidir (gerçek GPS, enterpolasyon yok); "
+                         "tablo ise pozisyon, fark, aralık, bayrak ve turu verir.")
             if _lc2.button("Yenile", key="live_timing_refresh_v61", width='stretch'):
                 _f1_livetiming_v62.clear()
+                _f1_live_positions_v62.clear()
                 _live_timing_v61.clear()
             _auto = st.toggle("30 saniyede bir otomatik yenile", value=True, key="live_timing_auto_v61")
 
@@ -13821,6 +13993,17 @@ def _router_page_live():
                 if _lt.get('ok'):
                     render_html_hud(live_timing_tower_html(_lt, live=_lt.get('live', True)),
                                     height=live_timing_tower_component_height(_lt), scrolling=True)
+                    if _lt.get('live'):
+                        # pist çizgisi (bir kez, FastF1 — ~30 sn ilk yükleme, sonra cache) +
+                        # anlık araç konumu (F1 Position feed'i). Tablo önce basıldı;
+                        # harita hazır olunca altına eklenir.
+                        _outline = _live_track_outline_v62(2026, gp_name)
+                        if _outline.get('ok'):
+                            _map = live_track_map_html(
+                                _outline, _f1_live_positions_v62(2026, gp_name, _sc))
+                            if _map:
+                                render_html_hud(_map, height=live_track_map_component_height(),
+                                                scrolling=False)
                     return
                 # 2) FastF1 resmî sonuç — YALNIZ feed 'pending' değilse dene
                 #    (pending = yarış henüz başlamadı → FastF1'de de veri yok, üstelik
