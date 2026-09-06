@@ -13664,6 +13664,38 @@ def _f1lt_session_path_v62(year, gp_name, session_code):
             'session_name': sess.get('Name'), 'meeting_name': meeting.get('Name')}
 
 
+@st.cache_data(ttl=45, show_spinner=False)
+def _f1lt_pending_phase(path):
+    """Feed 403 verirken seansın hangi aşamada olduğunu belirle:
+    'not_started' | 'live_locked' | 'archiving' | 'unknown'.
+
+    F1 bu sezon canlı zamanlama akışını (SignalR + statik feed) yetkiye
+    bağladı; statik `.jsonStream` dosyaları yalnız seans arşivlenince (damalı
+    bayraktan bir süre sonra) 200 döner. `SessionInfo.json` ve
+    `StreamingStatus.json` yine erişilebilir — aşamayı onlardan çıkarırız."""
+    started = past_end = None
+    archiving = False
+    try:
+        si = _f1lt_fetch(str(path) + 'SessionInfo.json', timeout=6)
+        gmt = str(si.get('GmtOffset') or '00:00:00')
+        hh, mm, ssx = (int(x) for x in gmt.split(':'))
+        off = datetime.timedelta(hours=hh, minutes=mm, seconds=ssx)
+        now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+        if si.get('StartDate'):
+            started = now_utc >= (datetime.datetime.fromisoformat(si['StartDate']) - off)
+        if si.get('EndDate'):
+            past_end = now_utc >= (datetime.datetime.fromisoformat(si['EndDate']) - off
+                                   + datetime.timedelta(minutes=15))
+        archiving = str((si.get('ArchiveStatus') or {}).get('Status') or '') == 'Generating'
+    except Exception:
+        return 'unknown'
+    if started is False:
+        return 'not_started'
+    if archiving:                       # statik dosyalar henüz yazılmadı
+        return 'archiving' if past_end else 'live_locked'
+    return 'unknown'
+
+
 @st.cache_data(ttl=25, show_spinner=False)
 def _f1_livetiming_v62(year, gp_name, session_code):
     """F1 resmî statik feed'inden canlı/biten seansın klasman tablosu.
@@ -13675,14 +13707,19 @@ def _f1_livetiming_v62(year, gp_name, session_code):
     meta = _f1lt_session_path_v62(year, gp_name, session_code)
     if not meta.get('ok'):
         return {'ok': False, 'reason': meta.get('reason', 'feed yok'),
-                'pending': bool(meta.get('pending'))}
+                'pending': bool(meta.get('pending')),
+                'phase': _f1lt_pending_phase(meta.get('path')) if meta.get('path') else 'unknown'}
     path = meta['path']
     try:
         drivers = _f1lt_fetch(path + 'DriverList.json', timeout=7)
     except Exception:
-        return {'ok': False, 'reason': 'F1 zamanlama feed\'i henüz açık değil', 'pending': True}
+        _ph = _f1lt_pending_phase(path)
+        return {'ok': False, 'pending': True, 'phase': _ph,
+                'reason': {'not_started': 'seans henüz başlamadı',
+                           'live_locked': 'seans canlı — F1 canlı veriyi kilitledi',
+                           }.get(_ph, 'F1 zamanlama feed\'i henüz açık değil')}
     if not isinstance(drivers, dict) or not drivers:
-        return {'ok': False, 'reason': 'sürücü listesi boş', 'pending': True}
+        return {'ok': False, 'reason': 'sürücü listesi boş', 'pending': True, 'phase': 'unknown'}
 
     sess_state = ''
     try:
@@ -13978,12 +14015,13 @@ def _router_page_live():
                                     height=live_timing_tower_component_height(_lt), scrolling=True)
         elif is_live_now:
             _lc1, _lc2 = st.columns([3, 1])
-            _lc1.caption(f"{gp_name} · {target_s_name} şu an sürüyor. Pist haritasındaki noktalar "
-                         "F1'in resmî konum feed'inin son karesidir (gerçek GPS, enterpolasyon yok); "
-                         "tablo ise pozisyon, fark, aralık, bayrak ve turu verir.")
+            _lc1.caption(f"{gp_name} · {target_s_name}. Veri açık olduğunda: gerçek araç "
+                         "konumlu 2D pist haritası (F1 resmî konum feed'i, enterpolasyon yok) + "
+                         "sıralama / fark / aralık / bayrak / tur tablosu. Uydurma araç hareketi yok.")
             if _lc2.button("Yenile", key="live_timing_refresh_v61", width='stretch'):
                 _f1_livetiming_v62.clear()
                 _f1_live_positions_v62.clear()
+                _f1lt_pending_phase.clear()
                 _live_timing_v61.clear()
             _auto = st.toggle("30 saniyede bir otomatik yenile", value=True, key="live_timing_auto_v61")
 
@@ -14015,7 +14053,19 @@ def _router_page_live():
                                         height=live_timing_tower_component_height(_ff), scrolling=True)
                         return
                 # 3) Feed henüz açık değil → hafta sonunun sıralama sonucu (başlangıç gridi)
-                if _lt.get('pending'):
+                _phase = _lt.get('phase')
+                if _phase == 'live_locked':
+                    st.info(
+                        f"🔴 {target_s_name} ŞU AN CANLI — ama F1 bu sezon canlı zamanlama "
+                        "akışını (SignalR + statik feed) ücretli erişime kapattı; OpenF1 de "
+                        "canlı seansta kilitli. Tam sıralama, farklar ve **canlı 2D pist "
+                        "haritası** seans bitip arşivlenince (damalı bayraktan ~kısa süre "
+                        "sonra) bu ekranda otomatik açılır. Şimdilik başlangıç gridi (sıralama "
+                        "sonucu) aşağıda; sayfa 30 sn'de bir kendini deniyor.")
+                elif _phase == 'archiving':
+                    st.info(f"{target_s_name} bitti — F1 resmî klasmanı arşivliyor. Birkaç "
+                            "dakika içinde tam sonuç ve 2D harita burada açılır.")
+                elif _lt.get('pending'):
                     st.info(f"{target_s_name} henüz yeşil bayrak almadı — F1 resmî zamanlama "
                             "feed'i seans başlangıcında açılır. Aşağıda bu hafta sonunun "
                             "sıralama sonucu (başlangıç gridi).")
