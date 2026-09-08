@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0c10">
+<meta name="color-scheme" content="dark">
+<title>Pilot &amp; Personel Yönetimi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* zemin — koyu slate/antrasit */
+  --bg-0:#0a0c10; --bg-1:#0f131a; --bg-2:#151b24; --bg-3:#1c2430; --bg-4:#26303e;
+  --line:#2a3442; --line-soft:#1e2733;
+  --text:#eef2f6; --text-dim:#98a7b8; --text-mute:#5f6f82;
+  /* teknik neon aksanlar */
+  --neon-orange:#ff7a1a; --neon-red:#ff2e4d; --neon-cyan:#00e5ff; --neon-green:#39ff88; --neon-amber:#ffce3d;
+  --f-display:'Saira Condensed','Arial Narrow',system-ui,sans-serif;
+  --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono','Consolas',ui-monospace,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg-0);color:var(--text);font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+body{
+  min-height:100vh;touch-action:manipulation;
+  background:
+    radial-gradient(110% 55% at 15% -8%, rgba(255,122,26,.09), transparent 55%),
+    radial-gradient(100% 55% at 100% 105%, rgba(0,229,255,.07), transparent 55%),
+    linear-gradient(180deg,var(--bg-1),var(--bg-0));
+  padding-bottom:calc(var(--safe-b) + 18px);
+}
+button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation}
+.mono{font-family:var(--f-mono)}
+img,svg{display:block}
+
+/* =========================================================
+   ÜST BAR
+   ========================================================= */
+.top-bar{
+  position:sticky;top:0;z-index:5;
+  padding:calc(var(--safe-t) + 10px) calc(var(--safe-r) + 14px) 10px calc(var(--safe-l) + 14px);
+  background:linear-gradient(180deg,rgba(10,12,16,.97),rgba(10,12,16,.9));
+  border-bottom:1px solid var(--line);backdrop-filter:blur(8px);
+}
+.top-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.eyebrow{font-size:10px;letter-spacing:.2em;color:var(--neon-orange);font-weight:800;text-transform:uppercase}
+.title{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}
+.wage-chip{
+  display:flex;flex-direction:column;align-items:flex-end;gap:1px;
+  padding:6px 12px;border-radius:9px;background:var(--bg-3);border:1px solid var(--line);
+}
+.wage-chip .l{font-size:8.5px;letter-spacing:.1em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.wage-chip .v{font-family:var(--f-mono);font-size:15px;font-weight:700;color:var(--neon-green)}
+
+.tabs{display:flex;gap:6px;margin-top:12px}
+.tab-btn{
+  flex:1;padding:10px 8px;border-radius:9px;border:1px solid var(--line);background:var(--bg-2);
+  font-family:var(--f-display);font-weight:700;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text-dim);display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+.tab-btn .count{
+  font-family:var(--f-mono);font-size:10px;background:var(--bg-4);padding:1px 6px;border-radius:99px;color:var(--text-dim);
+}
+.tab-btn.is-active{background:linear-gradient(180deg,rgba(255,122,26,.18),rgba(255,122,26,.06));border-color:rgba(255,122,26,.55);color:var(--text)}
+.tab-btn.is-active .count{background:rgba(255,122,26,.28);color:var(--neon-orange)}
+
+/* =========================================================
+   İÇERİK
+   ========================================================= */
+.view{padding:16px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px)}
+.view[hidden]{display:none}
+.grid{display:grid;grid-template-columns:1fr;gap:14px;max-width:1100px;margin:0 auto}
+@media(min-width:700px){ .grid{grid-template-columns:repeat(2,1fr)} }
+@media(min-width:1080px){ .grid.staff-grid{grid-template-columns:repeat(3,1fr)} }
+.section-label{
+  max-width:1100px;margin:0 auto 10px;font-family:var(--f-display);font-weight:700;font-size:13px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);
+  padding-left:9px;border-left:3px solid var(--neon-cyan);
+}
+
+/* =========================================================
+   PİLOT KARTI
+   ========================================================= */
+.driver-card{
+  background:linear-gradient(165deg,var(--bg-3),var(--bg-2));border:1px solid var(--line);
+  border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px;
+  box-shadow:0 10px 26px rgba(0,0,0,.35);
+}
+.dc-head{display:flex;align-items:center;gap:12px}
+.dc-code{
+  font-family:var(--f-mono);font-weight:700;font-size:12px;color:var(--bg-0);
+  background:linear-gradient(135deg,var(--neon-orange),var(--neon-red));
+  padding:8px 9px;border-radius:8px;letter-spacing:.03em;min-width:52px;text-align:center;
+}
+.dc-id{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.dc-name-wrap{min-width:0}
+.dc-name{font-family:var(--f-display);font-weight:800;font-size:18px;text-transform:uppercase;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc-role{font-size:11px;color:var(--text-dim)}
+.gauge-wrap{position:relative;width:58px;height:58px;flex:0 0 auto}
+.gauge-ring{position:absolute;inset:0;transform:rotate(0deg)}
+.gauge-track{fill:none;stroke:var(--line);stroke-width:6}
+.gauge-fill{fill:none;stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .4s ease}
+.tier-good .gauge-fill{stroke:var(--neon-green)}
+.tier-warn .gauge-fill{stroke:var(--neon-amber)}
+.tier-bad .gauge-fill{stroke:var(--neon-red)}
+.gauge-value{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
+  font-family:var(--f-mono);font-weight:700;font-size:17px;
+}
+.gauge-value small{font-size:7px;color:var(--text-mute);font-weight:700;letter-spacing:.06em;margin-top:-2px}
+
+.dc-contract{display:flex;gap:8px}
+.contract-item{
+  flex:1;background:var(--bg-1);border:1px solid var(--line-soft);border-radius:8px;padding:7px 9px;
+  display:flex;flex-direction:column;gap:2px;
+}
+.contract-item .l{font-size:8.5px;letter-spacing:.09em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.contract-item .v{font-family:var(--f-mono);font-size:13px;font-weight:700}
+
+.radar-svg{width:100%;height:auto;max-width:220px;margin:0 auto}
+.radar-ring{fill:none;stroke:var(--line-soft);stroke-width:1}
+.radar-axis{stroke:var(--line-soft);stroke-width:1}
+.radar-data{fill:rgba(255,122,26,.22);stroke:var(--neon-orange);stroke-width:1.6;stroke-linejoin:round}
+.radar-label{fill:var(--text-mute);font-size:8.5px;font-family:var(--f-body);font-weight:600;text-transform:uppercase}
+
+.dc-bars,.sc-bars{display:flex;flex-direction:column;gap:7px}
+.stat-row{display:grid;grid-template-columns:88px 1fr 28px;align-items:center;gap:8px}
+.stat-label{font-size:9.5px;letter-spacing:.05em;color:var(--text-dim);text-transform:uppercase;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-track{height:6px;border-radius:99px;background:var(--bg-1);border:1px solid var(--line-soft);overflow:hidden}
+.stat-track i{display:block;height:100%;border-radius:99px}
+.stat-track i.good{background:linear-gradient(90deg,#1fae60,var(--neon-green))}
+.stat-track i.warn{background:linear-gradient(90deg,#c98f14,var(--neon-amber))}
+.stat-track i.bad{background:linear-gradient(90deg,#b3223a,var(--neon-red))}
+.stat-value{font-family:var(--f-mono);font-size:11px;font-weight:700;text-align:right}
+
+.dc-live{display:flex;gap:10px;padding-top:2px;border-top:1px solid var(--line-soft)}
+.live-meter{flex:1;display:flex;flex-direction:column;gap:4px;padding-top:8px}
+.lm-top{display:flex;justify-content:space-between;align-items:center}
+.lm-label{display:flex;align-items:center;gap:5px;font-size:9px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.lm-dot{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor;animation:lmPulse 1.3s ease-in-out infinite}
+@keyframes lmPulse{0%,100%{opacity:1}50%{opacity:.4}}
+.lm-tag{font-family:var(--f-mono);font-size:10px;font-weight:700}
+.lm-tag.good{color:var(--neon-green)}.lm-tag.warn{color:var(--neon-amber)}.lm-tag.bad{color:var(--neon-red)}
+.lm-track{height:5px;border-radius:99px;background:var(--bg-1);border:1px solid var(--line-soft);overflow:hidden}
+.lm-track i{display:block;height:100%;border-radius:99px}
+.lm-track i.good{background:var(--neon-green)}.lm-track i.warn{background:var(--neon-amber)}.lm-track i.bad{background:var(--neon-red)}
+
+/* =========================================================
+   PERSONEL KARTI (kompakt)
+   ========================================================= */
+.staff-card{
+  background:linear-gradient(165deg,var(--bg-3),var(--bg-2));border:1px solid var(--line);
+  border-radius:14px;padding:13px 14px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 8px 20px rgba(0,0,0,.3);
+}
+.sc-head{display:flex;align-items:center;gap:10px}
+.sc-icon{
+  width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;background:linear-gradient(135deg,rgba(0,229,255,.18),rgba(57,255,136,.12));
+  border:1px solid var(--line);flex:0 0 auto;
+}
+.sc-id{flex:1;min-width:0}
+.sc-name{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-role{font-size:10.5px;color:var(--text-dim)}
+.sc-salary{font-family:var(--f-mono);font-size:12px;font-weight:700;color:var(--neon-cyan);text-align:right;white-space:nowrap}
+.sc-salary small{display:block;font-size:8px;color:var(--text-mute);font-weight:600}
+
+.empty-note{max-width:1100px;margin:30px auto;text-align:center;color:var(--text-mute);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="top-row">
+    <div>
+      <span class="eyebrow">Paddock GP · Kadro</span>
+      <h1 class="title">Pilot &amp; Personel<br>Yönetimi</h1>
+    </div>
+    <div class="wage-chip">
+      <span class="l">Toplam Maaş / Yarış</span>
+      <span class="v mono" id="ui-total-wage">₺0</span>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn is-active" id="tab-drivers" type="button">Pilotlar <span class="count" id="count-drivers">0</span></button>
+    <button class="tab-btn" id="tab-staff" type="button">Teknik Kadro <span class="count" id="count-staff">0</span></button>
+  </nav>
+</header>
+
+<main>
+  <section class="view" id="view-drivers">
+    <div class="grid" id="drivers-grid"></div>
+  </section>
+  <section class="view" id="view-staff" hidden>
+    <div class="grid staff-grid" id="staff-grid"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu.
+   Gerçek entegrasyonda bu objenin yerine canlı kadro verisi geçirilir;
+   tüm render fonksiyonları şemadaki alanlara göre dinamik çalışır.
+   ========================================================= */
+var SAMPLE_DATA={
+  team_staff:{
+    drivers:[
+      {
+        id:'drv_01', name:'Marcus Vance', short_code:'VAN', role:'Driver 1',
+        age:24, salary_per_race:85000, races_remaining:18,
+        stats:{ overall:82, pace:85, tyre_management:78, overtaking:83, consistency:80, wet_skill:74 },
+        morale:90, form:84
+      },
+      {
+        id:'drv_02', name:'Sofia Reyes', short_code:'REY', role:'Driver 2',
+        age:27, salary_per_race:62000, races_remaining:18,
+        stats:{ overall:76, pace:77, tyre_management:82, overtaking:71, consistency:85, wet_skill:80 },
+        morale:68, form:72
+      }
+    ],
+    engineers:[
+      {
+        id:'eng_chief_01', name:'Elena Rostova', role:'Chief Engineer', salary_per_race:45000,
+        stats:{ design_efficiency:88, build_speed:82, reliability_bonus:85 }
+      },
+      {
+        id:'eng_pit_01', name:'David Miller', role:'Pit Crew Chief', salary_per_race:30000,
+        stats:{ stop_speed:86, error_reduction:80 }
+      }
+    ]
+  }
+};
+
+/* =========================================================
+   YARDIMCILAR
+   ========================================================= */
+var LABEL_DICT={
+  pace:'Tempo', tyre_management:'Lastik Yönetimi', overtaking:'Geçiş', consistency:'İstikrar',
+  wet_skill:'Yağmur Yeteneği', overall:'Genel',
+  design_efficiency:'Tasarım Verimi', build_speed:'Üretim Hızı', reliability_bonus:'Güvenilirlik',
+  stop_speed:'Durak Hızı', error_reduction:'Hata Azaltma'
+};
+var ROLE_ICON_DICT={ 'Chief Engineer':'🛠️', 'Pit Crew Chief':'⛽' };
+var RADAR_LABEL_DICT={
+  pace:'Tempo', tyre_management:'Lastik', overtaking:'Geçiş', consistency:'İstikrar', wet_skill:'Yağmur',
+  design_efficiency:'Tasarım', build_speed:'Üretim', reliability_bonus:'Güven', stop_speed:'Durak', error_reduction:'Hata'
+};
+
+function labelFor(key){
+  if(LABEL_DICT[key]) return LABEL_DICT[key];
+  return key.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
+}
+function radarLabelFor(key){
+  if(RADAR_LABEL_DICT[key]) return RADAR_LABEL_DICT[key];
+  return labelFor(key).split(' ')[0];
+}
+function tierOf(v){ return v>=80?'good':(v>=60?'warn':'bad'); }
+function tierText(v){ return v>=80?'YÜKSEK':(v>=60?'ORTA':'DÜŞÜK'); }
+function formatMoney(n){
+  var s=Math.round(n).toString();
+  s=s.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return '₺'+s;
+}
+function statEntries(statsObj, excludeKeys){
+  excludeKeys=excludeKeys||[];
+  return Object.keys(statsObj)
+    .filter(function(k){ return excludeKeys.indexOf(k)===-1; })
+    .map(function(k){ return {key:k, label:labelFor(k), value:statsObj[k]}; });
+}
+
+/* =========================================================
+   SVG — dairesel genel reyting göstergesi
+   ========================================================= */
+function overallGaugeSVG(value,size){
+  size=size||58;
+  var r=size/2-6, cx=size/2, cy=size/2;
+  var C=2*Math.PI*r;
+  var off=(C*(1-Math.max(0,Math.min(100,value))/100)).toFixed(1);
+  return '<svg viewBox="0 0 '+size+' '+size+'" class="gauge-ring">'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" class="gauge-track"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" class="gauge-fill" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+cx+' '+cy+')"/>'
+    +'</svg>';
+}
+
+/* =========================================================
+   SVG — radar / pentagon grafiği (n eksenli, dinamik)
+   ========================================================= */
+function polarPoint(cx,cy,r,angleDeg){
+  var rad=(angleDeg-90)*Math.PI/180;
+  return {x:cx+r*Math.cos(rad), y:cy+r*Math.sin(rad)};
+}
+function radarChartSVG(entries){
+  var n=entries.length;
+  if(n<3) return '';
+  var size=240, vh=200, cx=120, cy=104, R=50;
+  var rings=[0.33,0.66,1].map(function(f){
+    var pts=[];
+    for(var i=0;i<n;i++){ var p=polarPoint(cx,cy,R*f,i*(360/n)); pts.push(p.x.toFixed(1)+','+p.y.toFixed(1)); }
+    return '<polygon points="'+pts.join(' ')+'" class="radar-ring"/>';
+  }).join('');
+  var axes='', labels='', dataPts=[];
+  for(var i=0;i<n;i++){
+    var ang=i*(360/n);
+    var full=polarPoint(cx,cy,R,ang);
+    axes+='<line x1="'+cx+'" y1="'+cy+'" x2="'+full.x.toFixed(1)+'" y2="'+full.y.toFixed(1)+'" class="radar-axis"/>';
+    var lp=polarPoint(cx,cy,R+20,ang);
+    var anchor = Math.abs(lp.x-cx)<4 ? 'middle' : (lp.x>cx?'start':'end');
+    labels+='<text x="'+lp.x.toFixed(1)+'" y="'+lp.y.toFixed(1)+'" text-anchor="'+anchor+'" class="radar-label">'+radarLabelFor(entries[i].key)+'</text>';
+    var val=polarPoint(cx,cy,R*(Math.max(0,Math.min(100,entries[i].value))/100),ang);
+    dataPts.push(val.x.toFixed(1)+','+val.y.toFixed(1));
+  }
+  return '<svg viewBox="0 0 '+size+' '+vh+'" class="radar-svg">'
+    + rings + axes
+    + '<polygon points="'+dataPts.join(' ')+'" class="radar-data"/>'
+    + labels
+    + '</svg>';
+}
+
+/* =========================================================
+   RENDER — pilot kartı
+   ========================================================= */
+function statRowHTML(entry){
+  var tier=tierOf(entry.value);
+  return '<div class="stat-row">'
+    +'<span class="stat-label">'+entry.label+'</span>'
+    +'<span class="stat-track"><i class="'+tier+'" style="width:'+entry.value+'%"></i></span>'
+    +'<span class="stat-value mono">'+entry.value+'</span>'
+    +'</div>';
+}
+function liveMeterHTML(label,value){
+  var tier=tierOf(value);
+  return '<div class="live-meter">'
+    +'<div class="lm-top"><span class="lm-label"><span class="lm-dot" style="color:var(--neon-'+(tier==='good'?'green':tier==='warn'?'amber':'red')+')"></span>'+label+'</span><span class="lm-tag '+tier+'">'+tierText(value)+'</span></div>'
+    +'<div class="lm-track"><i class="'+tier+'" style="width:'+value+'%"></i></div>'
+    +'</div>';
+}
+function driverCardHTML(d){
+  var overallEntry=(d.stats.overall!==undefined) ? d.stats.overall : null;
+  var skillEntries=statEntries(d.stats,['overall']);
+  var gaugeTier = overallEntry!==null ? tierOf(overallEntry) : 'good';
+  return '<article class="driver-card">'
+    +'<div class="dc-head">'
+      +'<div class="dc-id">'
+        +'<span class="dc-code">'+d.short_code+'</span>'
+        +'<div class="dc-name-wrap"><h3 class="dc-name">'+d.name+'</h3><span class="dc-role">'+d.role+' · '+d.age+' yaş</span></div>'
+      +'</div>'
+      +(overallEntry!==null ? '<div class="gauge-wrap tier-'+gaugeTier+'">'+overallGaugeSVG(overallEntry)+'<span class="gauge-value">'+overallEntry+'<small>GENEL</small></span></div>' : '')
+    +'</div>'
+    +'<div class="dc-contract">'
+      +'<div class="contract-item"><span class="l">Maaş / Yarış</span><span class="v mono">'+formatMoney(d.salary_per_race)+'</span></div>'
+      +'<div class="contract-item"><span class="l">Kalan Yarış</span><span class="v mono">'+d.races_remaining+'</span></div>'
+    +'</div>'
+    + radarChartSVG(skillEntries)
+    +'<div class="dc-bars">'+skillEntries.map(statRowHTML).join('')+'</div>'
+    +'<div class="dc-live">'
+      + liveMeterHTML('Moral', d.morale)
+      + liveMeterHTML('Form', d.form)
+    +'</div>'
+    +'</article>';
+}
+
+/* =========================================================
+   RENDER — personel kartı (kompakt)
+   ========================================================= */
+function staffCardHTML(s){
+  var entries=statEntries(s.stats);
+  return '<article class="staff-card">'
+    +'<div class="sc-head">'
+      +'<span class="sc-icon">'+(ROLE_ICON_DICT[s.role]||'🔧')+'</span>'
+      +'<div class="sc-id"><h4 class="sc-name">'+s.name+'</h4><span class="sc-role">'+s.role+'</span></div>'
+      +'<span class="sc-salary">'+formatMoney(s.salary_per_race)+'<small>/yarış</small></span>'
+    +'</div>'
+    +'<div class="sc-bars">'+entries.map(statRowHTML).join('')+'</div>'
+    +'</article>';
+}
+
+/* =========================================================
+   ANA RENDER
+   ========================================================= */
+function renderTeamStaff(data){
+  var ts=data.team_staff||{drivers:[],engineers:[]};
+  var drivers=ts.drivers||[], engineers=ts.engineers||[];
+
+  var driversGrid=document.getElementById('drivers-grid');
+  var staffGrid=document.getElementById('staff-grid');
+  driversGrid.innerHTML = drivers.length ? drivers.map(driverCardHTML).join('') : '<p class="empty-note">Kadroda kayıtlı pilot yok.</p>';
+  staffGrid.innerHTML = engineers.length ? engineers.map(staffCardHTML).join('') : '<p class="empty-note">Kadroda kayıtlı teknik personel yok.</p>';
+
+  document.getElementById('count-drivers').textContent=drivers.length;
+  document.getElementById('count-staff').textContent=engineers.length;
+
+  var totalWage=drivers.concat(engineers).reduce(function(sum,p){ return sum+(p.salary_per_race||0); },0);
+  document.getElementById('ui-total-wage').textContent=formatMoney(totalWage);
+}
+
+/* =========================================================
+   SEKME GEÇİŞİ
+   ========================================================= */
+function bindTabs(){
+  var tabDrivers=document.getElementById('tab-drivers');
+  var tabStaff=document.getElementById('tab-staff');
+  var viewDrivers=document.getElementById('view-drivers');
+  var viewStaff=document.getElementById('view-staff');
+  tabDrivers.addEventListener('click',function(){
+    tabDrivers.classList.add('is-active'); tabStaff.classList.remove('is-active');
+    viewDrivers.hidden=false; viewStaff.hidden=true;
+  });
+  tabStaff.addEventListener('click',function(){
+    tabStaff.classList.add('is-active'); tabDrivers.classList.remove('is-active');
+    viewStaff.hidden=false; viewDrivers.hidden=true;
+  });
+}
+
+bindTabs();
+renderTeamStaff(SAMPLE_DATA);
+
+window.renderTeamStaff=renderTeamStaff;
+})();
+</script>
+</body>
+</html>
