@@ -141,6 +141,27 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
   font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 8px 24px -8px rgba(255,51,75,.6)}
 .nrc-cta:hover{background:#ff485d}
 
+.sponsor-card{background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sponsor-info{display:flex;flex-direction:column;gap:4px}
+.sponsor-name{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase}
+.sponsor-meta{font-family:var(--f-mono);font-size:11px;color:var(--text-dim)}
+.sponsor-none{color:var(--text-mute);font-size:12.5px}
+.sponsor-btn{padding:11px 20px;border-radius:4px;background:var(--cyan);color:#04262b;font-family:var(--f-display);font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+.sponsor-btn:hover{background:#33f5ff}
+
+.sponsor-modal{position:fixed;inset:0;z-index:55;background:rgba(4,5,7,.78);display:none;align-items:center;justify-content:center}
+.sponsor-modal.open{display:flex}
+.sponsor-box{width:620px;max-width:92vw;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:26px}
+.sponsor-box h3{font-family:var(--f-display);font-weight:800;font-size:16px;text-transform:uppercase;margin-bottom:16px}
+.sponsor-deals{display:flex;flex-direction:column;gap:10px}
+.sponsor-deal{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:5px;background:var(--bg-3)}
+.sponsor-deal .d-name{font-family:var(--f-display);font-weight:700;font-size:14px;text-transform:uppercase}
+.sponsor-deal .d-meta{font-family:var(--f-mono);font-size:11px;color:var(--text-dim);margin-top:3px}
+.sponsor-sign{padding:9px 16px;border-radius:4px;background:var(--green);color:#04260f;font-family:var(--f-display);font-weight:800;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.sponsor-sign:hover{background:#3ee878}
+.sponsor-close{margin-top:16px;width:100%;padding:11px;border:1px solid var(--line);border-radius:3px;font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;text-align:center;color:var(--text-dim)}
+.sponsor-close:hover{color:var(--text)}
+
 .season-track{display:flex;flex-direction:column;gap:8px}
 .season-track .rail{display:flex;gap:3px;flex-wrap:wrap}
 .season-dot{width:14px;height:14px;border-radius:3px;background:var(--bg-4);border:1px solid var(--line);font-size:0}
@@ -370,6 +391,14 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
     </div>
   </div>
 
+  <div class="sponsor-modal" id="sponsor-modal">
+    <div class="sponsor-box">
+      <h3>Sponsor Teklifleri</h3>
+      <div class="sponsor-deals" id="sponsor-deals"></div>
+      <button class="sponsor-close" id="btn-sponsor-close" type="button">Kapat</button>
+    </div>
+  </div>
+
   <!-- ============ 2. SEASON HQ ============ -->
   <section class="screen" id="screen-hq">
     <header class="topbar">
@@ -402,6 +431,9 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 
         <div class="hq-title">Sezon İlerlemesi</div>
         <div class="season-track"><div class="rail" id="season-rail"></div></div>
+
+        <div class="hq-title">Sponsor Anlaşması</div>
+        <div class="sponsor-card" id="sponsor-card"></div>
 
         <div class="hq-title">Modüller</div>
         <div class="hq-modules">
@@ -753,6 +785,42 @@ function loadStaff(){
 }
 function saveStaff(s){ try{ localStorage.setItem(STAFF_KEY, JSON.stringify(s)); }catch(e){} }
 var STAFF=loadStaff();
+
+/* =========================================================
+   0d. SPONSOR ANLAŞMASI — bir seferlik imza bonusu + her yarış
+   sonunda otomatik gelir, sözleşme süresi dolunca yeniden seçilir.
+   ========================================================= */
+var SPONSOR_KEY='paddockGP_sponsor_v1';
+var SPONSOR_DEALS=[
+  { id:'comet', name:'Comet Lojistik', signing_bonus:300000, income_per_race:40000, contract_races:6 },
+  { id:'vertex', name:'Vertex Enerji', signing_bonus:700000, income_per_race:90000, contract_races:8 },
+  { id:'novatech', name:'NovaTech Yazılım', signing_bonus:1400000, income_per_race:160000, contract_races:10 }
+];
+function defaultSponsor(){ return { activeDeal:null }; }
+function loadSponsor(){
+  try{
+    var raw=localStorage.getItem(SPONSOR_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return defaultSponsor();
+}
+function saveSponsor(s){ try{ localStorage.setItem(SPONSOR_KEY, JSON.stringify(s)); }catch(e){} }
+var SPONSOR=loadSponsor();
+function advanceSponsorOneRace(){
+  if(!SPONSOR.activeDeal) return;
+  CAREER.budget+=SPONSOR.activeDeal.income_per_race;
+  SPONSOR.activeDeal.races_remaining-=1;
+  if(SPONSOR.activeDeal.races_remaining<=0) SPONSOR.activeDeal=null;
+  saveSponsor(SPONSOR);
+}
+function signSponsor(dealId){
+  var deal=SPONSOR_DEALS.filter(function(d){ return d.id===dealId; })[0];
+  if(!deal) return;
+  CAREER.budget+=deal.signing_bonus;
+  saveCareer();
+  SPONSOR.activeDeal={ id:deal.id, name:deal.name, income_per_race:deal.income_per_race, races_remaining:deal.contract_races };
+  saveSponsor(SPONSOR);
+}
 
 /* =========================================================
    1. GERÇEK KADRO
@@ -1487,6 +1555,40 @@ function renderHQ(){
   carRatingEl.textContent='Şasi performans endeksi: '+CAR_SPECS.overall_rating+queueNote;
   document.getElementById('hq-staff-tiers').textContent=
     'Şef Mühendis K'+STAFF.chief_engineer_tier+' · Pit Ekibi K'+STAFF.pit_crew_chief_tier;
+  renderSponsorCard();
+}
+
+function renderSponsorCard(){
+  var el=document.getElementById('sponsor-card');
+  var d=SPONSOR.activeDeal;
+  if(d){
+    el.innerHTML='<div class="sponsor-info">'
+      +'<span class="sponsor-name">'+d.name+'</span>'
+      +'<span class="sponsor-meta">'+fmtMoney(d.income_per_race)+' / yarış · '+d.races_remaining+' yarış kaldı</span>'
+      +'</div>';
+  } else {
+    el.innerHTML='<span class="sponsor-none">Aktif sponsor anlaşması yok — sezon geliri sadece yarış ikramiyesinden geliyor.</span>'
+      +'<button class="sponsor-btn" id="btn-open-sponsor" type="button">Sponsor Bul</button>';
+    document.getElementById('btn-open-sponsor').addEventListener('click',openSponsorModal);
+  }
+}
+function openSponsorModal(){
+  document.getElementById('sponsor-deals').innerHTML=SPONSOR_DEALS.map(function(d){
+    return '<div class="sponsor-deal">'
+      +'<div><div class="d-name">'+d.name+'</div>'
+        +'<div class="d-meta">İmza Bonusu '+fmtMoney(d.signing_bonus)+' · '+fmtMoney(d.income_per_race)+' / yarış · '+d.contract_races+' yarış sözleşme</div>'
+      +'</div>'
+      +'<button class="sponsor-sign" type="button" data-deal="'+d.id+'">İmzala</button>'
+      +'</div>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('.sponsor-sign'),function(btn){
+    btn.addEventListener('click',function(){
+      signSponsor(btn.getAttribute('data-deal'));
+      document.getElementById('sponsor-modal').classList.remove('open');
+      renderHQ();
+    });
+  });
+  document.getElementById('sponsor-modal').classList.add('open');
 }
 
 /* --- PRE-RACE --- */
@@ -1612,6 +1714,7 @@ function bindMenu(){
     CAREER=defaultCareer(); saveCareer();
     CAR_SPECS=defaultCarSpecs(); saveCarSpecs(CAR_SPECS);
     STAFF=defaultStaff(); saveStaff(STAFF);
+    SPONSOR=defaultSponsor(); saveSponsor(SPONSOR);
     renderHQ(); showScreen('screen-hq');
   });
   document.getElementById('btn-continue').addEventListener('click',function(){
@@ -1633,9 +1736,15 @@ function bindMenu(){
     soundBtn.textContent=soundEnabled?'AÇIK':'KAPALI';
   });
   document.getElementById('btn-reset-save').addEventListener('click',function(){
-    try{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(CAR_SPECS_KEY); localStorage.removeItem(STAFF_KEY); }catch(e){}
+    try{
+      localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(CAR_SPECS_KEY);
+      localStorage.removeItem(STAFF_KEY); localStorage.removeItem(SPONSOR_KEY);
+    }catch(e){}
     document.getElementById('btn-continue').disabled=true;
     document.getElementById('settings-modal').classList.remove('open');
+  });
+  document.getElementById('btn-sponsor-close').addEventListener('click',function(){
+    document.getElementById('sponsor-modal').classList.remove('open');
   });
   document.getElementById('btn-quit').addEventListener('click',function(){ window.close(); });
 
@@ -1648,6 +1757,7 @@ function bindMenu(){
   document.getElementById('btn-pd-continue').addEventListener('click',function(){
     CAREER.round=Math.min(CAL.length, CAREER.round+1);
     advanceCarSpecsOneRace();
+    advanceSponsorOneRace();
     saveCareer(); renderHQ(); showScreen('screen-hq');
   });
 }
