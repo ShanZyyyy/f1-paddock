@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0D1117">
+<meta name="color-scheme" content="dark">
+<title>Garaj &amp; Ar-Ge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* karbon slate / obsidyen zemin */
+  --bg-0:#0D1117; --bg-1:#11161d; --bg-2:#161d27; --bg-3:#1d2530; --bg-4:#28323f;
+  --line:#2a3441; --line-soft:#1c2430;
+  --text:#eef3f8; --text-dim:#93a4b8; --text-mute:#5c6c80;
+  /* telemetri aksanları */
+  --cyan:#00F0FF; --accent:#FF4655; --amber:#ffce3d; --green:#39ff88; --red:#ff4655;
+  --f-display:'Saira Condensed','Arial Narrow',system-ui,sans-serif;
+  --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono','Consolas',ui-monospace,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg-0);color:var(--text);font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+body{
+  min-height:100vh;touch-action:manipulation;
+  background:
+    radial-gradient(110% 50% at 85% -8%, rgba(0,240,255,.08), transparent 55%),
+    radial-gradient(90% 50% at 5% 105%, rgba(255,70,85,.08), transparent 55%),
+    linear-gradient(180deg,var(--bg-1),var(--bg-0));
+  padding-bottom:calc(var(--safe-b) + 20px);
+}
+button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation}
+.mono{font-family:var(--f-mono)}
+svg{display:block}
+.tier-good{color:var(--green)} .tier-warn{color:var(--amber)} .tier-bad{color:var(--red)}
+
+/* =========================================================
+   ÜST BAR
+   ========================================================= */
+.top-bar{
+  position:sticky;top:0;z-index:5;
+  padding:calc(var(--safe-t) + 10px) calc(var(--safe-r) + 14px) 12px calc(var(--safe-l) + 14px);
+  background:linear-gradient(180deg,rgba(13,17,23,.97),rgba(13,17,23,.9));
+  border-bottom:1px solid var(--line);backdrop-filter:blur(8px);
+}
+.top-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.eyebrow{font-size:10px;letter-spacing:.2em;color:var(--cyan);font-weight:800;text-transform:uppercase;font-family:var(--f-body)}
+.title{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}
+.rd-chip{
+  display:flex;flex-direction:column;align-items:flex-end;gap:1px;
+  padding:6px 12px;border-radius:9px;background:var(--bg-3);border:1px solid var(--line);
+}
+.rd-chip .l{font-size:8.5px;letter-spacing:.1em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.rd-chip .v{font-family:var(--f-mono);font-size:15px;font-weight:700;color:var(--accent)}
+
+main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-width:1180px;margin:0 auto}
+.section{margin-bottom:22px}
+.section-label{
+  display:flex;align-items:center;gap:8px;margin-bottom:10px;
+  font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text-dim);padding-left:9px;border-left:3px solid var(--cyan);
+}
+.section-label .n{font-family:var(--f-mono);font-size:10px;background:var(--bg-3);border:1px solid var(--line);color:var(--text-dim);padding:1px 7px;border-radius:99px}
+
+/* =========================================================
+   ARAÇ GENEL BAKIŞ KARTI
+   ========================================================= */
+.overview-card{
+  background:linear-gradient(160deg,var(--bg-2),var(--bg-1));border:1px solid var(--line);
+  border-radius:16px;padding:18px;box-shadow:0 12px 28px rgba(0,0,0,.4);
+  display:flex;flex-direction:column;gap:16px;
+}
+.overview-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.hero-gauge{position:relative;width:104px;height:104px;flex:0 0 auto}
+.hero-gauge svg{position:absolute;inset:0}
+.gauge-track{fill:none;stroke:var(--line);stroke-width:7}
+.gauge-fill{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .5s ease}
+.hero-gauge.tier-good .gauge-fill{stroke:var(--green)}
+.hero-gauge.tier-warn .gauge-fill{stroke:var(--amber)}
+.hero-gauge.tier-bad .gauge-fill{stroke:var(--red)}
+.hero-value{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hero-value b{font-family:var(--f-mono);font-size:28px;font-weight:700;line-height:1}
+.hero-value span{font-size:8px;letter-spacing:.1em;color:var(--text-mute);font-weight:700;margin-top:2px}
+.hero-caption{flex:1;min-width:180px}
+.hero-caption h2{font-family:var(--f-display);font-weight:800;font-size:17px;text-transform:uppercase;letter-spacing:.02em}
+.hero-caption p{font-size:11.5px;color:var(--text-dim);margin-top:3px;line-height:1.5}
+
+.cat-grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:640px){ .cat-grid{grid-template-columns:repeat(3,1fr)} }
+.cat-card{background:var(--bg-1);border:1px solid var(--line-soft);border-radius:11px;padding:12px}
+.cat-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.cat-icon{font-size:15px}
+.cat-label{flex:1;font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--text)}
+.cat-rating{font-family:var(--f-mono);font-size:14px;font-weight:700}
+.stat-row{display:grid;grid-template-columns:1fr 24px;align-items:center;gap:6px;margin-top:6px}
+.stat-row .stat-label{grid-column:1/3;font-size:8.5px;letter-spacing:.06em;color:var(--text-mute);text-transform:uppercase;font-weight:700;margin-bottom:2px}
+.stat-track{grid-column:1/2;height:5px;border-radius:99px;background:var(--bg-3);border:1px solid var(--line-soft);overflow:hidden}
+.stat-track i{display:block;height:100%;border-radius:99px}
+.stat-track i.good{background:linear-gradient(90deg,#1fae60,var(--green))}
+.stat-track i.warn{background:linear-gradient(90deg,#c98f14,var(--amber))}
+.stat-track i.bad{background:linear-gradient(90deg,#b3223a,var(--red))}
+.stat-num{grid-column:2/3;font-family:var(--f-mono);font-size:10px;text-align:right}
+.stat-wrap{display:flex;flex-direction:column}
+
+/* =========================================================
+   ŞASİ ŞEMASI (blueprint)
+   ========================================================= */
+.blueprint-card{
+  background:
+    repeating-linear-gradient(0deg, rgba(0,240,255,.035) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(90deg, rgba(0,240,255,.035) 0 1px, transparent 1px 26px),
+    linear-gradient(160deg,var(--bg-2),var(--bg-1));
+  border:1px solid var(--line);border-radius:16px;padding:14px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  box-shadow:0 12px 28px rgba(0,0,0,.4);
+}
+.blueprint-svg{width:100%;max-width:300px}
+.body-outline{fill:rgba(0,240,255,.035);stroke:var(--cyan);stroke-width:1.3}
+.centerline{stroke:var(--line);stroke-dasharray:3 4;stroke-width:1}
+.cockpit{fill:none;stroke:var(--cyan);stroke-width:1;opacity:.5}
+.wheel{fill:var(--bg-3);stroke:var(--line);stroke-width:1}
+.leader-line{stroke:var(--line);stroke-width:1}
+.leader-line.is-active{stroke:var(--accent);opacity:.75}
+.pin{transition:opacity .2s ease}
+.pin-idle{fill:var(--cyan);opacity:.5}
+.pin-active{fill:var(--accent);animation:pinPulse 1.3s ease-in-out infinite}
+@keyframes pinPulse{0%,100%{opacity:1}50%{opacity:.45}}
+.progress-ring-track{fill:none;stroke:rgba(255,70,85,.22);stroke-width:2.4}
+.progress-ring{fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linecap:round}
+.zone-label{font-family:var(--f-body);font-size:8px;font-weight:700;fill:var(--text-dim);text-transform:uppercase;letter-spacing:.04em}
+.zone-label.is-active{fill:var(--accent)}
+.zone-sub{font-family:var(--f-mono);font-size:7px;fill:var(--text-mute)}
+.zone-sub.is-active{fill:var(--accent)}
+.bp-legend{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.bp-legend .li{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim)}
+.bp-legend .dot{width:8px;height:8px;border-radius:50%}
+.bp-legend .dot.idle{background:var(--cyan);opacity:.5}
+.bp-legend .dot.active{background:var(--accent)}
+
+/* =========================================================
+   GELİŞTİRME KUYRUĞU
+   ========================================================= */
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:680px){ .grid{grid-template-columns:repeat(2,1fr)} }
+.upg-card{
+  background:linear-gradient(160deg,var(--bg-2),var(--bg-1));border:1px solid rgba(255,70,85,.28);
+  border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 8px 22px rgba(0,0,0,.32);
+}
+.upg-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.upg-name{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.01em}
+.tag{
+  display:inline-flex;align-items:center;font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 8px;border-radius:99px;border:1px solid var(--line);color:var(--text-dim);background:var(--bg-3);margin-top:4px;
+}
+.upg-cost{font-family:var(--f-mono);font-size:13px;font-weight:700;color:var(--text-dim);white-space:nowrap}
+.progress-wrap{display:flex;flex-direction:column;gap:4px}
+.progress-top{display:flex;justify-content:space-between;font-size:9.5px;color:var(--text-mute);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.progress-track{height:7px;border-radius:99px;background:var(--bg-3);border:1px solid var(--line-soft);overflow:hidden}
+.progress-track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#c22a3a,var(--accent))}
+.upg-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.countdown-chip{
+  font-family:var(--f-mono);font-size:10.5px;font-weight:700;color:var(--accent);
+  background:rgba(255,70,85,.12);border:1px solid rgba(255,70,85,.4);padding:3px 9px;border-radius:99px;
+}
+.boost-chip{
+  font-family:var(--f-mono);font-size:10.5px;font-weight:700;color:var(--green);
+  background:rgba(57,255,136,.1);border:1px solid rgba(57,255,136,.35);padding:3px 9px;border-radius:99px;
+}
+
+/* =========================================================
+   YÜKSELTME KATALOĞU
+   ========================================================= */
+.proj-card{
+  background:linear-gradient(160deg,var(--bg-2),var(--bg-1));border:1px solid var(--line);
+  border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 8px 22px rgba(0,0,0,.28);transition:border-color .2s ease;
+}
+.proj-card.is-queued{border-color:rgba(0,240,255,.5)}
+.proj-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.proj-name{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase;letter-spacing:.01em}
+.proj-meta{display:flex;gap:8px;flex-wrap:wrap}
+.meta-box{flex:1;min-width:100px;background:var(--bg-1);border:1px solid var(--line-soft);border-radius:8px;padding:7px 9px}
+.meta-box .l{font-size:8px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.meta-box .v{font-family:var(--f-mono);font-size:12.5px;font-weight:700;margin-top:1px}
+.proj-gain{
+  font-family:var(--f-mono);font-size:11px;font-weight:700;color:var(--cyan);
+  background:rgba(0,240,255,.08);border:1px solid rgba(0,240,255,.3);padding:6px 10px;border-radius:8px;
+}
+.dev-btn{
+  padding:11px;border-radius:9px;font-family:var(--f-display);font-weight:800;font-size:12.5px;
+  letter-spacing:.06em;text-transform:uppercase;text-align:center;
+  background:linear-gradient(90deg,var(--accent),#ff8a5c);color:#1a0608;
+  box-shadow:0 8px 18px rgba(255,70,85,.3);transition:transform .08s ease,opacity .15s ease;
+}
+.dev-btn:active{transform:scale(.97)}
+.dev-btn.is-queued{background:var(--bg-3);color:var(--cyan);box-shadow:none;border:1px solid rgba(0,240,255,.5)}
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="top-row">
+    <div>
+      <span class="eyebrow">Paddock GP · Garaj</span>
+      <h1 class="title">Garaj &amp; Ar-Ge</h1>
+    </div>
+    <div class="rd-chip">
+      <span class="l">Aktif Ar-Ge Bütçesi</span>
+      <span class="v mono" id="ui-active-budget">₺0</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="section">
+    <div class="section-label">Araç Genel Bakış</div>
+    <div class="overview-card">
+      <div class="overview-top">
+        <div class="hero-gauge" id="hero-gauge"></div>
+        <div class="hero-caption">
+          <h2>Şasi Performans Endeksi</h2>
+          <p>Aerodinamik, güç ünitesi ve dayanıklılık kategorilerinin ağırlıklı ortalamasına dayanan genel araç reytingi.</p>
+        </div>
+      </div>
+      <div class="cat-grid" id="cat-grid"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">Araç Şasi Şeması</div>
+    <div class="blueprint-card">
+      <div class="blueprint-svg" id="blueprint-mount"></div>
+      <div class="bp-legend">
+        <span class="li"><span class="dot active"></span>Geliştirmede</span>
+        <span class="li"><span class="dot idle"></span>Boşta</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">Geliştirme Kuyruğu <span class="n" id="count-queue">0</span></div>
+    <div class="grid" id="queue-grid"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">Yükseltme Kataloğu <span class="n" id="count-catalog">0</span></div>
+    <div class="grid" id="catalog-grid"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu.
+   Tüm render fonksiyonları şemadaki alanlara göre dinamik çalışır;
+   yeni kategori/alt-istatistik/bileşen adları kod değişmeden görünür.
+   ========================================================= */
+var SAMPLE_DATA={
+  car_specs:{
+    overall_rating:81,
+    categories:{
+      aerodynamics:{ rating:83, downforce:85, drag_reduction:80 },
+      power_unit:{ rating:80, top_speed:84, acceleration:79 },
+      durability:{ rating:79, engine_wear:78, gearbox_reliability:82 }
+    }
+  },
+  active_upgrades:[
+    { id:'upg_01', component:'Front Wing V2', category:'aerodynamics', cost:150000, progress_percent:65, races_until_ready:1, stat_boost:'+4 Downforce' },
+    { id:'upg_02', component:'ERS Thermal Coating', category:'power_unit', cost:220000, progress_percent:30, races_until_ready:3, stat_boost:'+5 Acceleration' },
+    { id:'upg_03', component:'Cooling Duct Redesign', category:'durability', cost:95000, progress_percent:82, races_until_ready:1, stat_boost:'+3 Engine Wear Resistance' }
+  ],
+  available_projects:[
+    { id:'proj_01', name:'Underfloor Venturi Tunnels', category:'aerodynamics', cost:300000, dev_time_races:4, gain:'+7 Aero Efficiency' },
+    { id:'proj_02', name:'Reinforced Gearbox Casing', category:'durability', cost:180000, dev_time_races:2, gain:'+6 Reliability' },
+    { id:'proj_03', name:'High-Flow Cooling Ducts', category:'power_unit', cost:140000, dev_time_races:3, gain:'+5 Top Speed' }
+  ]
+};
+
+/* =========================================================
+   YARDIMCILAR
+   ========================================================= */
+var CATEGORY_DICT={
+  aerodynamics:{label:'Aerodinamik', icon:'✈️'},
+  power_unit:{label:'Güç Ünitesi', icon:'⚙️'},
+  durability:{label:'Dayanıklılık', icon:'🛡️'}
+};
+var SUBSTAT_DICT={
+  downforce:'Yere Basma Kuvveti', drag_reduction:'Sürüklenme Azaltma',
+  top_speed:'Maksimum Hız', acceleration:'İvmelenme',
+  engine_wear:'Motor Aşınması', gearbox_reliability:'Şanzıman Güvenilirliği'
+};
+function categoryMeta(key){ return CATEGORY_DICT[key] || {label:labelFor(key), icon:'🔧'}; }
+function labelFor(key){
+  if(SUBSTAT_DICT[key]) return SUBSTAT_DICT[key];
+  return key.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});
+}
+function tierOf(v){ return v>=80?'good':(v>=60?'warn':'bad'); }
+function formatMoney(n){
+  var s=Math.round(n).toString();
+  s=s.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return '₺'+s;
+}
+function statEntries(obj,exclude){
+  exclude=exclude||[];
+  return Object.keys(obj).filter(function(k){return exclude.indexOf(k)===-1;}).map(function(k){return {key:k,label:labelFor(k),value:obj[k]};});
+}
+
+/* =========================================================
+   SVG — dairesel gösterge (genel bakış hero + kategori)
+   ========================================================= */
+function gaugeSVG(value,size,strokeW){
+  var r=size/2-strokeW; var cx=size/2, cy=size/2;
+  var C=2*Math.PI*r;
+  var off=(C*(1-Math.max(0,Math.min(100,value))/100)).toFixed(1);
+  return '<svg viewBox="0 0 '+size+' '+size+'">'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" class="gauge-track" stroke-width="'+strokeW+'"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" class="gauge-fill" stroke-width="'+strokeW+'" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+cx+' '+cy+')"/>'
+    +'</svg>';
+}
+
+/* =========================================================
+   RENDER — genel bakış kartı
+   ========================================================= */
+function renderOverview(carSpecs){
+  var overall=carSpecs.overall_rating;
+  var heroEl=document.getElementById('hero-gauge');
+  heroEl.className='hero-gauge tier-'+tierOf(overall);
+  heroEl.innerHTML=gaugeSVG(overall,104,7)+'<div class="hero-value"><b>'+overall+'</b><span>GENEL</span></div>';
+
+  var catGrid=document.getElementById('cat-grid');
+  var catKeys=Object.keys(carSpecs.categories||{});
+  catGrid.innerHTML=catKeys.map(function(key){
+    var cat=carSpecs.categories[key];
+    var meta=categoryMeta(key);
+    var subEntries=statEntries(cat,['rating']);
+    var rows=subEntries.map(function(e){
+      var tier=tierOf(e.value);
+      return '<div class="stat-wrap">'
+        +'<span class="stat-label">'+e.label+'</span>'
+        +'<div class="stat-row">'
+          +'<span class="stat-track"><i class="'+tier+'" style="width:'+e.value+'%"></i></span>'
+          +'<span class="stat-num mono">'+e.value+'</span>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+    return '<div class="cat-card">'
+      +'<div class="cat-head"><span class="cat-icon">'+meta.icon+'</span><span class="cat-label">'+meta.label+'</span><span class="cat-rating mono tier-'+tierOf(cat.rating)+'">'+cat.rating+'</span></div>'
+      + rows
+      +'</div>';
+  }).join('');
+}
+
+/* =========================================================
+   ŞASİ ŞEMASI — bileşen bölgeleri + eşleştirme
+   ========================================================= */
+var ZONES=[
+  {id:'front_wing', label:'ÖN KANAT', px:170, py:26, side:'right', keywords:['front wing']},
+  {id:'suspension', label:'SÜSPANSİYON', px:170, py:100, side:'left', keywords:['suspension','wishbone','pushrod']},
+  {id:'cooling', label:'SOĞUTMA', px:115, py:210, side:'left', keywords:['cooling','radiator','duct']},
+  {id:'engine', label:'MOTOR (ICE)', px:170, py:258, side:'right', keywords:['engine','ice','combustion','power unit']},
+  {id:'ers', label:'ERS', px:170, py:308, side:'left', keywords:['ers','hybrid','battery','thermal']},
+  {id:'underfloor', label:'ALT TABAN', px:170, py:358, side:'right', keywords:['underfloor','floor','venturi']},
+  {id:'gearbox', label:'ŞANZIMAN', px:170, py:420, side:'left', keywords:['gearbox','transmission']},
+  {id:'rear_wing', label:'ARKA KANAT', px:170, py:484, side:'right', keywords:['rear wing']}
+];
+var CATEGORY_FALLBACK_ZONE={aerodynamics:'front_wing', power_unit:'engine', durability:'gearbox'};
+
+function matchZoneForUpgrade(upg){
+  var haystack=((upg.component||'')+' '+(upg.category||'')).toLowerCase();
+  for(var i=0;i<ZONES.length;i++){
+    var z=ZONES[i];
+    for(var j=0;j<z.keywords.length;j++){
+      if(haystack.indexOf(z.keywords[j])!==-1) return z.id;
+    }
+  }
+  return CATEGORY_FALLBACK_ZONE[upg.category]||null;
+}
+
+function buildBodyOutline(){
+  var levels=[[18,268],[30,268],[34,190],[70,115],[95,110],[140,115],[160,170],[175,195],[230,202],[290,190],[350,160],[400,140],[430,120],[460,115],[470,190],[478,265],[486,265]];
+  var pts=levels.map(function(p){ return p[1]+','+p[0]; });
+  pts.push('170,508');
+  for(var i=levels.length-1;i>=0;i--){ pts.push((340-levels[i][1])+','+levels[i][0]); }
+  return pts.join(' ');
+}
+
+function buildBlueprintSVG(activeUpgrades){
+  var activeByZone={};
+  activeUpgrades.forEach(function(u){
+    var zoneId=matchZoneForUpgrade(u);
+    if(zoneId && !activeByZone[zoneId]) activeByZone[zoneId]=u;
+  });
+
+  var body='<polygon points="'+buildBodyOutline()+'" class="body-outline"/>';
+  var centerline='<line x1="170" y1="10" x2="170" y2="518" class="centerline"/>';
+  var cockpit='<ellipse cx="170" cy="168" rx="19" ry="28" class="cockpit"/>';
+  var wheels=[
+    '<rect x="24" y="40" width="26" height="52" rx="4" class="wheel"/>',
+    '<rect x="290" y="40" width="26" height="52" rx="4" class="wheel"/>',
+    '<rect x="18" y="398" width="28" height="58" rx="4" class="wheel"/>',
+    '<rect x="294" y="398" width="28" height="58" rx="4" class="wheel"/>'
+  ].join('');
+
+  var pins='', leaders='', labels='';
+  ZONES.forEach(function(z){
+    var upg=activeByZone[z.id];
+    var isActive=!!upg;
+    var labelX = z.side==='right' ? 314 : 20;
+    var anchor = z.side==='right' ? 'start' : 'end';
+    leaders+='<line x1="'+z.px+'" y1="'+z.py+'" x2="'+labelX+'" y2="'+z.py+'" class="leader-line'+(isActive?' is-active':'')+'"/>';
+
+    if(isActive){
+      var r=10, C=(2*Math.PI*r).toFixed(1);
+      var off=(2*Math.PI*r*(1-Math.max(0,Math.min(100,upg.progress_percent))/100)).toFixed(1);
+      pins+='<circle cx="'+z.px+'" cy="'+z.py+'" r="'+r+'" class="progress-ring-track"/>';
+      pins+='<circle cx="'+z.px+'" cy="'+z.py+'" r="'+r+'" class="progress-ring" stroke-dasharray="'+C+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+z.px+' '+z.py+')"/>';
+      pins+='<circle cx="'+z.px+'" cy="'+z.py+'" r="4.5" class="pin pin-active"/>';
+      labels+='<text x="'+labelX+'" y="'+(z.py-3)+'" text-anchor="'+anchor+'" class="zone-label is-active">'+z.label+'</text>';
+      labels+='<text x="'+labelX+'" y="'+(z.py+8)+'" text-anchor="'+anchor+'" class="zone-sub is-active">%'+upg.progress_percent+' · '+upg.races_until_ready+'Y</text>';
+    } else {
+      pins+='<circle cx="'+z.px+'" cy="'+z.py+'" r="4.5" class="pin pin-idle"/>';
+      labels+='<text x="'+labelX+'" y="'+(z.py+3)+'" text-anchor="'+anchor+'" class="zone-label">'+z.label+'</text>';
+    }
+  });
+
+  return '<svg viewBox="-70 0 460 528" class="bp-svg">'
+    + body + centerline + cockpit + wheels + leaders + pins + labels
+    +'</svg>';
+}
+function renderBlueprint(activeUpgrades){
+  document.getElementById('blueprint-mount').innerHTML=buildBlueprintSVG(activeUpgrades);
+}
+
+/* =========================================================
+   RENDER — geliştirme kuyruğu
+   ========================================================= */
+function queueCardHTML(u){
+  var meta=categoryMeta(u.category);
+  return '<article class="upg-card">'
+    +'<div class="upg-top">'
+      +'<div><div class="upg-name">'+u.component+'</div><span class="tag">'+meta.icon+' '+meta.label+'</span></div>'
+      +'<span class="upg-cost mono">'+formatMoney(u.cost)+'</span>'
+    +'</div>'
+    +'<div class="progress-wrap">'
+      +'<div class="progress-top"><span>Gelişim</span><span class="mono">%'+u.progress_percent+'</span></div>'
+      +'<div class="progress-track"><i style="width:'+u.progress_percent+'%"></i></div>'
+    +'</div>'
+    +'<div class="upg-bottom">'
+      +'<span class="countdown-chip">⏱ '+u.races_until_ready+' yarış sonra hazır</span>'
+      +'<span class="boost-chip">'+u.stat_boost+'</span>'
+    +'</div>'
+    +'</article>';
+}
+function renderQueue(activeUpgrades){
+  document.getElementById('queue-grid').innerHTML = activeUpgrades.length
+    ? activeUpgrades.map(queueCardHTML).join('')
+    : '<p style="color:var(--text-mute);font-size:12px">Geliştirmede proje yok.</p>';
+  document.getElementById('count-queue').textContent=activeUpgrades.length;
+}
+
+/* =========================================================
+   RENDER — yükseltme kataloğu
+   ========================================================= */
+function projCardHTML(p){
+  var meta=categoryMeta(p.category);
+  return '<article class="proj-card" id="proj-'+p.id+'">'
+    +'<div class="proj-top">'
+      +'<div><div class="proj-name">'+p.name+'</div><span class="tag">'+meta.icon+' '+meta.label+'</span></div>'
+    +'</div>'
+    +'<div class="proj-meta">'
+      +'<div class="meta-box"><div class="l">Maliyet</div><div class="v mono">'+formatMoney(p.cost)+'</div></div>'
+      +'<div class="meta-box"><div class="l">Geliştirme Süresi</div><div class="v mono">'+p.dev_time_races+' yarış</div></div>'
+    +'</div>'
+    +'<div class="proj-gain">'+p.gain+'</div>'
+    +'<button class="dev-btn" type="button" data-proj="'+p.id+'">Geliştirmeyi Başlat</button>'
+    +'</article>';
+}
+function renderCatalog(projects){
+  var grid=document.getElementById('catalog-grid');
+  grid.innerHTML = projects.length
+    ? projects.map(projCardHTML).join('')
+    : '<p style="color:var(--text-mute);font-size:12px">Katalogda proje yok.</p>';
+  document.getElementById('count-catalog').textContent=projects.length;
+
+  Array.prototype.forEach.call(grid.querySelectorAll('.dev-btn'), function(btn){
+    btn.addEventListener('click', function(){
+      if(btn.classList.contains('is-queued')) return;
+      btn.classList.add('is-queued');
+      btn.textContent='Kuyruğa Eklendi ✓';
+      btn.closest('.proj-card').classList.add('is-queued');
+    });
+  });
+}
+
+/* =========================================================
+   ANA RENDER
+   ========================================================= */
+function renderGarage(data){
+  renderOverview(data.car_specs);
+  renderBlueprint(data.active_upgrades||[]);
+  renderQueue(data.active_upgrades||[]);
+  renderCatalog(data.available_projects||[]);
+
+  var activeBudget=(data.active_upgrades||[]).reduce(function(sum,u){ return sum+(u.cost||0); },0);
+  document.getElementById('ui-active-budget').textContent=formatMoney(activeBudget);
+}
+
+renderGarage(SAMPLE_DATA);
+window.renderGarage=renderGarage;
+})();
+</script>
+</body>
+</html>
