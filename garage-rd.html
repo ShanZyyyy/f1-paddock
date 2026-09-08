@@ -275,14 +275,14 @@ var SAMPLE_DATA={
     }
   },
   active_upgrades:[
-    { id:'upg_01', component:'Front Wing V2', category:'aerodynamics', cost:150000, progress_percent:65, races_until_ready:1, stat_boost:'+4 Downforce' },
-    { id:'upg_02', component:'ERS Thermal Coating', category:'power_unit', cost:220000, progress_percent:30, races_until_ready:3, stat_boost:'+5 Acceleration' },
-    { id:'upg_03', component:'Cooling Duct Redesign', category:'durability', cost:95000, progress_percent:82, races_until_ready:1, stat_boost:'+3 Engine Wear Resistance' }
+    { id:'upg_01', component:'Ön Kanat V2', category:'aerodynamics', cost:150000, progress_percent:65, races_until_ready:1, stat_boost:'+4 Yere Basma Kuvveti' },
+    { id:'upg_02', component:'ERS Termal Kaplama', category:'power_unit', cost:220000, progress_percent:30, races_until_ready:3, stat_boost:'+5 İvmelenme' },
+    { id:'upg_03', component:'Soğutma Kanalı Yeniden Tasarımı', category:'durability', cost:95000, progress_percent:82, races_until_ready:1, stat_boost:'+3 Motor Aşınma Direnci' }
   ],
   available_projects:[
-    { id:'proj_01', name:'Underfloor Venturi Tunnels', category:'aerodynamics', cost:300000, dev_time_races:4, gain:'+7 Aero Efficiency' },
-    { id:'proj_02', name:'Reinforced Gearbox Casing', category:'durability', cost:180000, dev_time_races:2, gain:'+6 Reliability' },
-    { id:'proj_03', name:'High-Flow Cooling Ducts', category:'power_unit', cost:140000, dev_time_races:3, gain:'+5 Top Speed' }
+    { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', cost:300000, dev_time_races:4, gain:'+7 Aero Verimlilik' },
+    { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', cost:180000, dev_time_races:2, gain:'+6 Güvenilirlik' },
+    { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız' }
   ]
 };
 
@@ -364,14 +364,14 @@ function renderOverview(carSpecs){
    ŞASİ ŞEMASI — bileşen bölgeleri + eşleştirme
    ========================================================= */
 var ZONES=[
-  {id:'front_wing', label:'ÖN KANAT', px:170, py:26, side:'right', keywords:['front wing']},
-  {id:'suspension', label:'SÜSPANSİYON', px:170, py:100, side:'left', keywords:['suspension','wishbone','pushrod']},
-  {id:'cooling', label:'SOĞUTMA', px:115, py:210, side:'left', keywords:['cooling','radiator','duct']},
-  {id:'engine', label:'MOTOR (ICE)', px:170, py:258, side:'right', keywords:['engine','ice','combustion','power unit']},
-  {id:'ers', label:'ERS', px:170, py:308, side:'left', keywords:['ers','hybrid','battery','thermal']},
-  {id:'underfloor', label:'ALT TABAN', px:170, py:358, side:'right', keywords:['underfloor','floor','venturi']},
-  {id:'gearbox', label:'ŞANZIMAN', px:170, py:420, side:'left', keywords:['gearbox','transmission']},
-  {id:'rear_wing', label:'ARKA KANAT', px:170, py:484, side:'right', keywords:['rear wing']}
+  {id:'front_wing', label:'ÖN KANAT', px:170, py:26, side:'right', keywords:['ön kanat']},
+  {id:'suspension', label:'SÜSPANSİYON', px:170, py:100, side:'left', keywords:['süspansiyon','salıncak']},
+  {id:'cooling', label:'SOĞUTMA', px:115, py:210, side:'left', keywords:['soğutma','radyatör','kanal']},
+  {id:'engine', label:'MOTOR (ICE)', px:170, py:258, side:'right', keywords:['motor','içten yanmalı']},
+  {id:'ers', label:'ERS', px:170, py:308, side:'left', keywords:['ers','batarya','termal']},
+  {id:'underfloor', label:'ALT TABAN', px:170, py:358, side:'right', keywords:['alt taban','venturi']},
+  {id:'gearbox', label:'ŞANZIMAN', px:170, py:420, side:'left', keywords:['şanzıman']},
+  {id:'rear_wing', label:'ARKA KANAT', px:170, py:484, side:'right', keywords:['arka kanat']}
 ];
 var CATEGORY_FALLBACK_ZONE={aerodynamics:'front_wing', power_unit:'engine', durability:'gearbox'};
 

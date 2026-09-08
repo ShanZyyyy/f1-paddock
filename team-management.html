@@ -252,6 +252,8 @@ var LABEL_DICT={
   stop_speed:'Durak Hızı', error_reduction:'Hata Azaltma'
 };
 var ROLE_ICON_DICT={ 'Chief Engineer':'🛠️', 'Pit Crew Chief':'⛽' };
+var ROLE_LABEL_TR={ 'Driver 1':'1. Pilot', 'Driver 2':'2. Pilot', 'Chief Engineer':'Şef Mühendis', 'Pit Crew Chief':'Pit Ekibi Şefi' };
+function roleLabel(role){ return ROLE_LABEL_TR[role] || role; }
 var RADAR_LABEL_DICT={
   pace:'Tempo', tyre_management:'Lastik', overtaking:'Geçiş', consistency:'İstikrar', wet_skill:'Yağmur',
   design_efficiency:'Tasarım', build_speed:'Üretim', reliability_bonus:'Güven', stop_speed:'Durak', error_reduction:'Hata'
@@ -353,7 +355,7 @@ function driverCardHTML(d){
     +'<div class="dc-head">'
       +'<div class="dc-id">'
         +'<span class="dc-code">'+d.short_code+'</span>'
-        +'<div class="dc-name-wrap"><h3 class="dc-name">'+d.name+'</h3><span class="dc-role">'+d.role+' · '+d.age+' yaş</span></div>'
+        +'<div class="dc-name-wrap"><h3 class="dc-name">'+d.name+'</h3><span class="dc-role">'+roleLabel(d.role)+' · '+d.age+' yaş</span></div>'
       +'</div>'
       +(overallEntry!==null ? '<div class="gauge-wrap tier-'+gaugeTier+'">'+overallGaugeSVG(overallEntry)+'<span class="gauge-value">'+overallEntry+'<small>GENEL</small></span></div>' : '')
     +'</div>'
@@ -378,7 +380,7 @@ function staffCardHTML(s){
   return '<article class="staff-card">'
     +'<div class="sc-head">'
       +'<span class="sc-icon">'+(ROLE_ICON_DICT[s.role]||'🔧')+'</span>'
-      +'<div class="sc-id"><h4 class="sc-name">'+s.name+'</h4><span class="sc-role">'+s.role+'</span></div>'
+      +'<div class="sc-id"><h4 class="sc-name">'+s.name+'</h4><span class="sc-role">'+roleLabel(s.role)+'</span></div>'
       +'<span class="sc-salary">'+formatMoney(s.salary_per_race)+'<small>/yarış</small></span>'
     +'</div>'
     +'<div class="sc-bars">'+entries.map(statRowHTML).join('')+'</div>'

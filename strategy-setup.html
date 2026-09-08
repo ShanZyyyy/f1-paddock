@@ -183,7 +183,7 @@ main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
    ========================================================= */
 var SAMPLE_DATA={
   race_info:{
-    grand_prix:'Bahrain Grand Prix', total_laps:57, weather:'Dry', track_temp:'31°C', pit_loss_time_seconds:22.4
+    grand_prix:'Bahreyn Grand Prisi', total_laps:57, weather:'Dry', track_temp:'31°C', pit_loss_time_seconds:22.4
   },
   drivers:[
     {
@@ -221,6 +221,8 @@ var COMPOUND_DICT={
   Wet:{code:'W', color:'var(--c-wet)', text:'#fff'}
 };
 function compoundMeta(name){ return COMPOUND_DICT[name] || {code:(name||'?').charAt(0).toUpperCase(), color:'#5c6c80', text:'#fff'}; }
+var COMPOUND_LABEL_TR={ Soft:'Yumuşak Hamur', Medium:'Orta Hamur', Hard:'Sert Hamur', Intermediate:'Yağmur Lastiği', Wet:'Tam Yağmur Lastiği' };
+function compoundLabel(name){ return COMPOUND_LABEL_TR[name] || name; }
 function wearTier(pctStr){
   var v=parseFloat(pctStr);
   return v>=80?'bad':(v>=60?'warn':'good');
@@ -231,6 +233,10 @@ var MODE_OPTIONS={
   ers:['Conserve','Neutral','Balanced','Deploy']
 };
 var MODE_LABELS={ fuel:'Motor / Yakıt Modu', pace:'Tempo Modu', ers:'ERS Kullanımı' };
+var MODE_VALUE_TR={ Conserve:'Tasarruf', Standard:'Standart', Push:'Push', Conservative:'Muhafazakâr', Balanced:'Dengeli', Aggressive:'Agresif', Neutral:'Nötr', Deploy:'Boşalt' };
+function modeValueLabel(v){ return MODE_VALUE_TR[v] || v; }
+var WEATHER_LABEL_TR={ Dry:'Kuru', Wet:'Yağmurlu', Cloudy:'Bulutlu' };
+function weatherLabel(w){ return WEATHER_LABEL_TR[w] || w; }
 
 /* =========================================================
    RENDER — üst özet çubuğu
@@ -238,7 +244,7 @@ var MODE_LABELS={ fuel:'Motor / Yakıt Modu', pace:'Tempo Modu', ers:'ERS Kullan
 function renderSummary(info){
   document.getElementById('ui-gp-name').textContent=info.grand_prix;
   document.getElementById('ui-total-laps').textContent=info.total_laps;
-  document.getElementById('ui-weather').textContent=info.weather;
+  document.getElementById('ui-weather').textContent=weatherLabel(info.weather);
   document.getElementById('ui-track-temp').textContent=info.track_temp;
   document.getElementById('ui-pit-loss').textContent='Δ'+info.pit_loss_time_seconds+'s';
 }
@@ -262,7 +268,7 @@ function stintTimelineHTML(stints,totalLaps){
 
     legend+='<div class="stint-legend-row">'
       +'<span class="leg-dot" style="background:'+meta.color+'"></span>'
-      +'<span class="leg-detail"><b>Stint '+s.stint_number+' · '+s.compound+'</b> — Tur '+s.start_lap+'–'+s.pit_lap+'</span>'
+      +'<span class="leg-detail"><b>Stint '+s.stint_number+' · '+compoundLabel(s.compound)+'</b> — Tur '+s.start_lap+'–'+s.pit_lap+'</span>'
       +'<span class="leg-wear tier-'+wearTier(s.wear_estimated)+'">'+s.wear_estimated+' aşınma</span>'
       +'</div>';
   });
@@ -292,7 +298,7 @@ var driverModeState={};
 function modeGroupHTML(driverId,modeKey,activeValue){
   var opts=MODE_OPTIONS[modeKey];
   var btns=opts.map(function(opt){
-    return '<button type="button" class="g-btn'+(opt===activeValue?' is-active':'')+'" data-driver="'+driverId+'" data-mode="'+modeKey+'" data-value="'+opt+'">'+opt+'</button>';
+    return '<button type="button" class="g-btn'+(opt===activeValue?' is-active':'')+'" data-driver="'+driverId+'" data-mode="'+modeKey+'" data-value="'+opt+'">'+modeValueLabel(opt)+'</button>';
   }).join('');
   return '<div class="mode-group" data-mode="'+modeKey+'">'
     +'<span class="g-label">'+MODE_LABELS[modeKey]+'</span>'
@@ -351,7 +357,7 @@ function tyreCardHTML(compoundName,count){
   for(var i=0;i<count;i++) dots+='<i style="background:'+meta.color+'"></i>';
   return '<div class="tyre-card">'
     +'<div class="tyre-roundel" style="background:'+meta.color+';color:'+meta.text+';border-color:'+meta.color+'55">'+meta.code+'</div>'
-    +'<span class="tyre-name">'+compoundName+'</span>'
+    +'<span class="tyre-name">'+compoundLabel(compoundName)+'</span>'
     +'<span class="tyre-count mono">'+count+'</span>'
     +'<div class="tyre-dots">'+(dots||'<span style="font-size:9px;color:var(--text-mute)">Yok</span>')+'</div>'
     +'</div>';
