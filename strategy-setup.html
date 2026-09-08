@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B0E14">
+<meta name="color-scheme" content="dark">
+<title>Yarış Öncesi Strateji</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#0B0E14; --bg-1:#0f131a; --bg-2:#151b24; --bg-3:#1c2430; --bg-4:#27313d;
+  --line:#2a3441; --line-soft:#1c2430;
+  --text:#eef3f8; --text-dim:#93a4b8; --text-mute:#5c6c80;
+  --cyan:#00F0FF; --race-red:#FF334B; --amber:#ffce3d; --green:#39ff88;
+  --c-soft:#E10600; --c-medium:#FFD800; --c-hard:#FFFFFF; --c-inter:#39B54A; --c-wet:#0072C6;
+  --f-display:'Saira Condensed','Arial Narrow',system-ui,sans-serif;
+  --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono','Consolas',ui-monospace,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg-0);color:var(--text);font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+body{
+  min-height:100vh;touch-action:manipulation;
+  background:
+    radial-gradient(110% 50% at 90% -8%, rgba(0,240,255,.08), transparent 55%),
+    radial-gradient(90% 50% at 0% 105%, rgba(255,51,75,.08), transparent 55%),
+    linear-gradient(180deg,var(--bg-1),var(--bg-0));
+  padding-bottom:calc(var(--safe-b) + 20px);
+}
+button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation}
+.mono{font-family:var(--f-mono)}
+.tier-good{color:var(--green)} .tier-warn{color:var(--amber)} .tier-bad{color:var(--race-red)}
+
+/* =========================================================
+   ÜST BAR — pist & hava özeti
+   ========================================================= */
+.top-bar{
+  position:sticky;top:0;z-index:5;
+  padding:calc(var(--safe-t) + 10px) calc(var(--safe-r) + 14px) 12px calc(var(--safe-l) + 14px);
+  background:linear-gradient(180deg,rgba(11,14,20,.97),rgba(11,14,20,.9));
+  border-bottom:1px solid var(--line);backdrop-filter:blur(8px);
+}
+.eyebrow{font-size:10px;letter-spacing:.2em;color:var(--cyan);font-weight:800;text-transform:uppercase}
+.title{font-family:var(--f-display);font-weight:800;font-size:22px;text-transform:uppercase;letter-spacing:.01em;line-height:1.1;margin-top:2px}
+.summary-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.sum-chip{
+  flex:1;min-width:78px;background:var(--bg-3);border:1px solid var(--line);border-radius:9px;
+  padding:6px 10px;display:flex;flex-direction:column;gap:1px;
+}
+.sum-chip .l{font-size:8px;letter-spacing:.09em;color:var(--text-mute);text-transform:uppercase;font-weight:700;display:flex;align-items:center;gap:4px}
+.sum-chip .v{font-family:var(--f-mono);font-size:14px;font-weight:700}
+.sum-chip.is-hot .v{color:var(--race-red)}
+.sum-chip.is-pit .v{color:var(--cyan)}
+
+main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-width:1180px;margin:0 auto}
+.section{margin-bottom:22px}
+.section-label{
+  display:flex;align-items:center;gap:8px;margin-bottom:10px;
+  font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text-dim);padding-left:9px;border-left:3px solid var(--cyan);
+}
+
+/* =========================================================
+   PİLOT STRATEJİ KARTI
+   ========================================================= */
+.driver-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:900px){ .driver-grid{grid-template-columns:repeat(2,1fr)} }
+.driver-card{
+  background:linear-gradient(160deg,var(--bg-2),var(--bg-1));border:1px solid var(--line);
+  border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px;
+  box-shadow:0 12px 28px rgba(0,0,0,.4);
+}
+.dr-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dr-name{font-family:var(--f-display);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.01em}
+.grid-pos{
+  font-family:var(--f-mono);font-size:11px;font-weight:700;color:var(--text-dim);
+  background:var(--bg-3);border:1px solid var(--line);padding:3px 8px;border-radius:99px;
+}
+
+/* --- stint zaman çizelgesi --- */
+.timeline-wrap{display:flex;flex-direction:column;gap:6px}
+.timeline-bar-outer{position:relative;padding-top:4px;padding-bottom:16px}
+.timeline-bar{display:flex;height:30px;border-radius:7px;overflow:hidden;border:1px solid var(--line);position:relative;z-index:1}
+.stint-seg{
+  display:flex;align-items:center;justify-content:center;position:relative;
+  border-right:2px solid rgba(11,14,20,.6);
+}
+.stint-seg:last-child{border-right:none}
+.stint-code{font-family:var(--f-mono);font-weight:700;font-size:12px}
+.pit-marker{
+  position:absolute;top:-4px;bottom:12px;width:2px;background:var(--race-red);z-index:2;
+  transform:translateX(-1px);
+}
+.pit-flag{
+  position:absolute;top:-16px;transform:translateX(-50%);font-size:11px;
+  background:var(--bg-4);border:1px solid var(--race-red);border-radius:5px;padding:1px 4px;
+  font-family:var(--f-mono);color:var(--race-red);font-weight:700;white-space:nowrap;
+}
+.lap-ruler{position:relative;height:12px}
+.lap-tick{position:absolute;top:0;transform:translateX(-50%);font-size:8px;font-family:var(--f-mono);color:var(--text-mute)}
+
+.stint-legend{display:flex;flex-direction:column;gap:5px}
+.stint-legend-row{
+  display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:8px;
+  font-size:10.5px;color:var(--text-dim);
+}
+.leg-dot{width:11px;height:11px;border-radius:3px;border:1px solid rgba(255,255,255,.25)}
+.leg-detail b{color:var(--text)}
+.leg-wear{font-family:var(--f-mono);font-weight:700}
+
+/* --- mod toggle grupları --- */
+.mode-groups{display:flex;flex-direction:column;gap:10px}
+.mode-group .g-label{font-size:9px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700;margin-bottom:5px;display:block}
+.g-btns{display:flex;gap:5px;flex-wrap:wrap}
+.g-btn{
+  flex:1;min-width:64px;padding:8px 6px;border-radius:8px;border:1px solid var(--line);background:var(--bg-3);
+  font-family:var(--f-display);font-weight:700;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--text-dim);text-align:center;transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+.g-btn.is-active{background:linear-gradient(180deg,rgba(0,240,255,.2),rgba(0,240,255,.06));border-color:var(--cyan);color:var(--text)}
+.mode-group[data-mode="fuel"] .g-btn.is-active{background:linear-gradient(180deg,rgba(255,51,75,.22),rgba(255,51,75,.06));border-color:var(--race-red)}
+
+/* =========================================================
+   LASTİK ENVANTERİ
+   ========================================================= */
+.tyre-tray{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:520px){ .tyre-tray{grid-template-columns:repeat(3,1fr)} }
+@media(min-width:900px){ .tyre-tray{grid-template-columns:repeat(5,1fr)} }
+.tyre-card{
+  background:linear-gradient(160deg,var(--bg-2),var(--bg-1));border:1px solid var(--line);
+  border-radius:13px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  box-shadow:0 8px 20px rgba(0,0,0,.3);
+}
+.tyre-roundel{
+  width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-mono);font-weight:800;font-size:16px;border:3px solid rgba(255,255,255,.2);
+}
+.tyre-name{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);font-weight:700}
+.tyre-count{font-family:var(--f-mono);font-size:20px;font-weight:700}
+.tyre-dots{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:80px}
+.tyre-dots i{width:7px;height:7px;border-radius:50%;display:block}
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <span class="eyebrow">Paddock GP · Pit Duvarı</span>
+  <h1 class="title" id="ui-gp-name">—</h1>
+  <div class="summary-row">
+    <div class="sum-chip"><span class="l">🏁 Tur</span><span class="v mono" id="ui-total-laps">—</span></div>
+    <div class="sum-chip"><span class="l">☀️ Hava</span><span class="v" id="ui-weather">—</span></div>
+    <div class="sum-chip is-hot"><span class="l">🌡 Pist Sıc.</span><span class="v mono" id="ui-track-temp">—</span></div>
+    <div class="sum-chip is-pit"><span class="l">⏱ Pit Kaybı</span><span class="v mono" id="ui-pit-loss">—</span></div>
+  </div>
+</header>
+
+<main>
+  <section class="section">
+    <div class="section-label">Pilot Stratejileri</div>
+    <div class="driver-grid" id="driver-grid"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">Lastik Envanteri <span class="mono" style="font-size:10px;color:var(--text-mute)">(Hafta Sonu)</span></div>
+    <div class="tyre-tray" id="tyre-tray"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu.
+   ========================================================= */
+var SAMPLE_DATA={
+  race_info:{
+    grand_prix:'Bahrain Grand Prix', total_laps:57, weather:'Dry', track_temp:'31°C', pit_loss_time_seconds:22.4
+  },
+  drivers:[
+    {
+      id:'drv_01', name:'Marcus Vance', grid_position:4,
+      strategy:{
+        stints:[
+          { stint_number:1, compound:'Soft', start_lap:1, pit_lap:18, wear_estimated:'72%' },
+          { stint_number:2, compound:'Hard', start_lap:19, pit_lap:57, wear_estimated:'68%' }
+        ],
+        pace_mode:'Balanced', fuel_mode:'Standard', ers_mode:'Neutral'
+      }
+    },
+    {
+      id:'drv_02', name:'Elena Torres', grid_position:9,
+      strategy:{
+        stints:[
+          { stint_number:1, compound:'Medium', start_lap:1, pit_lap:24, wear_estimated:'75%' },
+          { stint_number:2, compound:'Hard', start_lap:25, pit_lap:57, wear_estimated:'64%' }
+        ],
+        pace_mode:'Aggressive', fuel_mode:'Push', ers_mode:'Balanced'
+      }
+    }
+  ],
+  tyre_allocation:{ soft_remaining:3, medium_remaining:2, hard_remaining:1 }
+};
+
+/* =========================================================
+   YARDIMCILAR
+   ========================================================= */
+var COMPOUND_DICT={
+  Soft:{code:'S', color:'var(--c-soft)', text:'#fff'},
+  Medium:{code:'M', color:'var(--c-medium)', text:'#211a00'},
+  Hard:{code:'H', color:'var(--c-hard)', text:'#12161d'},
+  Intermediate:{code:'I', color:'var(--c-inter)', text:'#fff'},
+  Wet:{code:'W', color:'var(--c-wet)', text:'#fff'}
+};
+function compoundMeta(name){ return COMPOUND_DICT[name] || {code:(name||'?').charAt(0).toUpperCase(), color:'#5c6c80', text:'#fff'}; }
+function wearTier(pctStr){
+  var v=parseFloat(pctStr);
+  return v>=80?'bad':(v>=60?'warn':'good');
+}
+var MODE_OPTIONS={
+  fuel:['Conserve','Standard','Push'],
+  pace:['Conservative','Balanced','Aggressive'],
+  ers:['Conserve','Neutral','Balanced','Deploy']
+};
+var MODE_LABELS={ fuel:'Motor / Yakıt Modu', pace:'Tempo Modu', ers:'ERS Kullanımı' };
+
+/* =========================================================
+   RENDER — üst özet çubuğu
+   ========================================================= */
+function renderSummary(info){
+  document.getElementById('ui-gp-name').textContent=info.grand_prix;
+  document.getElementById('ui-total-laps').textContent=info.total_laps;
+  document.getElementById('ui-weather').textContent=info.weather;
+  document.getElementById('ui-track-temp').textContent=info.track_temp;
+  document.getElementById('ui-pit-loss').textContent='Δ'+info.pit_loss_time_seconds+'s';
+}
+
+/* =========================================================
+   RENDER — stint zaman çizelgesi
+   ========================================================= */
+function stintTimelineHTML(stints,totalLaps){
+  var segs='', markers='', legend='', ticks='';
+  stints.forEach(function(s,i){
+    var meta=compoundMeta(s.compound);
+    var lapCount=s.pit_lap-s.start_lap+1;
+    var widthPct=(lapCount/totalLaps*100).toFixed(2);
+    segs+='<div class="stint-seg" style="width:'+widthPct+'%;background:'+meta.color+'"><span class="stint-code" style="color:'+meta.text+'">'+meta.code+'</span></div>';
+
+    if(i<stints.length-1){
+      var atPct=(s.pit_lap/totalLaps*100).toFixed(2);
+      markers+='<div class="pit-marker" style="left:'+atPct+'%"></div>';
+      markers+='<div class="pit-flag" style="left:'+atPct+'%">🔧 T'+s.pit_lap+'</div>';
+    }
+
+    legend+='<div class="stint-legend-row">'
+      +'<span class="leg-dot" style="background:'+meta.color+'"></span>'
+      +'<span class="leg-detail"><b>Stint '+s.stint_number+' · '+s.compound+'</b> — Tur '+s.start_lap+'–'+s.pit_lap+'</span>'
+      +'<span class="leg-wear tier-'+wearTier(s.wear_estimated)+'">'+s.wear_estimated+' aşınma</span>'
+      +'</div>';
+  });
+
+  [0,Math.round(totalLaps/2),totalLaps].forEach(function(lap){
+    var pct=(lap/totalLaps*100).toFixed(2);
+    var anchor = lap===0?'left':(lap===totalLaps?'right':'center');
+    var transform = anchor==='left'?'translateX(0)':(anchor==='right'?'translateX(-100%)':'translateX(-50%)');
+    ticks+='<span class="lap-tick" style="left:'+pct+'%;transform:'+transform+'">T'+lap+'</span>';
+  });
+
+  return '<div class="timeline-wrap">'
+    +'<div class="timeline-bar-outer">'
+      +'<div class="timeline-bar">'+segs+'</div>'
+      + markers
+    +'</div>'
+    +'<div class="lap-ruler">'+ticks+'</div>'
+    +'<div class="stint-legend">'+legend+'</div>'
+    +'</div>';
+}
+
+/* =========================================================
+   RENDER — mod toggle grupları
+   ========================================================= */
+var driverModeState={};
+
+function modeGroupHTML(driverId,modeKey,activeValue){
+  var opts=MODE_OPTIONS[modeKey];
+  var btns=opts.map(function(opt){
+    return '<button type="button" class="g-btn'+(opt===activeValue?' is-active':'')+'" data-driver="'+driverId+'" data-mode="'+modeKey+'" data-value="'+opt+'">'+opt+'</button>';
+  }).join('');
+  return '<div class="mode-group" data-mode="'+modeKey+'">'
+    +'<span class="g-label">'+MODE_LABELS[modeKey]+'</span>'
+    +'<div class="g-btns">'+btns+'</div>'
+    +'</div>';
+}
+
+function bindModeGroups(container){
+  Array.prototype.forEach.call(container.querySelectorAll('.g-btn'), function(btn){
+    btn.addEventListener('click', function(){
+      var driverId=btn.getAttribute('data-driver');
+      var modeKey=btn.getAttribute('data-mode');
+      var value=btn.getAttribute('data-value');
+      driverModeState[driverId][modeKey]=value;
+      var group=btn.closest('.mode-group');
+      Array.prototype.forEach.call(group.querySelectorAll('.g-btn'), function(b){
+        b.classList.toggle('is-active', b===btn);
+      });
+    });
+  });
+}
+
+/* =========================================================
+   RENDER — pilot kartları
+   ========================================================= */
+function driverCardHTML(d){
+  driverModeState[d.id]={ fuel:d.strategy.fuel_mode, pace:d.strategy.pace_mode, ers:d.strategy.ers_mode };
+  return '<article class="driver-card" id="dc-'+d.id+'">'
+    +'<div class="dr-head"><span class="dr-name">'+d.name+'</span><span class="grid-pos">GRID P'+d.grid_position+'</span></div>'
+    + stintTimelineHTML(d.strategy.stints, currentTotalLaps)
+    +'<div class="mode-groups">'
+      + modeGroupHTML(d.id,'pace',d.strategy.pace_mode)
+      + modeGroupHTML(d.id,'fuel',d.strategy.fuel_mode)
+      + modeGroupHTML(d.id,'ers',d.strategy.ers_mode)
+    +'</div>'
+    +'</article>';
+}
+var currentTotalLaps=1;
+function renderDrivers(drivers,totalLaps){
+  currentTotalLaps=totalLaps;
+  var grid=document.getElementById('driver-grid');
+  grid.innerHTML=drivers.map(driverCardHTML).join('');
+  bindModeGroups(grid);
+}
+
+/* =========================================================
+   RENDER — lastik envanteri
+   ========================================================= */
+function compoundFromKey(key){
+  var base=key.replace(/_remaining$/,'');
+  return base.charAt(0).toUpperCase()+base.slice(1);
+}
+function tyreCardHTML(compoundName,count){
+  var meta=compoundMeta(compoundName);
+  var dots='';
+  for(var i=0;i<count;i++) dots+='<i style="background:'+meta.color+'"></i>';
+  return '<div class="tyre-card">'
+    +'<div class="tyre-roundel" style="background:'+meta.color+';color:'+meta.text+';border-color:'+meta.color+'55">'+meta.code+'</div>'
+    +'<span class="tyre-name">'+compoundName+'</span>'
+    +'<span class="tyre-count mono">'+count+'</span>'
+    +'<div class="tyre-dots">'+(dots||'<span style="font-size:9px;color:var(--text-mute)">Yok</span>')+'</div>'
+    +'</div>';
+}
+function renderTyreTray(allocation){
+  var tray=document.getElementById('tyre-tray');
+  tray.innerHTML=Object.keys(allocation).map(function(key){
+    return tyreCardHTML(compoundFromKey(key), allocation[key]);
+  }).join('');
+}
+
+/* =========================================================
+   ANA RENDER
+   ========================================================= */
+function renderStrategyScreen(data){
+  renderSummary(data.race_info);
+  renderDrivers(data.drivers, data.race_info.total_laps);
+  renderTyreTray(data.tyre_allocation);
+}
+
+renderStrategyScreen(SAMPLE_DATA);
+window.renderStrategyScreen=renderStrategyScreen;
+window.getDriverModeState=function(){ return driverModeState; };
+})();
+</script>
+</body>
+</html>
