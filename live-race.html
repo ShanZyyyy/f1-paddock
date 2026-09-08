@@ -269,6 +269,7 @@ main{padding:16px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
   </div>
 </main>
 
+<script src="f1-2026-data.js"></script>
 <script>
 (function(){
 'use strict';
@@ -300,22 +301,61 @@ var DNF_REASONS=[
   {type:'mech', text:'MOTOR ARIZASI! {n} aracını pit yoluna park etmek zorunda kaldı.'}
 ];
 var ROSTER=[
-  {code:'PAD1', name:'Marcus Vance', pace:85, perf:83, cons:80, isPlayer:true},
-  {code:'PAD2', name:'Elena Torres', pace:77, perf:83, cons:85, isPlayer:false},
-  {code:'RBR', name:'Voss', pace:88, perf:90, cons:84, isPlayer:false},
-  {code:'FER', name:'Moretti', pace:84, perf:87, cons:78, isPlayer:false},
-  {code:'MER', name:'Hallberg', pace:80, perf:82, cons:88, isPlayer:false},
-  {code:'MCL', name:'Prince', pace:82, perf:85, cons:81, isPlayer:false},
-  {code:'AST', name:'Costa', pace:76, perf:78, cons:83, isPlayer:false},
-  {code:'ALP', name:'Duval', pace:74, perf:75, cons:79, isPlayer:false},
-  {code:'WIL', name:'Garcia', pace:71, perf:70, cons:82, isPlayer:false},
-  {code:'HAA', name:'Klein', pace:70, perf:68, cons:77, isPlayer:false}
+  {code:'PAD1', displayCode:'PAD1', name:'Marcus Vance', pace:85, perf:83, cons:80, isPlayer:true},
+  {code:'PAD2', displayCode:'PAD2', name:'Elena Torres', pace:77, perf:83, cons:85, isPlayer:false},
+  {code:'RBR', displayCode:'RBR', name:'Voss', pace:88, perf:90, cons:84, isPlayer:false},
+  {code:'FER', displayCode:'FER', name:'Moretti', pace:84, perf:87, cons:78, isPlayer:false},
+  {code:'MER', displayCode:'MER', name:'Hallberg', pace:80, perf:82, cons:88, isPlayer:false},
+  {code:'MCL', displayCode:'MCL', name:'Prince', pace:82, perf:85, cons:81, isPlayer:false},
+  {code:'AST', displayCode:'AST', name:'Costa', pace:76, perf:78, cons:83, isPlayer:false},
+  {code:'ALP', displayCode:'ALP', name:'Duval', pace:74, perf:75, cons:79, isPlayer:false},
+  {code:'WIL', displayCode:'WIL', name:'Garcia', pace:71, perf:70, cons:82, isPlayer:false},
+  {code:'HAA', displayCode:'HAA', name:'Klein', pace:70, perf:68, cons:77, isPlayer:false}
 ];
 var BASE_LAP_TIME=92; // saniye
 var TOTAL_LAPS=57;
 var PIT_LOSS_SECONDS=22.4;
 var TRACK_TEMP='31°C';
 var COMPOUND_ORDER=['S','M','H'];
+
+/* =========================================================
+   GERÇEK 2026 KADRO ENTEGRASYONU
+   f1-2026-data.js yüklüyse: oyuncunun takımından 2 gerçek pilot (iç
+   kimlik anahtarı yine 'PAD1'/'PAD2' — tüm simülasyon mantığı bu
+   anahtarlara göre çalıştığından değişmez, sadece görünen isim/kod/
+   renk gerçek veriden gelir), 8 rakip gerçek takımdan birer pilot,
+   ve takvimden gerçek pist (tur, baz tur süresi, pit kaybı) kullanılır.
+   ========================================================= */
+var PLAYER_TEAM_ID='MCL';
+(function applyRealRoster(){
+  if(!window.F1_2026_DATA) return;
+  var master=window.F1_2026_DATA;
+  var playerTeam=master.teams.filter(function(t){ return t.id===PLAYER_TEAM_ID; })[0];
+  var track=master.calendar.filter(function(r){ return r.round===1; })[0];
+  if(!playerTeam || !track) return;
+
+  function driverById(id){ return master.drivers.filter(function(d){ return d.id===id; })[0]; }
+  function toEntry(md,code,isPlayer){
+    var s=md.stats;
+    return { code:code, displayCode:md.code, name:md.name, pace:s.pace, perf:Math.round((s.overtaking+s.tyre_management)/2), cons:s.consistency, isPlayer:isPlayer };
+  }
+
+  var roster=[ toEntry(driverById(playerTeam.driver_ids[0]),'PAD1',true), toEntry(driverById(playerTeam.driver_ids[1]),'PAD2',false) ];
+  var teamColors={ PAD1:playerTeam.color_primary, PAD2:playerTeam.color_secondary };
+  var rivalIds=['RBR','FER','MER','MCL','AST','ALP','WIL','HAA','RB','AUD','CAD'].filter(function(id){ return id!==PLAYER_TEAM_ID; }).slice(0,8);
+  rivalIds.forEach(function(tid){
+    var team=master.teams.filter(function(t){ return t.id===tid; })[0];
+    if(!team) return;
+    roster.push(toEntry(driverById(team.driver_ids[0]),tid,false));
+    teamColors[tid]=team.color_primary;
+  });
+
+  ROSTER=roster;
+  TEAM_COLORS=teamColors;
+  BASE_LAP_TIME=track.base_lap_time_sec;
+  TOTAL_LAPS=track.laps;
+  PIT_LOSS_SECONDS=track.pit_loss_sec;
+})();
 
 /* =========================================================
    2. YARDIMCILAR
@@ -347,7 +387,7 @@ function YarisSimulasyonu(){
 
   this.drivers=ROSTER.map(function(r,i){
     return {
-      code:r.code, name:r.name, isPlayer:r.isPlayer,
+      code:r.code, displayCode:r.displayCode||r.code, name:r.name, isPlayer:r.isPlayer,
       pace:r.pace, perf:r.perf, consistency:r.cons,
       mode:'Dengeli', compound: i%3===0?'M':(i%3===1?'S':'H'),
       tireWear:0, lapsUsed:0,
@@ -514,7 +554,7 @@ YarisSimulasyonu.prototype.tick=function(){
     d.lastLapTime=lapT;
     this._degradeTyre(d);
     if(d.pushCooldown>0) d.pushCooldown--;
-    if(!this.fastestLap || lapT<this.fastestLap.time){ this.fastestLap={code:d.code,name:d.name,time:lapT}; }
+    if(!this.fastestLap || lapT<this.fastestLap.time){ this.fastestLap={code:d.displayCode||d.code,name:d.name,time:lapT}; }
     if(!d.isPlayer || d.code!=='PAD1') this._aiPitDecision(d);
   },this);
 
@@ -561,6 +601,8 @@ YarisSimulasyonu.prototype.getSnapshot=function(){
 /* =========================================================
    4. ARAYÜZ
    ========================================================= */
+var CODE_TO_DISPLAY={};
+ROSTER.forEach(function(r){ CODE_TO_DISPLAY[r.code]=r.displayCode||r.code; });
 var sim=new YarisSimulasyonu();
 var els={};
 var running=true, speedMult=1;
@@ -610,7 +652,7 @@ function renderBoard(snap){
     return '<div class="row'+(isPlayer?' is-player':'')+(isDnf?' is-dnf':'')+'" style="--tc:'+color+'">'
       +'<span class="pos">'+(isDnf?'DNF':row.position)+'</span>'
       +'<span class="bar"></span>'
-      +'<span class="drv"><b>'+row.driver_name+'</b><span>'+row.team_code+' · Ar '+row.interval+' · Fark '+row.gap+'</span></span>'
+      +'<span class="drv"><b>'+row.driver_name+'</b><span>'+(CODE_TO_DISPLAY[row.team_code]||row.team_code)+' · Ar '+row.interval+' · Fark '+row.gap+'</span></span>'
       +'<span class="lap">'+row.last_lap+'</span>'
       +'<span class="tyre-cell"><span class="tyre-badge">'+row.tyre.compound+'</span><span class="wear-bar"><i style="width:'+wear+'%;background:'+wearColor(wear)+'"></i></span></span>'
       +'</div>';

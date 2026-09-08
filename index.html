@@ -422,6 +422,7 @@ button{font-family:var(--f-body);color:inherit;border:none;background:none;user-
   </div>
 
 </div>
+<script src="f1-2026-data.js"></script>
 <script>
 (function(){
 'use strict';
@@ -454,6 +455,37 @@ var RIVAL_TEAMS=[
   {id:'WIL', name:'Williams',        color:'#64c4ff', drv:'Garcia'},
   {id:'HAA', name:'Haas',            color:'#b6babd', drv:'Klein'}
 ];
+
+/* =========================================================
+   GERÇEK 2026 KADRO ENTEGRASYONU
+   f1-2026-data.js yüklüyse RIVAL_TEAMS gerçek 8 rakip takım+pilotla
+   (oyuncunun takımı hariç), PLAYER_TEAM_DATA ise oyuncunun gerçek
+   takım adı/renkleri ve 2 gerçek pilotuyla doldurulur. Tüm dahili
+   kimlik anahtarları ('PAD1'/'PAD2'/RBR/FER/...) DEĞİŞMEZ — sadece
+   görünen isim/kod/renk gerçek veriden gelir, simülasyon mantığı
+   etkilenmez.
+   ========================================================= */
+var PLAYER_TEAM_ID='MCL';
+var PLAYER_TEAM_DATA=null;
+(function applyRealTeams(){
+  if(!window.F1_2026_DATA) return;
+  var master=window.F1_2026_DATA;
+  var playerTeam=master.teams.filter(function(t){ return t.id===PLAYER_TEAM_ID; })[0];
+  if(!playerTeam) return;
+  function driverById(id){ return master.drivers.filter(function(d){ return d.id===id; })[0]; }
+
+  PLAYER_TEAM_DATA={
+    name:playerTeam.name, colorPrimary:playerTeam.color_primary, colorSecondary:playerTeam.color_secondary,
+    drv1:driverById(playerTeam.driver_ids[0]), drv2:driverById(playerTeam.driver_ids[1])
+  };
+
+  var rivalIds=['RBR','FER','MER','MCL','AST','ALP','WIL','HAA','RB','AUD','CAD'].filter(function(id){ return id!==PLAYER_TEAM_ID; }).slice(0,8);
+  RIVAL_TEAMS=rivalIds.map(function(tid){
+    var team=master.teams.filter(function(t){ return t.id===tid; })[0];
+    var d=driverById(team.driver_ids[0]);
+    return { id:tid, name:team.name, color:team.color_primary, drv:d.name, displayCode:d.code };
+  });
+})();
 
 var COMPOUND_INFO={
   S:{name:'Yumuşak', wear:1.55, ideal:96},
@@ -666,17 +698,28 @@ function chooseAICompound(wetness){
    ========================================================= */
 function buildGrid(track){
   var cars=[];
-  cars.push({
-    id:'PAD1', code:'PAD1', teamName:'Paddock GP · 1. Pilot', color:'#ff1744',
-    isPlayer:true, skill:state.teamSkills.PAD1
-  });
-  cars.push({
-    id:'PAD2', code:'PAD2', teamName:'Paddock GP · 2. Pilot', color:'#00e5ff',
-    isPlayer:true, skill:state.teamSkills.PAD2
-  });
+  if(PLAYER_TEAM_DATA){
+    cars.push({
+      id:'PAD1', code:'PAD1', displayCode:PLAYER_TEAM_DATA.drv1.code, teamName:PLAYER_TEAM_DATA.name+' · '+PLAYER_TEAM_DATA.drv1.name, color:PLAYER_TEAM_DATA.colorPrimary,
+      isPlayer:true, skill:state.teamSkills.PAD1
+    });
+    cars.push({
+      id:'PAD2', code:'PAD2', displayCode:PLAYER_TEAM_DATA.drv2.code, teamName:PLAYER_TEAM_DATA.name+' · '+PLAYER_TEAM_DATA.drv2.name, color:PLAYER_TEAM_DATA.colorSecondary,
+      isPlayer:true, skill:state.teamSkills.PAD2
+    });
+  } else {
+    cars.push({
+      id:'PAD1', code:'PAD1', teamName:'Paddock GP · 1. Pilot', color:'#ff1744',
+      isPlayer:true, skill:state.teamSkills.PAD1
+    });
+    cars.push({
+      id:'PAD2', code:'PAD2', teamName:'Paddock GP · 2. Pilot', color:'#00e5ff',
+      isPlayer:true, skill:state.teamSkills.PAD2
+    });
+  }
   RIVAL_TEAMS.forEach(function(t){
     cars.push({
-      id:t.id, code:t.id, teamName:t.name+' · '+t.drv, color:t.color,
+      id:t.id, code:t.id, displayCode:t.displayCode, teamName:t.name+' · '+t.drv, color:t.color,
       isPlayer:false, skill:state.teamSkills[t.id]
     });
   });
@@ -883,7 +926,7 @@ function drawTrack(){
       ctx.font='700 9px "JetBrains Mono",monospace';
       ctx.fillStyle='#eef3f8';
       ctx.textAlign='center';
-      ctx.fillText(c.code, s.x, s.y-10);
+      ctx.fillText(c.displayCode||c.code, s.x, s.y-10);
     }
   });
 }
@@ -938,7 +981,7 @@ function callPit(car, compound, playerInitiated){
   if(playerInitiated){
     state.budget -= PIT_STOP_COST;
     saveState();
-    pushToast(car.code+' pite giriyor → '+COMPOUND_INFO[compound].name,'info');
+    pushToast((car.displayCode||car.code)+' pite giriyor → '+COMPOUND_INFO[compound].name,'info');
   }
 }
 
@@ -970,11 +1013,11 @@ function enforceMandatoryPit(car){
   if(car.pitStops>0 || car.pitting) return;
   if(car.isPlayer && remaining<=6 && !car.forcedPitWarned){
     car.forcedPitWarned=true;
-    pushToast(car.code+': ZORUNLU PIT UYARISI — en az 1 kez pit yapmalısın!','warn');
+    pushToast((car.displayCode||car.code)+': ZORUNLU PIT UYARISI — en az 1 kez pit yapmalısın!','warn');
   }
   if(remaining<=1){
     callPit(car, chooseAICompound(race.weather.wetness), false);
-    if(car.isPlayer) pushToast(car.code+' OTOMATİK PIT (kural gereği zorunlu durak)','danger');
+    if(car.isPlayer) pushToast((car.displayCode||car.code)+' OTOMATİK PIT (kural gereği zorunlu durak)','danger');
   }
 }
 
@@ -1136,7 +1179,7 @@ function finishRace(order){
     if(state.driverPoints[c.id]!==undefined) state.driverPoints[c.id]+=pts;
     var prize= pos<=10?PRIZE_TABLE[pos-1]:8000;
     if(c.isPlayer){ budgetDelta+=prize; }
-    rows.push({pos:pos, code:c.code, team:c.teamName, pts:pts, isPlayer:c.isPlayer});
+    rows.push({pos:pos, code:c.displayCode||c.code, team:c.teamName, pts:pts, isPlayer:c.isPlayer});
   });
   budgetDelta-=RACE_UPKEEP;
   state.budget+=budgetDelta;
@@ -1187,8 +1230,9 @@ function flagLabel(f){
 function updateUIStatic(){
   els.uiTrack.textContent=race.track.name;
   els.uiSeason.textContent='S'+state.season+' · Y'+(state.raceIndex+1)+'/'+RACES_PER_SEASON;
-  els.lblPit1.textContent='PIT · PAD1';
-  els.lblPit2.textContent='PIT · PAD2';
+  var p1s=getCar('PAD1'), p2s=getCar('PAD2');
+  els.lblPit1.textContent='PIT · '+(p1s.displayCode||p1s.code);
+  els.lblPit2.textContent='PIT · '+(p2s.displayCode||p2s.code);
 }
 
 function renderStatus(){
@@ -1226,7 +1270,7 @@ function renderStandings(order){
     return '<li class="tower-row'+(c.isPlayer?' is-player':'')+'" style="--tc:'+c.color+'">'
       +'<span class="pos">'+(i+1)+'</span>'
       +'<span class="team-bar"></span>'
-      +'<span class="drv"><b>'+c.code+'</b><span>'+c.teamName+'</span></span>'
+      +'<span class="drv"><b>'+(c.displayCode||c.code)+'</b><span>'+c.teamName+'</span></span>'
       +'<span class="gap mono">'+formatGap(c,leader)+'</span>'
       +'<span class="tyre-badge" data-c="'+c.compound+'">'+c.compound+'</span>'
       +'<span class="wear-wrap"><span class="wear-bar"><i style="width:'+wearPct+'%"></i></span>'+(c.pitting?'<span class="pit-flag">PIT</span>':'')+'</span>'
@@ -1242,7 +1286,7 @@ function openPitMenu(carId){
   resumeAudio();
   if(!race || race.finished) return;
   pitTargetCar=getCar(carId);
-  els.pitMenuTitle.textContent='PIT STRATEJİSİ — '+pitTargetCar.code;
+  els.pitMenuTitle.textContent='PIT STRATEJİSİ — '+(pitTargetCar.displayCode||pitTargetCar.code);
   els.pitCompoundGrid.innerHTML=['S','M','H','I','W'].map(function(c){
     return '<button class="compound-btn" data-c="'+c+'" type="button"><b>'+c+'</b><span>'+COMPOUND_INFO[c].name+'</span></button>';
   }).join('');
@@ -1259,7 +1303,7 @@ function closePitMenu(){ els.pitMenu.hidden=true; pitTargetCar=null; }
 function cycleMode(car){
   var i=MODES.indexOf(car.mode);
   car.mode=MODES[(i+1)%MODES.length];
-  pushToast(car.code+' modu: '+car.mode,'info');
+  pushToast((car.displayCode||car.code)+' modu: '+car.mode,'info');
 }
 
 function togglePause(){

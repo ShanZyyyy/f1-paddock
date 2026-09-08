@@ -209,7 +209,7 @@ main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
 <header class="top-bar">
   <div class="top-row">
     <div>
-      <span class="eyebrow">Paddock GP · Garaj</span>
+      <span class="eyebrow" id="ui-team-eyebrow">Paddock GP · Garaj</span>
       <h1 class="title">Garaj &amp; Ar-Ge</h1>
     </div>
     <div class="rd-chip">
@@ -256,9 +256,11 @@ main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
   </section>
 </main>
 
+<script src="f1-2026-data.js"></script>
 <script>
 (function(){
 'use strict';
+var PLAYER_TEAM_ID='MCL';
 
 /* =========================================================
    ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu.
@@ -506,6 +508,10 @@ function renderCatalog(projects){
    ANA RENDER
    ========================================================= */
 function renderGarage(data){
+  if(window.F1_2026_DATA){
+    var team=window.F1_2026_DATA.teams.filter(function(t){ return t.id===PLAYER_TEAM_ID; })[0];
+    if(team) document.getElementById('ui-team-eyebrow').textContent=team.name+' · Garaj';
+  }
   renderOverview(data.car_specs);
   renderBlueprint(data.active_upgrades||[]);
   renderQueue(data.active_upgrades||[]);

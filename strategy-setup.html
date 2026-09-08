@@ -174,18 +174,65 @@ main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
   </section>
 </main>
 
+<script src="f1-2026-data.js"></script>
 <script>
 (function(){
 'use strict';
 
 /* =========================================================
-   ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu.
+   GERÇEK 2026 KADRO ENTEGRASYONU
+   f1-2026-data.js yüklüyse takvimden gerçek pist (tur sayısı, pit
+   kaybı) ve oyuncunun takımından gerçek 2 pilot kullanılır. Strateji
+   planı (stint yapısı) örnek veriden korunur, sadece gerçek pilot
+   kimliği ve pist verisiyle birleştirilir.
    ========================================================= */
+var PLAYER_TEAM_ID='MCL';
+var ROUND_ID=1; // Bahreyn Grand Prisi — sezon açılışı
+
+function buildRealRaceInfo(){
+  if(!window.F1_2026_DATA) return null;
+  var track=window.F1_2026_DATA.calendar.filter(function(r){ return r.round===ROUND_ID; })[0];
+  if(!track) return null;
+  return { grand_prix:track.gp_name_tr, total_laps:track.laps, weather:'Dry', track_temp:'31°C', pit_loss_time_seconds:track.pit_loss_sec };
+}
+function buildRealDrivers(totalLaps){
+  if(!window.F1_2026_DATA) return null;
+  var master=window.F1_2026_DATA;
+  var team=master.teams.filter(function(t){ return t.id===PLAYER_TEAM_ID; })[0];
+  if(!team) return null;
+  var STINT_PLANS=[
+    { firstCompound:'Soft', splitFrac:0.32, wear1:'72%', wear2:'68%', pace_mode:'Balanced', fuel_mode:'Standard', ers_mode:'Neutral' },
+    { firstCompound:'Medium', splitFrac:0.42, wear1:'75%', wear2:'64%', pace_mode:'Aggressive', fuel_mode:'Push', ers_mode:'Balanced' }
+  ];
+  var gridPositions=[4,9];
+  return team.driver_ids.map(function(did,i){
+    var d=master.drivers.filter(function(x){ return x.id===did; })[0];
+    if(!d) return null;
+    var plan=STINT_PLANS[i%STINT_PLANS.length];
+    var splitLap=Math.round(totalLaps*plan.splitFrac);
+    return {
+      id:d.id, name:d.name, grid_position:gridPositions[i]||(i+1),
+      strategy:{
+        stints:[
+          { stint_number:1, compound:plan.firstCompound, start_lap:1, pit_lap:splitLap, wear_estimated:plan.wear1 },
+          { stint_number:2, compound:'Hard', start_lap:splitLap+1, pit_lap:totalLaps, wear_estimated:plan.wear2 }
+        ],
+        pace_mode:plan.pace_mode, fuel_mode:plan.fuel_mode, ers_mode:plan.ers_mode
+      }
+    };
+  }).filter(Boolean);
+}
+
+/* =========================================================
+   ÖRNEK VERİ (YEDEK) — verilen JSON şemasıyla birebir uyumlu.
+   f1-2026-data.js bulunamazsa kullanılır.
+   ========================================================= */
+var REAL_RACE_INFO=buildRealRaceInfo();
 var SAMPLE_DATA={
-  race_info:{
+  race_info: REAL_RACE_INFO || {
     grand_prix:'Bahreyn Grand Prisi', total_laps:57, weather:'Dry', track_temp:'31°C', pit_loss_time_seconds:22.4
   },
-  drivers:[
+  drivers: buildRealDrivers((REAL_RACE_INFO||{total_laps:57}).total_laps) || [
     {
       id:'drv_01', name:'Marcus Vance', grid_position:4,
       strategy:{

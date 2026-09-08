@@ -181,7 +181,7 @@ img,svg{display:block}
 <header class="top-bar">
   <div class="top-row">
     <div>
-      <span class="eyebrow">Paddock GP · Kadro</span>
+      <span class="eyebrow" id="ui-team-eyebrow">Paddock GP · Kadro</span>
       <h1 class="title">Pilot &amp; Personel<br>Yönetimi</h1>
     </div>
     <div class="wage-chip">
@@ -204,18 +204,51 @@ img,svg{display:block}
   </section>
 </main>
 
+<script src="f1-2026-data.js"></script>
 <script>
 (function(){
 'use strict';
 
 /* =========================================================
-   ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu.
-   Gerçek entegrasyonda bu objenin yerine canlı kadro verisi geçirilir;
-   tüm render fonksiyonları şemadaki alanlara göre dinamik çalışır.
+   GERÇEK 2026 KADRO ENTEGRASYONU
+   f1-2026-data.js yüklüyse (window.F1_2026_DATA), oyuncunun yönettiği
+   takımın gerçek 2 pilotunu o master veriden üretir. Dosya bir nedenle
+   eksikse (örn. tek başına açıldıysa) kurgusal örnek veriye düşer,
+   böylece dosya her zaman kendi başına da çalışır.
+   ========================================================= */
+var PLAYER_TEAM_ID='MCL';
+
+function hashSeed(str){ var h=0; for(var i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))|0; } return Math.abs(h); }
+function seededVal(id,min,max){ return min+(hashSeed(id)%(max-min+1)); }
+
+function driversFromMaster(){
+  if(!window.F1_2026_DATA) return null;
+  var master=window.F1_2026_DATA;
+  var team=master.teams.filter(function(t){ return t.id===PLAYER_TEAM_ID; })[0];
+  if(!team) return null;
+  return team.driver_ids.map(function(did,i){
+    var d=master.drivers.filter(function(x){ return x.id===did; })[0];
+    if(!d) return null;
+    var s=d.stats;
+    var overall=Math.round((s.pace+s.tyre_management+s.overtaking+s.consistency)/4);
+    var wetSkill=Math.round((s.consistency+s.tyre_management)/2);
+    return {
+      id:d.id, name:d.name, short_code:d.code, role:'Driver '+(i+1),
+      age:d.age, salary_per_race:overall*1000, races_remaining:18,
+      stats:{ overall:overall, pace:s.pace, tyre_management:s.tyre_management, overtaking:s.overtaking, consistency:s.consistency, wet_skill:wetSkill },
+      morale:seededVal(d.id+'m',65,92), form:seededVal(d.id+'f',68,90)
+    };
+  }).filter(Boolean);
+}
+
+/* =========================================================
+   ÖRNEK VERİ (YEDEK) — verilen JSON şemasıyla birebir uyumlu.
+   f1-2026-data.js bulunamazsa kullanılır. Tüm render fonksiyonları
+   şemadaki alanlara göre dinamik çalışır.
    ========================================================= */
 var SAMPLE_DATA={
   team_staff:{
-    drivers:[
+    drivers: driversFromMaster() || [
       {
         id:'drv_01', name:'Marcus Vance', short_code:'VAN', role:'Driver 1',
         age:24, salary_per_race:85000, races_remaining:18,
@@ -393,6 +426,11 @@ function staffCardHTML(s){
 function renderTeamStaff(data){
   var ts=data.team_staff||{drivers:[],engineers:[]};
   var drivers=ts.drivers||[], engineers=ts.engineers||[];
+
+  if(window.F1_2026_DATA){
+    var team=window.F1_2026_DATA.teams.filter(function(t){ return t.id===PLAYER_TEAM_ID; })[0];
+    if(team) document.getElementById('ui-team-eyebrow').textContent=team.name+' · Kadro';
+  }
 
   var driversGrid=document.getElementById('drivers-grid');
   var staffGrid=document.getElementById('staff-grid');
