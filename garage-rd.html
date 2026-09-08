@@ -202,6 +202,7 @@ main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
 }
 .dev-btn:active{transform:scale(.97)}
 .dev-btn.is-queued{background:var(--bg-3);color:var(--cyan);box-shadow:none;border:1px solid rgba(0,240,255,.5)}
+.dev-btn.is-locked{background:var(--bg-3);color:var(--red);box-shadow:none;border:1px solid rgba(255,70,85,.5)}
 </style>
 </head>
 <body>
@@ -213,7 +214,7 @@ main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
       <h1 class="title">Garaj &amp; Ar-Ge</h1>
     </div>
     <div class="rd-chip">
-      <span class="l">Aktif Ar-Ge Bütçesi</span>
+      <span class="l">Takım Bütçesi</span>
       <span class="v mono" id="ui-active-budget">₺0</span>
     </div>
   </div>
@@ -263,30 +264,52 @@ main{padding:18px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
 var PLAYER_TEAM_ID='MCL';
 
 /* =========================================================
-   ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu.
-   Tüm render fonksiyonları şemadaki alanlara göre dinamik çalışır;
-   yeni kategori/alt-istatistik/bileşen adları kod değişmeden görünür.
+   PAYLAŞILAN DURUM — game.html ile aynı localStorage anahtarları.
+   Burada satın alınan projeler CAR_SPECS.overall_rating'i etkiler,
+   o da game.html'deki driverSkill()'e takım performans bonusu olarak
+   yansır; bütçe de aynı paylaşılan anahtardan okunup yazılır.
    ========================================================= */
-var SAMPLE_DATA={
-  car_specs:{
-    overall_rating:81,
+var SHARED_BUDGET_KEY='paddockPitWall_v1';
+var CAR_SPECS_KEY='paddockGP_carSpecs_v1';
+
+function defaultCarSpecs(){
+  return {
+    overall_rating:78,
     categories:{
-      aerodynamics:{ rating:83, downforce:85, drag_reduction:80 },
-      power_unit:{ rating:80, top_speed:84, acceleration:79 },
-      durability:{ rating:79, engine_wear:78, gearbox_reliability:82 }
-    }
-  },
-  active_upgrades:[
-    { id:'upg_01', component:'Ön Kanat V2', category:'aerodynamics', cost:150000, progress_percent:65, races_until_ready:1, stat_boost:'+4 Yere Basma Kuvveti' },
-    { id:'upg_02', component:'ERS Termal Kaplama', category:'power_unit', cost:220000, progress_percent:30, races_until_ready:3, stat_boost:'+5 İvmelenme' },
-    { id:'upg_03', component:'Soğutma Kanalı Yeniden Tasarımı', category:'durability', cost:95000, progress_percent:82, races_until_ready:1, stat_boost:'+3 Motor Aşınma Direnci' }
-  ],
-  available_projects:[
-    { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', cost:300000, dev_time_races:4, gain:'+7 Aero Verimlilik' },
-    { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', cost:180000, dev_time_races:2, gain:'+6 Güvenilirlik' },
-    { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız' }
-  ]
-};
+      aerodynamics:{ rating:78, downforce:80, drag_reduction:76 },
+      power_unit:{ rating:78, top_speed:79, acceleration:77 },
+      durability:{ rating:78, engine_wear:78, gearbox_reliability:78 }
+    },
+    active_upgrades:[],
+    available_projects:[
+      { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', cost:300000, dev_time_races:4, gain:'+7 Aero Verimlilik', rating_gain:4 },
+      { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', cost:180000, dev_time_races:2, gain:'+6 Güvenilirlik', rating_gain:2 },
+      { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız', rating_gain:3 }
+    ]
+  };
+}
+function loadCarSpecs(){
+  try{
+    var raw=localStorage.getItem(CAR_SPECS_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return defaultCarSpecs();
+}
+function saveCarSpecs(specs){
+  try{ localStorage.setItem(CAR_SPECS_KEY, JSON.stringify(specs)); }catch(e){}
+}
+function loadBudget(){
+  try{
+    var raw=localStorage.getItem(SHARED_BUDGET_KEY);
+    if(raw){ var parsed=JSON.parse(raw); if(typeof parsed.budget==='number') return parsed.budget; }
+  }catch(e){}
+  return 250000;
+}
+function saveBudget(n){
+  try{ localStorage.setItem(SHARED_BUDGET_KEY, JSON.stringify({budget:n})); }catch(e){}
+}
+var CAR_SPECS=loadCarSpecs();
+var BUDGET=loadBudget();
 
 /* =========================================================
    YARDIMCILAR
@@ -496,12 +519,43 @@ function renderCatalog(projects){
 
   Array.prototype.forEach.call(grid.querySelectorAll('.dev-btn'), function(btn){
     btn.addEventListener('click', function(){
-      if(btn.classList.contains('is-queued')) return;
-      btn.classList.add('is-queued');
-      btn.textContent='Kuyruğa Eklendi ✓';
-      btn.closest('.proj-card').classList.add('is-queued');
+      var projId=btn.getAttribute('data-proj');
+      startProject(projId);
     });
   });
+}
+
+/* =========================================================
+   SATIN ALMA — bütçeden düşer, projeyi kuyruğa taşır, kaydeder
+   ========================================================= */
+function startProject(projId){
+  var idx=CAR_SPECS.available_projects.findIndex(function(p){ return p.id===projId; });
+  if(idx===-1) return;
+  var proj=CAR_SPECS.available_projects[idx];
+
+  if(BUDGET<proj.cost){
+    var btn=document.querySelector('.dev-btn[data-proj="'+projId+'"]');
+    if(btn){
+      var original=btn.textContent;
+      btn.textContent='Yetersiz Bütçe ✕';
+      btn.classList.add('is-locked');
+      setTimeout(function(){ btn.textContent=original; btn.classList.remove('is-locked'); },1600);
+    }
+    return;
+  }
+
+  BUDGET-=proj.cost;
+  saveBudget(BUDGET);
+
+  CAR_SPECS.available_projects.splice(idx,1);
+  CAR_SPECS.active_upgrades.push({
+    id:'upg_'+proj.id+'_'+Date.now(),
+    component:proj.name, category:proj.category, cost:proj.cost,
+    progress_percent:0, races_until_ready:proj.dev_time_races, total_races:proj.dev_time_races,
+    stat_boost:proj.gain, rating_gain:proj.rating_gain
+  });
+  saveCarSpecs(CAR_SPECS);
+  renderGarage(CAR_SPECS);
 }
 
 /* =========================================================
@@ -512,16 +566,14 @@ function renderGarage(data){
     var team=window.F1_2026_DATA.teams.filter(function(t){ return t.id===PLAYER_TEAM_ID; })[0];
     if(team) document.getElementById('ui-team-eyebrow').textContent=team.name+' · Garaj';
   }
-  renderOverview(data.car_specs);
+  renderOverview(data);
   renderBlueprint(data.active_upgrades||[]);
   renderQueue(data.active_upgrades||[]);
   renderCatalog(data.available_projects||[]);
-
-  var activeBudget=(data.active_upgrades||[]).reduce(function(sum,u){ return sum+(u.cost||0); },0);
-  document.getElementById('ui-active-budget').textContent=formatMoney(activeBudget);
+  document.getElementById('ui-active-budget').textContent=formatMoney(BUDGET);
 }
 
-renderGarage(SAMPLE_DATA);
+renderGarage(CAR_SPECS);
 window.renderGarage=renderGarage;
 })();
 </script>
