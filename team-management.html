@@ -172,6 +172,17 @@ img,svg{display:block}
 .sc-role{font-size:10.5px;color:var(--text-dim)}
 .sc-salary{font-family:var(--f-mono);font-size:12px;font-weight:700;color:var(--neon-cyan);text-align:right;white-space:nowrap}
 .sc-salary small{display:block;font-size:8px;color:var(--text-mute);font-weight:600}
+.sc-tier{font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--neon-amber);
+  background:rgba(255,206,61,.12);border:1px solid rgba(255,206,61,.35);padding:2px 8px;border-radius:99px;align-self:flex-start}
+.sc-upgrade{
+  margin-top:2px;padding:10px;border-radius:9px;font-family:var(--f-display);font-weight:800;font-size:11.5px;
+  letter-spacing:.05em;text-transform:uppercase;text-align:center;
+  background:linear-gradient(90deg,var(--neon-cyan),#3fffb0);color:#04262b;
+  box-shadow:0 8px 16px rgba(0,229,255,.25);transition:transform .08s ease;
+}
+.sc-upgrade:active{transform:scale(.97)}
+.sc-upgrade.is-maxed{background:var(--bg-4);color:var(--text-mute);box-shadow:none;pointer-events:none}
+.sc-upgrade.is-locked{background:var(--bg-4);color:var(--neon-red);box-shadow:none}
 
 .empty-note{max-width:1100px;margin:30px auto;text-align:center;color:var(--text-mute);font-size:12.5px}
 </style>
@@ -183,6 +194,10 @@ img,svg{display:block}
     <div>
       <span class="eyebrow" id="ui-team-eyebrow">Paddock GP · Kadro</span>
       <h1 class="title">Pilot &amp; Personel<br>Yönetimi</h1>
+    </div>
+    <div class="wage-chip">
+      <span class="l">Takım Bütçesi</span>
+      <span class="v mono" id="ui-budget">₺0</span>
     </div>
     <div class="wage-chip">
       <span class="l">Toplam Maaş / Yarış</span>
@@ -220,6 +235,57 @@ var PLAYER_TEAM_ID='MCL';
 
 function hashSeed(str){ var h=0; for(var i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))|0; } return Math.abs(h); }
 function seededVal(id,min,max){ return min+(hashSeed(id)%(max-min+1)); }
+
+/* =========================================================
+   PAYLAŞILAN PERSONEL DURUMU — game.html ile aynı anahtarlar.
+   Şef Mühendis'in kademesi driverSkill()'e küçük bir bonus, Pit
+   Ekibi Şefi'nin kademesi ise oyuncunun pit durak süresine indirim
+   olarak yansır (her ikisi de game.html'de uygulanır).
+   ========================================================= */
+var SHARED_BUDGET_KEY='paddockPitWall_v1';
+var STAFF_KEY='paddockGP_staff_v1';
+var STAFF_TIERS={
+  chief_engineer:[
+    { tier:1, name:'Elena Rostova', cost:0, bonus:0, stats:{design_efficiency:70,build_speed:68,reliability_bonus:66} },
+    { tier:2, name:'Elena Rostova', cost:220000, bonus:2, stats:{design_efficiency:82,build_speed:79,reliability_bonus:80} },
+    { tier:3, name:'Elena Rostova', cost:480000, bonus:4, stats:{design_efficiency:93,build_speed:90,reliability_bonus:92} }
+  ],
+  pit_crew_chief:[
+    { tier:1, name:'David Miller', cost:0, pit_loss_reduction:0, stats:{stop_speed:68,error_reduction:70} },
+    { tier:2, name:'David Miller', cost:150000, pit_loss_reduction:1.5, stats:{stop_speed:80,error_reduction:82} },
+    { tier:3, name:'David Miller', cost:340000, pit_loss_reduction:3.2, stats:{stop_speed:92,error_reduction:93} }
+  ]
+};
+function defaultStaff(){ return { chief_engineer_tier:1, pit_crew_chief_tier:1 }; }
+function loadStaff(){
+  try{
+    var raw=localStorage.getItem(STAFF_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return defaultStaff();
+}
+function saveStaff(s){ try{ localStorage.setItem(STAFF_KEY, JSON.stringify(s)); }catch(e){} }
+function loadBudget(){
+  try{
+    var raw=localStorage.getItem(SHARED_BUDGET_KEY);
+    if(raw){ var parsed=JSON.parse(raw); if(typeof parsed.budget==='number') return parsed.budget; }
+  }catch(e){}
+  return 250000;
+}
+function saveBudget(n){ try{ localStorage.setItem(SHARED_BUDGET_KEY, JSON.stringify({budget:n})); }catch(e){} }
+var STAFF=loadStaff();
+var BUDGET=loadBudget();
+
+function engineersFromStaff(){
+  var chiefTier=STAFF_TIERS.chief_engineer[STAFF.chief_engineer_tier-1];
+  var pitTier=STAFF_TIERS.pit_crew_chief[STAFF.pit_crew_chief_tier-1];
+  return [
+    { id:'eng_chief', role:'Chief Engineer', roleKey:'chief_engineer', name:chiefTier.name,
+      salary_per_race:0, stats:chiefTier.stats, tier:STAFF.chief_engineer_tier },
+    { id:'eng_pit', role:'Pit Crew Chief', roleKey:'pit_crew_chief', name:pitTier.name,
+      salary_per_race:0, stats:pitTier.stats, tier:STAFF.pit_crew_chief_tier }
+  ];
+}
 
 function driversFromMaster(){
   if(!window.F1_2026_DATA) return null;
@@ -262,16 +328,7 @@ var SAMPLE_DATA={
         morale:68, form:72
       }
     ],
-    engineers:[
-      {
-        id:'eng_chief_01', name:'Elena Rostova', role:'Chief Engineer', salary_per_race:45000,
-        stats:{ design_efficiency:88, build_speed:82, reliability_bonus:85 }
-      },
-      {
-        id:'eng_pit_01', name:'David Miller', role:'Pit Crew Chief', salary_per_race:30000,
-        stats:{ stop_speed:86, error_reduction:80 }
-      }
-    ]
+    engineers: engineersFromStaff()
   }
 };
 
@@ -410,14 +467,44 @@ function driverCardHTML(d){
    ========================================================= */
 function staffCardHTML(s){
   var entries=statEntries(s.stats);
+  var tiers=STAFF_TIERS[s.roleKey];
+  var maxed=s.tier>=tiers.length;
+  var next=maxed?null:tiers[s.tier];
+  var btnHTML=maxed
+    ? '<button class="sc-upgrade is-maxed" type="button" disabled>Maks. Kademe</button>'
+    : '<button class="sc-upgrade" type="button" data-role="'+s.roleKey+'">Kademe '+(s.tier+1)+"'e Yükselt — "+formatMoney(next.cost)+'</button>';
   return '<article class="staff-card">'
     +'<div class="sc-head">'
       +'<span class="sc-icon">'+(ROLE_ICON_DICT[s.role]||'🔧')+'</span>'
       +'<div class="sc-id"><h4 class="sc-name">'+s.name+'</h4><span class="sc-role">'+roleLabel(s.role)+'</span></div>'
-      +'<span class="sc-salary">'+formatMoney(s.salary_per_race)+'<small>/yarış</small></span>'
+      +'<span class="sc-tier">Kademe '+s.tier+'</span>'
     +'</div>'
     +'<div class="sc-bars">'+entries.map(statRowHTML).join('')+'</div>'
+    + btnHTML
     +'</article>';
+}
+
+function upgradeStaff(roleKey){
+  var tiers=STAFF_TIERS[roleKey];
+  var currentTier=STAFF[roleKey+'_tier'];
+  if(currentTier>=tiers.length) return;
+  var next=tiers[currentTier];
+  if(BUDGET<next.cost){
+    var btn=document.querySelector('.sc-upgrade[data-role="'+roleKey+'"]');
+    if(btn){
+      var original=btn.textContent;
+      btn.textContent='Yetersiz Bütçe ✕';
+      btn.classList.add('is-locked');
+      setTimeout(function(){ btn.textContent=original; btn.classList.remove('is-locked'); },1600);
+    }
+    return;
+  }
+  BUDGET-=next.cost;
+  saveBudget(BUDGET);
+  STAFF[roleKey+'_tier']=currentTier+1;
+  saveStaff(STAFF);
+  SAMPLE_DATA.team_staff.engineers=engineersFromStaff();
+  renderTeamStaff(SAMPLE_DATA);
 }
 
 /* =========================================================
@@ -436,12 +523,16 @@ function renderTeamStaff(data){
   var staffGrid=document.getElementById('staff-grid');
   driversGrid.innerHTML = drivers.length ? drivers.map(driverCardHTML).join('') : '<p class="empty-note">Kadroda kayıtlı pilot yok.</p>';
   staffGrid.innerHTML = engineers.length ? engineers.map(staffCardHTML).join('') : '<p class="empty-note">Kadroda kayıtlı teknik personel yok.</p>';
+  Array.prototype.forEach.call(staffGrid.querySelectorAll('.sc-upgrade[data-role]'),function(btn){
+    btn.addEventListener('click',function(){ upgradeStaff(btn.getAttribute('data-role')); });
+  });
 
   document.getElementById('count-drivers').textContent=drivers.length;
   document.getElementById('count-staff').textContent=engineers.length;
 
-  var totalWage=drivers.concat(engineers).reduce(function(sum,p){ return sum+(p.salary_per_race||0); },0);
+  var totalWage=drivers.reduce(function(sum,p){ return sum+(p.salary_per_race||0); },0);
   document.getElementById('ui-total-wage').textContent=formatMoney(totalWage);
+  document.getElementById('ui-budget').textContent=formatMoney(BUDGET);
 }
 
 /* =========================================================

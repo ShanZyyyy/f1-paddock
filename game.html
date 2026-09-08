@@ -409,7 +409,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
             <span class="ic">🔧</span><b>Garaj &amp; Ar-Ge</b><span id="hq-car-rating">Şasi performans endeksi —</span>
           </a>
           <a class="hq-module" href="team-management.html">
-            <span class="ic">👥</span><b>Pilot &amp; Personel</b><span>Kadro, form ve moral durumu</span>
+            <span class="ic">👥</span><b>Pilot &amp; Personel</b><span id="hq-staff-tiers">Kadro, form ve moral durumu</span>
           </a>
         </div>
       </div>
@@ -726,6 +726,35 @@ function advanceCarSpecsOneRace(){
 }
 
 /* =========================================================
+   0c. PERSONEL DURUMU (team-management.html ile paylaşılan)
+   Şef Mühendis kademesi driverSkill()'e ek bir bonus, Pit Ekibi
+   Şefi kademesi ise oyuncunun pit durak süresine indirim sağlar.
+   ========================================================= */
+var STAFF_KEY='paddockGP_staff_v1';
+var STAFF_TIERS={
+  chief_engineer:[
+    { tier:1, cost:0, bonus:0 },
+    { tier:2, cost:220000, bonus:2 },
+    { tier:3, cost:480000, bonus:4 }
+  ],
+  pit_crew_chief:[
+    { tier:1, cost:0, pit_loss_reduction:0 },
+    { tier:2, cost:150000, pit_loss_reduction:1.5 },
+    { tier:3, cost:340000, pit_loss_reduction:3.2 }
+  ]
+};
+function defaultStaff(){ return { chief_engineer_tier:1, pit_crew_chief_tier:1 }; }
+function loadStaff(){
+  try{
+    var raw=localStorage.getItem(STAFF_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return defaultStaff();
+}
+function saveStaff(s){ try{ localStorage.setItem(STAFF_KEY, JSON.stringify(s)); }catch(e){} }
+var STAFF=loadStaff();
+
+/* =========================================================
    1. GERÇEK KADRO
    ========================================================= */
 function teamNameFor(teamId){
@@ -845,6 +874,8 @@ function driverSkill(r){
   // tempo avantajı/dezavantajı olarak yansır.
   if(r.team_id===PLAYER_TEAM_ID){
     skill+=(CAR_SPECS.overall_rating-78)*0.0025;
+    var chiefTier=STAFF_TIERS.chief_engineer[STAFF.chief_engineer_tier-1];
+    skill+=(chiefTier.bonus||0)*0.0025;
   }
   return Math.max(0.85,Math.min(1.15,skill));
 }
@@ -951,7 +982,12 @@ function handleLapComplete(c){
 function callPit(c,compound,manual){
   if(c.pitting||c.finished) return;
   c.pitting=true; c.nextCompound=compound;
-  c.pitTimer=BASE_PIT_LOSS*(race.flag==='SC'?0.5:(race.flag==='VSC'?0.65:1));
+  var loss=BASE_PIT_LOSS*(race.flag==='SC'?0.5:(race.flag==='VSC'?0.65:1));
+  if(c.isPlayer){
+    var pitTier=STAFF_TIERS.pit_crew_chief[STAFF.pit_crew_chief_tier-1];
+    loss=Math.max(4,loss-(pitTier.pit_loss_reduction||0));
+  }
+  c.pitTimer=loss;
   if(manual) pushToast(c.code+' pite çağrıldı → '+compound,'info');
 }
 function maybeAIPit(c,dt){
@@ -1418,7 +1454,18 @@ function renderStandings(targetElId, driverPoints){
       +'</div>';
   }).join('');
 }
+function syncBudgetFromShared(){
+  // Garaj/Personel ekranlarında yapılan harcamalar ayrı bir sayfa
+  // navigasyonuyla gerçekleşiyor; CAREER nesnesindeki bütçe kopyası
+  // bayatlamış olabilir, HQ'ya her dönüşte paylaşılan anahtardan
+  // güncel değeri çekilir.
+  try{
+    var raw=localStorage.getItem(SHARED_BUDGET_KEY);
+    if(raw){ var parsed=JSON.parse(raw); if(typeof parsed.budget==='number') CAREER.budget=parsed.budget; }
+  }catch(e){}
+}
 function renderHQ(){
+  syncBudgetFromShared();
   var round=CAL[CAREER.round-1]||CAL[0];
   document.getElementById('hq-team').textContent=teamNameFor(PLAYER_TEAM_ID);
   document.getElementById('hq-budget').textContent=fmtMoney(CAREER.budget);
@@ -1438,6 +1485,8 @@ function renderHQ(){
   var carRatingEl=document.getElementById('hq-car-rating');
   var queueNote=CAR_SPECS.active_upgrades.length?(' · '+CAR_SPECS.active_upgrades.length+' proje geliştiriliyor'):'';
   carRatingEl.textContent='Şasi performans endeksi: '+CAR_SPECS.overall_rating+queueNote;
+  document.getElementById('hq-staff-tiers').textContent=
+    'Şef Mühendis K'+STAFF.chief_engineer_tier+' · Pit Ekibi K'+STAFF.pit_crew_chief_tier;
 }
 
 /* --- PRE-RACE --- */
@@ -1562,6 +1611,7 @@ function bindMenu(){
     resumeAudio();
     CAREER=defaultCareer(); saveCareer();
     CAR_SPECS=defaultCarSpecs(); saveCarSpecs(CAR_SPECS);
+    STAFF=defaultStaff(); saveStaff(STAFF);
     renderHQ(); showScreen('screen-hq');
   });
   document.getElementById('btn-continue').addEventListener('click',function(){
@@ -1583,7 +1633,7 @@ function bindMenu(){
     soundBtn.textContent=soundEnabled?'AÇIK':'KAPALI';
   });
   document.getElementById('btn-reset-save').addEventListener('click',function(){
-    try{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(CAR_SPECS_KEY); }catch(e){}
+    try{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(CAR_SPECS_KEY); localStorage.removeItem(STAFF_KEY); }catch(e){}
     document.getElementById('btn-continue').disabled=true;
     document.getElementById('settings-modal').classList.remove('open');
   });
