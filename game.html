@@ -206,6 +206,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .pr-trackstats .m{display:flex;flex-direction:column;gap:3px;align-items:center}
 .pr-trackstats .m .l{font-size:9px;letter-spacing:.1em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
 .pr-trackstats .m .v{font-family:var(--f-mono);font-size:14px;font-weight:700}
+.pr-trackstats .m.is-wet .v{color:var(--cyan)}
 .pr-columns{display:flex;gap:20px;align-items:flex-start}
 .pr-cards{display:flex;gap:18px}
 .pr-side{display:flex;flex-direction:column;gap:14px;width:280px}
@@ -222,6 +223,8 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .pr-card .badge{width:34px;height:34px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:800;font-size:13px;color:#fff}
 .pr-card .name{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase}
 .pr-card .sub{font-size:10px;color:var(--text-mute)}
+.pr-wetstat{font-size:11px;color:var(--cyan);background:rgba(0,240,255,.08);border:1px solid rgba(0,240,255,.3);border-radius:4px;padding:6px 10px}
+.pr-wetstat b{font-family:var(--f-mono)}
 .pr-label{font-size:9.5px;letter-spacing:.1em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
 .compound-picker{display:flex;gap:8px}
 .cp-chip{flex:1;padding:11px 4px;border-radius:4px;border:1.5px solid var(--line);text-align:center;font-family:var(--f-mono);font-weight:800;font-size:12px}
@@ -284,6 +287,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .ov-flag{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-family:var(--f-mono);font-size:10px;font-weight:700;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.5);color:var(--green)}
 .ov-flag.is-caution{background:rgba(255,206,61,.15);border-color:rgba(255,206,61,.5);color:var(--amber)}
 .ov-flag.is-finish{background:rgba(0,240,255,.15);border-color:rgba(0,240,255,.5);color:var(--cyan)}
+.ov-weather{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-family:var(--f-mono);font-size:10px;font-weight:700;background:rgba(0,240,255,.14);border:1px solid rgba(0,240,255,.5);color:var(--cyan)}
 .speedtrap{position:absolute;right:14px;top:12px;z-index:2;background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:8px 12px;text-align:right}
 .speedtrap .l{font-size:8px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
 .speedtrap .v{font-family:var(--f-mono);font-weight:800;font-size:17px;color:var(--cyan)}
@@ -583,6 +587,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
           <span class="ov-gp" id="ov-gp">BAHREYN GP</span>
           <span class="ov-lap" id="ov-lap">TUR 0 / 57</span>
           <span class="ov-flag" id="ov-flag">🟢 YEŞİL BAYRAK</span>
+          <span class="ov-weather" id="ov-weather" hidden>🌧️ ISLAK PİST</span>
         </div>
         <div class="speedtrap">
           <div class="l">Hız Tuzağı · Lider</div>
@@ -927,9 +932,9 @@ function teamColorFor(teamId){
 function buildRealRoster(){
   if(!MASTER.drivers||!MASTER.drivers.length){
     return [
-      {code:'VER',name:'Max Verstappen',team_id:'RBR',pace:97,perf:94,cons:93,isPlayer:false},
-      {code:'NOR',name:'Lando Norris',team_id:'MCL',pace:93,perf:90,cons:91,isPlayer:true},
-      {code:'PIA',name:'Oscar Piastri',team_id:'MCL',pace:91,perf:88,cons:90,isPlayer:true}
+      {code:'VER',name:'Max Verstappen',team_id:'RBR',pace:97,perf:94,cons:93,wet:92,isPlayer:false},
+      {code:'NOR',name:'Lando Norris',team_id:'MCL',pace:93,perf:90,cons:91,wet:85,isPlayer:true},
+      {code:'PIA',name:'Oscar Piastri',team_id:'MCL',pace:91,perf:88,cons:90,wet:83,isPlayer:true}
     ];
   }
   return MASTER.drivers.map(function(d){
@@ -937,6 +942,7 @@ function buildRealRoster(){
     return {
       code:d.code, name:d.name, team_id:d.team_id,
       pace:s.pace, perf:Math.round((s.overtaking+s.tyre_management)/2), cons:s.consistency,
+      wet:Math.round((s.consistency+s.tyre_management)/2),
       isPlayer: d.team_id===PLAYER_TEAM_ID
     };
   });
@@ -1075,6 +1081,21 @@ function driverSkill(r){
 function tireGrip(compound,wear){ return (COMPOUND_BASE_GRIP[compound]||1)*(1-wear*0.32); }
 
 /* =========================================================
+   3a. HAVA DURUMU — Pilotların "Yağmur Yeteneği" (consistency +
+   lastik yönetimi ortalaması) istatistiği burada gerçekten işlev
+   kazanıyor: yağmurlu bir hafta sonunda düşük yağmur yeteneğine
+   sahip pilotlar hem sıralama turunda hem yarışta daha çok zaman
+   kaybeder. Hafta sonu başına bir kez, Yarış Öncesi ekranına
+   girildiğinde belirlenir ve sıralama+yarış boyunca sabit kalır.
+   ========================================================= */
+var raceWeather='DRY';
+function decideRaceWeather(){ return Math.random()<0.25?'WET':'DRY'; }
+function wetPaceFactor(wetStat){
+  if(raceWeather!=='WET') return 1;
+  return Math.min(0.985,0.90+((wetStat||78)-75)*0.0025);
+}
+
+/* =========================================================
    3b. SIRALAMA TURU — tek tur simülasyonu, grid sırasını belirler
    ========================================================= */
 var qualiResults=null;
@@ -1087,7 +1108,7 @@ function runQualifying(round){
     return {
       code:r.code, name:r.name, team_id:r.team_id,
       color:teamColorFor(r.team_id), isPlayer:r.isPlayer,
-      laptime:(baseLap/skill)*noise
+      laptime:(baseLap/skill)*noise/wetPaceFactor(r.wet)
     };
   });
   results.sort(function(a,b){ return a.laptime-b.laptime; });
@@ -1107,7 +1128,7 @@ function buildGrid(){
   var cars=ROSTER.map(function(r,i){
     return {
       id:r.code, code:r.code, name:r.name, teamName:teamNameFor(r.team_id),
-      color:teamColorFor(r.team_id), isPlayer:r.isPlayer, skill:driverSkill(r),
+      color:teamColorFor(r.team_id), isPlayer:r.isPlayer, skill:driverSkill(r), wet:r.wet,
       grid:i+1, lapsCompleted:0, trackPosition:-i*0.011,
       compound: startCompounds[r.code]||(i%3===0?'M':(i%3===1?'S':'H')), tireWear:0,
       pitting:false, pitTimer:0, pitStops:0, mode:'DENGE',
@@ -1151,7 +1172,7 @@ function updateCar(c,dt){
   var scFactor= race.flag==='SC' ? 0.55 : (race.flag==='VSC' ? 0.75 : 1);
   var pushFactor = c.pushActive ? 0.975 : 1;
   var noise=1+(Math.random()-0.5)*0.01;
-  var paceRate=(1/BASE_LAP_TIME)*grip*wearPenalty*scFactor*modeFactor*pushFactor*c.skill*noise;
+  var paceRate=(1/BASE_LAP_TIME)*grip*wearPenalty*scFactor*modeFactor*pushFactor*c.skill*wetPaceFactor(c.wet)*noise;
   c.lastPaceRate=paceRate;
   c.trackPosition+=paceRate*dt;
 
@@ -1211,7 +1232,7 @@ function checkIncident(dt){
   }
   race.incidentCooldown-=dt;
   if(race.incidentCooldown<=0){
-    if(Math.random()<0.5){
+    if(Math.random()<(raceWeather==='WET'?0.68:0.5)){
       var r=Math.random();
       race.flag = r<0.7?'VSC':'SC';
       race.flagTimer = race.flag==='VSC'?(35+Math.random()*25):(75+Math.random()*45);
@@ -1979,17 +2000,20 @@ function openSponsorModal(){
 /* --- PRE-RACE --- */
 function renderPreRace(){
   var round=CAL[CAREER.round-1]||CAL[0];
+  raceWeather=decideRaceWeather();
   document.getElementById('pr-budget').textContent=fmtMoney(CAREER.budget);
   document.getElementById('pr-round').textContent='TUR '+round.round+' / '+CAL.length;
   document.getElementById('pr-name').textContent=round.gp_name_tr;
   document.getElementById('pr-info').textContent=round.circuit_tr+' · '+round.country_tr;
-  document.getElementById('pr-tyrenote').textContent='Beklenen lastik aşınımı: '+round.tyre_degradation_tr+'. Sert bileşen daha uzun stint, yumuşak bileşen daha hızlı tur süresi sağlar.';
+  document.getElementById('pr-tyrenote').textContent='Beklenen lastik aşınımı: '+round.tyre_degradation_tr+'. Sert bileşen daha uzun stint, yumuşak bileşen daha hızlı tur süresi sağlar.'
+    +(raceWeather==='WET'?' Pist ıslak — yağmur yeteneği düşük pilotlar tempo kaybeder ve güvenlik aracı ihtimali artar.':'');
   document.getElementById('pr-trackstats').innerHTML=[
+    {l:'Hava Durumu',v:(raceWeather==='WET'?'🌧️ Yağmurlu':'☀️ Kuru'),cls:raceWeather==='WET'?'is-wet':''},
     {l:'Tur Sayısı',v:round.laps},
     {l:'Tur Süresi (Taban)',v:fmtLapTime(round.base_lap_time_sec)},
     {l:'Pit Kaybı',v:round.pit_loss_sec.toFixed(1)+'sn'},
     {l:'Lastik Aşınımı',v:round.tyre_degradation_tr}
-  ].map(function(s){ return '<div class="m"><span class="l">'+s.l+'</span><span class="v">'+s.v+'</span></div>'; }).join('');
+  ].map(function(s){ return '<div class="m'+(s.cls?' '+s.cls:'')+'"><span class="l">'+s.l+'</span><span class="v">'+s.v+'</span></div>'; }).join('');
   var chiefTier=STAFF_TIERS.chief_engineer[STAFF.chief_engineer_tier-1];
   var pitTier=STAFF_TIERS.pit_crew_chief[STAFF.pit_crew_chief_tier-1];
   var sponsorText=SPONSOR.activeDeal?SPONSOR.activeDeal.name+' ('+SPONSOR.activeDeal.races_remaining+' yarış kaldı)':'Aktif anlaşma yok';
@@ -2007,6 +2031,7 @@ function renderPreRace(){
     return '<div class="pr-card" data-code="'+d.code+'">'
       +'<div class="head"><span class="badge" style="background:'+teamColorFor(d.team_id)+'">'+d.code+'</span>'
         +'<div><div class="name">'+d.name+'</div><div class="sub">'+teamNameFor(d.team_id)+'</div></div></div>'
+      +(raceWeather==='WET'?'<div class="pr-wetstat">🌧️ Yağmur Yeteneği: <b>'+d.wet+'</b></div>':'')
       +'<div class="pr-label">Başlangıç Lastiği</div>'
       +'<div class="compound-picker">'
         +'<button class="cp-chip'+(startCompounds[d.code]==='S'?' is-sel':'')+'" data-c="S" data-code="'+d.code+'">YUMUŞAK</button>'
@@ -2048,6 +2073,7 @@ function renderQualifying(){
 function startRaceScreen(){
   var round=CAL[CAREER.round-1]||CAL[0];
   document.getElementById('ov-gp').textContent=round.gp_name_tr.toUpperCase();
+  document.getElementById('ov-weather').hidden=raceWeather!=='WET';
   initRace(round);
   showScreen('screen-race');
   initTrack3D(round);
