@@ -8,20 +8,25 @@ APP_DIR="app"
 
 mkdir -p "$APP_DIR"
 
-SCREENS=(index.html team-management.html garage-rd.html strategy-setup.html live-race.html post-race.html race-center.html)
+# game.html is the single-page app entry point (title screen -> HQ -> pre-race
+# -> live race -> podium). The other screens are optional legacy modules
+# linked from the HQ dashboard (Garaj & Ar-Ge, Pilot & Personel).
+MAIN=game.html
+MODULES=(garage-rd.html team-management.html)
 
-for f in "${SCREENS[@]}"; do
+cp "$ROOT/$MAIN" "$APP_DIR/$MAIN"
+for f in "${MODULES[@]}"; do
   cp "$ROOT/$f" "$APP_DIR/$f"
 done
 cp "$ROOT/f1-2026-data.js" "$APP_DIR/f1-2026-data.js"
 
-BACK_BTN='<a href="hub.html" title="Ana Menü" style="position:fixed;top:8px;left:8px;z-index:99999;
+BACK_BTN='<a href="game.html" title="Sezon Merkezine Dön" style="position:fixed;top:8px;left:8px;z-index:99999;
   width:34px;height:34px;border-radius:50%;background:rgba(10,14,20,.85);border:1px solid #333c4a;
   color:#eef1f6;display:flex;align-items:center;justify-content:center;font-family:sans-serif;
   font-size:16px;text-decoration:none;backdrop-filter:blur(4px);">&#8962;</a>
 </body>'
 
-for f in "${SCREENS[@]}"; do
+for f in "${MODULES[@]}"; do
   python3 - "$APP_DIR/$f" "$BACK_BTN" <<'PYEOF'
 import sys
 path, snippet = sys.argv[1], sys.argv[2]
@@ -34,7 +39,7 @@ if '</body>' in content:
 PYEOF
 done
 
-echo "Copied + patched ${#SCREENS[@]} screens into $APP_DIR/"
+echo "Copied $MAIN + patched ${#MODULES[@]} module screens into $APP_DIR/"
 
 if [ "${1:-}" = "package" ]; then
   npm install --no-audit --no-fund

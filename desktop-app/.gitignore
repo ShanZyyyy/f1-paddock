@@ -1,5 +1,4 @@
 node_modules/
 dist/
 app/*.html
-!app/hub.html
 app/f1-2026-data.js

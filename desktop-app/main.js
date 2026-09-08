@@ -19,7 +19,7 @@ function createWindow() {
 
   Menu.setApplicationMenu(null);
 
-  win.loadFile(path.join(__dirname, 'app', 'hub.html'));
+  win.loadFile(path.join(__dirname, 'app', 'game.html'));
 
   // Open any target="_blank" links (there are none currently, but stay safe) in the OS browser
   win.webContents.setWindowOpenHandler(({ url }) => {
