@@ -288,6 +288,8 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .speedtrap .l{font-size:8px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
 .speedtrap .v{font-family:var(--f-mono);font-weight:800;font-size:17px;color:var(--cyan)}
 .track-toast{position:absolute;left:14px;bottom:12px;z-index:2;max-width:46%;display:flex;flex-direction:column-reverse;gap:4px}
+.minimap-box{position:absolute;right:14px;top:66px;z-index:2;background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:6px}
+.minimap-box canvas{display:block}
 .cam-controls{position:absolute;right:14px;bottom:12px;z-index:2;display:flex;gap:6px;align-items:center}
 .cam-btn{background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:8px 13px;
   font-family:var(--f-display);font-weight:700;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim)}
@@ -319,6 +321,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .dcard-badge{font-family:var(--f-mono);font-weight:800;font-size:10px;color:#0a0d11;background:#eef3f8;border-radius:2px;padding:2px 5px}
 .dcard-name{font-family:var(--f-display);font-weight:700;font-size:11.5px;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .drs-chip{font-family:var(--f-mono);font-size:8px;font-weight:800;color:var(--drs);border:1px solid var(--drs);border-radius:2px;padding:0 4px;animation:drspulse 1s ease-in-out infinite}
+.dcard-pos{font-family:var(--f-mono);font-size:9px;font-weight:800;color:var(--cyan);border:1px solid var(--cyan);border-radius:2px;padding:0 4px}
 @keyframes drspulse{0%,100%{opacity:1}50%{opacity:.4}}
 .pedal-pair{display:flex;gap:8px}
 .pedal-item{flex:1;display:flex;flex-direction:column;gap:2px}
@@ -590,6 +593,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
           <button class="cam-btn cam-zoom" id="btn-cam-zoom-out" type="button" title="Uzaklaştır">−</button>
           <button class="cam-btn cam-zoom" id="btn-cam-zoom-in" type="button" title="Yakınlaştır">+</button>
         </div>
+        <div class="minimap-box"><canvas id="minimap" width="170" height="120"></canvas></div>
         <div id="track3d"></div>
         <div class="track-toast" id="track-toast"></div>
       </main>
@@ -1012,6 +1016,40 @@ function pointAt(frac){
   return {pos:pos,tangent:tangent};
 }
 
+// Sağ üstteki mini pist haritası — gerçek eğri noktalarından ve
+// arabaların gerçek trackPosition değerinden çizilir, uydurma veri yok.
+var minimapPath=null;
+function buildMinimapPath(){
+  var pts=track3dCurve.getSpacedPoints(120);
+  var xs=pts.map(function(p){return p.x;}), zs=pts.map(function(p){return p.z;});
+  minimapPath={pts:pts,minX:Math.min.apply(null,xs),maxX:Math.max.apply(null,xs),minZ:Math.min.apply(null,zs),maxZ:Math.max.apply(null,zs)};
+}
+function drawMinimap(){
+  var canvas=document.getElementById('minimap');
+  if(!canvas||!minimapPath||!race) return;
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width, H=canvas.height, pad=14;
+  ctx.clearRect(0,0,W,H);
+  var mp=minimapPath;
+  var spanX=Math.max(1,mp.maxX-mp.minX), spanZ=Math.max(1,mp.maxZ-mp.minZ);
+  var scale=Math.min((W-2*pad)/spanX,(H-2*pad)/spanZ);
+  var offX=(W-spanX*scale)/2, offZ=(H-spanZ*scale)/2;
+  function proj(p){ return [offX+(p.x-mp.minX)*scale, offZ+(p.z-mp.minZ)*scale]; }
+  ctx.strokeStyle='rgba(238,243,248,.45)'; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath();
+  mp.pts.forEach(function(p,i){ var xy=proj(p); if(i===0) ctx.moveTo(xy[0],xy[1]); else ctx.lineTo(xy[0],xy[1]); });
+  ctx.closePath(); ctx.stroke();
+  race.cars.forEach(function(c){
+    var pa=pointAt(c.trackPosition);
+    var xy=proj(pa.pos);
+    ctx.beginPath();
+    ctx.fillStyle=c.color;
+    ctx.arc(xy[0],xy[1],c.isPlayer?3:2,0,Math.PI*2);
+    ctx.fill();
+    if(c.isPlayer){ ctx.lineWidth=1; ctx.strokeStyle='#eef3f8'; ctx.stroke(); }
+  });
+}
+
 /* =========================================================
    3. LASTİK / MOD SABİTLERİ
    ========================================================= */
@@ -1414,12 +1452,25 @@ function buildCarMesh3d(color,isPlayer){
     endplate.position.set(x,0.24,3.4); group.add(endplate);
   });
 
-  var wheelGeo=new THREE.CylinderGeometry(0.45,0.45,0.4,14);
+  var diffuser=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.3,0.7),darkMat);
+  diffuser.rotation.x=-0.35; diffuser.position.set(0,0.28,-2.35); diffuser.castShadow=true; group.add(diffuser);
+
+  [-1.2,1.2].forEach(function(x){
+    var bargeboard=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.35,0.9),darkMat);
+    bargeboard.position.set(x,0.35,1.4); group.add(bargeboard);
+  });
+
+  var wheelGeo=new THREE.CylinderGeometry(0.45,0.45,0.4,16);
   var wheelMat=new THREE.MeshStandardMaterial({color:0x111213,roughness:0.9});
+  var rimGeo=new THREE.CylinderGeometry(0.24,0.24,0.42,10);
+  var rimMat=new THREE.MeshStandardMaterial({color:0x3a4048,roughness:0.4,metalness:0.7});
   [[-1.05,0.45,1.65],[1.05,0.45,1.65],[-1.05,0.45,-1.55],[1.05,0.45,-1.55]].forEach(function(p){
     var wheel=new THREE.Mesh(wheelGeo,wheelMat);
     wheel.rotation.z=Math.PI/2; wheel.position.set(p[0],p[1],p[2]); wheel.castShadow=true;
     group.add(wheel);
+    var rim=new THREE.Mesh(rimGeo,rimMat);
+    rim.rotation.z=Math.PI/2; rim.position.set(p[0],p[1],p[2]);
+    group.add(rim);
   });
 
   if(isPlayer){
@@ -1504,6 +1555,7 @@ function initTrack3D(round){
   // Her yarış hafta sonu farklı bir pist demektir — önceki turun şerit/kerb
   // mesh'lerini bellekten temizleyip bu turun eğrisiyle yeniden kur.
   track3dCurve=buildTrackCurveForRound(round);
+  buildMinimapPath();
   if(trackMesh3d){ scene3d.remove(trackMesh3d); trackMesh3d.geometry.dispose(); trackMesh3d.material.dispose(); }
   if(kerbMesh3d){ scene3d.remove(kerbMesh3d); kerbMesh3d.geometry.dispose(); kerbMesh3d.material.dispose(); }
 
@@ -1706,8 +1758,10 @@ function driverCardHTML(c){
   var brake=Math.max(0,Math.min(100,50-50*Math.sin(phase*1.05)));
   var rpm=Math.round(9000+4200*(throttle/100));
   var drs=carHasDRS(c);
+  var pos=race.order?race.order.indexOf(c)+1:0;
+  var gapTxt=race.order?fmtGap(c,race.order[0]):'—';
   return '<div class="dcard'+(c.code===selectedDriver?' is-target':'')+'" data-code="'+c.code+'">'
-    +'<div class="dcard-head"><span class="dcard-badge" style="background:'+c.color+';color:#fff">'+c.code+'</span><span class="dcard-name">'+c.name+'</span>'+(drs?'<span class="drs-chip">DRS</span>':'')+'</div>'
+    +'<div class="dcard-head"><span class="dcard-badge" style="background:'+c.color+';color:#fff">'+c.code+'</span><span class="dcard-name">'+c.name+'</span>'+(drs?'<span class="drs-chip">DRS</span>':'')+'<span class="dcard-pos">P'+pos+'</span></div>'
     +'<div class="pedal-pair">'
       +'<div class="pedal-item"><span>Gaz</span><div class="pedal-track"><i class="throttle" style="width:'+throttle+'%"></i></div></div>'
       +'<div class="pedal-item"><span>Fren</span><div class="pedal-track"><i class="brake" style="width:'+brake+'%"></i></div></div>'
@@ -1715,6 +1769,8 @@ function driverCardHTML(c){
     +'<div class="mini-grid">'
       +'<div class="mg-item"><span>Hız</span><b>'+Math.round(speedVar)+' km/s</b></div>'
       +'<div class="mg-item"><span>RPM</span><b>'+rpm.toLocaleString('tr-TR')+'</b></div>'
+      +'<div class="mg-item"><span>Ara (Lider)</span><b>'+gapTxt+'</b></div>'
+      +'<div class="mg-item"><span>Pit Sayısı</span><b>'+c.pitStops+'</b></div>'
     +'</div>'
     +tyrePanelHTML(c)
     +ersPanelHTML(c)
@@ -1738,7 +1794,7 @@ function renderAll(dtReal){
   uiAccum+=dtReal||0;
   if(uiAccum>0.12 || dtReal===undefined){
     uiAccum=0;
-    renderTop(); renderTower(); renderDualTelemetry();
+    renderTop(); renderTower(); renderDualTelemetry(); drawMinimap();
   }
   drawCars();
 }
