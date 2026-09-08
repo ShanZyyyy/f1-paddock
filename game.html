@@ -857,9 +857,9 @@ function resetSeasonSpend(){ try{ localStorage.setItem(SEASON_SPEND_KEY,'0'); }c
    ========================================================= */
 var SPONSOR_KEY='paddockGP_sponsor_v1';
 var SPONSOR_DEALS=[
-  { id:'comet', name:'Comet Lojistik', signing_bonus:300000, income_per_race:40000, contract_races:6 },
-  { id:'vertex', name:'Vertex Enerji', signing_bonus:700000, income_per_race:90000, contract_races:8 },
-  { id:'novatech', name:'NovaTech Yazılım', signing_bonus:1400000, income_per_race:160000, contract_races:10 }
+  { id:'comet', name:'Comet Lojistik', signing_bonus:300000, income_per_race:40000, contract_races:6, bonus_per_point:8000 },
+  { id:'vertex', name:'Vertex Enerji', signing_bonus:700000, income_per_race:90000, contract_races:8, bonus_per_point:15000 },
+  { id:'novatech', name:'NovaTech Yazılım', signing_bonus:1400000, income_per_race:160000, contract_races:10, bonus_per_point:25000 }
 ];
 function defaultSponsor(){ return { activeDeal:null }; }
 function loadSponsor(){
@@ -890,7 +890,7 @@ function signSponsor(dealId){
   if(!deal) return;
   CAREER.budget+=deal.signing_bonus;
   saveCareer();
-  SPONSOR.activeDeal={ id:deal.id, name:deal.name, income_per_race:deal.income_per_race, races_remaining:deal.contract_races };
+  SPONSOR.activeDeal={ id:deal.id, name:deal.name, income_per_race:deal.income_per_race, races_remaining:deal.contract_races, bonus_per_point:deal.bonus_per_point };
   saveSponsor(SPONSOR);
 }
 
@@ -1727,7 +1727,7 @@ function openSponsorModal(){
   document.getElementById('sponsor-deals').innerHTML=SPONSOR_DEALS.map(function(d){
     return '<div class="sponsor-deal">'
       +'<div><div class="d-name">'+d.name+'</div>'
-        +'<div class="d-meta">İmza Bonusu '+fmtMoney(d.signing_bonus)+' · '+fmtMoney(d.income_per_race)+' / yarış · '+d.contract_races+' yarış sözleşme</div>'
+        +'<div class="d-meta">İmza Bonusu '+fmtMoney(d.signing_bonus)+' · '+fmtMoney(d.income_per_race)+' / yarış · '+d.contract_races+' yarış sözleşme · Puan başına +'+fmtMoney(d.bonus_per_point)+' performans primi</div>'
       +'</div>'
       +'<button class="sponsor-sign" type="button" data-deal="'+d.id+'">İmzala</button>'
       +'</div>';
@@ -1842,7 +1842,9 @@ function finishRaceAndGoToPodium(){
   var bestPos=playerResults.length?Math.min.apply(null,playerResults.map(function(r){return r.pos;})):22;
   var prize=Math.max(150000, 2600000-(bestPos-1)*95000);
   var opCost=380000;
-  var delta=prize-opCost;
+  var playerPts=playerResults.reduce(function(s,r){ return s+r.pts; },0);
+  var sponsorBonus=(SPONSOR.activeDeal&&SPONSOR.activeDeal.bonus_per_point)?playerPts*SPONSOR.activeDeal.bonus_per_point:0;
+  var delta=prize-opCost+sponsorBonus;
   CAREER.budget+=delta;
   addSeasonSpend(opCost);
 
@@ -1868,6 +1870,7 @@ function finishRaceAndGoToPodium(){
 
   document.getElementById('pd-finance').innerHTML=
     '<div class="finance-row"><span>Yarış İkramiyesi</span><b style="color:var(--green)">+'+fmtMoney(prize)+'</b></div>'
+    +(sponsorBonus>0?'<div class="finance-row"><span>Sponsor Performans Primi</span><b style="color:var(--green)">+'+fmtMoney(sponsorBonus)+'</b></div>':'')
     +'<div class="finance-row"><span>Operasyon Maliyeti</span><b style="color:var(--race-red)">−'+fmtMoney(opCost)+'</b></div>'
     +'<div class="finance-row total"><span>Net Değişim</span><b>'+(delta>=0?'+':'')+fmtMoney(delta)+'</b></div>';
 
