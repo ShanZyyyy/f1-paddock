@@ -792,9 +792,9 @@ function defaultCarSpecs(){
     categories:categories,
     active_upgrades:[],
     available_projects:[
-      { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', cost:300000, dev_time_races:4, gain:'+7 Aero Verimlilik', rating_gain:4 },
-      { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', cost:180000, dev_time_races:2, gain:'+6 Güvenilirlik', rating_gain:2 },
-      { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız', rating_gain:3 }
+      { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', stat:'downforce', cost:300000, dev_time_races:4, gain:'+7 Yere Basma Kuvveti', rating_gain:4 },
+      { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', stat:'gearbox_reliability', cost:180000, dev_time_races:2, gain:'+6 Şanzıman Güvenilirliği', rating_gain:2 },
+      { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', stat:'top_speed', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız', rating_gain:3 }
     ]
   };
 }
@@ -824,7 +824,10 @@ function advanceCarSpecsOneRace(){
     u.progress_percent=Math.min(100,Math.round(100*(1-Math.max(0,u.races_until_ready)/u.total_races)));
     if(u.races_until_ready<=0){
       var cat=CAR_SPECS.categories[u.category];
-      if(cat) cat.rating=Math.min(99,cat.rating+(u.rating_gain||0));
+      if(cat){
+        cat.rating=Math.min(99,cat.rating+(u.rating_gain||0));
+        if(u.stat && typeof cat[u.stat]==='number') cat[u.stat]=Math.min(99,cat[u.stat]+(u.rating_gain||0));
+      }
       events.push({icon:'🔧',text:u.component+' tamamlandı — '+(u.stat_boost||'performans arttı')});
     } else {
       stillActive.push(u);

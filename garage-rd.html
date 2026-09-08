@@ -289,9 +289,9 @@ function defaultCarSpecs(){
     },
     active_upgrades:[],
     available_projects:[
-      { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', cost:300000, dev_time_races:4, gain:'+7 Aero Verimlilik', rating_gain:4 },
-      { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', cost:180000, dev_time_races:2, gain:'+6 Güvenilirlik', rating_gain:2 },
-      { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız', rating_gain:3 }
+      { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', stat:'downforce', cost:300000, dev_time_races:4, gain:'+7 Yere Basma Kuvveti', rating_gain:4 },
+      { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', stat:'gearbox_reliability', cost:180000, dev_time_races:2, gain:'+6 Şanzıman Güvenilirliği', rating_gain:2 },
+      { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', stat:'top_speed', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız', rating_gain:3 }
     ]
   };
 }
@@ -558,7 +558,7 @@ function startProject(projId){
   CAR_SPECS.available_projects.splice(idx,1);
   CAR_SPECS.active_upgrades.push({
     id:'upg_'+proj.id+'_'+Date.now(),
-    component:proj.name, category:proj.category, cost:proj.cost,
+    component:proj.name, category:proj.category, stat:proj.stat, cost:proj.cost,
     progress_percent:0, races_until_ready:proj.dev_time_races, total_races:proj.dev_time_races,
     stat_boost:proj.gain, rating_gain:proj.rating_gain
   });
