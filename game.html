@@ -162,6 +162,15 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .sponsor-close{margin-top:16px;width:100%;padding:11px;border:1px solid var(--line);border-radius:3px;font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;text-align:center;color:var(--text-dim)}
 .sponsor-close:hover{color:var(--text)}
 
+.events-banner{background:linear-gradient(135deg,#141c14,var(--bg-2));border:1px solid rgba(34,197,94,.35);border-radius:6px;padding:14px 18px;margin-bottom:20px;animation:ebIn .3s ease-out}
+@keyframes ebIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.eb-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--green);margin-bottom:8px}
+.eb-close{color:var(--text-mute);font-size:13px;line-height:1}
+.eb-close:hover{color:var(--text)}
+.eb-list{display:flex;flex-direction:column;gap:6px}
+.eb-row{display:flex;gap:9px;align-items:baseline;font-size:12.5px}
+.eb-row .ic{flex:0 0 auto}
+
 .season-track{display:flex;flex-direction:column;gap:8px}
 .season-track .rail{display:flex;gap:3px;flex-wrap:wrap}
 .season-dot{width:14px;height:14px;border-radius:3px;background:var(--bg-4);border:1px solid var(--line);font-size:0}
@@ -422,6 +431,10 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
     </header>
     <div class="hq-body">
       <div class="hq-main">
+        <div class="events-banner" id="events-banner" hidden>
+          <div class="eb-head"><span>SEZONDA BU HAFTA</span><button class="eb-close" id="btn-events-close" type="button">✕</button></div>
+          <div class="eb-list" id="events-list"></div>
+        </div>
         <div class="hq-title">Sıradaki Yarış</div>
         <div class="next-race-card">
           <span class="nrc-eyebrow" id="nrc-round">TUR 1 / 24</span>
@@ -752,13 +765,14 @@ function recomputeOverallRating(){
 // Yeni yarışa geçerken (podyumdan "Devam Et") kuyruktaki her proje bir yarış
 // yaklaşır; süresi dolan proje ilgili kategorinin puanına katkısını uygular.
 function advanceCarSpecsOneRace(){
-  var stillActive=[];
+  var stillActive=[], events=[];
   CAR_SPECS.active_upgrades.forEach(function(u){
     u.races_until_ready-=1;
     u.progress_percent=Math.min(100,Math.round(100*(1-Math.max(0,u.races_until_ready)/u.total_races)));
     if(u.races_until_ready<=0){
       var cat=CAR_SPECS.categories[u.category];
       if(cat) cat.rating=Math.min(99,cat.rating+(u.rating_gain||0));
+      events.push({icon:'🔧',text:u.component+' tamamlandı — '+(u.stat_boost||'performans arttı')});
     } else {
       stillActive.push(u);
     }
@@ -766,6 +780,7 @@ function advanceCarSpecsOneRace(){
   CAR_SPECS.active_upgrades=stillActive;
   recomputeOverallRating();
   saveCarSpecs(CAR_SPECS);
+  return events;
 }
 
 /* =========================================================
@@ -828,11 +843,18 @@ function loadSponsor(){
 function saveSponsor(s){ try{ localStorage.setItem(SPONSOR_KEY, JSON.stringify(s)); }catch(e){} }
 var SPONSOR=loadSponsor();
 function advanceSponsorOneRace(){
-  if(!SPONSOR.activeDeal) return;
-  CAREER.budget+=SPONSOR.activeDeal.income_per_race;
+  if(!SPONSOR.activeDeal) return [];
+  var name=SPONSOR.activeDeal.name;
+  var income=SPONSOR.activeDeal.income_per_race;
+  CAREER.budget+=income;
   SPONSOR.activeDeal.races_remaining-=1;
-  if(SPONSOR.activeDeal.races_remaining<=0) SPONSOR.activeDeal=null;
+  var events=[{icon:'💰',text:name+"'den "+fmtMoney(income)+' sponsor geliri alındı'}];
+  if(SPONSOR.activeDeal.races_remaining<=0){
+    SPONSOR.activeDeal=null;
+    events.push({icon:'📋',text:name+' sözleşmesi sona erdi — yeni bir anlaşma bulman gerekiyor'});
+  }
   saveSponsor(SPONSOR);
+  return events;
 }
 function signSponsor(dealId){
   var deal=SPONSOR_DEALS.filter(function(d){ return d.id===dealId; })[0];
@@ -1806,13 +1828,16 @@ function bindMenu(){
     STAFF=defaultStaff(); saveStaff(STAFF);
     SPONSOR=defaultSponsor(); saveSponsor(SPONSOR);
     resetSeasonSpend();
+    document.getElementById('events-banner').hidden=true;
     renderHQ(); showScreen('screen-hq');
   });
   document.getElementById('btn-continue').addEventListener('click',function(){
     resumeAudio();
     var saved=loadCareer();
     if(!saved) return;
-    CAREER=saved; renderHQ(); showScreen('screen-hq');
+    CAREER=saved;
+    document.getElementById('events-banner').hidden=true;
+    renderHQ(); showScreen('screen-hq');
   });
   document.getElementById('btn-settings').addEventListener('click',function(){
     document.getElementById('settings-modal').classList.add('open');
@@ -1847,10 +1872,20 @@ function bindMenu(){
   document.getElementById('btn-goto-race').addEventListener('click',startRaceScreen);
   document.getElementById('btn-pd-continue').addEventListener('click',function(){
     CAREER.round=Math.min(CAL.length, CAREER.round+1);
-    advanceCarSpecsOneRace();
-    advanceSponsorOneRace();
-    saveCareer(); renderHQ(); showScreen('screen-hq');
+    var events=[].concat(advanceCarSpecsOneRace(),advanceSponsorOneRace());
+    saveCareer(); renderHQ(); renderEventsBanner(events); showScreen('screen-hq');
   });
+  document.getElementById('btn-events-close').addEventListener('click',function(){
+    document.getElementById('events-banner').hidden=true;
+  });
+}
+function renderEventsBanner(events){
+  var banner=document.getElementById('events-banner');
+  if(!events||!events.length){ banner.hidden=true; return; }
+  document.getElementById('events-list').innerHTML=events.map(function(e){
+    return '<div class="eb-row"><span class="ic">'+e.icon+'</span><span>'+e.text+'</span></div>';
+  }).join('');
+  banner.hidden=false;
 }
 function boot(){
   bindMenu(); bindRaceUI();
