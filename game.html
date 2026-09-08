@@ -258,129 +258,103 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 /* =========================================================
    4. CANLI YARIŞ (Mandatory Bahrain SVG + telemetry)
    ========================================================= */
-#screen-race .grid3{flex:1;display:grid;grid-template-columns:23% 1fr 23%;min-height:0}
-.tower{background:var(--glass);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.tower-head{
-  flex:0 0 auto;padding:9px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;
-  font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim);
-}
-.live-dot2{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:pulse2 1.1s ease-in-out infinite;display:inline-block;margin-right:5px}
+.track-panel{flex:1;position:relative;background:radial-gradient(120% 100% at 50% 10%,#0d131a,#05070a);min-height:0;overflow:hidden}
+#track3d{width:100%;height:100%;display:block}
+#track3d canvas{display:block}
+.live-dot2{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:pulse2 1.1s ease-in-out infinite;display:inline-block}
 @keyframes pulse2{0%,100%{opacity:1}50%{opacity:.3}}
-.tower-list{flex:1;overflow-y:auto}
-.trow{display:grid;grid-template-columns:22px 3px 40px 1fr 22px;align-items:center;gap:0;border-bottom:1px solid var(--line-soft);height:26px;background:rgba(255,255,255,.01)}
-.trow:nth-child(even){background:rgba(255,255,255,.025)}
-.trow.is-player{background:rgba(0,240,255,.08)}
-.t-pos{display:flex;align-items:center;justify-content:center;gap:2px;height:100%;background:#eef3f8;color:#0a0d11;font-family:var(--f-mono);font-weight:800;font-size:11px}
-.t-arrow{font-size:7px;line-height:1}
+
+.rv-standings,.rv-raceview{position:absolute;top:12px;z-index:3;background:linear-gradient(165deg,rgba(16,22,38,.95),rgba(9,12,20,.94));border:1px solid rgba(255,255,255,.08);border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,.45);backdrop-filter:blur(6px)}
+.rv-standings{left:12px;width:238px;max-height:min(74vh,560px);display:flex;flex-direction:column;overflow:hidden}
+.rv-raceview{right:12px;width:214px;overflow:hidden;padding-bottom:8px}
+.rv-head{display:flex;align-items:center;gap:6px;padding:7px 10px;font-family:var(--f-mono);font-weight:800;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);border-bottom:1px solid rgba(255,255,255,.08)}
+.rv-count{margin-left:auto;color:var(--text-mute);font-weight:700}
+
+.tower-list{overflow-y:auto;max-height:420px}
+.trow{display:grid;grid-template-columns:20px 3px 36px 1fr 20px;align-items:center;gap:0;border-bottom:1px solid rgba(255,255,255,.05);height:23px}
+.trow:nth-child(even){background:rgba(255,255,255,.02)}
+.trow.is-player{background:rgba(255,206,61,.1)}
+.t-pos{display:flex;align-items:center;justify-content:center;gap:1px;height:100%;background:rgba(238,243,248,.92);color:#0a0d11;font-family:var(--f-mono);font-weight:800;font-size:10px}
+.t-arrow{font-size:6.5px;line-height:1}
 .t-arrow.up{color:var(--green)}
 .t-arrow.down{color:var(--race-red)}
 .t-stripe{height:100%;background:var(--tc,#666)}
-.t-code{padding-left:7px;font-family:var(--f-display);font-weight:800;font-size:11.5px;letter-spacing:.02em}
-.t-mid{display:flex;align-items:center;justify-content:flex-end;gap:5px;padding-right:5px;min-width:0}
-.t-gap{font-family:var(--f-mono);font-size:9.5px;color:var(--telemetry-yellow);white-space:nowrap}
-.t-drs{font-family:var(--f-mono);font-size:7.5px;font-weight:800;color:var(--drs);border:1px solid var(--drs);border-radius:2px;padding:0 3px}
-.t-tyre{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:800;font-size:8.5px;justify-self:center}
+.t-code{padding-left:6px;font-family:var(--f-display);font-weight:800;font-size:10.5px;letter-spacing:.02em;color:#fff}
+.t-mid{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding-right:4px;min-width:0}
+.t-gap{font-family:var(--f-mono);font-size:8.5px;color:var(--telemetry-yellow);white-space:nowrap}
+.t-drs{font-family:var(--f-mono);font-size:6.5px;font-weight:800;color:var(--drs);border:1px solid var(--drs);border-radius:2px;padding:0 2px}
+.t-tyre{width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:800;font-size:7.5px;justify-self:center}
 .t-tyre[data-c="S"]{background:var(--c-soft);color:#fff}
 .t-tyre[data-c="M"]{background:var(--c-medium);color:#211a00}
 .t-tyre[data-c="H"]{background:var(--c-hard);color:#111}
 
-.track-panel{position:relative;background:radial-gradient(120% 100% at 50% 10%,#0d131a,#05070a);min-height:0;overflow:hidden}
-#track3d{width:100%;height:100%;display:block}
-#track3d canvas{display:block}
-.track-overlay{position:absolute;left:14px;top:12px;z-index:2;background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:8px 14px;display:flex;align-items:center;gap:14px}
-.ov-gp{font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.03em;text-transform:uppercase}
-.ov-lap{font-family:var(--f-mono);font-size:12px;color:var(--text-dim)}
-.ov-flag{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-family:var(--f-mono);font-size:10px;font-weight:700;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.5);color:var(--green)}
-.ov-flag.is-caution{background:rgba(255,206,61,.15);border-color:rgba(255,206,61,.5);color:var(--amber)}
-.ov-flag.is-finish{background:rgba(0,240,255,.15);border-color:rgba(0,240,255,.5);color:var(--cyan)}
-.ov-weather{display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-family:var(--f-mono);font-size:10px;font-weight:700;background:rgba(0,240,255,.14);border:1px solid rgba(0,240,255,.5);color:var(--cyan)}
-.speedtrap{position:absolute;right:14px;top:12px;z-index:2;background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:8px 12px;text-align:right}
-.speedtrap .l{font-size:8px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
-.speedtrap .v{font-family:var(--f-mono);font-weight:800;font-size:17px;color:var(--cyan)}
-.track-toast{position:absolute;left:14px;bottom:12px;z-index:2;max-width:46%;display:flex;flex-direction:column-reverse;gap:4px}
-.minimap-box{position:absolute;right:14px;top:66px;z-index:2;background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:6px}
-.minimap-box canvas{display:block}
-.cam-controls{position:absolute;right:14px;bottom:12px;z-index:2;display:flex;gap:6px;align-items:center}
-.cam-btn{background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:8px 13px;
-  font-family:var(--f-display);font-weight:700;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim)}
-.cam-btn:hover{color:var(--text);border-color:var(--cyan)}
-.cam-btn.is-active{color:var(--cyan);border-color:var(--cyan);background:rgba(0,240,255,.1)}
-.cam-btn.cam-zoom{padding:8px 12px;font-size:15px;font-weight:800;line-height:1;color:var(--cyan)}
-.track-toast .row{background:var(--glass);border-left:3px solid var(--cyan);border-radius:3px;padding:5px 9px;font-size:10.5px;animation:fadein .15s ease-out}
-@keyframes fadein{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
-
-.pitwall{background:var(--glass);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.pw-section{border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.pw-head{flex:0 0 auto;padding:8px 12px;font-family:var(--f-display);font-weight:700;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);display:flex;justify-content:space-between;align-items:center}
-.pw-sub{font-size:8px;color:var(--text-mute);text-transform:none;letter-spacing:0;font-weight:600;font-family:var(--f-body)}
-.pw-section.radio{flex:0 0 18%}
-.radio-log{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column;gap:5px}
-.radio-row{display:flex;gap:6px;align-items:flex-start;font-size:10px;line-height:1.4}
+.rv-radio{max-height:70px;overflow-y:auto;padding:6px 10px;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:4px}
+.radio-row{display:flex;gap:5px;align-items:flex-start;font-size:9px;line-height:1.35;color:var(--text-dim)}
 .radio-row .wave{display:flex;align-items:center;gap:1.5px;flex:0 0 auto;margin-top:2px}
-.radio-row .wave i{width:2px;height:8px;background:var(--cyan);border-radius:1px;animation:wave 0.8s ease-in-out infinite}
-.radio-row .wave i:nth-child(2){animation-delay:.1s;height:12px}
-.radio-row .wave i:nth-child(3){animation-delay:.2s;height:6px}
-.radio-row.is-old .wave i{background:var(--text-mute);animation:none;height:5px}
+.radio-row .wave i{width:2px;height:7px;background:var(--cyan);border-radius:1px;animation:wave 0.8s ease-in-out infinite}
+.radio-row .wave i:nth-child(2){animation-delay:.1s;height:10px}
+.radio-row .wave i:nth-child(3){animation-delay:.2s;height:5px}
+.radio-row.is-old .wave i{background:var(--text-mute);animation:none;height:4px}
 @keyframes wave{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
 .radio-row .lap{color:var(--text-mute);font-family:var(--f-mono);flex:0 0 auto}
-.pw-section.dual-telemetry{flex:1}
-.dcard-stack{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:8px}
-.dcard{background:var(--bg-2);border:1px solid var(--line);border-radius:4px;padding:8px 9px;display:flex;flex-direction:column;gap:7px;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease}
-.dcard.is-target{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset,0 0 14px rgba(0,240,255,.15)}
-.dcard-head{display:flex;align-items:center;gap:7px}
+
+.rv-gpname{padding:8px 10px 0;font-family:var(--f-display);font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.02em;color:#fff}
+.rv-info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;padding:8px 10px 2px}
+.rv-cell{display:flex;flex-direction:column;gap:2px}
+.rv-cell .l{font-size:6.5px;letter-spacing:.05em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.rv-cell .v{font-family:var(--f-mono);font-weight:700;font-size:10.5px;color:var(--text)}
+.ov-flag.is-caution{color:var(--amber)}
+.ov-flag.is-finish{color:var(--cyan)}
+.ov-weather{margin:6px 10px 4px;display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-family:var(--f-mono);font-size:9px;font-weight:700;background:rgba(0,240,255,.14);border:1px solid rgba(0,240,255,.5);color:var(--cyan);width:fit-content}
+#minimap{display:block;margin:6px auto 0;border-top:1px solid rgba(255,255,255,.08);padding-top:6px}
+
+.cam-controls{display:flex;gap:5px;align-items:center;padding:8px 10px 0}
+.cam-btn{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:6px 4px;
+  font-family:var(--f-display);font-weight:700;font-size:8.5px;letter-spacing:.01em;text-transform:uppercase;color:var(--text-dim)}
+.cam-btn:hover{color:var(--text);border-color:var(--cyan)}
+.cam-btn.is-active{color:var(--cyan);border-color:var(--cyan);background:rgba(0,240,255,.1)}
+.cam-btn.cam-zoom{flex:0 0 26px;font-size:14px;font-weight:800;line-height:1;color:var(--cyan)}
+
+.track-toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;gap:4px;align-items:center}
+.track-toast .row{background:rgba(10,14,24,.94);border:1px solid rgba(255,255,255,.1);border-left:3px solid var(--cyan);border-radius:3px;padding:5px 12px;font-size:10.5px;animation:fadein .15s ease-out}
+@keyframes fadein{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+
+/* Sürücü kadranları — kendine özgü dikey panel yerine, kompakt
+   ikon-sütunlu broadcast kadranı. "Yakıt" uydurma bir veri olacağı
+   için (oyun yakıt modellemiyor) üçüncü sütun yerine gerçekten
+   simüle edilen ERS/lastik/tempo verisi kullanılır. */
+.dcard-dock{position:absolute;left:12px;right:12px;bottom:12px;z-index:3;display:flex;justify-content:space-between;gap:16px;pointer-events:none}
+.dcard{pointer-events:auto;width:336px;background:linear-gradient(165deg,rgba(16,22,38,.96),rgba(9,12,20,.94));border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;cursor:pointer;box-shadow:0 12px 28px rgba(0,0,0,.45);transition:border-color .15s ease}
+.dcard.is-target{border-color:var(--amber)}
+.dcard-head{display:flex;align-items:center;gap:6px;padding:6px 9px;background:rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.08)}
+.dcard-pos{font-family:var(--f-mono);font-weight:800;font-size:9px;color:#0a0d11;background:var(--amber);border-radius:2px;padding:1px 5px}
 .dcard-badge{font-family:var(--f-mono);font-weight:800;font-size:10px;color:#0a0d11;background:#eef3f8;border-radius:2px;padding:2px 5px}
-.dcard-name{font-family:var(--f-display);font-weight:700;font-size:11.5px;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dcard-name{font-family:var(--f-display);font-weight:700;font-size:11.5px;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
 .drs-chip{font-family:var(--f-mono);font-size:8px;font-weight:800;color:var(--drs);border:1px solid var(--drs);border-radius:2px;padding:0 4px;animation:drspulse 1s ease-in-out infinite}
-.dcard-pos{font-family:var(--f-mono);font-size:9px;font-weight:800;color:var(--cyan);border:1px solid var(--cyan);border-radius:2px;padding:0 4px}
 @keyframes drspulse{0%,100%{opacity:1}50%{opacity:.4}}
-.pedal-pair{display:flex;gap:8px}
-.pedal-item{flex:1;display:flex;flex-direction:column;gap:2px}
-.pedal-item.wide{flex:1 1 100%}
-.pedal-item span{font-size:7.5px;letter-spacing:.06em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
-.pedal-track{height:6px;border-radius:99px;background:var(--bg-4);overflow:hidden}
-.pedal-track i{display:block;height:100%;border-radius:99px;width:0%}
-.pedal-track i.throttle{background:linear-gradient(90deg,#16a34a,var(--green))}
-.pedal-track i.brake{background:linear-gradient(90deg,#b91c1c,var(--race-red))}
-.pedal-track i.ers{background:linear-gradient(90deg,#7c3aed,var(--drs))}
-.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px}
-.mg-item{display:flex;justify-content:space-between;align-items:baseline;font-size:8.5px;color:var(--text-mute);text-transform:uppercase;font-weight:700;letter-spacing:.03em}
-.mg-item b{font-family:var(--f-mono);color:var(--text);font-size:11px;letter-spacing:0;text-transform:none;font-weight:700}
-.laptime-panel{background:var(--bg-3);border:1px solid var(--line-soft);border-radius:4px;padding:7px 8px;display:flex;flex-direction:column;gap:4px}
-.lt-row{display:flex;justify-content:space-between;align-items:baseline}
-.lt-label{font-size:7.5px;letter-spacing:.06em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
-.lt-val{font-size:12px;font-weight:700;color:var(--text)}
-.lt-val.is-best{color:var(--drs)}
-.sec-row{display:flex;gap:5px;margin-top:2px}
-.sec-chip{flex:1;text-align:center;font-family:var(--f-mono);font-size:8.5px;font-weight:700;color:var(--text-dim);background:var(--bg-4);border-radius:3px;padding:3px 2px}
-.sec-chip.is-empty{color:var(--text-mute);opacity:.5}
-.sec-chip.is-best{color:#04041a;background:var(--drs)}
-.tyre-panel,.ers-panel{background:var(--bg-3);border:1px solid var(--line-soft);border-radius:4px;padding:7px 8px;display:flex;flex-direction:column;gap:6px}
-.tyre-panel-title,.ers-panel-title{display:flex;justify-content:space-between;align-items:center;font-size:7.5px;letter-spacing:.06em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
-.tyre-compound{font-family:var(--f-mono);font-weight:800;font-size:8.5px}
-.tyre-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.tyre-cell{display:flex;flex-direction:column;align-items:center;gap:3px}
-.tc-label{font-family:var(--f-mono);font-size:7px;color:var(--text-mute);font-weight:700}
-.tyre-icon{width:16px;height:26px;border:2px solid;border-radius:3px;background:var(--bg-4);display:flex;align-items:flex-end;overflow:hidden}
-.tyre-icon i{display:block;width:100%;background:linear-gradient(0deg,var(--green),#8ee08e);border-radius:1px}
-.tyre-icon.is-warn i{background:linear-gradient(0deg,var(--amber),#ffe38a)}
-.tyre-icon.is-crit i{background:linear-gradient(0deg,var(--race-red),#ff8a95)}
-.tc-val{font-family:var(--f-mono);font-size:8px;font-weight:700;color:var(--text-dim)}
-.ers-mode-chip{font-family:var(--f-mono);font-weight:800;font-size:7.5px;color:var(--cyan);border:1px solid var(--cyan);border-radius:2px;padding:0 4px}
-.ers-mode-chip.is-push{color:var(--drs);border-color:var(--drs)}
-.ers-sub{font-size:7.5px;color:var(--text-mute);letter-spacing:.02em}
-.ers-sub.is-deploy{color:var(--drs)}
-.pw-section.tactics{flex:0 0 auto;border-bottom:none}
-.tac-grid{padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.tac-btn{padding:11px 6px;border-radius:3px;border:1px solid var(--line);background:var(--bg-3);font-family:var(--f-display);font-weight:800;font-size:11px;letter-spacing:.03em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:3px}
-.tac-btn .ic{font-size:15px}
-.tac-btn[data-cmd="pit"]{border-color:rgba(0,240,255,.4)} .tac-btn[data-cmd="pit"] .ic,.tac-btn[data-cmd="pit"] b{color:var(--cyan)}
-.tac-btn[data-cmd="push"]{border-color:rgba(255,51,75,.4)} .tac-btn[data-cmd="push"] .ic,.tac-btn[data-cmd="push"] b{color:var(--race-red)}
-.tac-btn[data-cmd="koru"]{border-color:rgba(34,197,94,.4)} .tac-btn[data-cmd="koru"] .ic,.tac-btn[data-cmd="koru"] b{color:var(--green)}
-.tac-btn[data-cmd="ers"]{border-color:rgba(185,107,255,.4)} .tac-btn[data-cmd="ers"] .ic,.tac-btn[data-cmd="ers"] b{color:var(--drs)}
-.tac-btn.is-locked{opacity:.4;pointer-events:none}
-.tac-btn.is-on{outline:2px solid currentColor;outline-offset:-2px;box-shadow:0 0 16px -2px currentColor,inset 0 0 10px -4px currentColor;background:rgba(255,255,255,.06);animation:tacGlow 1.4s ease-in-out infinite}
-@keyframes tacGlow{0%,100%{box-shadow:0 0 10px -3px currentColor,inset 0 0 8px -5px currentColor}50%{box-shadow:0 0 20px -1px currentColor,inset 0 0 12px -3px currentColor}}
-.tac-btn:active{transform:scale(.95)}
+.dcard-cols{display:grid;grid-template-columns:1fr 1fr 1fr}
+.dcol{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 6px}
+.dcol+.dcol{border-left:1px solid rgba(255,255,255,.07)}
+.dcol-ic{font-size:14px;line-height:1;color:var(--text-dim)}
+.dcol-ic.compound{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:800;font-size:10px;color:#fff}
+.dcol-v{font-family:var(--f-mono);font-weight:800;font-size:15px;color:#fff}
+.dcol-v.is-best{color:var(--drs)}
+.dcol-v.is-crit{color:var(--race-red)}
+.dcol-sub{font-family:var(--f-mono);font-size:8.5px;color:var(--text-dim)}
+.dcol-label{margin-top:3px;font-size:7px;letter-spacing:.1em;color:var(--text-mute);text-transform:uppercase;font-weight:700;border-top:1px solid rgba(255,255,255,.07);padding-top:3px;width:100%;text-align:center}
+
+.rv-tactics{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);z-index:4;background:linear-gradient(165deg,rgba(16,22,38,.95),rgba(9,12,20,.94));border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px 8px;box-shadow:0 12px 28px rgba(0,0,0,.4)}
+.rv-tactics-head{font-family:var(--f-mono);font-size:7.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-mute);text-align:center;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.tac-grid{display:flex;gap:6px}
+.tac-btn{width:34px;height:34px;border-radius:5px;border:1px solid var(--line);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:15px}
+.tac-btn[data-cmd="pit"]{border-color:rgba(0,240,255,.4)} .tac-btn[data-cmd="pit"] .ic{color:var(--cyan)}
+.tac-btn[data-cmd="push"]{border-color:rgba(255,51,75,.4)} .tac-btn[data-cmd="push"] .ic{color:var(--race-red)}
+.tac-btn[data-cmd="koru"]{border-color:rgba(34,197,94,.4)} .tac-btn[data-cmd="koru"] .ic{color:var(--green)}
+.tac-btn[data-cmd="ers"]{border-color:rgba(185,107,255,.4)} .tac-btn[data-cmd="ers"] .ic{color:var(--drs)}
+.tac-btn.is-locked{opacity:.35;pointer-events:none}
+.tac-btn.is-on{outline:2px solid currentColor;outline-offset:-2px;box-shadow:0 0 16px -2px currentColor;background:rgba(255,255,255,.08);animation:tacGlow 1.4s ease-in-out infinite}
+@keyframes tacGlow{0%,100%{box-shadow:0 0 10px -3px currentColor}50%{box-shadow:0 0 20px -1px currentColor}}
+.tac-btn:active{transform:scale(.93)}
 .sf-line{stroke:#eef3f8;stroke-width:3}
 
 /* =========================================================
@@ -603,57 +577,52 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
       <div class="tb-metric"><span class="l">Bütçe</span><span class="v" id="tb-budget">—</span></div>
       <div class="tb-metric"><span class="l">Süre</span><span class="v" id="tb-clock">00:00</span></div>
       <div class="tb-spacer"></div>
-      <div class="tb-hint"><kbd>Space</kbd> Duraklat &nbsp; <kbd>1-4</kbd> Hız &nbsp; <kbd>Tab</kbd> Panel &nbsp; <kbd>P</kbd> Pit &nbsp; <kbd>C</kbd> Kamera &nbsp; <kbd>Tekerlek</kbd> Zum</div>
+      <div class="tb-hint"><kbd>Space</kbd> Duraklat &nbsp; <kbd>1-4</kbd> Hız &nbsp; <kbd>P</kbd> Pit &nbsp; <kbd>C</kbd> Kamera &nbsp; <kbd>Tekerlek</kbd> Zum</div>
       <div class="tb-controls">
         <button class="tb-btn is-active" id="btn-playpause" type="button">⏸ Duraklat</button>
         <button class="tb-btn" id="btn-speed" type="button">Hız: 1×</button>
       </div>
     </header>
-    <div class="grid3">
-      <aside class="tower">
-        <div class="tower-head"><span><span class="live-dot2"></span>CANLI SIRALAMA</span><span id="tower-count">22</span></div>
+    <main class="track-panel">
+      <div id="track3d"></div>
+
+      <aside class="rv-standings">
+        <div class="rv-head"><span class="live-dot2"></span>SIRALAMA<span class="rv-count" id="tower-count">22</span></div>
         <div class="tower-list" id="tower-list"></div>
+        <div class="rv-radio" id="radio-log"></div>
       </aside>
-      <main class="track-panel">
-        <div class="track-overlay">
-          <span class="ov-gp" id="ov-gp">BAHREYN GP</span>
-          <span class="ov-lap" id="ov-lap">TUR 0 / 57</span>
-          <span class="ov-flag" id="ov-flag">🟢 YEŞİL BAYRAK</span>
-          <span class="ov-weather" id="ov-weather" hidden>🌧️ ISLAK PİST</span>
+
+      <aside class="rv-raceview">
+        <div class="rv-head">RACE VIEW</div>
+        <div class="rv-gpname" id="ov-gp">BAHREYN GP</div>
+        <div class="rv-info-grid">
+          <div class="rv-cell"><span class="l">TUR</span><span class="v" id="ov-lap">0/57</span></div>
+          <div class="rv-cell"><span class="l">BAYRAK</span><span class="v" id="ov-flag">🟢 YEŞİL</span></div>
+          <div class="rv-cell"><span class="l">HIZ TUZAĞI</span><span class="v" id="speedtrap-v">—</span></div>
         </div>
-        <div class="speedtrap">
-          <div class="l">Hız Tuzağı · Lider</div>
-          <div class="v" id="speedtrap-v">— km/s</div>
-        </div>
+        <span class="ov-weather" id="ov-weather" hidden>🌧️ ISLAK PİST</span>
+        <canvas id="minimap" width="192" height="120"></canvas>
         <div class="cam-controls">
           <button class="cam-btn" id="btn-cam-mode" type="button">📷 Genel Bakış</button>
           <button class="cam-btn cam-zoom" id="btn-cam-zoom-out" type="button" title="Uzaklaştır">−</button>
           <button class="cam-btn cam-zoom" id="btn-cam-zoom-in" type="button" title="Yakınlaştır">+</button>
         </div>
-        <div class="minimap-box"><canvas id="minimap" width="170" height="120"></canvas></div>
-        <div id="track3d"></div>
-        <div class="track-toast" id="track-toast"></div>
-      </main>
-      <aside class="pitwall">
-        <div class="pw-section radio">
-          <div class="pw-head">📻 Takım Radyosu</div>
-          <div class="radio-log" id="radio-log"></div>
-        </div>
-        <div class="pw-section dual-telemetry">
-          <div class="pw-head"><span>Pilot Telemetrisi</span><span class="pw-sub">Hedef için karta dokun</span></div>
-          <div class="dcard-stack" id="dcard-stack"></div>
-        </div>
-        <div class="pw-section tactics">
-          <div class="pw-head">Anlık Talimat — <span id="tac-target-name">—</span></div>
-          <div class="tac-grid">
-            <button class="tac-btn" data-cmd="pit" type="button"><span class="ic">🔧</span><b>Pite Çağır</b></button>
-            <button class="tac-btn" data-cmd="push" type="button"><span class="ic">🔥</span><b>Mod: Zorla (Push)</b></button>
-            <button class="tac-btn" data-cmd="koru" type="button"><span class="ic">🛡️</span><b>Lastik Koru</b></button>
-            <button class="tac-btn" data-cmd="ers" type="button"><span class="ic">⚡</span><b>ERS: Atak</b></button>
-          </div>
-        </div>
       </aside>
-    </div>
+
+      <div class="dcard-dock" id="dcard-stack"></div>
+
+      <div class="rv-tactics">
+        <div class="rv-tactics-head">TALİMAT <span id="tac-target-name">—</span></div>
+        <div class="tac-grid">
+          <button class="tac-btn" data-cmd="pit" type="button" title="Pite Çağır"><span class="ic">🔧</span></button>
+          <button class="tac-btn" data-cmd="push" type="button" title="Mod: Zorla (Push)"><span class="ic">🔥</span></button>
+          <button class="tac-btn" data-cmd="koru" type="button" title="Lastik Koru"><span class="ic">🛡️</span></button>
+          <button class="tac-btn" data-cmd="ers" type="button" title="ERS: Atak"><span class="ic">⚡</span></button>
+        </div>
+      </div>
+
+      <div class="track-toast" id="track-toast"></div>
+    </main>
   </section>
 
   <!-- ============ 5. PODIUM / DEBRIEF ============ -->
@@ -1808,15 +1777,15 @@ function renderTower(){
       +'</div>';
   }).join('');
 }
-function flagLabel(f){ return f==='SC'?'🔴 GÜVENLİK ARACI':f==='VSC'?'🟡 VSC':f==='BAYRAK'?'🏁 BİTİŞ':'🟢 YEŞİL BAYRAK'; }
+function flagLabel(f){ return f==='SC'?'🔴 SC':f==='VSC'?'🟡 VSC':f==='BAYRAK'?'🏁 BİTİŞ':'🟢 YEŞİL'; }
 function renderTop(){
   var leader=race.order?race.order[0]:race.cars[0];
-  document.getElementById('ov-lap').textContent='TUR '+Math.min(leader.lapsCompleted+(leader.finished?0:1),TOTAL_LAPS)+' / '+TOTAL_LAPS;
+  document.getElementById('ov-lap').textContent=Math.min(leader.lapsCompleted+(leader.finished?0:1),TOTAL_LAPS)+'/'+TOTAL_LAPS;
   var flagEl=document.getElementById('ov-flag');
   flagEl.textContent=flagLabel(race.flag);
-  flagEl.className='ov-flag'+(race.flag==='SC'||race.flag==='VSC'?' is-caution':race.flag==='BAYRAK'?' is-finish':'');
+  flagEl.className='v ov-flag'+(race.flag==='SC'||race.flag==='VSC'?' is-caution':race.flag==='BAYRAK'?' is-finish':'');
   var speedKmh=(leader.lastPaceRate||0)*TRACK_LENGTH_KM*3600*1.42;
-  document.getElementById('speedtrap-v').textContent=Math.round(speedKmh)+' km/s';
+  document.getElementById('speedtrap-v').textContent=Math.round(speedKmh);
   document.getElementById('tb-budget').textContent=fmtMoney(CAREER.budget);
   var m=Math.floor(race.raceTime/60), s=Math.floor(race.raceTime%60);
   document.getElementById('tb-clock').textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
@@ -1835,73 +1804,27 @@ function renderRadio(msg){
   log.scrollTop=log.scrollHeight;
 }
 function carHasDRS(c){ return c.gapAhead>0 && c.gapAhead*BASE_LAP_TIME<1.0 && race.flag==='YEŞİL' && !c.pitting; }
-var COMPOUND_LABEL={S:'YUMUŞAK',M:'ORTA',H:'SERT'};
 var COMPOUND_VAR={S:'var(--c-soft)',M:'var(--c-medium)',H:'var(--c-hard)'};
-function tyrePanelHTML(c){
-  var frontWear=Math.min(1,c.tireWear*0.82), rearWear=Math.min(1,c.tireWear*1.18);
-  var cVar=COMPOUND_VAR[c.compound]||'var(--c-medium)';
-  var corners=[['FL',frontWear],['FR',frontWear],['RL',rearWear],['RR',rearWear]];
-  return '<div class="tyre-panel">'
-    +'<div class="tyre-panel-title"><span>LASTİKLER</span><span class="tyre-compound" style="color:'+cVar+'">'+(COMPOUND_LABEL[c.compound]||c.compound)+'</span></div>'
-    +'<div class="tyre-grid">'
-    +corners.map(function(cn){
-      var remain=Math.round((1-cn[1])*100);
-      var levelClass=remain<25?'is-crit':(remain<50?'is-warn':'');
-      return '<div class="tyre-cell"><span class="tc-label">'+cn[0]+'</span>'
-        +'<div class="tyre-icon '+levelClass+'" style="border-color:'+cVar+'"><i style="height:'+remain+'%"></i></div>'
-        +'<span class="tc-val">'+remain+'%</span></div>';
-    }).join('')
-    +'</div></div>';
-}
-function ersPanelHTML(c){
-  var modeLabel=c.mode==='ATAK'?'PUSH':(c.mode==='KORUMA'?'KORUMA':'DENGE');
-  var deploying=c.pushActive;
-  return '<div class="ers-panel">'
-    +'<div class="ers-panel-title"><span>ERS BATARYA</span><span class="ers-mode-chip'+(c.mode==='ATAK'?' is-push':'')+'">'+modeLabel+'</span></div>'
-    +'<div class="pedal-track"><i class="ers" style="width:'+c.ers+'%"></i></div>'
-    +'<div class="ers-sub'+(deploying?' is-deploy':'')+'">'+(deploying?'⚡ DEPLOY · enerji harcanıyor':'♻ HARVEST · enerji topluyor')+' · %'+Math.round(c.ers)+'</div>'
-    +'</div>';
-}
-function lapTimerPanelHTML(c){
-  var liveTime=race.raceTime-c.lastLapBoundaryTime;
-  var sectorChips=[0,1,2].map(function(i){
-    var v=c.lastSectorTimes[i];
-    if(v==null) return '<span class="sec-chip is-empty">S'+(i+1)+'</span>';
-    var isBest=race.bestSectors[i]!==Infinity && Math.abs(v-race.bestSectors[i])<0.001;
-    return '<span class="sec-chip'+(isBest?' is-best':'')+'">S'+(i+1)+' '+v.toFixed(3)+'</span>';
-  }).join('');
-  return '<div class="laptime-panel">'
-    +'<div class="lt-row"><span class="lt-label">ANLIK TUR</span><span class="lt-val mono">'+fmtLapTime(liveTime)+'</span></div>'
-    +'<div class="lt-row"><span class="lt-label">SON TUR</span><span class="lt-val mono">'+(c.lastLapTime?fmtLapTime(c.lastLapTime):'—')+'</span></div>'
-    +'<div class="lt-row"><span class="lt-label">EN İYİ TUR</span><span class="lt-val mono is-best">'+(c.bestLapTime?fmtLapTime(c.bestLapTime):'—')+'</span></div>'
-    +'<div class="sec-row">'+sectorChips+'</div>'
-    +'</div>';
-}
 function driverCardHTML(c){
-  var speedKmh=(c.lastPaceRate||0)*TRACK_LENGTH_KM*3600;
-  var phase=(c.trackPosition*Math.PI*6)+c.throttlePhase;
-  var speedVar=speedKmh*(1+0.18*Math.sin(phase));
-  var throttle=Math.max(4,Math.min(100,50+50*Math.sin(phase)));
-  var brake=Math.max(0,Math.min(100,50-50*Math.sin(phase*1.05)));
-  var rpm=Math.round(9000+4200*(throttle/100));
   var drs=carHasDRS(c);
   var pos=race.order?race.order.indexOf(c)+1:0;
   var gapTxt=race.order?fmtGap(c,race.order[0]):'—';
+  var liveTime=race.raceTime-c.lastLapBoundaryTime;
+  var wearPct=Math.round((1-c.tireWear)*100);
+  var cVar=COMPOUND_VAR[c.compound]||'var(--c-medium)';
+  var modeLabel=c.mode==='ATAK'?'PUSH':(c.mode==='KORUMA'?'KORUMA':'DENGE');
   return '<div class="dcard'+(c.code===selectedDriver?' is-target':'')+'" data-code="'+c.code+'">'
-    +'<div class="dcard-head"><span class="dcard-badge" style="background:'+c.color+';color:#fff">'+c.code+'</span><span class="dcard-name">'+c.name+'</span>'+(drs?'<span class="drs-chip">DRS</span>':'')+'<span class="dcard-pos">P'+pos+'</span></div>'
-    +'<div class="pedal-pair">'
-      +'<div class="pedal-item"><span>Gaz</span><div class="pedal-track"><i class="throttle" style="width:'+throttle+'%"></i></div></div>'
-      +'<div class="pedal-item"><span>Fren</span><div class="pedal-track"><i class="brake" style="width:'+brake+'%"></i></div></div>'
+    +'<div class="dcard-head">'
+      +'<span class="dcard-pos">P'+pos+'</span>'
+      +'<span class="dcard-badge" style="background:'+c.color+';color:#fff">'+c.code+'</span>'
+      +'<span class="dcard-name">'+c.name+'</span>'
+      +(drs?'<span class="drs-chip">DRS</span>':'')
     +'</div>'
-    +'<div class="mini-grid">'
-      +'<div class="mg-item"><span>Hız</span><b>'+Math.round(speedVar)+' km/s</b></div>'
-      +'<div class="mg-item"><span>RPM</span><b>'+rpm.toLocaleString('tr-TR')+'</b></div>'
-      +'<div class="mg-item"><span>Ara (Lider)</span><b>'+gapTxt+'</b></div>'
-      +'<div class="mg-item"><span>Pit Sayısı</span><b>'+c.pitStops+'</b></div>'
+    +'<div class="dcard-cols">'
+      +'<div class="dcol"><span class="dcol-ic">🏎</span><span class="dcol-v mono">'+fmtLapTime(liveTime)+'</span><span class="dcol-sub">'+gapTxt+'</span><span class="dcol-label">TEMPO</span></div>'
+      +'<div class="dcol"><span class="dcol-ic compound" style="background:'+cVar+'">'+c.compound+'</span><span class="dcol-v mono'+(wearPct<25?' is-crit':'')+'">'+wearPct+'%</span><span class="dcol-sub">'+c.pitStops+' PIT</span><span class="dcol-label">LASTİK</span></div>'
+      +'<div class="dcol"><span class="dcol-ic">⚡</span><span class="dcol-v mono">'+Math.round(c.ers)+'%</span><span class="dcol-sub">'+modeLabel+'</span><span class="dcol-label">ERS</span></div>'
     +'</div>'
-    +lapTimerPanelHTML(c)
-    +tyrePanelHTML(c)
-    +ersPanelHTML(c)
     +'</div>';
 }
 function renderDualTelemetry(){
@@ -1952,11 +1875,6 @@ function doCommand(cmd){
   else if(cmd==='ers'){ if(c.ers<15) return; c.pushActive=true; pushToast(c.code+' · ERS ATAK devrede!','info'); }
 }
 function selectDriver(code){ selectedDriver=code; followLookAt=null; renderDualTelemetry(); }
-var telemetryFocus=false;
-function toggleFocus(){
-  telemetryFocus=!telemetryFocus;
-  document.querySelector('.pw-section.radio').style.flex = telemetryFocus ? '0 0 8%' : '0 0 18%';
-}
 function bindRaceUI(){
   document.getElementById('btn-playpause').addEventListener('click',togglePause);
   document.getElementById('btn-speed').addEventListener('click',function(){
@@ -1984,7 +1902,6 @@ function bindRaceUI(){
     if(document.getElementById('screen-race').classList.contains('active')===false) return;
     if(e.code==='Space'){ e.preventDefault(); togglePause(); }
     else if(e.key>='1'&&e.key<='4'){ setSpeed(parseInt(e.key,10)); }
-    else if(e.key==='Tab'){ e.preventDefault(); toggleFocus(); }
     else if(e.key==='p'||e.key==='P'){ doCommand('pit'); }
     else if(e.key==='c'||e.key==='C'){ setCameraMode(cameraMode==='overview'?'follow':'overview'); }
   });
