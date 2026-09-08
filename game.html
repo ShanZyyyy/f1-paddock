@@ -364,6 +364,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
       <div class="settings-row"><span>Sürüm</span><span class="mono">v1.0.0-PC Native</span></div>
       <div class="settings-row"><span>Sezon</span><span class="mono">2026</span></div>
       <div class="settings-row"><span>Kayıt Konumu</span><span class="mono">Yerel (localStorage)</span></div>
+      <div class="settings-row"><span>Ses Efektleri</span><button class="settings-close" id="btn-sound-toggle" type="button" style="padding:5px 14px">AÇIK</button></div>
       <button class="settings-danger" id="btn-reset-save" type="button">Kayıtlı Kariyeri Sıfırla</button>
       <button class="settings-close" id="btn-settings-close" type="button">Kapat</button>
     </div>
@@ -561,6 +562,86 @@ function fmtMoney(n){ return '₺'+Math.round(n).toString().replace(/\B(?=(\d{3}
 function fmtLapTime(sec){
   var m=Math.floor(sec/60), s=sec-m*60;
   return m+':'+(s<10?'0':'')+s.toFixed(3);
+}
+
+/* =========================================================
+   0c. SES — Web Audio API (harici dosya yok, index.html'deki
+   motorun aynısı: radyo bip'i + pit tabancası)
+   ========================================================= */
+var SOUND_KEY='paddockGP_sound_v1';
+var soundEnabled=(function(){
+  try{ return localStorage.getItem(SOUND_KEY)!=='off'; }catch(e){ return true; }
+})();
+var actx=null;
+function ensureAudio(){
+  if(actx) return actx;
+  try{
+    var Ctx=window.AudioContext||window.webkitAudioContext;
+    actx=new Ctx();
+  }catch(e){ actx=null; }
+  return actx;
+}
+function audioOn(){ return soundEnabled && actx; }
+function resumeAudio(){
+  var ctx=ensureAudio();
+  if(ctx && ctx.state==='suspended') ctx.resume();
+}
+function setSoundEnabled(on){
+  soundEnabled=on;
+  try{ localStorage.setItem(SOUND_KEY, on?'on':'off'); }catch(e){}
+  if(on) resumeAudio();
+}
+function noiseBuffer(ctx,dur){
+  var n=Math.max(1,Math.floor(ctx.sampleRate*dur));
+  var buf=ctx.createBuffer(1,n,ctx.sampleRate);
+  var d=buf.getChannelData(0);
+  for(var i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+  return buf;
+}
+function playRadioBeep(kind){
+  if(!audioOn()) return;
+  var ctx=actx, t0=ctx.currentTime;
+  var staticSrc=ctx.createBufferSource();
+  staticSrc.buffer=noiseBuffer(ctx,0.12);
+  var staticGain=ctx.createGain();
+  staticGain.gain.setValueAtTime(0.05,t0);
+  staticGain.gain.linearRampToValueAtTime(0.0001,t0+0.12);
+  var bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1800; bp.Q.value=0.7;
+  staticSrc.connect(bp).connect(staticGain).connect(ctx.destination);
+  staticSrc.start(t0);
+
+  var freqs = kind==='danger' ? [1180,880] : kind==='good' ? [880,1320] : [1046];
+  freqs.forEach(function(f,i){
+    var t=t0+0.1+i*0.11;
+    var osc=ctx.createOscillator(); osc.type='square'; osc.frequency.setValueAtTime(f,t);
+    var g=ctx.createGain(); g.gain.setValueAtTime(0.0001,t);
+    g.gain.linearRampToValueAtTime(0.11,t+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t); osc.stop(t+0.1);
+  });
+}
+function playPitGun(){
+  if(!audioOn()) return;
+  var ctx=actx, t0=ctx.currentTime;
+  var hits=14;
+  for(var i=0;i<hits;i++){
+    var t=t0+i*0.055;
+    var src=ctx.createBufferSource();
+    src.buffer=noiseBuffer(ctx,0.045);
+    var bp=ctx.createBiquadFilter(); bp.type='bandpass';
+    bp.frequency.value=190+Math.random()*40; bp.Q.value=3.2;
+    var g=ctx.createGain();
+    g.gain.setValueAtTime(0.32,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+    src.connect(bp).connect(g).connect(ctx.destination);
+    src.start(t); src.stop(t+0.05);
+  }
+  var whoosh=ctx.createOscillator(); whoosh.type='sawtooth';
+  whoosh.frequency.setValueAtTime(90,t0); whoosh.frequency.linearRampToValueAtTime(60,t0+hits*0.055);
+  var wg=ctx.createGain(); wg.gain.setValueAtTime(0.05,t0); wg.gain.linearRampToValueAtTime(0.0001,t0+hits*0.055+0.1);
+  whoosh.connect(wg).connect(ctx.destination);
+  whoosh.start(t0); whoosh.stop(t0+hits*0.055+0.12);
 }
 
 function defaultCareer(){
@@ -787,6 +868,7 @@ function updateCar(c,dt){
     if(c.pitTimer<=0){
       c.pitting=false; c.compound=c.nextCompound; c.tireWear=0; c.pitStops+=1;
       pushToast(c.code+' pit yaptı — '+c.compound+' lastik.','pit');
+      if(c.isPlayer) playPitGun();
     }
     return;
   }
@@ -879,6 +961,7 @@ function pushToast(msg,kind){
   if(race.toasts.length>4) race.toasts.shift();
   renderToasts();
   renderRadio(msg);
+  playRadioBeep(kind==='warn'?'danger':(kind==='good'?'good':'info'));
 }
 
 var TIME_SCALE=4.2;
@@ -1420,11 +1503,13 @@ function finishRaceAndGoToPodium(){
    ========================================================= */
 function bindMenu(){
   document.getElementById('btn-new-season').addEventListener('click',function(){
+    resumeAudio();
     CAREER=defaultCareer(); saveCareer();
     CAR_SPECS=defaultCarSpecs(); saveCarSpecs(CAR_SPECS);
     renderHQ(); showScreen('screen-hq');
   });
   document.getElementById('btn-continue').addEventListener('click',function(){
+    resumeAudio();
     var saved=loadCareer();
     if(!saved) return;
     CAREER=saved; renderHQ(); showScreen('screen-hq');
@@ -1434,6 +1519,12 @@ function bindMenu(){
   });
   document.getElementById('btn-settings-close').addEventListener('click',function(){
     document.getElementById('settings-modal').classList.remove('open');
+  });
+  var soundBtn=document.getElementById('btn-sound-toggle');
+  soundBtn.textContent=soundEnabled?'AÇIK':'KAPALI';
+  soundBtn.addEventListener('click',function(){
+    setSoundEnabled(!soundEnabled);
+    soundBtn.textContent=soundEnabled?'AÇIK':'KAPALI';
   });
   document.getElementById('btn-reset-save').addEventListener('click',function(){
     try{ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(CAR_SPECS_KEY); }catch(e){}
