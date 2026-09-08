@@ -332,6 +332,21 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px}
 .mg-item{display:flex;justify-content:space-between;align-items:baseline;font-size:8.5px;color:var(--text-mute);text-transform:uppercase;font-weight:700;letter-spacing:.03em}
 .mg-item b{font-family:var(--f-mono);color:var(--text);font-size:11px;letter-spacing:0;text-transform:none;font-weight:700}
+.tyre-panel,.ers-panel{background:var(--bg-3);border:1px solid var(--line-soft);border-radius:4px;padding:7px 8px;display:flex;flex-direction:column;gap:6px}
+.tyre-panel-title,.ers-panel-title{display:flex;justify-content:space-between;align-items:center;font-size:7.5px;letter-spacing:.06em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.tyre-compound{font-family:var(--f-mono);font-weight:800;font-size:8.5px}
+.tyre-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tyre-cell{display:flex;flex-direction:column;align-items:center;gap:3px}
+.tc-label{font-family:var(--f-mono);font-size:7px;color:var(--text-mute);font-weight:700}
+.tyre-icon{width:16px;height:26px;border:2px solid;border-radius:3px;background:var(--bg-4);display:flex;align-items:flex-end;overflow:hidden}
+.tyre-icon i{display:block;width:100%;background:linear-gradient(0deg,var(--green),#8ee08e);border-radius:1px}
+.tyre-icon.is-warn i{background:linear-gradient(0deg,var(--amber),#ffe38a)}
+.tyre-icon.is-crit i{background:linear-gradient(0deg,var(--race-red),#ff8a95)}
+.tc-val{font-family:var(--f-mono);font-size:8px;font-weight:700;color:var(--text-dim)}
+.ers-mode-chip{font-family:var(--f-mono);font-weight:800;font-size:7.5px;color:var(--cyan);border:1px solid var(--cyan);border-radius:2px;padding:0 4px}
+.ers-mode-chip.is-push{color:var(--drs);border-color:var(--drs)}
+.ers-sub{font-size:7.5px;color:var(--text-mute);letter-spacing:.02em}
+.ers-sub.is-deploy{color:var(--drs)}
 .pw-section.tactics{flex:0 0 auto;border-bottom:none}
 .tac-grid{padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .tac-btn{padding:11px 6px;border-radius:3px;border:1px solid var(--line);background:var(--bg-3);font-family:var(--f-display);font-weight:800;font-size:11px;letter-spacing:.03em;text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:3px}
@@ -1261,10 +1276,108 @@ function buildTrackRibbon(curve,width,segments){
   return geo;
 }
 
+// Pist kenarındaki bariyer duvarı — buildTrackRibbon ile aynı teğet/right
+// hesaplamasını kullanır, ama iki yatay nokta yerine taban+tepe köşesi
+// üreterek eğriyi takip eden dikey bir şerit oluşturur.
+function buildBarrierWall(curve,lateralOffset,height,segments){
+  var positions=[], normals=[], up=new THREE.Vector3(0,1,0);
+  var eps=0.004, lastRight=new THREE.Vector3(1,0,0);
+  var sign=lateralOffset>=0?1:-1;
+  for(var i=0;i<=segments;i++){
+    var t=(i/segments)%1;
+    var point=curve.getPointAt(t);
+    var tPrev=(t-eps+1)%1, tNext=(t+eps)%1;
+    var tangent=curve.getPointAt(tNext).clone().sub(curve.getPointAt(tPrev));
+    var right;
+    if(tangent.lengthSq()>1e-6){
+      right=new THREE.Vector3().crossVectors(tangent.normalize(),up).normalize();
+      lastRight=right;
+    } else {
+      right=lastRight;
+    }
+    var base=point.clone().addScaledVector(right,lateralOffset);
+    positions.push(base.x,base.y+0.02,base.z, base.x,base.y+height,base.z);
+    var n=right.clone().multiplyScalar(sign);
+    normals.push(n.x,n.y,n.z, n.x,n.y,n.z);
+  }
+  var indices=[];
+  for(i=0;i<segments;i++){
+    var a=i*2,b=i*2+1,c2=i*2+2,d=i*2+3;
+    indices.push(a,c2,b, b,c2,d);
+  }
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geo.setIndex(indices);
+  return geo;
+}
+
+// Tribünler için tek seferlik seyirci dokusu — kalabalık hissi veren
+// küçük renkli nokta deseni, tüm tribün birimleri arasında paylaşılır.
+var grandstandCrowdTexture=null;
+function makeCrowdTexture(){
+  var canvas=document.createElement('canvas');
+  canvas.width=128; canvas.height=64;
+  var ctx=canvas.getContext('2d');
+  ctx.fillStyle='#12161c'; ctx.fillRect(0,0,128,64);
+  var colors=['#c94b4b','#4b7bc9','#c9b84b','#4bc98a','#c94bb0','#e8e8e8','#8a4bc9'];
+  var rnd=mulberry32(hashSeed('paddock-crowd'));
+  for(var y=3;y<64;y+=6){
+    for(var x=1;x<128;x+=5){
+      if(rnd()<0.72){
+        ctx.fillStyle=colors[Math.floor(rnd()*colors.length)];
+        ctx.fillRect(x,y,3,4);
+      }
+    }
+  }
+  var tex=new THREE.CanvasTexture(canvas);
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  return tex;
+}
+function buildGrandstandUnit(){
+  var group=new THREE.Group();
+  var riser=new THREE.Mesh(new THREE.BoxGeometry(24,8,7),new THREE.MeshStandardMaterial({color:0x2a323d,roughness:0.9}));
+  riser.position.y=4; riser.castShadow=true; riser.receiveShadow=true;
+  group.add(riser);
+
+  var crowdPlane=new THREE.Mesh(new THREE.PlaneGeometry(23,7),new THREE.MeshStandardMaterial({map:grandstandCrowdTexture,roughness:0.95}));
+  crowdPlane.position.set(0,4.2,3.55);
+  group.add(crowdPlane);
+
+  var roof=new THREE.Mesh(new THREE.BoxGeometry(25,0.6,9),new THREE.MeshStandardMaterial({color:0x181c22,roughness:0.6,metalness:0.2}));
+  roof.position.set(0,8.6,1.5); roof.rotation.x=-0.12; roof.castShadow=true;
+  group.add(roof);
+
+  return group;
+}
+function buildGrandstands(curve,trackHalfWidth){
+  if(!grandstandCrowdTexture) grandstandCrowdTexture=makeCrowdTexture();
+  var group=new THREE.Group();
+  var up=new THREE.Vector3(0,1,0), count=34;
+  for(var i=0;i<count;i++){
+    if(i%7===6) continue; // pit binası/boşluklar için ara sıra atla
+    var t=i/count;
+    var point=curve.getPointAt(t);
+    var tangent=curve.getPointAt((t+0.004)%1).clone().sub(point);
+    if(tangent.lengthSq()<1e-8) continue;
+    tangent.normalize();
+    var right=new THREE.Vector3().crossVectors(tangent,up).normalize();
+    var side=(i%2===0)?1:-1;
+    var offsetDist=trackHalfWidth+16+(i%3)*2;
+    var unit=buildGrandstandUnit();
+    unit.position.copy(point).addScaledVector(right,side*offsetDist);
+    var dir=right.clone().multiplyScalar(-side);
+    unit.rotation.y=Math.atan2(dir.x,dir.z);
+    group.add(unit);
+  }
+  return group;
+}
+
 function buildCarMesh3d(color,isPlayer){
   var group=new THREE.Group();
   var bodyMat=new THREE.MeshStandardMaterial({color:color,roughness:0.35,metalness:0.55});
   var darkMat=new THREE.MeshStandardMaterial({color:0x0e1116,roughness:0.5,metalness:0.3});
+  var wingMat=new THREE.MeshStandardMaterial({color:isPlayer?0xeef3f8:0xc7d0da,roughness:0.4});
 
   var body=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.55,4.4),bodyMat);
   body.position.y=0.5; body.castShadow=true; group.add(body);
@@ -1272,16 +1385,34 @@ function buildCarMesh3d(color,isPlayer){
   var nose=new THREE.Mesh(new THREE.ConeGeometry(0.42,1.6,8),bodyMat);
   nose.rotation.x=Math.PI/2; nose.position.set(0,0.4,2.7); nose.castShadow=true; group.add(nose);
 
+  [[-1.15,0.15],[1.15,0.15]].forEach(function(p){
+    var sidepod=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.4,2.2),bodyMat);
+    sidepod.position.set(p[0],0.4,p[1]); sidepod.castShadow=true; group.add(sidepod);
+  });
+
   var cockpit=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.4,1.3),darkMat);
   cockpit.position.set(0,0.9,0.1); cockpit.castShadow=true; group.add(cockpit);
+
+  var haloRing=new THREE.Mesh(new THREE.TorusGeometry(0.55,0.06,8,12,Math.PI),darkMat);
+  haloRing.rotation.set(0,0,Math.PI); haloRing.position.set(0,1.28,0.55); haloRing.castShadow=true; group.add(haloRing);
+  var haloPylon=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.5,0.08),darkMat);
+  haloPylon.position.set(0,1.0,1.05); group.add(haloPylon);
 
   var rearWing=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.12,0.5),darkMat);
   rearWing.position.set(0,1.05,-2.1); rearWing.castShadow=true; group.add(rearWing);
   var wingPost=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.5,0.12),darkMat);
   wingPost.position.set(0,0.75,-2.1); group.add(wingPost);
+  [-1.02,1.02].forEach(function(x){
+    var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.45,0.6),darkMat);
+    endplate.position.set(x,1.0,-2.1); group.add(endplate);
+  });
 
-  var frontWing=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.08,0.6),new THREE.MeshStandardMaterial({color:isPlayer?0xeef3f8:0xc7d0da,roughness:0.4}));
+  var frontWing=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.08,0.6),wingMat);
   frontWing.position.set(0,0.2,3.4); frontWing.castShadow=true; group.add(frontWing);
+  [-1.08,1.08].forEach(function(x){
+    var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.3,0.7),wingMat);
+    endplate.position.set(x,0.24,3.4); group.add(endplate);
+  });
 
   var wheelGeo=new THREE.CylinderGeometry(0.45,0.45,0.4,14);
   var wheelMat=new THREE.MeshStandardMaterial({color:0x111213,roughness:0.9});
@@ -1311,14 +1442,14 @@ function buildCarMesh3d(color,isPlayer){
   return group;
 }
 
-var trackMesh3d=null, kerbMesh3d=null;
+var trackMesh3d=null, kerbMesh3d=null, barrierGroup3d=null, standsGroup3d=null;
 function initTrack3D(round){
   var container=document.getElementById('track3d');
 
   if(!renderer3d){
     scene3d=new THREE.Scene();
-    scene3d.background=new THREE.Color(0x05070a);
-    scene3d.fog=new THREE.Fog(0x05070a,260,650);
+    scene3d.background=new THREE.Color(0x1b2536);
+    scene3d.fog=new THREE.Fog(0x1b2536,260,650);
 
     camera3d=new THREE.PerspectiveCamera(55,container.clientWidth/Math.max(1,container.clientHeight),0.1,2000);
     camera3d.position.set(0,145,165);
@@ -1354,7 +1485,7 @@ function initTrack3D(round){
     scene3d.add(new THREE.DirectionalLight(0x3a6fb0,0.5));
     var rim=scene3d.children[scene3d.children.length-1]; rim.position.set(-80,40,-60);
 
-    var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x11151b,roughness:0.95,metalness:0.02}));
+    var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x1c2420,roughness:0.95,metalness:0.02}));
     ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene3d.add(ground);
 
     carGroup3d=new THREE.Group();
@@ -1384,6 +1515,29 @@ function initTrack3D(round){
   var kerbGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH+1.6,400);
   kerbMesh3d=new THREE.Mesh(kerbGeo,new THREE.MeshStandardMaterial({color:0xb0311f,roughness:0.7,side:THREE.DoubleSide}));
   kerbMesh3d.position.y=-0.01; kerbMesh3d.receiveShadow=true; scene3d.add(kerbMesh3d);
+
+  // Pist etrafındaki bariyerler ve tribünler — her hafta sonu pist şekli
+  // değiştiği için diğer mesh'ler gibi burada yeniden kurulur.
+  if(barrierGroup3d){
+    scene3d.remove(barrierGroup3d);
+    barrierGroup3d.traverse(function(o){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
+  }
+  var barrierOffset=TRACK_WIDTH/2+2.4;
+  var barrierMat=new THREE.MeshStandardMaterial({color:0xd8dce2,roughness:0.55});
+  var barrierL=new THREE.Mesh(buildBarrierWall(track3dCurve,-barrierOffset,1.1,400),barrierMat);
+  var barrierR=new THREE.Mesh(buildBarrierWall(track3dCurve,barrierOffset,1.1,400),barrierMat.clone());
+  barrierL.castShadow=true; barrierL.receiveShadow=true;
+  barrierR.castShadow=true; barrierR.receiveShadow=true;
+  barrierGroup3d=new THREE.Group();
+  barrierGroup3d.add(barrierL,barrierR);
+  scene3d.add(barrierGroup3d);
+
+  if(standsGroup3d){
+    scene3d.remove(standsGroup3d);
+    standsGroup3d.traverse(function(o){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
+  }
+  standsGroup3d=buildGrandstands(track3dCurve,TRACK_WIDTH/2);
+  scene3d.add(standsGroup3d);
 
   carGroup3d.clear();
   carMeshes3d={};
@@ -1517,6 +1671,33 @@ function renderRadio(msg){
   log.scrollTop=log.scrollHeight;
 }
 function carHasDRS(c){ return c.gapAhead>0 && c.gapAhead*BASE_LAP_TIME<1.0 && race.flag==='YEŞİL' && !c.pitting; }
+var COMPOUND_LABEL={S:'YUMUŞAK',M:'ORTA',H:'SERT'};
+var COMPOUND_VAR={S:'var(--c-soft)',M:'var(--c-medium)',H:'var(--c-hard)'};
+function tyrePanelHTML(c){
+  var frontWear=Math.min(1,c.tireWear*0.82), rearWear=Math.min(1,c.tireWear*1.18);
+  var cVar=COMPOUND_VAR[c.compound]||'var(--c-medium)';
+  var corners=[['FL',frontWear],['FR',frontWear],['RL',rearWear],['RR',rearWear]];
+  return '<div class="tyre-panel">'
+    +'<div class="tyre-panel-title"><span>LASTİKLER</span><span class="tyre-compound" style="color:'+cVar+'">'+(COMPOUND_LABEL[c.compound]||c.compound)+'</span></div>'
+    +'<div class="tyre-grid">'
+    +corners.map(function(cn){
+      var remain=Math.round((1-cn[1])*100);
+      var levelClass=remain<25?'is-crit':(remain<50?'is-warn':'');
+      return '<div class="tyre-cell"><span class="tc-label">'+cn[0]+'</span>'
+        +'<div class="tyre-icon '+levelClass+'" style="border-color:'+cVar+'"><i style="height:'+remain+'%"></i></div>'
+        +'<span class="tc-val">'+remain+'%</span></div>';
+    }).join('')
+    +'</div></div>';
+}
+function ersPanelHTML(c){
+  var modeLabel=c.mode==='ATAK'?'PUSH':(c.mode==='KORUMA'?'KORUMA':'DENGE');
+  var deploying=c.pushActive;
+  return '<div class="ers-panel">'
+    +'<div class="ers-panel-title"><span>ERS BATARYA</span><span class="ers-mode-chip'+(c.mode==='ATAK'?' is-push':'')+'">'+modeLabel+'</span></div>'
+    +'<div class="pedal-track"><i class="ers" style="width:'+c.ers+'%"></i></div>'
+    +'<div class="ers-sub'+(deploying?' is-deploy':'')+'">'+(deploying?'⚡ DEPLOY · enerji harcanıyor':'♻ HARVEST · enerji topluyor')+' · %'+Math.round(c.ers)+'</div>'
+    +'</div>';
+}
 function driverCardHTML(c){
   var speedKmh=(c.lastPaceRate||0)*TRACK_LENGTH_KM*3600;
   var phase=(c.trackPosition*Math.PI*6)+c.throttlePhase;
@@ -1524,8 +1705,6 @@ function driverCardHTML(c){
   var throttle=Math.max(4,Math.min(100,50+50*Math.sin(phase)));
   var brake=Math.max(0,Math.min(100,50-50*Math.sin(phase*1.05)));
   var rpm=Math.round(9000+4200*(throttle/100));
-  var tSurf=Math.round(84+c.tireWear*28+(c.mode==='ATAK'?7:c.mode==='KORUMA'?-6:0)+4*Math.sin(phase*0.6));
-  var tCore=Math.round(tSurf*0.83);
   var drs=carHasDRS(c);
   return '<div class="dcard'+(c.code===selectedDriver?' is-target':'')+'" data-code="'+c.code+'">'
     +'<div class="dcard-head"><span class="dcard-badge" style="background:'+c.color+';color:#fff">'+c.code+'</span><span class="dcard-name">'+c.name+'</span>'+(drs?'<span class="drs-chip">DRS</span>':'')+'</div>'
@@ -1536,10 +1715,9 @@ function driverCardHTML(c){
     +'<div class="mini-grid">'
       +'<div class="mg-item"><span>Hız</span><b>'+Math.round(speedVar)+' km/s</b></div>'
       +'<div class="mg-item"><span>RPM</span><b>'+rpm.toLocaleString('tr-TR')+'</b></div>'
-      +'<div class="mg-item"><span>Lastik Yüzey</span><b>'+tSurf+'°C</b></div>'
-      +'<div class="mg-item"><span>Lastik Çekirdek</span><b>'+tCore+'°C</b></div>'
     +'</div>'
-    +'<div class="pedal-item wide"><span>ERS Batarya · Aşınma %'+Math.round(c.tireWear*100)+'</span><div class="pedal-track"><i class="ers" style="width:'+c.ers+'%"></i></div></div>'
+    +tyrePanelHTML(c)
+    +ersPanelHTML(c)
     +'</div>';
 }
 function renderDualTelemetry(){
