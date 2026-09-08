@@ -141,16 +141,24 @@ function buildTrackRibbon(curve, width, segments) {
   const uvs = [];
   const up = new THREE.Vector3(0, 1, 0);
 
-  const eps = 0.0015;
+  // Kapalı eğrinin t=0/1 dikişinde getPointAt() bazen neredeyse-çakışık
+  // iki nokta döndürüyor -> sıfıra yakın teğet -> yozlaşmış (sivri uçlu)
+  // üçgen. Geniş bir epsilon + son geçerli "right" vektörüne düşme ile korunur.
+  const eps = 0.004;
+  let lastRight = new THREE.Vector3(1, 0, 0);
   for (let i = 0; i <= segments; i++) {
     const t = (i / segments) % 1;
     const point = curve.getPointAt(t);
-    // Kapalı eğrinin t=0/1 dikişinde getTangentAt() ara sıra sıçrama
-    // yapabiliyor — sonlu farkla (bir öncesi/sonrası nokta) daha kararlı.
     const tPrev = (t - eps + 1) % 1;
     const tNext = (t + eps) % 1;
-    const tangent = curve.getPointAt(tNext).clone().sub(curve.getPointAt(tPrev)).normalize();
-    const right = new THREE.Vector3().crossVectors(tangent, up).normalize();
+    const tangent = curve.getPointAt(tNext).clone().sub(curve.getPointAt(tPrev));
+    let right;
+    if (tangent.lengthSq() > 1e-6) {
+      right = new THREE.Vector3().crossVectors(tangent.normalize(), up).normalize();
+      lastRight = right;
+    } else {
+      right = lastRight;
+    }
     const left = point.clone().addScaledVector(right, -half);
     const rightPt = point.clone().addScaledVector(right, half);
 

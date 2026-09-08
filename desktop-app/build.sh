@@ -20,9 +20,8 @@ for f in "${MODULES[@]}"; do
 done
 cp "$ROOT/f1-2026-data.js" "$APP_DIR/f1-2026-data.js"
 
-# race3d-demo.html (Faz 0 Three.js tech spike) has its own hardcoded back
-# link and needs the vendored three.js/OrbitControls modules alongside it.
-cp "$ROOT/race3d-demo.html" "$APP_DIR/race3d-demo.html"
+# game.html's live 3D race view needs the vendored three.js/OrbitControls
+# modules alongside it (loaded via an import map, relative path).
 mkdir -p "$APP_DIR/vendor"
 cp "$ROOT/vendor/"*.js "$APP_DIR/vendor/"
 

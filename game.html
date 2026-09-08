@@ -394,9 +394,6 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
           <a class="hq-module" href="team-management.html">
             <span class="ic">👥</span><b>Pilot &amp; Personel</b><span>Kadro, form ve moral durumu</span>
           </a>
-          <a class="hq-module" href="race3d-demo.html">
-            <span class="ic">🧪</span><b>3B Deneme (Faz 0)</b><span>Bahreyn şeklinde 3B pist + araç — teknik sondaj</span>
-          </a>
         </div>
       </div>
       <div class="hq-side">
@@ -790,13 +787,23 @@ var carGroup3d=null, carMeshes3d={}, track3dResizeObs=null;
 
 function buildTrackRibbon(curve,width,segments){
   var half=width/2, positions=[], normals=[], up=new THREE.Vector3(0,1,0);
-  var eps=0.0015;
+  // Kapalı eğrinin t=0/1 dikişinde getPointAt() bazen neredeyse-çakışık
+  // iki nokta döndürüyor -> sıfıra yakın teğet -> yozlaşmış (sivri uçlu)
+  // üçgen. Geniş bir epsilon + son geçerli "right" vektörüne düşme ile korunur.
+  var eps=0.004;
+  var lastRight=new THREE.Vector3(1,0,0);
   for(var i=0;i<=segments;i++){
     var t=(i/segments)%1;
     var point=curve.getPointAt(t);
     var tPrev=(t-eps+1)%1, tNext=(t+eps)%1;
-    var tangent=curve.getPointAt(tNext).clone().sub(curve.getPointAt(tPrev)).normalize();
-    var right=new THREE.Vector3().crossVectors(tangent,up).normalize();
+    var tangent=curve.getPointAt(tNext).clone().sub(curve.getPointAt(tPrev));
+    var right;
+    if(tangent.lengthSq()>1e-6){
+      right=new THREE.Vector3().crossVectors(tangent.normalize(),up).normalize();
+      lastRight=right;
+    } else {
+      right=lastRight;
+    }
     var left=point.clone().addScaledVector(right,-half);
     var rightPt=point.clone().addScaledVector(right,half);
     positions.push(left.x,left.y+0.02,left.z, rightPt.x,rightPt.y+0.02,rightPt.z);
