@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0B0E14">
+<meta name="color-scheme" content="dark">
+<title>Yarış Sonu Özeti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#0B0E14; --bg-1:#0f131a; --bg-2:#151b24; --bg-3:#1c2430; --bg-4:#27313d;
+  --line:#2a3441; --line-soft:#1c2430;
+  --text:#eef3f8; --text-dim:#93a4b8; --text-mute:#5c6c80;
+  --cyan:#00F0FF; --race-red:#FF334B; --amber:#ffce3d; --green:#22c55e; --gold:#ffce3d; --silver:#c9d2db; --bronze:#cd7f32;
+  --f-display:'Saira Condensed','Arial Narrow',system-ui,sans-serif;
+  --f-body:'Saira',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'JetBrains Mono','Consolas',ui-monospace,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg-0);color:var(--text);font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+body{
+  min-height:100vh;touch-action:manipulation;
+  background:
+    radial-gradient(110% 45% at 90% -8%, rgba(0,240,255,.07), transparent 55%),
+    radial-gradient(90% 45% at 0% 105%, rgba(255,206,61,.06), transparent 55%),
+    linear-gradient(180deg,var(--bg-1),var(--bg-0));
+  padding-bottom:calc(var(--safe-b) + 100px);
+}
+button,a.btn-reset{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation;text-decoration:none}
+.mono{font-family:var(--f-mono)}
+.pos{color:var(--green)} .neg{color:var(--race-red)}
+
+/* =========================================================
+   ÜST BAR
+   ========================================================= */
+.top-bar{
+  padding:calc(var(--safe-t) + 14px) calc(var(--safe-r) + 14px) 14px calc(var(--safe-l) + 14px);
+  background:linear-gradient(180deg,rgba(11,14,20,.97),rgba(11,14,20,.85));
+  border-bottom:1px solid var(--line);text-align:center;
+}
+.eyebrow{font-size:10px;letter-spacing:.22em;color:var(--cyan);font-weight:800;text-transform:uppercase}
+.title{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;letter-spacing:.01em;margin-top:3px}
+.winner-banner{
+  margin-top:10px;display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:99px;
+  background:linear-gradient(90deg,rgba(255,206,61,.16),rgba(255,206,61,.05));border:1px solid rgba(255,206,61,.45);
+  font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.03em;color:var(--gold);
+}
+
+/* --- Ar-Ge şeridi --- */
+.rd-strip{
+  display:flex;gap:8px;overflow-x:auto;padding:10px calc(var(--safe-r) + 14px) 10px calc(var(--safe-l) + 14px);
+  border-bottom:1px solid var(--line-soft);-webkit-overflow-scrolling:touch;
+}
+.rd-chip{
+  flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:99px;
+  background:var(--bg-3);border:1px solid var(--line);font-size:10.5px;white-space:nowrap;
+}
+.rd-chip b{font-weight:700;color:var(--text)}
+.rd-chip span{color:var(--text-mute);font-family:var(--f-mono)}
+.rd-chip.is-ready{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08)}
+.rd-chip.is-ready span{color:var(--green);font-weight:700}
+
+main{padding:16px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-width:1100px;margin:0 auto}
+
+/* =========================================================
+   SEKME ÇUBUĞU
+   ========================================================= */
+.tabs{display:flex;gap:6px;margin-bottom:18px}
+.tab-btn{
+  flex:1;padding:11px 8px;border-radius:10px;border:1px solid var(--line);background:var(--bg-2);
+  font-family:var(--f-display);font-weight:700;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-dim);text-align:center;
+}
+.tab-btn.is-active{background:linear-gradient(180deg,rgba(0,240,255,.2),rgba(0,240,255,.06));border-color:var(--cyan);color:var(--text)}
+.tab-panel[hidden]{display:none}
+
+/* =========================================================
+   PODYUM
+   ========================================================= */
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-bottom:18px;padding-top:6px}
+.podium-slot{flex:1;max-width:190px;display:flex;flex-direction:column;align-items:center;gap:0}
+.podium-slot[data-rank="1"]{order:2} .podium-slot[data-rank="2"]{order:1} .podium-slot[data-rank="3"]{order:3}
+.pd-card{
+  width:100%;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:9px 6px;
+  text-align:center;margin-bottom:8px;
+}
+.pd-name{display:block;font-family:var(--f-display);font-weight:800;font-size:13px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pd-team{display:block;font-size:9px;color:var(--text-mute);margin-top:1px}
+.pd-block{
+  width:100%;border-radius:10px 10px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding:10px 6px 12px;gap:2px;
+}
+.podium-slot[data-rank="1"] .pd-block{height:140px;background:linear-gradient(180deg,rgba(255,206,61,.28),rgba(255,206,61,.04));border:1px solid rgba(255,206,61,.5)}
+.podium-slot[data-rank="2"] .pd-block{height:108px;background:linear-gradient(180deg,rgba(201,210,219,.22),rgba(201,210,219,.04));border:1px solid rgba(201,210,219,.4)}
+.podium-slot[data-rank="3"] .pd-block{height:82px;background:linear-gradient(180deg,rgba(205,127,50,.24),rgba(205,127,50,.04));border:1px solid rgba(205,127,50,.45)}
+.pd-rank{font-family:var(--f-mono);font-weight:800;font-size:22px}
+.podium-slot[data-rank="1"] .pd-rank{color:var(--gold)} .podium-slot[data-rank="2"] .pd-rank{color:var(--silver)} .podium-slot[data-rank="3"] .pd-rank{color:var(--bronze)}
+.pd-pts{font-family:var(--f-mono);font-size:10px;color:var(--text-dim)}
+
+/* --- bilgi rozetleri --- */
+.info-row{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:18px}
+@media(min-width:560px){ .info-row{grid-template-columns:1fr 1fr} }
+.info-card{
+  background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  display:flex;align-items:center;gap:10px;
+}
+.info-card .ic{font-size:22px}
+.info-card .l{font-size:9px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.info-card .v{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase;margin-top:1px}
+.info-card .sub{font-size:10px;color:var(--cyan);font-family:var(--f-mono)}
+
+/* =========================================================
+   SONUÇ TABLOSU
+   ========================================================= */
+.section-label{
+  font-family:var(--f-display);font-weight:700;font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--text-dim);padding-left:9px;border-left:3px solid var(--cyan);margin-bottom:10px;
+}
+.result-board{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:22px}
+.rb-head,.rb-row{display:grid;grid-template-columns:24px 1fr 54px 66px 54px;gap:8px;align-items:center;padding:8px 12px}
+.rb-head{font-size:8.5px;letter-spacing:.07em;color:var(--text-mute);text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--line)}
+.rb-row{border-bottom:1px solid var(--line-soft);font-size:12px}
+.rb-row:last-child{border-bottom:none}
+.rb-row.is-player{background:linear-gradient(90deg,rgba(0,240,255,.08),transparent)}
+.rb-row .pos{font-family:var(--f-mono);font-weight:700;color:var(--text-dim);text-align:center}
+.rb-row.is-player .pos{color:var(--text)}
+.rb-row .drv{min-width:0}
+.rb-row .drv b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.rb-row .drv span{font-size:9.5px;color:var(--text-mute)}
+.rb-row .pts{font-family:var(--f-mono);font-weight:700;text-align:right;color:var(--cyan)}
+.rb-row .diff{font-family:var(--f-mono);font-size:10.5px;color:var(--text-dim);text-align:right}
+.moral-badge{font-family:var(--f-mono);font-size:10.5px;font-weight:700;text-align:right}
+
+/* =========================================================
+   FİNANS RAPORU
+   ========================================================= */
+.ledger{background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:6px 16px;max-width:520px;margin:0 auto 18px}
+.ledger-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-soft);font-size:13px}
+.ledger-row:last-of-type{border-bottom:none}
+.ledger-row .l{color:var(--text-dim)}
+.ledger-row .v{font-family:var(--f-mono);font-weight:700}
+.ledger-total{display:flex;justify-content:space-between;align-items:center;padding:14px 0 6px;margin-top:4px;border-top:2px solid var(--line)}
+.ledger-total .l{font-family:var(--f-display);font-weight:800;font-size:14px;text-transform:uppercase}
+.ledger-total .v{font-family:var(--f-mono);font-weight:800;font-size:19px}
+.budget-bar{
+  max-width:520px;margin:0 auto 18px;display:flex;gap:10px;
+}
+.budget-box{flex:1;background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.budget-box .l{font-size:9px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.budget-box .v{font-family:var(--f-mono);font-weight:800;font-size:17px;margin-top:3px}
+.budget-box.is-new .v{color:var(--green)}
+.budget-arrow{display:flex;align-items:center;justify-content:center;color:var(--text-mute);font-size:18px}
+
+/* =========================================================
+   ŞAMPİYONA PUAN DURUMU
+   ========================================================= */
+.std-tabs{display:flex;gap:6px;margin-bottom:12px;max-width:420px;margin-left:auto;margin-right:auto}
+.std-tab{
+  flex:1;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-3);
+  font-family:var(--f-display);font-weight:700;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-dim);
+}
+.std-tab.is-active{background:linear-gradient(180deg,rgba(0,240,255,.2),rgba(0,240,255,.06));border-color:var(--cyan);color:var(--text)}
+.std-board{max-width:520px;margin:0 auto;background:var(--bg-2);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.std-row{display:grid;grid-template-columns:28px 1fr 60px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-soft);font-size:13px}
+.std-row:last-child{border-bottom:none}
+.std-row.is-player{background:linear-gradient(90deg,rgba(0,240,255,.08),transparent)}
+.std-row .rank{font-family:var(--f-mono);font-weight:700;color:var(--text-dim)}
+.std-row.is-player .rank{color:var(--cyan)}
+.std-row b{font-weight:700}
+.std-row .pts{font-family:var(--f-mono);font-weight:700;color:var(--cyan);text-align:right}
+.std-panel[hidden]{display:none}
+
+/* =========================================================
+   CTA
+   ========================================================= */
+.cta-wrap{
+  position:fixed;left:0;right:0;bottom:0;z-index:10;
+  padding:12px calc(var(--safe-r) + 14px) calc(var(--safe-b) + 12px) calc(var(--safe-l) + 14px);
+  background:linear-gradient(0deg,rgba(11,14,20,.98),rgba(11,14,20,.85));border-top:1px solid var(--line);
+  backdrop-filter:blur(8px);
+}
+.cta-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:520px;margin:0 auto;
+  padding:15px;border-radius:12px;font-family:var(--f-display);font-weight:800;font-size:14.5px;letter-spacing:.05em;
+  text-transform:uppercase;background:linear-gradient(90deg,var(--cyan),#4f8cff);color:#031014;
+  box-shadow:0 10px 26px rgba(0,240,255,.28);
+}
+.cta-btn:active{transform:scale(.98)}
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <span class="eyebrow">Paddock GP · Pit Duvarı</span>
+  <h1 class="title" id="ui-gp-title">Yarış Sonu Özeti</h1>
+  <div class="winner-banner">🏆 <span id="ui-winner-text">—</span></div>
+</header>
+
+<div class="rd-strip" id="rd-strip"></div>
+
+<main>
+  <nav class="tabs">
+    <button class="tab-btn is-active" id="tab-result" type="button">Yarış Sonucu</button>
+    <button class="tab-btn" id="tab-finance" type="button">Finans Raporu</button>
+    <button class="tab-btn" id="tab-standings" type="button">Şampiyona Puan Durumu</button>
+  </nav>
+
+  <!-- YARIŞ SONUCU -->
+  <section class="tab-panel" id="panel-result">
+    <div class="podium" id="podium"></div>
+    <div class="info-row">
+      <div class="info-card"><span class="ic">⚡</span><div><div class="l">En Hızlı Tur</div><div class="v" id="ui-fastlap-driver">—</div><div class="sub" id="ui-fastlap-time">—</div></div></div>
+      <div class="info-card"><span class="ic">⭐</span><div><div class="l">Yarışın Pilotu</div><div class="v" id="ui-dotd">—</div><div class="sub">Driver of the Day</div></div></div>
+    </div>
+    <div class="section-label">Tam Klasman</div>
+    <div class="result-board">
+      <div class="rb-head"><span></span><span>Pilot</span><span style="text-align:right">Fark</span><span style="text-align:right">Moral</span><span style="text-align:right">Puan</span></div>
+      <div id="result-board-body"></div>
+    </div>
+  </section>
+
+  <!-- FİNANS RAPORU -->
+  <section class="tab-panel" id="panel-finance" hidden>
+    <div class="section-label" style="text-align:center;border-left:none;padding-left:0">Yarış Gelir-Gider Tablosu</div>
+    <div class="ledger" id="ledger"></div>
+    <div class="budget-bar">
+      <div class="budget-box"><div class="l">Önceki Bütçe</div><div class="v" id="ui-budget-prev">—</div></div>
+      <div class="budget-arrow">→</div>
+      <div class="budget-box is-new"><div class="l">Yeni Bütçe</div><div class="v" id="ui-budget-new">—</div></div>
+    </div>
+  </section>
+
+  <!-- ŞAMPİYONA PUAN DURUMU -->
+  <section class="tab-panel" id="panel-standings" hidden>
+    <div class="std-tabs">
+      <button class="std-tab is-active" id="std-drivers" type="button">Pilotlar</button>
+      <button class="std-tab" id="std-constructors" type="button">Takımlar</button>
+    </div>
+    <div class="std-panel" id="std-panel-drivers"><div class="std-board" id="std-board-drivers"></div></div>
+    <div class="std-panel" id="std-panel-constructors" hidden><div class="std-board" id="std-board-constructors"></div></div>
+  </section>
+</main>
+
+<div class="cta-wrap">
+  <a class="cta-btn btn-reset" id="cta-next" href="garage-rd.html">Gelecek Yarışa İlerle →</a>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   ÖRNEK VERİ — verilen JSON şemasıyla birebir uyumlu, tam
+   10 araçlık klasman + şampiyona ve Ar-Ge ek verisiyle genişletildi.
+   ========================================================= */
+var TEAM_COLORS={ PAD1:'#ff1744', PAD2:'#00e5ff', RBR:'#3671c6', FER:'#e8002d', MER:'#00d7b6', MCL:'#ff8000', AST:'#229971', ALP:'#0093cc', WIL:'#64c4ff', HAA:'#b6babd' };
+var TEAM_NAMES={ PAD1:'Paddock GP', PAD2:'Paddock GP', RBR:'Red Bull Racing', FER:'Ferrari', MER:'Mercedes', MCL:'McLaren', AST:'Aston Martin', ALP:'Alpine', WIL:'Williams', HAA:'Haas' };
+
+var SAMPLE_DATA={
+  post_race_summary:{
+    grand_prix:'Bahreyn Grand Prisi',
+    fastest_lap:{ driver:'Marcus Vance', time:'1:31.890' },
+    driver_of_the_day:'Elena Torres',
+    financials:{
+      prize_money:450000, sponsor_bonus:100000,
+      salary_expenses:-160000, damage_repairs:-25000,
+      net_profit:365000
+    },
+    previous_budget:250000,
+    results:[
+      { pos:1, driver:'Marcus Vance', code:'PAD1', points:26, time_diff:'LİDER' },
+      { pos:2, driver:'Elena Torres', code:'PAD2', points:18, time_diff:'+4.215' },
+      { pos:3, driver:'Voss', code:'RBR', points:15, time_diff:'+9.842' },
+      { pos:4, driver:'Moretti', code:'FER', points:12, time_diff:'+14.220' },
+      { pos:5, driver:'Hallberg', code:'MER', points:10, time_diff:'+21.005' },
+      { pos:6, driver:'Prince', code:'MCL', points:8, time_diff:'+28.470' },
+      { pos:7, driver:'Costa', code:'AST', points:6, time_diff:'+35.118' },
+      { pos:8, driver:'Duval', code:'ALP', points:4, time_diff:'+41.900' },
+      { pos:9, driver:'Garcia', code:'WIL', points:2, time_diff:'+48.332' },
+      { pos:10, driver:'Klein', code:'HAA', points:1, time_diff:'+55.014' }
+    ],
+    standings_drivers:[
+      { rank:1, driver:'Marcus Vance', code:'PAD1', points:26 },
+      { rank:2, driver:'Elena Torres', code:'PAD2', points:18 },
+      { rank:3, driver:'Voss', code:'RBR', points:15 },
+      { rank:4, driver:'Moretti', code:'FER', points:12 },
+      { rank:5, driver:'Hallberg', code:'MER', points:10 },
+      { rank:6, driver:'Prince', code:'MCL', points:8 },
+      { rank:7, driver:'Costa', code:'AST', points:6 },
+      { rank:8, driver:'Duval', code:'ALP', points:4 },
+      { rank:9, driver:'Garcia', code:'WIL', points:2 },
+      { rank:10, driver:'Klein', code:'HAA', points:1 }
+    ],
+    standings_constructors:[
+      { rank:1, team:'Paddock GP', points:44 },
+      { rank:2, team:'Red Bull Racing', points:15 },
+      { rank:3, team:'Ferrari', points:12 },
+      { rank:4, team:'Mercedes', points:10 },
+      { rank:5, team:'McLaren', points:8 },
+      { rank:6, team:'Aston Martin', points:6 },
+      { rank:7, team:'Alpine', points:4 },
+      { rank:8, team:'Williams', points:2 },
+      { rank:9, team:'Haas', points:1 }
+    ],
+    active_upgrades:[
+      { id:'upg_01', component:'Ön Kanat V2', races_until_ready:1 },
+      { id:'upg_02', component:'ERS Termal Kaplama', races_until_ready:3 },
+      { id:'upg_03', component:'Soğutma Kanalı Yeniden Tasarımı', races_until_ready:1 }
+    ]
+  }
+};
+
+/* =========================================================
+   YARDIMCILAR
+   ========================================================= */
+function formatMoney(n){
+  var neg=n<0; var s=Math.round(Math.abs(n)).toString();
+  s=s.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return (neg?'-':'+')+'₺'+s;
+}
+function formatMoneyPlain(n){
+  var s=Math.round(Math.abs(n)).toString();
+  s=s.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return (n<0?'-':'')+'₺'+s;
+}
+function moraleDelta(pos){
+  if(pos===1) return 10;
+  if(pos<=3) return 6;
+  if(pos<=6) return 2;
+  if(pos<=8) return -2;
+  return -6;
+}
+function isPlayerCode(code){ return code==='PAD1'||code==='PAD2'; }
+
+/* =========================================================
+   RENDER — Ar-Ge şeridi
+   ========================================================= */
+function renderRD(upgrades){
+  var el=document.getElementById('rd-strip');
+  el.innerHTML=upgrades.map(function(u){
+    var remaining=u.races_until_ready-1;
+    var ready=remaining<=0;
+    return '<div class="rd-chip'+(ready?' is-ready':'')+'">'
+      +'<b>'+u.component+'</b>'
+      +'<span>'+(ready?'HAZIR! 🎉':remaining+' yarış kaldı')+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+/* =========================================================
+   RENDER — podyum + bilgi rozetleri
+   ========================================================= */
+function renderPodium(results){
+  var top3=results.slice(0,3);
+  document.getElementById('podium').innerHTML=top3.map(function(r){
+    var color=TEAM_COLORS[r.code]||'#666';
+    return '<div class="podium-slot" data-rank="'+r.pos+'">'
+      +'<div class="pd-card" style="border-top:3px solid '+color+'"><span class="pd-name">'+r.driver+'</span><span class="pd-team">'+(TEAM_NAMES[r.code]||r.code)+'</span></div>'
+      +'<div class="pd-block"><span class="pd-rank">'+r.pos+'</span><span class="pd-pts">'+r.points+' PUAN</span></div>'
+      +'</div>';
+  }).join('');
+}
+function renderInfoCards(summary){
+  document.getElementById('ui-fastlap-driver').textContent=summary.fastest_lap.driver;
+  document.getElementById('ui-fastlap-time').textContent=summary.fastest_lap.time+' · +1 Puan';
+  document.getElementById('ui-dotd').textContent=summary.driver_of_the_day;
+  document.getElementById('ui-winner-text').textContent=summary.results[0].driver+' kazandı — '+summary.grand_prix;
+  document.getElementById('ui-gp-title').textContent=summary.grand_prix+' — Yarış Sonu Özeti';
+}
+
+/* =========================================================
+   RENDER — tam klasman
+   ========================================================= */
+function renderResultBoard(results){
+  document.getElementById('result-board-body').innerHTML=results.map(function(r){
+    var delta=moraleDelta(r.pos);
+    var isPlayer=isPlayerCode(r.code);
+    return '<div class="rb-row'+(isPlayer?' is-player':'')+'">'
+      +'<span class="pos">'+r.pos+'</span>'
+      +'<span class="drv"><b>'+r.driver+'</b><span>'+(TEAM_NAMES[r.code]||r.code)+'</span></span>'
+      +'<span class="diff">'+r.time_diff+'</span>'
+      +'<span class="moral-badge '+(delta>=0?'pos':'neg')+'">'+(delta>=0?'▲':'▼')+' '+Math.abs(delta)+'</span>'
+      +'<span class="pts">'+r.points+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+/* =========================================================
+   RENDER — finans raporu
+   ========================================================= */
+var FIN_LABELS={ prize_money:'Yarış Bitiş Primi', sponsor_bonus:'Sponsor Bonusu', salary_expenses:'Pilot & Mühendis Maaşları', damage_repairs:'Hasar / Tamir Maliyeti' };
+function renderLedger(financials,prevBudget){
+  var keys=Object.keys(financials).filter(function(k){ return k!=='net_profit'; });
+  var rows=keys.map(function(k){
+    var v=financials[k];
+    return '<div class="ledger-row"><span class="l">'+(FIN_LABELS[k]||k)+'</span><span class="v '+(v>=0?'pos':'neg')+'">'+formatMoney(v)+'</span></div>';
+  }).join('');
+  var total='<div class="ledger-total"><span class="l">Net Kasa Bakiyesi</span><span class="v '+(financials.net_profit>=0?'pos':'neg')+'">'+formatMoney(financials.net_profit)+'</span></div>';
+  document.getElementById('ledger').innerHTML=rows+total;
+
+  document.getElementById('ui-budget-prev').textContent=formatMoneyPlain(prevBudget);
+  document.getElementById('ui-budget-new').textContent=formatMoneyPlain(prevBudget+financials.net_profit);
+}
+
+/* =========================================================
+   RENDER — şampiyona puan durumu
+   ========================================================= */
+function renderStandings(driversStd,constructorsStd){
+  document.getElementById('std-board-drivers').innerHTML=driversStd.map(function(d){
+    return '<div class="std-row'+(isPlayerCode(d.code)?' is-player':'')+'"><span class="rank mono">'+d.rank+'</span><b>'+d.driver+'</b><span class="pts">'+d.points+'</span></div>';
+  }).join('');
+  document.getElementById('std-board-constructors').innerHTML=constructorsStd.map(function(c){
+    return '<div class="std-row'+(c.team==='Paddock GP'?' is-player':'')+'"><span class="rank mono">'+c.rank+'</span><b>'+c.team+'</b><span class="pts">'+c.points+'</span></div>';
+  }).join('');
+}
+
+/* =========================================================
+   SEKME GEÇİŞLERİ
+   ========================================================= */
+function bindTabs(){
+  var tabs=[
+    ['tab-result','panel-result'],
+    ['tab-finance','panel-finance'],
+    ['tab-standings','panel-standings']
+  ];
+  tabs.forEach(function(pair){
+    document.getElementById(pair[0]).addEventListener('click', function(){
+      tabs.forEach(function(p){
+        document.getElementById(p[0]).classList.toggle('is-active', p[0]===pair[0]);
+        document.getElementById(p[1]).hidden = p[0]!==pair[0];
+      });
+    });
+  });
+
+  var stdDrivers=document.getElementById('std-drivers');
+  var stdConstructors=document.getElementById('std-constructors');
+  stdDrivers.addEventListener('click', function(){
+    stdDrivers.classList.add('is-active'); stdConstructors.classList.remove('is-active');
+    document.getElementById('std-panel-drivers').hidden=false;
+    document.getElementById('std-panel-constructors').hidden=true;
+  });
+  stdConstructors.addEventListener('click', function(){
+    stdConstructors.classList.add('is-active'); stdDrivers.classList.remove('is-active');
+    document.getElementById('std-panel-constructors').hidden=false;
+    document.getElementById('std-panel-drivers').hidden=true;
+  });
+}
+
+/* =========================================================
+   ANA RENDER
+   ========================================================= */
+function renderPostRace(data){
+  var s=data.post_race_summary;
+  renderRD(s.active_upgrades||[]);
+  renderPodium(s.results);
+  renderInfoCards(s);
+  renderResultBoard(s.results);
+  renderLedger(s.financials, s.previous_budget||0);
+  renderStandings(s.standings_drivers, s.standings_constructors);
+}
+
+bindTabs();
+renderPostRace(SAMPLE_DATA);
+window.renderPostRace=renderPostRace;
+})();
+</script>
+</body>
+</html>
