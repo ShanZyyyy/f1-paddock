@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#07090c">
 <meta name="color-scheme" content="dark">
 <title>Paddock GP</title>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -213,7 +216,8 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .t-tyre[data-c="H"]{background:var(--c-hard);color:#111}
 
 .track-panel{position:relative;background:radial-gradient(120% 100% at 50% 10%,#0d131a,#05070a);min-height:0;overflow:hidden}
-#trackSvg{width:100%;height:100%;display:block}
+#track3d{width:100%;height:100%;display:block}
+#track3d canvas{display:block}
 .track-overlay{position:absolute;left:14px;top:12px;z-index:2;background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:8px 14px;display:flex;align-items:center;gap:14px}
 .ov-gp{font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.03em;text-transform:uppercase}
 .ov-lap{font-family:var(--f-mono);font-size:12px;color:var(--text-dim)}
@@ -452,40 +456,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
           <div class="l">Hız Tuzağı · Lider</div>
           <div class="v" id="speedtrap-v">— km/s</div>
         </div>
-        <svg id="trackSvg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
-          <path d="M 180 500 L 420 500" stroke="#334155" stroke-width="4" fill="none" stroke-dasharray="4,4" />
-          <path id="track-path" d="M 180 480
-                   L 480 480
-                   C 530 480, 560 460, 560 410
-                   L 560 380
-                   C 560 350, 530 340, 500 350
-                   L 460 365
-                   C 430 375, 410 360, 410 330
-                   L 410 240
-                   C 410 200, 450 180, 500 180
-                   L 640 180
-                   C 690 180, 720 210, 720 250
-                   L 720 280
-                   C 720 310, 690 330, 660 330
-                   L 620 330
-                   C 590 330, 580 300, 580 270
-                   L 580 140
-                   C 580 90, 540 60, 480 60
-                   L 280 60
-                   C 220 60, 180 90, 180 140
-                   L 180 220
-                   C 180 260, 210 280, 250 280
-                   L 320 280
-                   C 360 280, 380 310, 380 350
-                   L 380 420
-                   C 380 460, 340 480, 290 480
-                   Z"
-                fill="none" stroke="#1E293B" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M 180 480 L 480 480 C 530 480, 560 460, 560 410 L 560 380 C 560 350, 530 340, 500 350 L 460 365 C 430 375, 410 360, 410 330 L 410 240 C 410 200, 450 180, 500 180 L 640 180 C 690 180, 720 210, 720 250 L 720 280 C 720 310, 690 330, 660 330 L 620 330 C 590 330, 580 300, 580 270 L 580 140 C 580 90, 540 60, 480 60 L 280 60 C 220 60, 180 90, 180 140 L 180 220 C 180 260, 210 280, 250 280 L 320 280 C 360 280, 380 310, 380 350 L 380 420 C 380 460, 340 480, 290 480 Z"
-                fill="none" stroke="#38BDF8" stroke-width="2" stroke-opacity="0.6" />
-          <line id="sf-line" class="sf-line" x1="180" y1="471" x2="180" y2="489" />
-          <g id="cars-layer"></g>
-        </svg>
+        <div id="track3d"></div>
         <div class="track-toast" id="track-toast"></div>
       </main>
       <aside class="pitwall">
@@ -538,9 +509,9 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 </div>
 
 <script src="f1-2026-data.js"></script>
-<script>
-(function(){
-'use strict';
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/OrbitControls.js';
 
 /* =========================================================
    0. VERİ / DURUM
@@ -608,15 +579,26 @@ var ROSTER=buildRealRoster();
 var PLAYER_DRIVERS=ROSTER.filter(function(r){ return r.isPlayer; });
 
 /* =========================================================
-   2. ZORUNLU BAHREYN SVG YOLU — path.getPointAtLength ile
+   2. ZORUNLU BAHREYN PİSTİ — 3B eğri (aynı SVG çapa noktaları,
+      race3d-demo.html'deki Faz 0 sondajıyla aynı kaynak/yöntem)
    ========================================================= */
-var trackPathEl=null, trackTotalLen=0;
+var SVG_ANCHORS=[
+  [180,480],[480,480],[560,410],[560,380],[500,350],[460,365],[410,330],[410,240],
+  [500,180],[640,180],[720,250],[720,280],[660,330],[620,330],[580,270],[580,140],
+  [480,60],[280,60],[180,140],[180,220],[250,280],[320,280],[380,350],[380,420],[290,480]
+];
+var TRACK3D_CENTER_X=450, TRACK3D_CENTER_Z=270, TRACK3D_SCALE=0.4;
+var track3dCurve=new THREE.CatmullRomCurve3(
+  SVG_ANCHORS.map(function(p){ return new THREE.Vector3((p[0]-TRACK3D_CENTER_X)*TRACK3D_SCALE,0,(p[1]-TRACK3D_CENTER_Z)*TRACK3D_SCALE); }),
+  true,'centripetal'
+);
 function pointAt(frac){
   frac=((frac%1)+1)%1;
-  var len=frac*trackTotalLen;
-  var p=trackPathEl.getPointAtLength(len);
-  var p2=trackPathEl.getPointAtLength(Math.min(trackTotalLen,len+1.2));
-  return {x:p.x,y:p.y,tx:p2.x-p.x,ty:p2.y-p.y};
+  var eps=0.0015;
+  var tPrev=(frac-eps+1)%1, tNext=(frac+eps)%1;
+  var pos=track3dCurve.getPointAt(frac);
+  var tangent=track3dCurve.getPointAt(tNext).clone().sub(track3dCurve.getPointAt(tPrev)).normalize();
+  return {pos:pos,tangent:tangent};
 }
 
 /* =========================================================
@@ -799,49 +781,180 @@ function tick(dtReal){
 }
 
 /* =========================================================
-   5. SVG PİST — ARABALAR (yönlü mini-şasi, path.getPointAtLength)
+   5. 3B PİST — ARABALAR (Three.js: gerçek pist eğrisi + yönlü
+      araç gövdeleri, race3d-demo.html Faz 0 sondajının tam
+      entegrasyonu — aynı simülasyon durumunu (race.cars) render eder)
    ========================================================= */
-var svgNS='http://www.w3.org/2000/svg';
-var carEls={};
-var CAR_BODY_D='M0,-9 L1,-7 L1.4,-4 L2.2,-1 L2.5,2 L4.2,2.5 L4.2,4.2 L1.6,3.6 L1.6,6.5 L-1.6,6.5 L-1.6,3.6 L-4.2,4.2 L-4.2,2.5 L-2.5,2 L-2.2,-1 L-1.4,-4 L-1,-7 Z';
-function initTrackSvg(){
-  trackPathEl=document.getElementById('track-path');
-  trackTotalLen=trackPathEl.getTotalLength();
-  var layer=document.getElementById('cars-layer');
-  layer.innerHTML=''; carEls={};
+var scene3d=null, camera3d=null, renderer3d=null, controls3d=null;
+var carGroup3d=null, carMeshes3d={}, track3dResizeObs=null;
+
+function buildTrackRibbon(curve,width,segments){
+  var half=width/2, positions=[], normals=[], up=new THREE.Vector3(0,1,0);
+  var eps=0.0015;
+  for(var i=0;i<=segments;i++){
+    var t=(i/segments)%1;
+    var point=curve.getPointAt(t);
+    var tPrev=(t-eps+1)%1, tNext=(t+eps)%1;
+    var tangent=curve.getPointAt(tNext).clone().sub(curve.getPointAt(tPrev)).normalize();
+    var right=new THREE.Vector3().crossVectors(tangent,up).normalize();
+    var left=point.clone().addScaledVector(right,-half);
+    var rightPt=point.clone().addScaledVector(right,half);
+    positions.push(left.x,left.y+0.02,left.z, rightPt.x,rightPt.y+0.02,rightPt.z);
+    normals.push(0,1,0, 0,1,0);
+  }
+  var indices=[];
+  for(i=0;i<segments;i++){
+    var a=i*2,b=i*2+1,c2=i*2+2,d=i*2+3;
+    indices.push(a,c2,b, b,c2,d);
+  }
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geo.setIndex(indices);
+  return geo;
+}
+
+function buildCarMesh3d(color,isPlayer){
+  var group=new THREE.Group();
+  var bodyMat=new THREE.MeshStandardMaterial({color:color,roughness:0.35,metalness:0.55});
+  var darkMat=new THREE.MeshStandardMaterial({color:0x0e1116,roughness:0.5,metalness:0.3});
+
+  var body=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.55,4.4),bodyMat);
+  body.position.y=0.5; body.castShadow=true; group.add(body);
+
+  var nose=new THREE.Mesh(new THREE.ConeGeometry(0.42,1.6,8),bodyMat);
+  nose.rotation.x=Math.PI/2; nose.position.set(0,0.4,2.7); nose.castShadow=true; group.add(nose);
+
+  var cockpit=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.4,1.3),darkMat);
+  cockpit.position.set(0,0.9,0.1); cockpit.castShadow=true; group.add(cockpit);
+
+  var rearWing=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.12,0.5),darkMat);
+  rearWing.position.set(0,1.05,-2.1); rearWing.castShadow=true; group.add(rearWing);
+  var wingPost=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.5,0.12),darkMat);
+  wingPost.position.set(0,0.75,-2.1); group.add(wingPost);
+
+  var frontWing=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.08,0.6),new THREE.MeshStandardMaterial({color:isPlayer?0xeef3f8:0xc7d0da,roughness:0.4}));
+  frontWing.position.set(0,0.2,3.4); frontWing.castShadow=true; group.add(frontWing);
+
+  var wheelGeo=new THREE.CylinderGeometry(0.45,0.45,0.4,14);
+  var wheelMat=new THREE.MeshStandardMaterial({color:0x111213,roughness:0.9});
+  [[-1.05,0.45,1.65],[1.05,0.45,1.65],[-1.05,0.45,-1.55],[1.05,0.45,-1.55]].forEach(function(p){
+    var wheel=new THREE.Mesh(wheelGeo,wheelMat);
+    wheel.rotation.z=Math.PI/2; wheel.position.set(p[0],p[1],p[2]); wheel.castShadow=true;
+    group.add(wheel);
+  });
+
+  if(isPlayer){
+    var canvas=document.createElement('canvas');
+    canvas.width=128; canvas.height=48;
+    var ctx=canvas.getContext('2d');
+    ctx.font='700 30px JetBrains Mono, monospace';
+    ctx.fillStyle='#eef3f8'; ctx.textAlign='center';
+    // (kod metni carMeshes3d oluşturulurken ayrıca yazılır)
+    var spriteMat=new THREE.SpriteMaterial({map:new THREE.CanvasTexture(canvas),depthTest:false});
+    var sprite=new THREE.Sprite(spriteMat);
+    sprite.scale.set(3.2,1.2,1);
+    sprite.position.set(0,2.6,0);
+    group.add(sprite);
+    group.userData.labelCanvas=canvas;
+    group.userData.labelCtx=ctx;
+    group.userData.labelTexture=spriteMat.map;
+  }
+
+  return group;
+}
+
+function initTrack3D(){
+  var container=document.getElementById('track3d');
+
+  if(!renderer3d){
+    scene3d=new THREE.Scene();
+    scene3d.background=new THREE.Color(0x05070a);
+    scene3d.fog=new THREE.Fog(0x05070a,260,650);
+
+    camera3d=new THREE.PerspectiveCamera(55,container.clientWidth/Math.max(1,container.clientHeight),0.1,2000);
+    camera3d.position.set(0,145,165);
+
+    renderer3d=new THREE.WebGLRenderer({antialias:true});
+    renderer3d.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer3d.shadowMap.enabled=true;
+    renderer3d.shadowMap.type=THREE.PCFSoftShadowMap;
+    renderer3d.toneMapping=THREE.ACESFilmicToneMapping;
+    renderer3d.toneMappingExposure=1.05;
+    container.appendChild(renderer3d.domElement);
+
+    controls3d=new OrbitControls(camera3d,renderer3d.domElement);
+    controls3d.target.set(0,4,0);
+    controls3d.enableDamping=true; controls3d.dampingFactor=0.08;
+    controls3d.minDistance=20; controls3d.maxDistance=260;
+    controls3d.maxPolarAngle=Math.PI*0.49;
+
+    scene3d.add(new THREE.HemisphereLight(0x3a5578,0x0a0d11,0.9));
+    var floodlight=new THREE.DirectionalLight(0xfff2d8,3.2);
+    floodlight.position.set(90,130,40);
+    floodlight.castShadow=true;
+    floodlight.shadow.mapSize.set(2048,2048);
+    floodlight.shadow.camera.left=-180; floodlight.shadow.camera.right=180;
+    floodlight.shadow.camera.top=180; floodlight.shadow.camera.bottom=-180;
+    floodlight.shadow.camera.far=400; floodlight.shadow.bias=-0.0015;
+    scene3d.add(floodlight);
+    scene3d.add(new THREE.DirectionalLight(0x3a6fb0,0.5));
+    var rim=scene3d.children[scene3d.children.length-1]; rim.position.set(-80,40,-60);
+
+    var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x11151b,roughness:0.95,metalness:0.02}));
+    ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene3d.add(ground);
+
+    var TRACK_WIDTH=12;
+    var trackGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH,400);
+    var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshStandardMaterial({color:0x363f4d,roughness:0.75,metalness:0.05,side:THREE.DoubleSide}));
+    trackMesh.receiveShadow=true; scene3d.add(trackMesh);
+
+    var kerbGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH+1.6,400);
+    var kerbMesh=new THREE.Mesh(kerbGeo,new THREE.MeshStandardMaterial({color:0xb0311f,roughness:0.7,side:THREE.DoubleSide}));
+    kerbMesh.position.y=-0.01; kerbMesh.receiveShadow=true; scene3d.add(kerbMesh);
+
+    carGroup3d=new THREE.Group();
+    scene3d.add(carGroup3d);
+
+    track3dResizeObs=new ResizeObserver(function(){
+      if(!container.clientWidth||!container.clientHeight) return;
+      camera3d.aspect=container.clientWidth/container.clientHeight;
+      camera3d.updateProjectionMatrix();
+      renderer3d.setSize(container.clientWidth,container.clientHeight);
+    });
+    track3dResizeObs.observe(container);
+    renderer3d.setSize(container.clientWidth,container.clientHeight);
+  }
+
+  carGroup3d.clear();
+  carMeshes3d={};
   race.cars.forEach(function(c){
-    var g=document.createElementNS(svgNS,'g');
-    var body=document.createElementNS(svgNS,'path');
-    body.setAttribute('d',CAR_BODY_D);
-    body.setAttribute('fill',c.color);
-    body.setAttribute('stroke', c.isPlayer?'#fff':'rgba(255,255,255,.55)');
-    body.setAttribute('stroke-width', c.isPlayer?'1.1':'0.7');
-    body.setAttribute('stroke-linejoin','round');
-    g.appendChild(body);
-    var wing=document.createElementNS(svgNS,'rect');
-    wing.setAttribute('x','-2.4'); wing.setAttribute('y','-8.6'); wing.setAttribute('width','4.8'); wing.setAttribute('height','1');
-    wing.setAttribute('fill','rgba(255,255,255,.85)');
-    g.appendChild(wing);
-    if(c.isPlayer){
-      var label=document.createElementNS(svgNS,'text');
-      label.setAttribute('x',0); label.setAttribute('y',-11);
-      label.setAttribute('text-anchor','middle');
-      label.setAttribute('style','font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;fill:#eef3f8');
-      label.textContent=c.code;
-      g.appendChild(label);
+    var mesh=buildCarMesh3d(c.color,c.isPlayer);
+    if(c.isPlayer && mesh.userData.labelCtx){
+      var ctx=mesh.userData.labelCtx;
+      ctx.clearRect(0,0,128,48);
+      ctx.font='700 30px JetBrains Mono, monospace';
+      ctx.fillStyle='#eef3f8'; ctx.textAlign='center';
+      ctx.fillText(c.code,64,34);
+      mesh.userData.labelTexture.needsUpdate=true;
     }
-    layer.appendChild(g);
-    carEls[c.code]=g;
+    carGroup3d.add(mesh);
+    carMeshes3d[c.code]=mesh;
   });
 }
+
 function drawCars(){
   race.cars.forEach(function(c){
-    var g=carEls[c.code];
-    if(!g) return;
+    var mesh=carMeshes3d[c.code];
+    if(!mesh) return;
     var p=pointAt(c.trackPosition);
-    var ang=Math.atan2(p.ty,p.tx)*180/Math.PI+90;
-    g.setAttribute('transform','translate('+p.x+','+p.y+') rotate('+ang+')'+(c.pitting?' scale(0.001)':''));
+    mesh.position.copy(p.pos);
+    mesh.position.y=0.05;
+    if(p.tangent.lengthSq()>0.0001) mesh.lookAt(p.pos.clone().add(p.tangent));
+    mesh.visible=!c.pitting;
   });
+  if(controls3d) controls3d.update();
+  if(renderer3d) renderer3d.render(scene3d,camera3d);
 }
 
 /* =========================================================
@@ -1083,7 +1196,7 @@ function startRaceScreen(){
   document.getElementById('ov-gp').textContent=round.gp_name_tr.toUpperCase();
   initRace(round);
   showScreen('screen-race');
-  initTrackSvg();
+  initTrack3D();
   running=true; speedMult=1;
   document.getElementById('btn-playpause').textContent='⏸ Duraklat';
   document.getElementById('btn-playpause').classList.add('is-active');
@@ -1181,7 +1294,6 @@ function boot(){
   rafId=requestAnimationFrame(loop);
 }
 boot();
-})();
 </script>
 </body>
 </html>
