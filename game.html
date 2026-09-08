@@ -265,6 +265,12 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .speedtrap .l{font-size:8px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
 .speedtrap .v{font-family:var(--f-mono);font-weight:800;font-size:17px;color:var(--cyan)}
 .track-toast{position:absolute;left:14px;bottom:12px;z-index:2;max-width:46%;display:flex;flex-direction:column-reverse;gap:4px}
+.cam-controls{position:absolute;right:14px;bottom:12px;z-index:2;display:flex;gap:6px;align-items:center}
+.cam-btn{background:var(--glass);border:1px solid var(--line);border-radius:4px;padding:8px 13px;
+  font-family:var(--f-display);font-weight:700;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim)}
+.cam-btn:hover{color:var(--text);border-color:var(--cyan)}
+.cam-btn.is-active{color:var(--cyan);border-color:var(--cyan);background:rgba(0,240,255,.1)}
+.cam-btn.cam-zoom{padding:8px 12px;font-size:15px;font-weight:800;line-height:1;color:var(--cyan)}
 .track-toast .row{background:var(--glass);border-left:3px solid var(--cyan);border-radius:3px;padding:5px 9px;font-size:10.5px;animation:fadein .15s ease-out}
 @keyframes fadein{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
 
@@ -501,7 +507,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
       <div class="tb-metric"><span class="l">Bütçe</span><span class="v" id="tb-budget">—</span></div>
       <div class="tb-metric"><span class="l">Süre</span><span class="v" id="tb-clock">00:00</span></div>
       <div class="tb-spacer"></div>
-      <div class="tb-hint"><kbd>Space</kbd> Duraklat &nbsp; <kbd>1-4</kbd> Hız &nbsp; <kbd>Tab</kbd> Panel &nbsp; <kbd>P</kbd> Pit</div>
+      <div class="tb-hint"><kbd>Space</kbd> Duraklat &nbsp; <kbd>1-4</kbd> Hız &nbsp; <kbd>Tab</kbd> Panel &nbsp; <kbd>P</kbd> Pit &nbsp; <kbd>C</kbd> Kamera &nbsp; <kbd>Tekerlek</kbd> Zum</div>
       <div class="tb-controls">
         <button class="tb-btn is-active" id="btn-playpause" type="button">⏸ Duraklat</button>
         <button class="tb-btn" id="btn-speed" type="button">Hız: 1×</button>
@@ -521,6 +527,11 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
         <div class="speedtrap">
           <div class="l">Hız Tuzağı · Lider</div>
           <div class="v" id="speedtrap-v">— km/s</div>
+        </div>
+        <div class="cam-controls">
+          <button class="cam-btn" id="btn-cam-mode" type="button">📷 Genel Bakış</button>
+          <button class="cam-btn cam-zoom" id="btn-cam-zoom-out" type="button" title="Uzaklaştır">−</button>
+          <button class="cam-btn cam-zoom" id="btn-cam-zoom-in" type="button" title="Yakınlaştır">+</button>
         </div>
         <div id="track3d"></div>
         <div class="track-toast" id="track-toast"></div>
@@ -785,6 +796,16 @@ function loadStaff(){
 }
 function saveStaff(s){ try{ localStorage.setItem(STAFF_KEY, JSON.stringify(s)); }catch(e){} }
 var STAFF=loadStaff();
+
+var SEASON_SPEND_KEY='paddockGP_seasonSpend_v1';
+var COST_CAP=140000000;
+function loadSeasonSpend(){
+  try{ return parseFloat(localStorage.getItem(SEASON_SPEND_KEY))||0; }catch(e){ return 0; }
+}
+function addSeasonSpend(n){
+  try{ localStorage.setItem(SEASON_SPEND_KEY, String(loadSeasonSpend()+n)); }catch(e){}
+}
+function resetSeasonSpend(){ try{ localStorage.setItem(SEASON_SPEND_KEY,'0'); }catch(e){} }
 
 /* =========================================================
    0d. SPONSOR ANLAŞMASI — bir seferlik imza bonusu + her yarış
@@ -1258,6 +1279,11 @@ function initTrack3D(round){
     renderer3d.toneMapping=THREE.ACESFilmicToneMapping;
     renderer3d.toneMappingExposure=1.05;
     container.appendChild(renderer3d.domElement);
+    renderer3d.domElement.addEventListener('wheel',function(e){
+      if(cameraMode!=='follow') return;
+      e.preventDefault();
+      adjustFollowZoom(e.deltaY*0.02);
+    },{passive:false});
 
     controls3d=new OrbitControls(camera3d,renderer3d.domElement);
     controls3d.target.set(0,4,0);
@@ -1325,6 +1351,53 @@ function initTrack3D(round){
   });
 }
 
+/* =========================================================
+   5b. KAMERA — F1 Manager tarzı takip kamerası + genel bakış
+   ========================================================= */
+var cameraMode='follow';
+var followDistance=20, followHeight=8.5;
+var followLookAt=null;
+function setCameraMode(mode){
+  cameraMode=mode;
+  if(mode==='overview'){
+    // Takip kamerasından çıkınca pistin tamamını gösteren sabit
+    // açıya dönülür — nereden bırakıldığına bağlı kalmaz.
+    camera3d.position.set(0,145,165);
+    if(controls3d){ controls3d.target.set(0,4,0); controls3d.enabled=true; }
+  } else if(controls3d){
+    controls3d.enabled=false;
+  }
+  var btn=document.getElementById('btn-cam-mode');
+  if(btn){
+    btn.textContent = cameraMode==='overview' ? '📷 Genel Bakış' : '📷 Takip Kamerası';
+    btn.classList.toggle('is-active', cameraMode==='follow');
+  }
+}
+function adjustFollowZoom(delta){
+  followDistance=Math.max(9,Math.min(48,followDistance+delta));
+  followHeight=Math.max(3.5,Math.min(20,followHeight+delta*0.4));
+}
+function updateFollowCamera(){
+  var c=getCar(selectedDriver);
+  if(!c) return;
+  var p=pointAt(c.trackPosition);
+  var behind=p.tangent.clone().multiplyScalar(-1);
+  var desiredPos=p.pos.clone().addScaledVector(behind,followDistance);
+  desiredPos.y+=followHeight;
+  var desiredLook=p.pos.clone().addScaledVector(p.tangent,10);
+  desiredLook.y+=1.4;
+  if(!followLookAt){
+    // Yeni yarış / pilot değişimi — kamerayı tüm pistten sürükleyip
+    // getirmek yerine doğrudan hedefe hizala.
+    followLookAt=desiredLook.clone();
+    camera3d.position.copy(desiredPos);
+  } else {
+    camera3d.position.lerp(desiredPos,0.09);
+    followLookAt.lerp(desiredLook,0.12);
+  }
+  camera3d.lookAt(followLookAt);
+}
+
 function drawCars(){
   race.cars.forEach(function(c){
     var mesh=carMeshes3d[c.code];
@@ -1335,7 +1408,8 @@ function drawCars(){
     if(p.tangent.lengthSq()>0.0001) mesh.lookAt(p.pos.clone().add(p.tangent));
     mesh.visible=!c.pitting;
   });
-  if(controls3d) controls3d.update();
+  if(cameraMode==='follow') updateFollowCamera();
+  else if(controls3d) controls3d.update();
   if(renderer3d) renderer3d.render(scene3d,camera3d);
 }
 
@@ -1464,7 +1538,7 @@ function doCommand(cmd){
   else if(cmd==='koru'){ c.mode='KORUMA'; pushToast(c.code+' · Lastik Koru modu.','info'); }
   else if(cmd==='ers'){ if(c.ers<15) return; c.pushActive=true; pushToast(c.code+' · ERS ATAK devrede!','info'); }
 }
-function selectDriver(code){ selectedDriver=code; renderDualTelemetry(); }
+function selectDriver(code){ selectedDriver=code; followLookAt=null; renderDualTelemetry(); }
 var telemetryFocus=false;
 function toggleFocus(){
   telemetryFocus=!telemetryFocus;
@@ -1482,12 +1556,24 @@ function bindRaceUI(){
   Array.prototype.forEach.call(document.querySelectorAll('.tac-btn'),function(btn){
     btn.addEventListener('click',function(){ doCommand(btn.getAttribute('data-cmd')); });
   });
+  document.getElementById('btn-cam-mode').addEventListener('click',function(){
+    setCameraMode(cameraMode==='overview'?'follow':'overview');
+  });
+  document.getElementById('btn-cam-zoom-in').addEventListener('click',function(){
+    if(cameraMode==='follow') adjustFollowZoom(-3);
+    else if(controls3d) controls3d.dollyIn(1.15);
+  });
+  document.getElementById('btn-cam-zoom-out').addEventListener('click',function(){
+    if(cameraMode==='follow') adjustFollowZoom(3);
+    else if(controls3d) controls3d.dollyOut(1.15);
+  });
   window.addEventListener('keydown',function(e){
     if(document.getElementById('screen-race').classList.contains('active')===false) return;
     if(e.code==='Space'){ e.preventDefault(); togglePause(); }
     else if(e.key>='1'&&e.key<='4'){ setSpeed(parseInt(e.key,10)); }
     else if(e.key==='Tab'){ e.preventDefault(); toggleFocus(); }
     else if(e.key==='p'||e.key==='P'){ doCommand('pit'); }
+    else if(e.key==='c'||e.key==='C'){ setCameraMode(cameraMode==='overview'?'follow':'overview'); }
   });
 }
 function loop(t){
@@ -1537,8 +1623,9 @@ function renderHQ(){
   var round=CAL[CAREER.round-1]||CAL[0];
   document.getElementById('hq-team').textContent=teamNameFor(PLAYER_TEAM_ID);
   document.getElementById('hq-budget').textContent=fmtMoney(CAREER.budget);
-  document.getElementById('hq-costcap').textContent='₺109.2M / ₺140M';
-  document.getElementById('hq-costcap-bar').style.width='78%';
+  var spend=loadSeasonSpend();
+  document.getElementById('hq-costcap').textContent=fmtMoney(spend)+' / ₺140.000.000';
+  document.getElementById('hq-costcap-bar').style.width=Math.min(100,(spend/COST_CAP)*100)+'%';
   document.getElementById('nrc-round').textContent='TUR '+round.round+' / '+CAL.length;
   document.getElementById('nrc-name').textContent=round.gp_name_tr;
   document.getElementById('nrc-circuit').textContent=round.circuit_tr;
@@ -1649,6 +1736,8 @@ function startRaceScreen(){
   initRace(round);
   showScreen('screen-race');
   initTrack3D(round);
+  followLookAt=null; followDistance=20; followHeight=8.5;
+  setCameraMode('follow');
   running=true; speedMult=1;
   document.getElementById('btn-playpause').textContent='⏸ Duraklat';
   document.getElementById('btn-playpause').classList.add('is-active');
@@ -1674,6 +1763,7 @@ function finishRaceAndGoToPodium(){
   var opCost=380000;
   var delta=prize-opCost;
   CAREER.budget+=delta;
+  addSeasonSpend(opCost);
 
   var round=CAL[CAREER.round-1]||CAL[0];
   document.getElementById('pd-round').textContent='TUR '+round.round+' / '+CAL.length;
@@ -1715,6 +1805,7 @@ function bindMenu(){
     CAR_SPECS=defaultCarSpecs(); saveCarSpecs(CAR_SPECS);
     STAFF=defaultStaff(); saveStaff(STAFF);
     SPONSOR=defaultSponsor(); saveSponsor(SPONSOR);
+    resetSeasonSpend();
     renderHQ(); showScreen('screen-hq');
   });
   document.getElementById('btn-continue').addEventListener('click',function(){
@@ -1738,7 +1829,7 @@ function bindMenu(){
   document.getElementById('btn-reset-save').addEventListener('click',function(){
     try{
       localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(CAR_SPECS_KEY);
-      localStorage.removeItem(STAFF_KEY); localStorage.removeItem(SPONSOR_KEY);
+      localStorage.removeItem(STAFF_KEY); localStorage.removeItem(SPONSOR_KEY); localStorage.removeItem(SEASON_SPEND_KEY);
     }catch(e){}
     document.getElementById('btn-continue').disabled=true;
     document.getElementById('settings-modal').classList.remove('open');

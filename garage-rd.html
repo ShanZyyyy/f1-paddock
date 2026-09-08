@@ -271,6 +271,13 @@ var PLAYER_TEAM_ID='MCL';
    ========================================================= */
 var SHARED_BUDGET_KEY='paddockPitWall_v1';
 var CAR_SPECS_KEY='paddockGP_carSpecs_v1';
+var SEASON_SPEND_KEY='paddockGP_seasonSpend_v1';
+function addSeasonSpend(n){
+  try{
+    var cur=parseFloat(localStorage.getItem(SEASON_SPEND_KEY))||0;
+    localStorage.setItem(SEASON_SPEND_KEY, String(cur+n));
+  }catch(e){}
+}
 
 function defaultCarSpecs(){
   return {
@@ -546,6 +553,7 @@ function startProject(projId){
 
   BUDGET-=proj.cost;
   saveBudget(BUDGET);
+  addSeasonSpend(proj.cost);
 
   CAR_SPECS.available_projects.splice(idx,1);
   CAR_SPECS.active_upgrades.push({

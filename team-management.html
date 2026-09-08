@@ -244,6 +244,13 @@ function seededVal(id,min,max){ return min+(hashSeed(id)%(max-min+1)); }
    ========================================================= */
 var SHARED_BUDGET_KEY='paddockPitWall_v1';
 var STAFF_KEY='paddockGP_staff_v1';
+var SEASON_SPEND_KEY='paddockGP_seasonSpend_v1';
+function addSeasonSpend(n){
+  try{
+    var cur=parseFloat(localStorage.getItem(SEASON_SPEND_KEY))||0;
+    localStorage.setItem(SEASON_SPEND_KEY, String(cur+n));
+  }catch(e){}
+}
 var STAFF_TIERS={
   chief_engineer:[
     { tier:1, name:'Elena Rostova', cost:0, bonus:0, stats:{design_efficiency:70,build_speed:68,reliability_bonus:66} },
@@ -501,6 +508,7 @@ function upgradeStaff(roleKey){
   }
   BUDGET-=next.cost;
   saveBudget(BUDGET);
+  addSeasonSpend(next.cost);
   STAFF[roleKey+'_tier']=currentTier+1;
   saveStaff(STAFF);
   SAMPLE_DATA.team_staff.engineers=engineersFromStaff();
