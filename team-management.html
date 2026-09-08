@@ -183,6 +183,14 @@ img,svg{display:block}
 .sc-upgrade:active{transform:scale(.97)}
 .sc-upgrade.is-maxed{background:var(--bg-4);color:var(--text-mute);box-shadow:none;pointer-events:none}
 .sc-upgrade.is-locked{background:var(--bg-4);color:var(--neon-red);box-shadow:none}
+.sc-roadmap{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border-radius:9px;background:rgba(0,0,0,.18);border:1px solid var(--line-soft)}
+.sc-roadmap-title{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-mute);font-weight:700}
+.sc-roadmap-row{display:flex;align-items:center;gap:8px;font-size:10.5px}
+.sc-roadmap-row .rt{font-family:var(--f-mono);font-weight:700;color:var(--text-mute);min-width:22px}
+.sc-roadmap-row .re{flex:1;color:var(--text-dim)}
+.sc-roadmap-row.is-current .rt{color:var(--neon-cyan)}
+.sc-roadmap-row.is-current .re{color:var(--text);font-weight:700}
+.sc-roadmap-row.is-locked{opacity:.55}
 
 .empty-note{max-width:1100px;margin:30px auto;text-align:center;color:var(--text-mute);font-size:12.5px}
 </style>
@@ -472,6 +480,11 @@ function driverCardHTML(d){
 /* =========================================================
    RENDER — personel kartı (kompakt)
    ========================================================= */
+function tierEffectLabel(roleKey,tierData){
+  if(roleKey==='chief_engineer') return tierData.bonus?'+'+tierData.bonus+' performans bonusu (sürücü temposu)':'Bonus yok';
+  if(roleKey==='pit_crew_chief') return tierData.pit_loss_reduction?'-'+tierData.pit_loss_reduction+'sn pit kaybı':'İndirim yok';
+  return '—';
+}
 function staffCardHTML(s){
   var entries=statEntries(s.stats);
   var tiers=STAFF_TIERS[s.roleKey];
@@ -480,6 +493,12 @@ function staffCardHTML(s){
   var btnHTML=maxed
     ? '<button class="sc-upgrade is-maxed" type="button" disabled>Maks. Kademe</button>'
     : '<button class="sc-upgrade" type="button" data-role="'+s.roleKey+'">Kademe '+(s.tier+1)+"'e Yükselt — "+formatMoney(next.cost)+'</button>';
+  var roadmapHTML='<div class="sc-roadmap"><div class="sc-roadmap-title">Kademe Yol Haritası — Gerçek Yarış Etkisi</div>'
+    +tiers.map(function(t){
+      var cls=t.tier===s.tier?'is-current':(t.tier>s.tier?'is-locked':'');
+      return '<div class="sc-roadmap-row '+cls+'"><span class="rt">K'+t.tier+'</span><span class="re">'+tierEffectLabel(s.roleKey,t)+'</span></div>';
+    }).join('')
+    +'</div>';
   return '<article class="staff-card">'
     +'<div class="sc-head">'
       +'<span class="sc-icon">'+(ROLE_ICON_DICT[s.role]||'🔧')+'</span>'
@@ -487,6 +506,7 @@ function staffCardHTML(s){
       +'<span class="sc-tier">Kademe '+s.tier+'</span>'
     +'</div>'
     +'<div class="sc-bars">'+entries.map(statRowHTML).join('')+'</div>'
+    + roadmapHTML
     + btnHTML
     +'</article>';
 }
