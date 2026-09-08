@@ -166,7 +166,8 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 /* =========================================================
    3. YARIŞ ÖNCESİ KURULUM
    ========================================================= */
-#screen-prerace .pr-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:24px;overflow-y:auto}
+#screen-prerace .pr-body,#screen-quali .pr-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:24px;overflow-y:auto}
+#screen-quali .pr-body{justify-content:flex-start;padding-top:36px}
 .pr-header{text-align:center;display:flex;flex-direction:column;gap:6px}
 .pr-header .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.25em;color:var(--cyan);text-transform:uppercase}
 .pr-header h2{font-family:var(--f-display);font-weight:800;font-size:34px;text-transform:uppercase}
@@ -188,6 +189,21 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .pr-start:hover{background:#ff485d}
 .pr-back{font-family:var(--f-mono);font-size:11px;color:var(--text-mute);letter-spacing:.05em}
 .pr-back:hover{color:var(--text-dim)}
+
+/* =========================================================
+   3b. SIRALAMA TURU (Qualifying)
+   ========================================================= */
+.ql-results{width:640px;max-width:92vw;display:flex;flex-direction:column;max-height:56vh;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+.ql-row{display:grid;grid-template-columns:32px 3px 1fr 92px 84px;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line-soft);background:var(--bg-2)}
+.ql-row:nth-child(even){background:var(--bg-3)}
+.ql-row.is-player{background:rgba(0,240,255,.08)}
+.ql-row .p{font-family:var(--f-mono);font-weight:800;font-size:13px;color:var(--text-dim)}
+.ql-row .stripe{width:3px;height:20px;border-radius:2px}
+.ql-row .name-wrap{display:flex;flex-direction:column;min-width:0}
+.ql-row .name-wrap b{font-family:var(--f-display);font-weight:700;font-size:13px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ql-row .name-wrap span{font-size:10px;color:var(--text-mute)}
+.ql-row .laptime{font-family:var(--f-mono);font-size:13px;text-align:right}
+.ql-row .gap{font-family:var(--f-mono);font-size:11px;color:var(--telemetry-yellow);text-align:right}
 
 /* =========================================================
    4. CANLI YARIŞ (Mandatory Bahrain SVG + telemetry)
@@ -420,7 +436,27 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
       </div>
       <div class="pr-cards" id="pr-cards"></div>
       <div class="pr-tyrenote" id="pr-tyrenote"></div>
-      <button class="pr-start" id="btn-start-race" type="button">YARIŞI BAŞLAT</button>
+      <button class="pr-start" id="btn-start-race" type="button">SIRALAMA TURUNA GEÇ</button>
+    </div>
+  </section>
+
+  <!-- ============ 3c. SIRALAMA TURU (QUALIFYING) ============ -->
+  <section class="screen" id="screen-quali">
+    <header class="topbar">
+      <span class="tb-eyebrow">Paddock GP · Sıralama Turu</span>
+      <div class="tb-sep"></div>
+      <div class="tb-metric"><span class="l">Bütçe</span><span class="v" id="ql-budget">—</span></div>
+      <div class="tb-spacer"></div>
+      <button class="tb-btn" id="btn-ql-back" type="button">← Yarış Öncesi Strateji</button>
+    </header>
+    <div class="pr-body">
+      <div class="pr-header">
+        <span class="eyebrow" id="ql-round">TUR 1 / 24</span>
+        <h2 id="ql-name">—</h2>
+        <span class="info">Sıralama Turu Sonuçları — grid sırasını belirler</span>
+      </div>
+      <div class="ql-results" id="ql-results"></div>
+      <button class="pr-start" id="btn-goto-race" type="button">YARIŞA BAŞLA →</button>
     </div>
   </section>
 
@@ -522,6 +558,10 @@ var MASTER=window.F1_2026_DATA||{teams:[],drivers:[],calendar:[]};
 var CAL=MASTER.calendar&&MASTER.calendar.length?MASTER.calendar:[{round:1,gp_name_tr:'Bahreyn Grand Prisi',circuit_tr:'Bahreyn Uluslararası Pisti',location:'Sakhir',country_tr:'Bahreyn',laps:57,base_lap_time_sec:92.6,pit_loss_sec:22.5,tyre_degradation_tr:'Orta'}];
 
 function fmtMoney(n){ return '₺'+Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+function fmtLapTime(sec){
+  var m=Math.floor(sec/60), s=sec-m*60;
+  return m+':'+(s<10?'0':'')+s.toFixed(3);
+}
 
 function defaultCareer(){
   var driverPoints={}, teamPoints={};
@@ -615,6 +655,27 @@ function driverSkill(r){
 function tireGrip(compound,wear){ return (COMPOUND_BASE_GRIP[compound]||1)*(1-wear*0.32); }
 
 /* =========================================================
+   3b. SIRALAMA TURU — tek tur simülasyonu, grid sırasını belirler
+   ========================================================= */
+var qualiResults=null;
+function runQualifying(round){
+  var baseLap=round.base_lap_time_sec;
+  var results=ROSTER.map(function(r){
+    var skill=driverSkill(r);
+    var consistencyNoise=(1-r.cons/100)*0.035;
+    var noise=1+(Math.random()-0.5)*(0.012+consistencyNoise);
+    return {
+      code:r.code, name:r.name, team_id:r.team_id,
+      color:teamColorFor(r.team_id), isPlayer:r.isPlayer,
+      laptime:(baseLap/skill)*noise
+    };
+  });
+  results.sort(function(a,b){ return a.laptime-b.laptime; });
+  qualiResults=results;
+  return results;
+}
+
+/* =========================================================
    4. YARIŞ DURUMU
    ========================================================= */
 var BASE_LAP_TIME=92.6, TOTAL_LAPS=57, BASE_PIT_LOSS=22.5;
@@ -622,6 +683,7 @@ var startCompounds={};
 var race=null;
 
 function buildGrid(){
+  var gridOrder=qualiResults?qualiResults.map(function(q){ return q.code; }):null;
   var cars=ROSTER.map(function(r,i){
     return {
       id:r.code, code:r.code, name:r.name, teamName:teamNameFor(r.team_id),
@@ -634,7 +696,11 @@ function buildGrid(){
       finished:false, finishOrderTime:null, throttlePhase:Math.random()*10
     };
   });
-  cars.sort(function(){ return Math.random()-0.5; });
+  if(gridOrder){
+    cars.sort(function(a,b){ return gridOrder.indexOf(a.code)-gridOrder.indexOf(b.code); });
+  } else {
+    cars.sort(function(){ return Math.random()-0.5; });
+  }
   cars.forEach(function(c,i){ c.grid=i+1; c.trackPosition=-i*0.011; });
   return cars;
 }
@@ -1197,6 +1263,26 @@ function renderPreRace(){
   });
 }
 
+/* --- SIRALAMA TURU --- */
+function renderQualifying(){
+  var round=CAL[CAREER.round-1]||CAL[0];
+  var results=runQualifying(round);
+  document.getElementById('ql-budget').textContent=fmtMoney(CAREER.budget);
+  document.getElementById('ql-round').textContent='TUR '+round.round+' / '+CAL.length;
+  document.getElementById('ql-name').textContent=round.gp_name_tr;
+  var pole=results[0].laptime;
+  document.getElementById('ql-results').innerHTML=results.map(function(r,i){
+    var gap=i===0?'POLE':'+'+(r.laptime-pole).toFixed(3);
+    return '<div class="ql-row'+(r.isPlayer?' is-player':'')+'">'
+      +'<span class="p mono">'+(i+1)+'</span>'
+      +'<span class="stripe" style="background:'+r.color+'"></span>'
+      +'<div class="name-wrap"><b>'+r.name+'</b><span>'+teamNameFor(r.team_id)+'</span></div>'
+      +'<span class="laptime mono">'+fmtLapTime(r.laptime)+'</span>'
+      +'<span class="gap">'+gap+'</span>'
+      +'</div>';
+  }).join('');
+}
+
 /* --- LIVE RACE giriş --- */
 function startRaceScreen(){
   var round=CAL[CAREER.round-1]||CAL[0];
@@ -1289,7 +1375,9 @@ function bindMenu(){
   document.getElementById('btn-hq-menu').addEventListener('click',function(){ showScreen('screen-main-menu'); });
   document.getElementById('btn-goto-prerace').addEventListener('click',function(){ renderPreRace(); showScreen('screen-prerace'); });
   document.getElementById('btn-pr-back').addEventListener('click',function(){ renderHQ(); showScreen('screen-hq'); });
-  document.getElementById('btn-start-race').addEventListener('click',startRaceScreen);
+  document.getElementById('btn-start-race').addEventListener('click',function(){ renderQualifying(); showScreen('screen-quali'); });
+  document.getElementById('btn-ql-back').addEventListener('click',function(){ renderPreRace(); showScreen('screen-prerace'); });
+  document.getElementById('btn-goto-race').addEventListener('click',startRaceScreen);
   document.getElementById('btn-pd-continue').addEventListener('click',function(){
     CAREER.round=Math.min(CAL.length, CAREER.round+1);
     saveCareer(); renderHQ(); showScreen('screen-hq');
