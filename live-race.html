@@ -119,6 +119,42 @@ main{padding:16px calc(var(--safe-r) + 14px) 0 calc(var(--safe-l) + 14px);max-wi
 .race-grid{display:grid;grid-template-columns:1fr;gap:16px}
 @media(min-width:980px){ .race-grid{grid-template-columns:1.35fr 1fr} }
 
+/* =========================================================
+   YATAY EKRAN (LANDSCAPE) — Orta: Sıralama & Zamanlama
+   Sağ: Telsiz Akışı & Strateji Talimat Butonları
+   ========================================================= */
+@media (orientation:landscape) and (min-width:560px){
+  html,body{height:100%}
+  body{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+  .top-bar{flex:0 0 auto}
+  main{max-width:1400px;flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .cmd-card{flex:0 0 auto}
+  .race-grid{flex:1;min-height:280px;display:grid;grid-template-columns:1.3fr 1fr;gap:12px 16px}
+  .board{display:flex;flex-direction:column;min-height:0}
+  .board-list{flex:1;max-height:none}
+  .feed-card{min-height:0}
+  .feed-list{max-height:none}
+}
+
+/* Kısa yükseklikli yatay ekranlar (telefon yan yatık) — üst barı sıkıştır */
+@media (orientation:landscape) and (max-height:520px){
+  .top-bar{padding-top:calc(var(--safe-t) + 6px);padding-bottom:6px}
+  .eyebrow{display:none}
+  .title{font-size:16px;margin-top:0}
+  .summary-row{margin-top:6px;gap:6px}
+  .sum-chip{padding:4px 8px}
+  .sum-chip .v{font-size:12px}
+  .sim-toolbar{margin-top:6px}
+  .tool-btn{padding:5px 6px;font-size:9.5px}
+  main{padding-top:8px}
+  .cmd-card{padding:8px;margin-bottom:8px}
+  .cmd-head{margin-bottom:5px}
+  .cmd-btn{padding:7px 6px;gap:1px}
+  .cmd-btn .ic{font-size:13px}
+  .cmd-btn b{font-size:10px}
+}
+
+
 /* --- sıralama tablosu --- */
 .board{
   background:linear-gradient(180deg,var(--bg-3),var(--bg-2));border:1px solid var(--line);

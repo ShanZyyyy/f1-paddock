@@ -56,6 +56,7 @@ button{font-family:var(--f-body);color:inherit;border:none;background:none;user-
   padding:calc(var(--safe-t) + 6px) calc(var(--safe-r) + 6px) calc(var(--safe-b) + 6px) calc(var(--safe-l) + 6px);
   gap:6px;
 }
+.content-row{display:contents}
 
 /* =========================================================
    STATUS BAR
@@ -269,6 +270,29 @@ button{font-family:var(--f-body);color:inherit;border:none;background:none;user-
   .track-wrap{flex:0 0 46%}
   .control-panel{grid-template-columns:repeat(8,1fr)}
 }
+
+/* =========================================================
+   YATAY EKRAN (LANDSCAPE) — 3 sütunlu pit duvarı düzeni
+   Sol: Pist Haritası · Orta: Sıralama & Zamanlama · Sağ: Telsiz & Strateji
+   ========================================================= */
+@media (orientation:landscape) and (min-width:560px){
+  .content-row{display:flex;flex-direction:row;gap:8px;flex:1;min-height:0}
+  .stage{flex:1;min-height:0;flex-direction:row;gap:8px}
+  .track-wrap{flex:0 0 52%}
+  .tower{flex:1 1 auto;min-width:0}
+  .control-panel{
+    flex:0 0 172px;
+    display:grid;
+    grid-template-columns:1fr;
+    grid-auto-rows:min-content;
+    align-content:start;
+    gap:6px;
+    padding-bottom:0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .ctrl-btn{min-height:46px}
+}
 </style>
 </head>
 <body>
@@ -298,6 +322,7 @@ button{font-family:var(--f-body);color:inherit;border:none;background:none;user-
     </div>
   </header>
 
+  <div class="content-row" id="content-row">
   <main class="stage">
     <div class="track-wrap">
       <canvas id="trackCanvas"></canvas>
@@ -348,6 +373,7 @@ button{font-family:var(--f-body);color:inherit;border:none;background:none;user-
       <span class="ctrl-icon" id="icon-pause">⏸</span><span class="ctrl-label">DURAKLAT</span>
     </button>
   </footer>
+  </div>
 
   <div class="pit-menu" id="pit-menu" hidden>
     <h2 id="pit-menu-title">PIT STRATEJİSİ</h2>
