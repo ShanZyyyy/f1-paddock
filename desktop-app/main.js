@@ -13,7 +13,12 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      spellcheck: false
+      spellcheck: false,
+      // race3d-demo.html loads Three.js as ES modules (import statements),
+      // which Chromium treats as cross-origin fetches under file:// and
+      // blocks by default. This is a fully offline, self-authored app with
+      // no remote/untrusted content, so relaxing this is low-risk here.
+      webSecurity: false
     }
   });
 

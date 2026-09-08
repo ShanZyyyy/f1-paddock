@@ -20,6 +20,12 @@ for f in "${MODULES[@]}"; do
 done
 cp "$ROOT/f1-2026-data.js" "$APP_DIR/f1-2026-data.js"
 
+# race3d-demo.html (Faz 0 Three.js tech spike) has its own hardcoded back
+# link and needs the vendored three.js/OrbitControls modules alongside it.
+cp "$ROOT/race3d-demo.html" "$APP_DIR/race3d-demo.html"
+mkdir -p "$APP_DIR/vendor"
+cp "$ROOT/vendor/"*.js "$APP_DIR/vendor/"
+
 BACK_BTN='<a href="game.html" title="Sezon Merkezine Dön" style="position:fixed;top:8px;left:8px;z-index:99999;
   width:34px;height:34px;border-radius:50%;background:rgba(10,14,20,.85);border:1px solid #333c4a;
   color:#eef1f6;display:flex;align-items:center;justify-content:center;font-family:sans-serif;
