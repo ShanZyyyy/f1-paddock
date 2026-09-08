@@ -757,19 +757,68 @@ var ROSTER=buildRealRoster();
 var PLAYER_DRIVERS=ROSTER.filter(function(r){ return r.isPlayer; });
 
 /* =========================================================
-   2. ZORUNLU BAHREYN PİSTİ — 3B eğri (aynı SVG çapa noktaları,
-      race3d-demo.html'deki Faz 0 sondajıyla aynı kaynak/yöntem)
+   2. PİST EĞRİLERİ — Bahreyn (Tur 1) zorunlu SVG çapa noktalarını
+      kullanır; diğer 23 tur için tohumlu (seeded) prosedürel kapalı
+      döngü üretilir — gerçek lazer tarama verisi yok, bu yüzden
+      "gerçek" değil ama her pist görsel olarak birbirinden farklı
+      ve sezon boyunca aynı pist için hep aynı şekil (deterministik).
    ========================================================= */
-var SVG_ANCHORS=[
+var BAHRAIN_SVG_ANCHORS=[
   [180,480],[480,480],[560,410],[560,380],[500,350],[460,365],[410,330],[410,240],
   [500,180],[640,180],[720,250],[720,280],[660,330],[620,330],[580,270],[580,140],
   [480,60],[280,60],[180,140],[180,220],[250,280],[320,280],[380,350],[380,420],[290,480]
 ];
 var TRACK3D_CENTER_X=450, TRACK3D_CENTER_Z=270, TRACK3D_SCALE=0.4;
-var track3dCurve=new THREE.CatmullRomCurve3(
-  SVG_ANCHORS.map(function(p){ return new THREE.Vector3((p[0]-TRACK3D_CENTER_X)*TRACK3D_SCALE,0,(p[1]-TRACK3D_CENTER_Z)*TRACK3D_SCALE); }),
-  true,'centripetal'
-);
+
+function hashSeed(str){
+  var h=0;
+  for(var i=0;i<str.length;i++){ h=(h<<5)-h+str.charCodeAt(i); h|=0; }
+  return h;
+}
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    var t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+// Açıya göre monotonik ilerleyen, yarıçapı tohumlu şekilde titreşen
+// kapalı bir döngü üretir — kendisiyle kesişme riski olmaz (her
+// noktanın açısı bir öncekinden büyük), gerçek pistlerdeki gibi organik
+// geniş/dar bölümler içerir.
+function generateProceduralWaypoints(seed,pointCount,baseRadius){
+  var rng=mulberry32(seed);
+  var radii=[];
+  for(var i=0;i<pointCount;i++) radii.push(baseRadius*(0.62+rng()*0.72));
+  var smoothed=radii.map(function(r,i){
+    var prev=radii[(i-1+pointCount)%pointCount], next=radii[(i+1)%pointCount];
+    return (prev+r*2+next)/4;
+  });
+  var squash=0.68+rng()*0.22;
+  var pts=[];
+  for(i=0;i<pointCount;i++){
+    var angle=(i/pointCount)*Math.PI*2;
+    var r=smoothed[i];
+    pts.push(new THREE.Vector3(Math.cos(angle)*r,0,Math.sin(angle)*r*squash));
+  }
+  return pts;
+}
+function buildTrackCurveForRound(round){
+  if(round.round===1){
+    // Zorunlu Bahreyn şekli — game.html'in ilk sürümünden beri sabit.
+    var pts=BAHRAIN_SVG_ANCHORS.map(function(p){
+      return new THREE.Vector3((p[0]-TRACK3D_CENTER_X)*TRACK3D_SCALE,0,(p[1]-TRACK3D_CENTER_Z)*TRACK3D_SCALE);
+    });
+    return new THREE.CatmullRomCurve3(pts,true,'centripetal');
+  }
+  var seed=hashSeed(round.gp_name_tr||('round'+round.round));
+  var pointCount=14+Math.floor(mulberry32(seed+1)()*9); // 14-22 arası
+  var baseRadius=85+mulberry32(seed+2)()*55;
+  var pts=generateProceduralWaypoints(seed,pointCount,baseRadius);
+  return new THREE.CatmullRomCurve3(pts,true,'centripetal');
+}
+var track3dCurve=buildTrackCurveForRound(CAL[0]);
 function pointAt(frac){
   frac=((frac%1)+1)%1;
   var eps=0.0015;
@@ -1086,7 +1135,8 @@ function buildCarMesh3d(color,isPlayer){
   return group;
 }
 
-function initTrack3D(){
+var trackMesh3d=null, kerbMesh3d=null;
+function initTrack3D(round){
   var container=document.getElementById('track3d');
 
   if(!renderer3d){
@@ -1126,15 +1176,6 @@ function initTrack3D(){
     var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x11151b,roughness:0.95,metalness:0.02}));
     ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene3d.add(ground);
 
-    var TRACK_WIDTH=12;
-    var trackGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH,400);
-    var trackMesh=new THREE.Mesh(trackGeo,new THREE.MeshStandardMaterial({color:0x363f4d,roughness:0.75,metalness:0.05,side:THREE.DoubleSide}));
-    trackMesh.receiveShadow=true; scene3d.add(trackMesh);
-
-    var kerbGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH+1.6,400);
-    var kerbMesh=new THREE.Mesh(kerbGeo,new THREE.MeshStandardMaterial({color:0xb0311f,roughness:0.7,side:THREE.DoubleSide}));
-    kerbMesh.position.y=-0.01; kerbMesh.receiveShadow=true; scene3d.add(kerbMesh);
-
     carGroup3d=new THREE.Group();
     scene3d.add(carGroup3d);
 
@@ -1147,6 +1188,21 @@ function initTrack3D(){
     track3dResizeObs.observe(container);
     renderer3d.setSize(container.clientWidth,container.clientHeight);
   }
+
+  // Her yarış hafta sonu farklı bir pist demektir — önceki turun şerit/kerb
+  // mesh'lerini bellekten temizleyip bu turun eğrisiyle yeniden kur.
+  track3dCurve=buildTrackCurveForRound(round);
+  if(trackMesh3d){ scene3d.remove(trackMesh3d); trackMesh3d.geometry.dispose(); trackMesh3d.material.dispose(); }
+  if(kerbMesh3d){ scene3d.remove(kerbMesh3d); kerbMesh3d.geometry.dispose(); kerbMesh3d.material.dispose(); }
+
+  var TRACK_WIDTH=12;
+  var trackGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH,400);
+  trackMesh3d=new THREE.Mesh(trackGeo,new THREE.MeshStandardMaterial({color:0x363f4d,roughness:0.75,metalness:0.05,side:THREE.DoubleSide}));
+  trackMesh3d.receiveShadow=true; scene3d.add(trackMesh3d);
+
+  var kerbGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH+1.6,400);
+  kerbMesh3d=new THREE.Mesh(kerbGeo,new THREE.MeshStandardMaterial({color:0xb0311f,roughness:0.7,side:THREE.DoubleSide}));
+  kerbMesh3d.position.y=-0.01; kerbMesh3d.receiveShadow=true; scene3d.add(kerbMesh3d);
 
   carGroup3d.clear();
   carMeshes3d={};
@@ -1441,7 +1497,7 @@ function startRaceScreen(){
   document.getElementById('ov-gp').textContent=round.gp_name_tr.toUpperCase();
   initRace(round);
   showScreen('screen-race');
-  initTrack3D();
+  initTrack3D(round);
   running=true; speedMult=1;
   document.getElementById('btn-playpause').textContent='⏸ Duraklat';
   document.getElementById('btn-playpause').classList.add('is-active');
