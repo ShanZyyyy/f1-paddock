@@ -481,6 +481,8 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
       <div class="hq-side">
         <div class="hq-title">Şampiyona Puan Durumu</div>
         <div class="standings-list" id="hq-standings"></div>
+        <div class="hq-title">Takım Şampiyonası</div>
+        <div class="standings-list" id="hq-team-standings"></div>
       </div>
     </div>
   </section>
@@ -1657,6 +1659,18 @@ function renderStandings(targetElId, driverPoints){
       +'</div>';
   }).join('');
 }
+function renderTeamStandings(targetElId, teamPoints){
+  var rows=(MASTER.teams||[]).map(function(t){ return {id:t.id,name:t.name,color:t.color_primary,pts:teamPoints[t.id]||0}; })
+    .sort(function(a,b){ return b.pts-a.pts; });
+  document.getElementById(targetElId).innerHTML=rows.map(function(r,i){
+    return '<div class="standings-row'+(r.id===PLAYER_TEAM_ID?' is-player':'')+'">'
+      +'<span class="p mono">'+(i+1)+'</span>'
+      +'<span class="stripe" style="background:'+r.color+'"></span>'
+      +'<span class="n">'+r.name+'</span>'
+      +'<span class="pts">'+r.pts+'</span>'
+      +'</div>';
+  }).join('');
+}
 function syncBudgetFromShared(){
   // Garaj/Personel ekranlarında yapılan harcamalar ayrı bir sayfa
   // navigasyonuyla gerçekleşiyor; CAREER nesnesindeki bütçe kopyası
@@ -1686,6 +1700,7 @@ function renderHQ(){
     return '<span class="season-dot '+cls+'" title="'+r.gp_name_tr+'"></span>';
   }).join('');
   renderStandings('hq-standings', CAREER.driverPoints);
+  renderTeamStandings('hq-team-standings', CAREER.teamPoints);
   var carRatingEl=document.getElementById('hq-car-rating');
   var queueNote=CAR_SPECS.active_upgrades.length?(' · '+CAR_SPECS.active_upgrades.length+' proje geliştiriliyor'):'';
   carRatingEl.textContent='Şasi performans endeksi: '+CAR_SPECS.overall_rating+queueNote;
