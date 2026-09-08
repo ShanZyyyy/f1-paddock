@@ -125,6 +125,9 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .hq-main{padding:28px 32px;overflow-y:auto;display:flex;flex-direction:column;gap:20px}
 .hq-side{border-left:1px solid var(--line);background:var(--glass);padding:20px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
 .hq-title{font-family:var(--f-display);font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
+.hq-title-row{display:flex;align-items:center;justify-content:space-between}
+.hq-title-link{font-family:var(--f-mono);font-size:10.5px;color:var(--cyan);letter-spacing:.03em}
+.hq-title-link:hover{color:var(--text)}
 
 .next-race-card{
   background:linear-gradient(135deg,#141922,var(--bg-2));border:1px solid var(--line);border-radius:6px;padding:24px;
@@ -267,7 +270,10 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .trow{display:grid;grid-template-columns:22px 3px 40px 1fr 22px;align-items:center;gap:0;border-bottom:1px solid var(--line-soft);height:26px;background:rgba(255,255,255,.01)}
 .trow:nth-child(even){background:rgba(255,255,255,.025)}
 .trow.is-player{background:rgba(0,240,255,.08)}
-.t-pos{display:flex;align-items:center;justify-content:center;height:100%;background:#eef3f8;color:#0a0d11;font-family:var(--f-mono);font-weight:800;font-size:11px}
+.t-pos{display:flex;align-items:center;justify-content:center;gap:2px;height:100%;background:#eef3f8;color:#0a0d11;font-family:var(--f-mono);font-weight:800;font-size:11px}
+.t-arrow{font-size:7px;line-height:1}
+.t-arrow.up{color:var(--green)}
+.t-arrow.down{color:var(--race-red)}
 .t-stripe{height:100%;background:var(--tc,#666)}
 .t-code{padding-left:7px;font-family:var(--f-display);font-weight:800;font-size:11.5px;letter-spacing:.02em}
 .t-mid{display:flex;align-items:center;justify-content:flex-end;gap:5px;padding-right:5px;min-width:0}
@@ -339,6 +345,15 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px}
 .mg-item{display:flex;justify-content:space-between;align-items:baseline;font-size:8.5px;color:var(--text-mute);text-transform:uppercase;font-weight:700;letter-spacing:.03em}
 .mg-item b{font-family:var(--f-mono);color:var(--text);font-size:11px;letter-spacing:0;text-transform:none;font-weight:700}
+.laptime-panel{background:var(--bg-3);border:1px solid var(--line-soft);border-radius:4px;padding:7px 8px;display:flex;flex-direction:column;gap:4px}
+.lt-row{display:flex;justify-content:space-between;align-items:baseline}
+.lt-label{font-size:7.5px;letter-spacing:.06em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.lt-val{font-size:12px;font-weight:700;color:var(--text)}
+.lt-val.is-best{color:var(--drs)}
+.sec-row{display:flex;gap:5px;margin-top:2px}
+.sec-chip{flex:1;text-align:center;font-family:var(--f-mono);font-size:8.5px;font-weight:700;color:var(--text-dim);background:var(--bg-4);border-radius:3px;padding:3px 2px}
+.sec-chip.is-empty{color:var(--text-mute);opacity:.5}
+.sec-chip.is-best{color:#04041a;background:var(--drs)}
 .tyre-panel,.ers-panel{background:var(--bg-3);border:1px solid var(--line-soft);border-radius:4px;padding:7px 8px;display:flex;flex-direction:column;gap:6px}
 .tyre-panel-title,.ers-panel-title{display:flex;justify-content:space-between;align-items:center;font-size:7.5px;letter-spacing:.06em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
 .tyre-compound{font-family:var(--f-mono);font-weight:800;font-size:8.5px}
@@ -399,6 +414,23 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 
 .pd-cta{margin-top:auto;padding:16px;border-radius:4px;background:var(--cyan);color:#04262b;font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;text-align:center}
 .pd-cta:hover{background:#33f5ff}
+
+/* =========================================================
+   6. SEZON TAKVİMİ
+   ========================================================= */
+.cal-body{flex:1;overflow-y:auto;padding:24px 32px}
+.cal-list{display:flex;flex-direction:column;gap:8px;max-width:900px;margin:0 auto}
+.cal-row{display:grid;grid-template-columns:44px 1fr auto auto;align-items:center;gap:16px;padding:12px 16px;border-radius:6px;background:var(--bg-2);border:1px solid var(--line)}
+.cal-row.is-current{border-color:var(--cyan);background:rgba(0,240,255,.06)}
+.cal-row.is-done{opacity:.55}
+.cal-round{font-family:var(--f-mono);font-weight:800;font-size:14px;color:var(--text-dim);text-align:center}
+.cal-info .name{font-family:var(--f-display);font-weight:700;font-size:14px;text-transform:uppercase}
+.cal-info .sub{font-size:11px;color:var(--text-mute)}
+.cal-laps{font-family:var(--f-mono);font-size:11px;color:var(--text-dim);white-space:nowrap}
+.cal-status{font-family:var(--f-mono);font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:99px;white-space:nowrap}
+.cal-status.done{color:var(--text-mute);background:rgba(255,255,255,.05)}
+.cal-status.current{color:var(--cyan);background:rgba(0,240,255,.14);border:1px solid rgba(0,240,255,.4)}
+.cal-status.upcoming{color:var(--text-dim);background:rgba(255,255,255,.03)}
 </style>
 </head>
 <body>
@@ -484,7 +516,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
           <button class="nrc-cta" id="btn-goto-prerace" type="button">YARIŞA HAZIRLAN →</button>
         </div>
 
-        <div class="hq-title">Sezon İlerlemesi</div>
+        <div class="hq-title-row"><div class="hq-title">Sezon İlerlemesi</div><button class="hq-title-link" id="btn-open-calendar" type="button">Takvimi Gör →</button></div>
         <div class="season-track"><div class="rail" id="season-rail"></div></div>
 
         <div class="hq-title">Sponsor Anlaşması</div>
@@ -646,6 +678,19 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
         <div class="standings-list" id="pd-standings"></div>
         <button class="pd-cta" id="btn-pd-continue" type="button">DEVAM ET →</button>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ 6. SEZON TAKVİMİ ============ -->
+  <section class="screen" id="screen-calendar">
+    <header class="topbar">
+      <span class="tb-eyebrow">Paddock GP · Sezon Takvimi</span>
+      <div class="tb-sep"></div>
+      <div class="tb-spacer"></div>
+      <button class="tb-btn" id="btn-cal-back" type="button">← Sezon Merkezi</button>
+    </header>
+    <div class="cal-body">
+      <div class="cal-list" id="cal-list"></div>
     </div>
   </section>
 
@@ -1137,6 +1182,7 @@ function buildGrid(){
       pitting:false, pitTimer:0, pitStops:0, mode:'DENGE',
       ers:100, pushActive:false,
       lastLapTime:null, lastLapBoundaryTime:0, forcedPitWarned:false,
+      bestLapTime:null, sectorIndex:0, sectorBoundaryTime:0, lastSectorTimes:[null,null,null],
       finished:false, finishOrderTime:null, throttlePhase:Math.random()*10
     };
   });
@@ -1153,7 +1199,7 @@ function initRace(roundInfo){
   race={
     cars:buildGrid(), lap:0, raceTime:0, flag:'YEŞİL', flagTimer:0,
     finished:false, paused:false, speedMult:1, incidentCooldown:20+Math.random()*20,
-    finishedCount:0, toasts:[]
+    finishedCount:0, toasts:[], bestSectors:[Infinity,Infinity,Infinity], posMemory:{}
   };
 }
 function getCar(code){ return race.cars.filter(function(c){ return c.code===code; })[0]; }
@@ -1186,12 +1232,21 @@ function updateCar(c,dt){
   else c.ers=Math.min(100,c.ers+dt*2.4);
 
   while(c.trackPosition>=1){ c.trackPosition-=1; c.lapsCompleted+=1; handleLapComplete(c); }
+  var newSectorIdx=Math.min(2,Math.floor(c.trackPosition*3));
+  if(newSectorIdx!==c.sectorIndex){
+    var st=race.raceTime-c.sectorBoundaryTime;
+    c.lastSectorTimes[c.sectorIndex]=st;
+    if(st<race.bestSectors[c.sectorIndex]) race.bestSectors[c.sectorIndex]=st;
+    c.sectorBoundaryTime=race.raceTime;
+    c.sectorIndex=newSectorIdx;
+  }
   if(!c.isPlayer) maybeAIPit(c,dt);
   enforceMandatoryPit(c);
 }
 function handleLapComplete(c){
   var t=race.raceTime-c.lastLapBoundaryTime;
   c.lastLapTime=t; c.lastLapBoundaryTime=race.raceTime;
+  if(c.lapsCompleted>1 && (!c.bestLapTime||t<c.bestLapTime)) c.bestLapTime=t;
   if(c.lapsCompleted>=TOTAL_LAPS && !c.finished){
     c.finished=true; c.finishOrderTime=c.lapsCompleted*1000+race.finishedCount; race.finishedCount+=1;
   }
@@ -1342,9 +1397,10 @@ function buildTrackRibbon(curve,width,segments){
 // hesaplamasını kullanır, ama iki yatay nokta yerine taban+tepe köşesi
 // üreterek eğriyi takip eden dikey bir şerit oluşturur.
 function buildBarrierWall(curve,lateralOffset,height,segments){
-  var positions=[], normals=[], up=new THREE.Vector3(0,1,0);
+  var positions=[], normals=[], colors=[], up=new THREE.Vector3(0,1,0);
   var eps=0.004, lastRight=new THREE.Vector3(1,0,0);
   var sign=lateralOffset>=0?1:-1;
+  var WHITE=[0.92,0.93,0.95], RED=[0.78,0.1,0.14];
   for(var i=0;i<=segments;i++){
     var t=(i/segments)%1;
     var point=curve.getPointAt(t);
@@ -1361,6 +1417,9 @@ function buildBarrierWall(curve,lateralOffset,height,segments){
     positions.push(base.x,base.y+0.02,base.z, base.x,base.y+height,base.z);
     var n=right.clone().multiplyScalar(sign);
     normals.push(n.x,n.y,n.z, n.x,n.y,n.z);
+    // TecPro tarzı kırmızı/beyaz panel deseni — her ~6 segment bir panel
+    var panel=Math.floor(i/6)%2===0?WHITE:RED;
+    colors.push(panel[0],panel[1],panel[2], panel[0],panel[1],panel[2]);
   }
   var indices=[];
   for(i=0;i<segments;i++){
@@ -1370,6 +1429,7 @@ function buildBarrierWall(curve,lateralOffset,height,segments){
   var geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   geo.setIndex(indices);
   return geo;
 }
@@ -1517,7 +1577,20 @@ function buildCarMesh3d(color,isPlayer){
   return group;
 }
 
-var trackMesh3d=null, kerbMesh3d=null, barrierGroup3d=null, standsGroup3d=null;
+var trackMesh3d=null, kerbMesh3d=null, gravelMesh3d=null, barrierGroup3d=null, standsGroup3d=null;
+function buildSkyDome(){
+  var geo=new THREE.SphereGeometry(480,20,14);
+  var topColor=new THREE.Color(0x0c1220), botColor=new THREE.Color(0x3d4f66);
+  var pos=geo.attributes.position, colors=[];
+  for(var i=0;i<pos.count;i++){
+    var t=THREE.MathUtils.clamp((pos.getY(i)+80)/560,0,1);
+    var c=botColor.clone().lerp(topColor,t);
+    colors.push(c.r,c.g,c.b);
+  }
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  var mat=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false});
+  return new THREE.Mesh(geo,mat);
+}
 function initTrack3D(round){
   var container=document.getElementById('track3d');
 
@@ -1562,6 +1635,7 @@ function initTrack3D(round){
 
     var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x1c2420,roughness:0.95,metalness:0.02}));
     ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene3d.add(ground);
+    scene3d.add(buildSkyDome());
 
     carGroup3d=new THREE.Group();
     scene3d.add(carGroup3d);
@@ -1592,14 +1666,23 @@ function initTrack3D(round){
   kerbMesh3d=new THREE.Mesh(kerbGeo,new THREE.MeshStandardMaterial({color:0xb0311f,roughness:0.7,side:THREE.DoubleSide}));
   kerbMesh3d.position.y=-0.01; kerbMesh3d.receiveShadow=true; scene3d.add(kerbMesh3d);
 
+  // Kum/çakıl run-off — kerb'in hemen dışında, bariyere kadar uzanan geniş
+  // bir şerit. Kerb (üstte, y=-0.01) bu daha geniş ve daha alçak (y=0.006)
+  // şeridin iç kısmını kapatır, dışarıda sadece kumlu bant görünür kalır.
+  if(gravelMesh3d){ scene3d.remove(gravelMesh3d); gravelMesh3d.geometry.dispose(); gravelMesh3d.material.dispose(); }
+  var barrierOffset=TRACK_WIDTH/2+2.4;
+  var gravelWidth=barrierOffset*2+3;
+  var gravelGeo=buildTrackRibbon(track3dCurve,gravelWidth,400);
+  gravelMesh3d=new THREE.Mesh(gravelGeo,new THREE.MeshStandardMaterial({color:0xc9a86a,roughness:1,side:THREE.DoubleSide}));
+  gravelMesh3d.position.y=0.006; gravelMesh3d.receiveShadow=true; scene3d.add(gravelMesh3d);
+
   // Pist etrafındaki bariyerler ve tribünler — her hafta sonu pist şekli
   // değiştiği için diğer mesh'ler gibi burada yeniden kurulur.
   if(barrierGroup3d){
     scene3d.remove(barrierGroup3d);
     barrierGroup3d.traverse(function(o){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
   }
-  var barrierOffset=TRACK_WIDTH/2+2.4;
-  var barrierMat=new THREE.MeshStandardMaterial({color:0xd8dce2,roughness:0.55});
+  var barrierMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.55});
   var barrierL=new THREE.Mesh(buildBarrierWall(track3dCurve,-barrierOffset,1.1,400),barrierMat);
   var barrierR=new THREE.Mesh(buildBarrierWall(track3dCurve,barrierOffset,1.1,400),barrierMat.clone());
   barrierL.castShadow=true; barrierL.receiveShadow=true;
@@ -1710,9 +1793,14 @@ function renderTower(){
   document.getElementById('tower-count').textContent=race.order.length;
   var leader=race.order[0];
   document.getElementById('tower-list').innerHTML=race.order.map(function(c,i){
+    var pos=i+1;
     var drs = i>0 && c.gapAhead>0 && c.gapAhead*BASE_LAP_TIME<1.0 && race.flag==='YEŞİL';
+    var prevPos=race.posMemory[c.code];
+    var arrow='';
+    if(prevPos!==undefined && prevPos!==pos) arrow='<span class="t-arrow '+(prevPos>pos?'up':'down')+'">'+(prevPos>pos?'▲':'▼')+'</span>';
+    race.posMemory[c.code]=pos;
     return '<div class="trow'+(c.isPlayer?' is-player':'')+'">'
-      +'<span class="t-pos">'+(i+1)+'</span>'
+      +'<span class="t-pos">'+pos+arrow+'</span>'
       +'<span class="t-stripe" style="--tc:'+c.color+'"></span>'
       +'<span class="t-code">'+c.code+'</span>'
       +'<span class="t-mid"><span class="t-gap">'+fmtGap(c,leader)+'</span>'+(drs?'<span class="t-drs">DRS</span>':'')+'</span>'
@@ -1774,6 +1862,21 @@ function ersPanelHTML(c){
     +'<div class="ers-sub'+(deploying?' is-deploy':'')+'">'+(deploying?'⚡ DEPLOY · enerji harcanıyor':'♻ HARVEST · enerji topluyor')+' · %'+Math.round(c.ers)+'</div>'
     +'</div>';
 }
+function lapTimerPanelHTML(c){
+  var liveTime=race.raceTime-c.lastLapBoundaryTime;
+  var sectorChips=[0,1,2].map(function(i){
+    var v=c.lastSectorTimes[i];
+    if(v==null) return '<span class="sec-chip is-empty">S'+(i+1)+'</span>';
+    var isBest=race.bestSectors[i]!==Infinity && Math.abs(v-race.bestSectors[i])<0.001;
+    return '<span class="sec-chip'+(isBest?' is-best':'')+'">S'+(i+1)+' '+v.toFixed(3)+'</span>';
+  }).join('');
+  return '<div class="laptime-panel">'
+    +'<div class="lt-row"><span class="lt-label">ANLIK TUR</span><span class="lt-val mono">'+fmtLapTime(liveTime)+'</span></div>'
+    +'<div class="lt-row"><span class="lt-label">SON TUR</span><span class="lt-val mono">'+(c.lastLapTime?fmtLapTime(c.lastLapTime):'—')+'</span></div>'
+    +'<div class="lt-row"><span class="lt-label">EN İYİ TUR</span><span class="lt-val mono is-best">'+(c.bestLapTime?fmtLapTime(c.bestLapTime):'—')+'</span></div>'
+    +'<div class="sec-row">'+sectorChips+'</div>'
+    +'</div>';
+}
 function driverCardHTML(c){
   var speedKmh=(c.lastPaceRate||0)*TRACK_LENGTH_KM*3600;
   var phase=(c.trackPosition*Math.PI*6)+c.throttlePhase;
@@ -1796,6 +1899,7 @@ function driverCardHTML(c){
       +'<div class="mg-item"><span>Ara (Lider)</span><b>'+gapTxt+'</b></div>'
       +'<div class="mg-item"><span>Pit Sayısı</span><b>'+c.pitStops+'</b></div>'
     +'</div>'
+    +lapTimerPanelHTML(c)
     +tyrePanelHTML(c)
     +ersPanelHTML(c)
     +'</div>';
@@ -1938,6 +2042,18 @@ function syncBudgetFromShared(){
     var raw=localStorage.getItem(SHARED_BUDGET_KEY);
     if(raw){ var parsed=JSON.parse(raw); if(typeof parsed.budget==='number') CAREER.budget=parsed.budget; }
   }catch(e){}
+}
+function renderCalendar(){
+  document.getElementById('cal-list').innerHTML=CAL.map(function(r){
+    var status = r.round<CAREER.round?'done':(r.round===CAREER.round?'current':'upcoming');
+    var statusLabel = status==='done'?'Tamamlandı':(status==='current'?'Sıradaki':'Yaklaşan');
+    return '<div class="cal-row is-'+status+'">'
+      +'<span class="cal-round">'+r.round+'</span>'
+      +'<div class="cal-info"><div class="name">'+r.gp_name_tr+'</div><div class="sub">'+r.circuit_tr+' · '+r.country_tr+'</div></div>'
+      +'<span class="cal-laps">'+r.laps+' TUR</span>'
+      +'<span class="cal-status '+status+'">'+statusLabel+'</span>'
+      +'</div>';
+  }).join('');
 }
 function renderHQ(){
   syncBudgetFromShared();
@@ -2190,6 +2306,8 @@ function bindMenu(){
   document.getElementById('btn-quit').addEventListener('click',function(){ window.close(); });
 
   document.getElementById('btn-hq-menu').addEventListener('click',function(){ showScreen('screen-main-menu'); });
+  document.getElementById('btn-open-calendar').addEventListener('click',function(){ renderCalendar(); showScreen('screen-calendar'); });
+  document.getElementById('btn-cal-back').addEventListener('click',function(){ renderHQ(); showScreen('screen-hq'); });
   document.getElementById('btn-goto-prerace').addEventListener('click',function(){ renderPreRace(); showScreen('screen-prerace'); });
   document.getElementById('btn-pr-back').addEventListener('click',function(){ renderHQ(); showScreen('screen-hq'); });
   document.getElementById('btn-start-race').addEventListener('click',function(){ renderQualifying(); showScreen('screen-quali'); });
