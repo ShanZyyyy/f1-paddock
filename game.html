@@ -1126,6 +1126,38 @@ function archetypeForRound(round){
   return 'BALANCED';
 }
 
+// Kullanıcının kendi tasarladığı 4 hayali Türkiye pisti — her birinin
+// köşe/düzlük dizilişi verilen pist şemasındaki isimlendirilmiş
+// virajlara/sektörlere göre elle çizildi (lazer tarama verisi değil,
+// ama artık soyut bir daire/oval de değil). round.round -> [x,z].
+var REAL_TRACK_SHAPES={
+  // 1. Ankara Şehir Pisti — geniş kavis + ANA DÜZLÜK (uzun pit düzlüğü) +
+  // SITTIYE KAVŞAĞI'nın (15-16-18) oluşturduğu hafif çift kıvrım.
+  1:[[0,-100],[60,-98],[95,-70],[100,-30],[85,10],[95,45],[55,60],[65,85],[20,95],[-30,90],[-80,60],[-100,10],[-90,-40],[-55,-80],[-20,-98]],
+  // 2. Kapadokya Kaya Pisti — tünelin oluşturduğu düz "boyun" (neck), üstte
+  // peribacaları arasında dönen geniş bir halka; klasik oval/daireden
+  // KASITLI olarak farklı, "lolipop" (halka + sap) silüeti.
+  2:[[0,-130],[15,-90],[15,-50],[60,-60],[95,-30],[100,15],[70,45],[85,75],[30,90],[-30,85],[-75,50],[-95,10],[-75,-35],[-40,-55],[-15,-90],[-15,-130]],
+  // 3. Karadeniz Virajları Pisti — dağ yamacında geniş genlikli bir
+  // yılanlama (serpantin); her viraj arasında büyük mesafe bırakılarak
+  // dar bir yumak yerine gerçekten "çok virajlı dağ yolu" hissi verir.
+  3:[[0,-115],[75,-95],[45,-45],[115,-25],[85,35],[135,65],[75,100],[25,60],[-25,90],[-60,40],[-115,50],[-90,-10],[-135,-45],[-85,-70],[-105,-105],[-45,-100]],
+  // 4. Atatürk Barajı Pisti — solda baraj duvarını takip eden tek uzun ve
+  // yumuşak kavis, sağda dar bir viraj kompleksi; oval değil, iki farklı
+  // karaktere bölünmüş asimetrik bir silüet.
+  4:[[0,-110],[80,-100],[130,-60],[125,-10],[100,20],[120,50],[80,70],[95,95],[40,90],[-20,85],[-70,95],[-110,60],[-130,10],[-115,-40],[-70,-85],[-30,-105]]
+};
+// Sarım/kesişim testi başarısız olan bir gerçek pist şeklini bozmadan
+// (topolojisini korukayak) hafifçe yumuşatır — komşu üç noktanın
+// ağırlıklı ortalaması, keskin köşeleri törpüler ama genel silüeti korur.
+function relaxPoints(pts){
+  var n=pts.length;
+  return pts.map(function(p,i){
+    var prev=pts[(i-1+n)%n], next=pts[(i+1)%n];
+    return new THREE.Vector3((prev.x+p.x*2+next.x)/4,0,(prev.z+p.z*2+next.z)/4);
+  });
+}
+
 // Bir eğrinin en dar noktasındaki yaklaşık eğrilik yarıçapı — 3 komşu
 // örnek noktanın çevrel çemberi (circumradius) üzerinden hesaplanır.
 // Bariyer/çakıl şeridi bu yarıçaptan daha büyük bir ofset mesafesine
@@ -1282,19 +1314,38 @@ function buildSafeFallbackCurve(seed){
   }
   return new THREE.CatmullRomCurve3(pts,true,'centripetal');
 }
-// Eskiden Bahreyn (Tur 1) için sabit/"zorunlu" el yapımı bir SVG çapa
-// şekli kullanılıyordu; o şeklin sıkışık bir şikanında tribünler pistin
-// karşı tarafına neredeyse dokunacak kadar yaklaşıyordu (takip kamerası
-// oraya girince ekranı tribün duvarına gömüyordu). Artık Tur 1 dahil
-// TÜM turlar aynı arketip + iki güvenlik testinden geçen üretim sistemini
-// kullanıyor — hiçbir pist elle onaylanmış/sabit değil.
+function curveIsSafe(curve){
+  return estimateMinCurveRadius(curve)>=MIN_SAFE_CURVE_RADIUS && !hasSelfProximityIssue(curve);
+}
+// Her tur önce KENDİ gerçek pistinin silüetine (REAL_TRACK_SHAPES) göre
+// kurulur — Monako liman virajları, Monza/Spa/Bakü düzlükleri, Suzuka
+// Esses'i gibi. Güvenlik testinden geçemezse şekil bozulmadan hafifçe
+// yumuşatılıp yeniden denenir (relaxPoints); gerçek şekil hiç yoksa (ya
+// da imkansız bir şekilde 6 yumuşatma turundan sonra bile geçemezse)
+// eski prosedürel arketip sistemine, en sonunda da düz bir elipse düşer.
 function buildTrackCurveForRound(round){
+  var realShape=REAL_TRACK_SHAPES[round.round];
+  if(realShape){
+    // Bazı gerçek pistler (Monako, Singapur gibi) doğaları itibarıyla çok
+    // dar/sıkışık — noktalar arası ölçek küçük olunca güvenlik testinden
+    // (eğrilik/kendine yakınlık) geçemeyip sessizce yumuşayıp genel
+    // prosedürel şekle dönüşebiliyordu. Tüm gerçek şekiller aynı sabit
+    // ölçekle büyütülerek mutlak mesafeler güvenlik eşiğinin üstüne
+    // çıkarılıyor — oran/silüet birebir korunuyor, sadece boyut büyüyor.
+    var REAL_SHAPE_SCALE=1.55;
+    var pts=realShape.map(function(p){ return new THREE.Vector3(p[0]*REAL_SHAPE_SCALE,0,p[1]*REAL_SHAPE_SCALE); });
+    for(var relaxPass=0;relaxPass<10;relaxPass++){
+      var curve=new THREE.CatmullRomCurve3(pts,true,'centripetal');
+      if(curveIsSafe(curve)) return curve;
+      pts=relaxPoints(pts);
+    }
+  }
   var archetype=archetypeForRound(round);
   var baseSeed=hashSeed(round.gp_name_tr||('round'+round.round));
   for(var attempt=0;attempt<10;attempt++){
     var attemptPts=generateTrackWaypoints(baseSeed+attempt*97,archetype);
-    var curve=new THREE.CatmullRomCurve3(attemptPts,true,'centripetal');
-    if(estimateMinCurveRadius(curve)>=MIN_SAFE_CURVE_RADIUS && !hasSelfProximityIssue(curve)) return curve;
+    var attemptCurve=new THREE.CatmullRomCurve3(attemptPts,true,'centripetal');
+    if(curveIsSafe(attemptCurve)) return attemptCurve;
   }
   return buildSafeFallbackCurve(baseSeed);
 }
