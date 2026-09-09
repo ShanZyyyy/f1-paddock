@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "season": 2026,
+    "language": "tr",
+    "generated_note_tr": "Bu veri seti kişisel, ticari olmayan bir hobi projesi (Paddock GP) için hazırlanmıştır. Takım/pilot kadroları, kamuya açık 2025 sonu itibarıyla bilinen bilgilere dayanır; sözleşmeler ve koltuklar sezon başına kadar değişebileceğinden, kesin ve güncel kadro için resmi FIA 2026 katılımcı listesiyle karşılaştırın.",
+    "stats_disclaimer_tr": "Pilot performans puanları (Tempo, Lastik Yönetimi, Geçiş, İstikrar) resmi bir FIA/F1 istatistiği DEĞİLDİR — oyun dengesi için hazırlanmış öznel, gayriresmî tahminlerdir.",
+    "image_note_tr": "portrait_url ve badge_url alanları bilerek boş bırakılmıştır. Gerçek pilot fotoğrafları ve takım logoları telif/lisans gerektirir; bu alanlara yalnızca kendi lisanslı/izinli görsel dosyalarınızın yolunu ekleyin. Görsel yoksa arayüz, takım rengiyle boyanmış baş harf rozetine otomatik döner."
+  },
+
+  "teams": [
+    { "id":"RBR", "name":"Red Bull Racing", "full_name":"Oracle Red Bull Racing", "country_tr":"Avusturya",
+      "color_primary":"#3671C6", "color_secondary":"#1E1E5A", "engine_tr":"Red Bull Ford Powertrains",
+      "badge_url":"", "driver_ids":["max_verstappen","yuki_tsunoda"] },
+
+    { "id":"FER", "name":"Ferrari", "full_name":"Scuderia Ferrari HP", "country_tr":"İtalya",
+      "color_primary":"#E8002D", "color_secondary":"#FFF200", "engine_tr":"Ferrari",
+      "badge_url":"", "driver_ids":["charles_leclerc","lewis_hamilton"] },
+
+    { "id":"MER", "name":"Mercedes", "full_name":"Mercedes-AMG Petronas F1 Team", "country_tr":"Almanya",
+      "color_primary":"#27F4D2", "color_secondary":"#00000", "engine_tr":"Mercedes",
+      "badge_url":"", "driver_ids":["george_russell","kimi_antonelli"] },
+
+    { "id":"MCL", "name":"McLaren", "full_name":"McLaren Formula 1 Team", "country_tr":"Birleşik Krallık",
+      "color_primary":"#FF8000", "color_secondary":"#47C7FC", "engine_tr":"Mercedes",
+      "badge_url":"", "driver_ids":["lando_norris","oscar_piastri"] },
+
+    { "id":"AST", "name":"Aston Martin", "full_name":"Aston Martin Aramco F1 Team", "country_tr":"Birleşik Krallık",
+      "color_primary":"#229971", "color_secondary":"#CEDC00", "engine_tr":"Honda RBPT",
+      "badge_url":"", "driver_ids":["fernando_alonso","lance_stroll"] },
+
+    { "id":"ALP", "name":"Alpine", "full_name":"BWT Alpine F1 Team", "country_tr":"Fransa",
+      "color_primary":"#0093CC", "color_secondary":"#FF87BC", "engine_tr":"Mercedes",
+      "badge_url":"", "driver_ids":["pierre_gasly","franco_colapinto"] },
+
+    { "id":"WIL", "name":"Williams", "full_name":"Atlassian Williams Racing", "country_tr":"Birleşik Krallık",
+      "color_primary":"#64C4FF", "color_secondary":"#00A3E0", "engine_tr":"Mercedes",
+      "badge_url":"", "driver_ids":["carlos_sainz","alex_albon"] },
+
+    { "id":"RB", "name":"Racing Bulls", "full_name":"Visa Cash App Racing Bulls", "country_tr":"İtalya",
+      "color_primary":"#6692FF", "color_secondary":"#1E3D8F", "engine_tr":"Red Bull Ford Powertrains",
+      "badge_url":"", "driver_ids":["isack_hadjar","liam_lawson"] },
+
+    { "id":"HAA", "name":"Haas", "full_name":"MoneyGram Haas F1 Team", "country_tr":"Amerika Birleşik Devletleri",
+      "color_primary":"#B6BABD", "color_secondary":"#E4002B", "engine_tr":"Ferrari",
+      "badge_url":"", "driver_ids":["esteban_ocon","oliver_bearman"] },
+
+    { "id":"AUD", "name":"Audi", "full_name":"Audi F1 Team", "country_tr":"Almanya / İsviçre",
+      "color_primary":"#BB0A30", "color_secondary":"#0C0C0C", "engine_tr":"Audi",
+      "badge_url":"", "driver_ids":["nico_hulkenberg","gabriel_bortoleto"] },
+
+    { "id":"CAD", "name":"Cadillac", "full_name":"Cadillac F1 Team", "country_tr":"Amerika Birleşik Devletleri",
+      "color_primary":"#0B2B4C", "color_secondary":"#C9A24B", "engine_tr":"Ferrari",
+      "badge_url":"", "driver_ids":["sergio_perez","valtteri_bottas"] }
+  ],
+
+  "drivers": [
+    { "id":"max_verstappen", "code":"VER", "name":"Max Verstappen", "number":1, "nationality_tr":"Hollanda", "age":28, "team_id":"RBR", "portrait_url":"",
+      "stats":{ "pace":97, "tyre_management":90, "overtaking":95, "consistency":93 } },
+    { "id":"yuki_tsunoda", "code":"TSU", "name":"Yuki Tsunoda", "number":22, "nationality_tr":"Japonya", "age":25, "team_id":"RBR", "portrait_url":"",
+      "stats":{ "pace":80, "tyre_management":76, "overtaking":81, "consistency":75 } },
+
+    { "id":"charles_leclerc", "code":"LEC", "name":"Charles Leclerc", "number":16, "nationality_tr":"Monako", "age":28, "team_id":"FER", "portrait_url":"",
+      "stats":{ "pace":94, "tyre_management":82, "overtaking":88, "consistency":85 } },
+    { "id":"lewis_hamilton", "code":"HAM", "name":"Lewis Hamilton", "number":44, "nationality_tr":"Birleşik Krallık", "age":41, "team_id":"FER", "portrait_url":"",
+      "stats":{ "pace":90, "tyre_management":93, "overtaking":90, "consistency":88 } },
+
+    { "id":"george_russell", "code":"RUS", "name":"George Russell", "number":63, "nationality_tr":"Birleşik Krallık", "age":28, "team_id":"MER", "portrait_url":"",
+      "stats":{ "pace":91, "tyre_management":85, "overtaking":83, "consistency":90 } },
+    { "id":"kimi_antonelli", "code":"ANT", "name":"Kimi Antonelli", "number":12, "nationality_tr":"İtalya", "age":20, "team_id":"MER", "portrait_url":"",
+      "stats":{ "pace":85, "tyre_management":74, "overtaking":78, "consistency":72 } },
+
+    { "id":"lando_norris", "code":"NOR", "name":"Lando Norris", "number":4, "nationality_tr":"Birleşik Krallık", "age":26, "team_id":"MCL", "portrait_url":"",
+      "stats":{ "pace":95, "tyre_management":87, "overtaking":86, "consistency":89 } },
+    { "id":"oscar_piastri", "code":"PIA", "name":"Oscar Piastri", "number":81, "nationality_tr":"Avustralya", "age":25, "team_id":"MCL", "portrait_url":"",
+      "stats":{ "pace":93, "tyre_management":86, "overtaking":85, "consistency":90 } },
+
+    { "id":"fernando_alonso", "code":"ALO", "name":"Fernando Alonso", "number":14, "nationality_tr":"İspanya", "age":44, "team_id":"AST", "portrait_url":"",
+      "stats":{ "pace":88, "tyre_management":92, "overtaking":91, "consistency":87 } },
+    { "id":"lance_stroll", "code":"STR", "name":"Lance Stroll", "number":18, "nationality_tr":"Kanada", "age":27, "team_id":"AST", "portrait_url":"",
+      "stats":{ "pace":74, "tyre_management":73, "overtaking":70, "consistency":72 } },
+
+    { "id":"pierre_gasly", "code":"GAS", "name":"Pierre Gasly", "number":10, "nationality_tr":"Fransa", "age":30, "team_id":"ALP", "portrait_url":"",
+      "stats":{ "pace":84, "tyre_management":80, "overtaking":82, "consistency":81 } },
+    { "id":"franco_colapinto", "code":"COL", "name":"Franco Colapinto", "number":43, "nationality_tr":"Arjantin", "age":23, "team_id":"ALP", "portrait_url":"",
+      "stats":{ "pace":78, "tyre_management":71, "overtaking":79, "consistency":68 } },
+
+    { "id":"carlos_sainz", "code":"SAI", "name":"Carlos Sainz", "number":55, "nationality_tr":"İspanya", "age":31, "team_id":"WIL", "portrait_url":"",
+      "stats":{ "pace":89, "tyre_management":86, "overtaking":84, "consistency":86 } },
+    { "id":"alex_albon", "code":"ALB", "name":"Alex Albon", "number":23, "nationality_tr":"Tayland", "age":30, "team_id":"WIL", "portrait_url":"",
+      "stats":{ "pace":83, "tyre_management":81, "overtaking":80, "consistency":83 } },
+
+    { "id":"isack_hadjar", "code":"HAD", "name":"Isack Hadjar", "number":6, "nationality_tr":"Fransa", "age":21, "team_id":"RB", "portrait_url":"",
+      "stats":{ "pace":81, "tyre_management":73, "overtaking":80, "consistency":74 } },
+    { "id":"liam_lawson", "code":"LAW", "name":"Liam Lawson", "number":30, "nationality_tr":"Yeni Zelanda", "age":24, "team_id":"RB", "portrait_url":"",
+      "stats":{ "pace":80, "tyre_management":75, "overtaking":79, "consistency":73 } },
+
+    { "id":"esteban_ocon", "code":"OCO", "name":"Esteban Ocon", "number":31, "nationality_tr":"Fransa", "age":29, "team_id":"HAA", "portrait_url":"",
+      "stats":{ "pace":82, "tyre_management":80, "overtaking":78, "consistency":81 } },
+    { "id":"oliver_bearman", "code":"BEA", "name":"Oliver Bearman", "number":87, "nationality_tr":"Birleşik Krallık", "age":21, "team_id":"HAA", "portrait_url":"",
+      "stats":{ "pace":80, "tyre_management":72, "overtaking":77, "consistency":71 } },
+
+    { "id":"nico_hulkenberg", "code":"HUL", "name":"Nico Hülkenberg", "number":27, "nationality_tr":"Almanya", "age":38, "team_id":"AUD", "portrait_url":"",
+      "stats":{ "pace":81, "tyre_management":83, "overtaking":76, "consistency":82 } },
+    { "id":"gabriel_bortoleto", "code":"BOR", "name":"Gabriel Bortoleto", "number":5, "nationality_tr":"Brezilya", "age":21, "team_id":"AUD", "portrait_url":"",
+      "stats":{ "pace":78, "tyre_management":70, "overtaking":76, "consistency":69 } },
+
+    { "id":"sergio_perez", "code":"PER", "name":"Sergio Pérez", "number":11, "nationality_tr":"Meksika", "age":36, "team_id":"CAD", "portrait_url":"",
+      "stats":{ "pace":83, "tyre_management":84, "overtaking":81, "consistency":78 } },
+    { "id":"valtteri_bottas", "code":"BOT", "name":"Valtteri Bottas", "number":77, "nationality_tr":"Finlandiya", "age":36, "team_id":"CAD", "portrait_url":"",
+      "stats":{ "pace":82, "tyre_management":85, "overtaking":75, "consistency":84 } }
+  ],
+
+  "calendar": [
+    { "round":1, "gp_name_tr":"Ankara Grand Prisi",   "circuit_tr":"Ankara Şehir Pisti",           "location":"Ankara",    "country_tr":"Türkiye", "laps":52, "base_lap_time_sec":102.5, "pit_loss_sec":21.4, "tyre_degradation_tr":"Orta"   },
+    { "round":2, "gp_name_tr":"Kapadokya Grand Prisi","circuit_tr":"Kapadokya Kaya Pisti",         "location":"Nevşehir",  "country_tr":"Türkiye", "laps":49, "base_lap_time_sec":97.2,  "pit_loss_sec":20.1, "tyre_degradation_tr":"Orta"   },
+    { "round":3, "gp_name_tr":"Karadeniz Grand Prisi","circuit_tr":"Karadeniz Virajları Pisti",    "location":"Trabzon",   "country_tr":"Türkiye", "laps":57, "base_lap_time_sec":90.4,  "pit_loss_sec":20.3, "tyre_degradation_tr":"Yüksek" },
+    { "round":4, "gp_name_tr":"Atatürk Barajı Grand Prisi","circuit_tr":"Atatürk Barajı Pisti",     "location":"Şanlıurfa", "country_tr":"Türkiye", "laps":56, "base_lap_time_sec":91.4,  "pit_loss_sec":21.2, "tyre_degradation_tr":"Yüksek" }
+  ]
+}

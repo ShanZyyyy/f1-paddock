@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Paddock GP — 3B Teknik Sondaj</title>
+<style>
+  :root{ --bg:#07090c; --panel:rgba(15,15,20,.85); --line:#232c36; --text:#eef3f8; --dim:#8fa0b3; --cyan:#00F0FF; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif}
+  canvas{display:block}
+  .hud{position:fixed;left:16px;top:14px;z-index:5;background:var(--panel);border:1px solid var(--line);
+    border-radius:5px;padding:12px 16px;color:var(--text);max-width:340px}
+  .hud .eyebrow{font-size:10px;letter-spacing:.16em;color:var(--cyan);text-transform:uppercase;font-weight:700}
+  .hud h1{font-size:16px;margin:4px 0 6px;text-transform:uppercase;letter-spacing:.02em}
+  .hud p{font-size:11.5px;color:var(--dim);line-height:1.5}
+  .hud a{color:var(--cyan);text-decoration:none;font-size:11px;display:inline-block;margin-top:8px}
+  .hud a:hover{text-decoration:underline}
+  .stats{position:fixed;right:16px;top:14px;z-index:5;background:var(--panel);border:1px solid var(--line);
+    border-radius:5px;padding:10px 14px;color:var(--text);font-family:'Consolas',monospace;font-size:11px;
+    display:flex;flex-direction:column;gap:3px;min-width:150px}
+  .stats b{color:var(--cyan)}
+  .hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:5;background:var(--panel);
+    border:1px solid var(--line);border-radius:99px;padding:8px 18px;color:var(--dim);font-size:11px}
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+
+<div class="hud">
+  <span class="eyebrow">Paddock GP · Faz 0</span>
+  <h1>3B Teknik Sondaj</h1>
+  <p>Bahreyn'in gerçek pist koordinatlarından üretilmiş 3B bir şerit ve üzerinde
+     sabit hızla ilerleyen yer tutucu bir araç. Amaç güzellik değil — Three.js
+     yönünün doğru hissettirip hissettirmediğine karar vermek.</p>
+  <a href="game.html">← Sezon Merkezine dön</a>
+</div>
+
+<div class="stats">
+  <div>FPS: <b id="fps">—</b></div>
+  <div>Üçgen: <b id="tris">—</b></div>
+  <div>Tur mesafesi: <b id="len">—</b> birim</div>
+</div>
+
+<div class="hint">Sürükle: döndür &nbsp;·&nbsp; Tekerlek: yakınlaş &nbsp;·&nbsp; Sağ tık sürükle: kaydır</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/OrbitControls.js';
+
+/* =========================================================
+   1. BAHREYN PİST VERİSİ
+   game.html'deki zorunlu SVG yolunun (viewBox 0 0 1000 600) bezier
+   çapa noktaları — aynı kaynak, Faz 0'daki Unity denemesiyle birebir
+   aynı liste. SVG (x,y) -> 3B (x, 0, z) zemin düzlemine, merkezi
+   sahne orijinine yakın olacak şekilde ofsetlenerek eşlenir.
+   ========================================================= */
+const SVG_ANCHORS = [
+  [180,480],[480,480],[560,410],[560,380],[500,350],[460,365],[410,330],[410,240],
+  [500,180],[640,180],[720,250],[720,280],[660,330],[620,330],[580,270],[580,140],
+  [480,60],[280,60],[180,140],[180,220],[250,280],[320,280],[380,350],[380,420],[290,480]
+];
+const CENTER_X = 450, CENTER_Z = 270;
+const SCALE = 0.4; // metre ölçeğine indirger (~540x440 SVG birimi -> ~216x176m pist)
+
+const wayPoints = SVG_ANCHORS.map(([x, y]) =>
+  new THREE.Vector3((x - CENTER_X) * SCALE, 0, (y - CENTER_Z) * SCALE)
+);
+// 'centripetal' parametrelendirmesi keskin virajlarda (hairpin) halka/sivri
+// uç oluşumunu önler — 'catmullrom' tipi bunlarda taşma yapabiliyordu.
+const trackCurve = new THREE.CatmullRomCurve3(wayPoints, true, 'centripetal');
+
+/* =========================================================
+   2. SAHNE / KAMERA / IŞIK — Bahreyn gece yarışı atmosferi
+   ========================================================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070a);
+scene.fog = new THREE.Fog(0x05070a, 260, 650);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 2000);
+camera.position.set(0, 145, 165);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 4, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 20;
+controls.maxDistance = 260;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+scene.add(new THREE.HemisphereLight(0x3a5578, 0x0a0d11, 0.9));
+
+const floodlight = new THREE.DirectionalLight(0xfff2d8, 3.2);
+floodlight.position.set(90, 130, 40);
+floodlight.castShadow = true;
+floodlight.shadow.mapSize.set(2048, 2048);
+floodlight.shadow.camera.left = -180;
+floodlight.shadow.camera.right = 180;
+floodlight.shadow.camera.top = 180;
+floodlight.shadow.camera.bottom = -180;
+floodlight.shadow.camera.far = 400;
+floodlight.shadow.bias = -0.0015;
+scene.add(floodlight);
+
+const rimLight = new THREE.DirectionalLight(0x3a6fb0, 0.5);
+rimLight.position.set(-80, 40, -60);
+scene.add(rimLight);
+
+/* =========================================================
+   3. ZEMİN
+   ========================================================= */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(900, 900),
+  new THREE.MeshStandardMaterial({ color: 0x11151b, roughness: 0.95, metalness: 0.02 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(900, 90, 0x1c2530, 0x161b22);
+grid.position.y = 0.01;
+scene.add(grid);
+
+/* =========================================================
+   4. PİST ŞERİDİ — eğri boyunca üçgen şerit (ribbon) inşası
+   ========================================================= */
+function buildTrackRibbon(curve, width, segments) {
+  const half = width / 2;
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const up = new THREE.Vector3(0, 1, 0);
+
+  // Kapalı eğrinin t=0/1 dikişinde getPointAt() bazen neredeyse-çakışık
+  // iki nokta döndürüyor -> sıfıra yakın teğet -> yozlaşmış (sivri uçlu)
+  // üçgen. Geniş bir epsilon + son geçerli "right" vektörüne düşme ile korunur.
+  const eps = 0.004;
+  let lastRight = new THREE.Vector3(1, 0, 0);
+  for (let i = 0; i <= segments; i++) {
+    const t = (i / segments) % 1;
+    const point = curve.getPointAt(t);
+    const tPrev = (t - eps + 1) % 1;
+    const tNext = (t + eps) % 1;
+    const tangent = curve.getPointAt(tNext).clone().sub(curve.getPointAt(tPrev));
+    let right;
+    if (tangent.lengthSq() > 1e-6) {
+      right = new THREE.Vector3().crossVectors(tangent.normalize(), up).normalize();
+      lastRight = right;
+    } else {
+      right = lastRight;
+    }
+    const left = point.clone().addScaledVector(right, -half);
+    const rightPt = point.clone().addScaledVector(right, half);
+
+    positions.push(left.x, left.y + 0.02, left.z, rightPt.x, rightPt.y + 0.02, rightPt.z);
+    normals.push(0, 1, 0, 0, 1, 0);
+    const v = i / segments * 40;
+    uvs.push(0, v, 1, v);
+  }
+
+  const indices = [];
+  for (let i = 0; i < segments; i++) {
+    const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3;
+    indices.push(a, c, b, b, c, d);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  return geo;
+}
+
+const TRACK_WIDTH = 12;
+const trackGeo = buildTrackRibbon(trackCurve, TRACK_WIDTH, 400);
+const trackMat = new THREE.MeshStandardMaterial({ color: 0x363f4d, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
+const trackMesh = new THREE.Mesh(trackGeo, trackMat);
+trackMesh.receiveShadow = true;
+trackMesh.castShadow = false;
+scene.add(trackMesh);
+
+// Kerb şeridi (kırmızı/beyaz kenar vurgusu) — ribbon'ın hemen dışına ince bir çizgi
+const kerbGeo = buildTrackRibbon(trackCurve, TRACK_WIDTH + 1.6, 400);
+const kerbMat = new THREE.MeshStandardMaterial({ color: 0xb0311f, roughness: 0.7, side: THREE.DoubleSide });
+const kerbMesh = new THREE.Mesh(kerbGeo, kerbMat);
+kerbMesh.position.y = -0.01;
+kerbMesh.receiveShadow = true;
+scene.add(kerbMesh);
+
+/* =========================================================
+   5. ARABA — jenerik alçak-poligon F1 gövdesi (McLaren turuncusu)
+   ========================================================= */
+function buildCar(color) {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.55 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x0e1116, roughness: 0.5, metalness: 0.3 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.55, 4.4), bodyMat);
+  body.position.y = 0.5;
+  body.castShadow = true;
+  group.add(body);
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.6, 8), bodyMat);
+  nose.rotation.x = Math.PI / 2;
+  nose.position.set(0, 0.4, 2.7);
+  nose.castShadow = true;
+  group.add(nose);
+
+  const cockpit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 1.3), darkMat);
+  cockpit.position.set(0, 0.9, 0.1);
+  cockpit.castShadow = true;
+  group.add(cockpit);
+
+  const rearWing = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.12, 0.5), darkMat);
+  rearWing.position.set(0, 1.05, -2.1);
+  rearWing.castShadow = true;
+  group.add(rearWing);
+  const wingPost = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), darkMat);
+  wingPost.position.set(0, 0.75, -2.1);
+  group.add(wingPost);
+
+  const frontWing = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 0.6), new THREE.MeshStandardMaterial({ color: 0xeef3f8, roughness: 0.4 }));
+  frontWing.position.set(0, 0.2, 3.4);
+  frontWing.castShadow = true;
+  group.add(frontWing);
+
+  const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.4, 16);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111213, roughness: 0.9 });
+  const wheelPositions = [
+    [-1.05, 0.45, 1.65], [1.05, 0.45, 1.65],
+    [-1.05, 0.45, -1.55], [1.05, 0.45, -1.55]
+  ];
+  for (const [x, y, z] of wheelPositions) {
+    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(x, y, z);
+    wheel.castShadow = true;
+    group.add(wheel);
+  }
+
+  return group;
+}
+
+const car = buildCar(0xff8000); // McLaren turuncusu — oyunun oynanabilir takımı
+scene.add(car);
+
+/* =========================================================
+   6. HUD BİLGİLERİ
+   ========================================================= */
+document.getElementById('len').textContent = trackCurve.getLength().toFixed(0);
+document.getElementById('tris').textContent =
+  ((trackGeo.index.count + kerbGeo.index.count) / 3).toFixed(0);
+
+/* =========================================================
+   7. ANA DÖNGÜ — araba eğri boyunca sabit hızla ilerler
+   ========================================================= */
+const CAR_SPEED = 0.028; // tur/saniye
+let lastT = performance.now();
+let fpsAccum = 0, fpsFrames = 0, fpsTimer = 0;
+
+function animate(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  const t = (now / 1000 * CAR_SPEED) % 1;
+  const pos = trackCurve.getPointAt(t);
+  const tangent = trackCurve.getTangentAt(t);
+  car.position.copy(pos);
+  car.position.y = 0.05;
+  car.lookAt(pos.clone().add(tangent));
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  fpsFrames++; fpsTimer += dt;
+  if (fpsTimer >= 0.5) {
+    document.getElementById('fps').textContent = Math.round(fpsFrames / fpsTimer);
+    fpsFrames = 0; fpsTimer = 0;
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
