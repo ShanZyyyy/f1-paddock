@@ -95,6 +95,7 @@ img,svg{display:block}
   box-shadow:0 10px 26px rgba(0,0,0,.35);
 }
 .dc-head{display:flex;align-items:center;gap:12px}
+.driver-portrait{flex:0 0 auto;display:block;filter:drop-shadow(0 3px 8px rgba(0,0,0,.4))}
 .dc-code{
   font-family:var(--f-mono);font-weight:700;font-size:12px;color:var(--bg-0);
   background:linear-gradient(135deg,var(--neon-orange),var(--neon-red));
@@ -317,7 +318,8 @@ function driversFromMaster(){
       id:d.id, name:d.name, short_code:d.code, role:'Driver '+(i+1),
       age:d.age, salary_per_race:overall*1000, races_remaining:18,
       stats:{ overall:overall, pace:s.pace, tyre_management:s.tyre_management, overtaking:s.overtaking, consistency:s.consistency, wet_skill:wetSkill },
-      morale:seededVal(d.id+'m',65,92), form:seededVal(d.id+'f',68,90)
+      morale:seededVal(d.id+'m',65,92), form:seededVal(d.id+'f',68,90),
+      team_color:team.color_primary, team_color2:(team.color_secondary&&team.color_secondary!=='#00000')?team.color_secondary:'#0e1116'
     };
   }).filter(Boolean);
 }
@@ -389,6 +391,24 @@ function statEntries(statsObj, excludeKeys){
 /* =========================================================
    SVG — dairesel genel reyting göstergesi
    ========================================================= */
+// Gerçek pilot fotoğrafı yok (telif) — F1 Manager tarzı stilize kask
+// portresi: kubbe + vizör + takım renginde şerit + kod plakası.
+function driverPortraitSVG(code,color1,color2,size,withLabel){
+  size=size||44;
+  var gid='pg-'+(code||'x').replace(/[^a-zA-Z0-9]/g,'')+Math.round(Math.random()*1e6);
+  color2=color2||color1;
+  return '<svg class="driver-portrait" width="'+size+'" height="'+size+'" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+    +'<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="1" y2="1">'
+      +'<stop offset="0" stop-color="'+color1+'"/><stop offset="1" stop-color="'+color2+'"/>'
+    +'</linearGradient></defs>'
+    +'<rect x="1" y="1" width="98" height="98" rx="22" fill="'+color1+'" opacity="0.16"/>'
+    +'<path d="M14,64 C14,30 30,10 50,10 C70,10 86,30 86,64 L86,72 C86,80 70,86 50,86 C30,86 14,80 14,72 Z" fill="url(#'+gid+')"/>'
+    +'<rect x="46" y="10" width="8" height="27" rx="4" fill="'+color2+'" opacity="0.92"/>'
+    +'<path d="M13,50 C13,42 29,36 50,36 C71,36 87,42 87,50 L87,60 C87,66 71,70 50,70 C29,70 13,66 13,60 Z" fill="#0a0c10"/>'
+    +'<path d="M18,48 C18,44 30,40 50,40 C70,40 82,44 82,48" stroke="rgba(255,255,255,.2)" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    +(withLabel===false?'':'<rect x="18" y="75" width="64" height="17" rx="6" fill="rgba(4,5,7,.6)"/><text x="50" y="88" text-anchor="middle" font-family="\'JetBrains Mono\',monospace" font-weight="800" font-size="13" fill="#fff" letter-spacing="1">'+(code||'')+'</text>')
+    +'</svg>';
+}
 function overallGaugeSVG(value,size){
   size=size||58;
   var r=size/2-6, cx=size/2, cy=size/2;
@@ -459,7 +479,7 @@ function driverCardHTML(d){
   return '<article class="driver-card">'
     +'<div class="dc-head">'
       +'<div class="dc-id">'
-        +'<span class="dc-code">'+d.short_code+'</span>'
+        +driverPortraitSVG(d.short_code,d.team_color||'#1a2530',d.team_color2||'#0e1116',54,false)
         +'<div class="dc-name-wrap"><h3 class="dc-name">'+d.name+'</h3><span class="dc-role">'+roleLabel(d.role)+' · '+d.age+' yaş</span></div>'
       +'</div>'
       +(overallEntry!==null ? '<div class="gauge-wrap tier-'+gaugeTier+'">'+overallGaugeSVG(overallEntry)+'<span class="gauge-value">'+overallEntry+'<small>GENEL</small></span></div>' : '')
