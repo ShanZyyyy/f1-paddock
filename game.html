@@ -1274,7 +1274,7 @@ function buildGrid(){
   var cars=ROSTER.map(function(r,i){
     return {
       id:r.code, code:r.code, name:r.name, teamName:teamNameFor(r.team_id),
-      color:teamColorFor(r.team_id), isPlayer:r.isPlayer, skill:driverSkill(r), wet:r.wet,
+      color:teamColorFor(r.team_id), color2:teamColor2For(r.team_id), isPlayer:r.isPlayer, skill:driverSkill(r), wet:r.wet,
       grid:i+1, lapsCompleted:0, trackPosition:-i*0.011,
       compound: startCompounds[r.code]||(i%3===0?'M':(i%3===1?'S':'H')), tireWear:0,
       pitting:false, pitTimer:0, pitStops:0, mode:'DENGE',
@@ -1594,10 +1594,37 @@ function buildGrandstands(curve,trackHalfWidth){
   return group;
 }
 
-function buildCarMesh3d(color,isPlayer){
+// Start/bitiş çizgisi ışık portalı — F1 yayınlarındaki ikonik 5 kırmızı
+// ışık sırası. Araba modeliyle aynı yerel eksen kuralını kullanır (genişlik
+// yerel X, ileri yön yerel Z) ve aynı group.lookAt(...) yöntemiyle pist
+// teğetine hizalanır.
+var gantryLights3d=[];
+function buildStartGantry3d(curve,trackWidth){
+  var group=new THREE.Group();
+  var darkMat=new THREE.MeshStandardMaterial({color:0x14171c,roughness:0.6,metalness:0.4});
+  var span=trackWidth+2.4;
+  [-1,1].forEach(function(side){
+    var pillar=new THREE.Mesh(new THREE.BoxGeometry(0.32,6.2,0.32),darkMat);
+    pillar.position.set(side*span/2,3.1,0); pillar.castShadow=true; group.add(pillar);
+  });
+  var beam=new THREE.Mesh(new THREE.BoxGeometry(span+0.4,0.5,0.5),darkMat);
+  beam.position.set(0,6.1,0); beam.castShadow=true; group.add(beam);
+  gantryLights3d=[];
+  for(var i=0;i<5;i++){
+    var lx=(i-2)*(span/6);
+    var lightMat=new THREE.MeshStandardMaterial({color:0x2a0a0c,emissive:0x2a0a0c,emissiveIntensity:0.4,roughness:0.4});
+    var light=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.28),lightMat);
+    light.position.set(lx,5.6,0.3); group.add(light);
+    gantryLights3d.push(light);
+  }
+  return group;
+}
+
+function buildCarMesh3d(color,color2,isPlayer){
   var group=new THREE.Group();
   var bodyMat=new THREE.MeshStandardMaterial({color:color,roughness:0.35,metalness:0.55});
   var darkMat=new THREE.MeshStandardMaterial({color:0x0e1116,roughness:0.5,metalness:0.3});
+  var accentMat=new THREE.MeshStandardMaterial({color:color2||color,roughness:0.35,metalness:0.55});
   var wingMat=new THREE.MeshStandardMaterial({color:isPlayer?0xeef3f8:0xc7d0da,roughness:0.4});
 
   // Ana gövde ("Coke bottle" hattı) — ön tarafta geniş, arkaya doğru
@@ -1622,6 +1649,10 @@ function buildCarMesh3d(color,isPlayer){
     var pylon=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.22,0.42),darkMat);
     pylon.position.set(x,0.28,3.58); group.add(pylon);
   });
+  // Takım ikinci rengiyle burun şeridi — tek renkli gövdeye "livery" hissi
+  // katan iki tonlu aksan.
+  var noseStripe=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.05,1.55),accentMat);
+  noseStripe.position.set(0,0.62,2.75); group.add(noseStripe);
 
   // Oyuklu (undercut) sidepod'lar — üstte geniş, altta içeri kesik.
   [-1,1].forEach(function(side){
@@ -1645,12 +1676,15 @@ function buildCarMesh3d(color,isPlayer){
   var haloPylon=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.46,0.07),darkMat);
   haloPylon.position.set(0,0.98,1.65); group.add(haloPylon);
 
-  // Airbox — halo'nun arkasında motor hava alığı çıkıntısı.
-  var airbox=new THREE.Mesh(new THREE.ConeGeometry(0.26,0.5,6),darkMat);
+  // Airbox — halo'nun arkasında motor hava alığı çıkıntısı; ikinci takım
+  // rengiyle iki tonlu livery aksanını tamamlar.
+  var airbox=new THREE.Mesh(new THREE.ConeGeometry(0.26,0.5,6),accentMat);
   airbox.position.set(0,1.05,0.15); airbox.castShadow=true; group.add(airbox);
 
   // Arka kanat: ana eleman + alt "beam wing" — 2022+ nesli F1 arabalarının
-  // ayırt edici çift kanat siluetini verir.
+  // ayırt edici çift kanat siluetini verir. rearWing, DRS aktifken
+  // drawCars() içinde açılan hareketli flap olarak kullanılıyor (bkz.
+  // group.userData.rearWing / .rearWingBaseRot).
   var rearWing=new THREE.Mesh(new THREE.BoxGeometry(2.05,0.1,0.48),darkMat);
   rearWing.position.set(0,1.02,-2.55); rearWing.rotation.x=-0.08; rearWing.castShadow=true; group.add(rearWing);
   var beamWing=new THREE.Mesh(new THREE.BoxGeometry(1.3,0.07,0.32),darkMat);
@@ -1660,7 +1694,11 @@ function buildCarMesh3d(color,isPlayer){
   [-1.0,1.0].forEach(function(x){
     var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.5,0.62),darkMat);
     endplate.position.set(x,0.98,-2.55); group.add(endplate);
+    var endplateAccent=new THREE.Mesh(new THREE.BoxGeometry(0.052,0.14,0.62),accentMat);
+    endplateAccent.position.set(x,1.2,-2.55); group.add(endplateAccent);
   });
+  group.userData.rearWing=rearWing;
+  group.userData.rearWingBaseRot=rearWing.rotation.x;
   var rainLight=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.08,0.06),new THREE.MeshStandardMaterial({color:0xd11f2e,roughness:0.3}));
   rainLight.position.set(0,0.86,-2.72); group.add(rainLight);
 
@@ -1727,7 +1765,54 @@ function buildCarMesh3d(color,isPlayer){
   return group;
 }
 
-var trackMesh3d=null, kerbMesh3d=null, gravelMesh3d=null, barrierGroup3d=null, standsGroup3d=null;
+var trackMesh3d=null, kerbMesh3d=null, gravelMesh3d=null, barrierGroup3d=null, standsGroup3d=null, startGantry3d=null;
+var rainSystem=null, RAIN_TOP=46, RAIN_SPAN=420, RAIN_COUNT=2200;
+// Yağmur parçacıkları — ISLAK PİST bayrağı aktifken görünür kılınan, sürekli
+// düşen bir THREE.Points bulutu. Points/PointsMaterial normal/aydınlatma
+// kullanmaz, dolayısıyla pist şeridindeki sarım-yönü kaynaklı karartma
+// sorunundan tamamen bağımsızdır.
+function makeRainDropTexture(){
+  // Yumuşak, dikey uzamış bir "damla/çizgi" — düz kare nokta yerine
+  // düşen yağmuru andıran bulanık bir iz bırakır.
+  var c=document.createElement('canvas'); c.width=8; c.height=32;
+  var ctx=c.getContext('2d');
+  var grad=ctx.createLinearGradient(0,0,0,32);
+  grad.addColorStop(0,'rgba(191,224,255,0)');
+  grad.addColorStop(0.5,'rgba(220,238,255,0.95)');
+  grad.addColorStop(1,'rgba(191,224,255,0)');
+  ctx.fillStyle=grad;
+  ctx.fillRect(1,0,6,32);
+  return new THREE.CanvasTexture(c);
+}
+function buildRainSystem(){
+  var positions=new Float32Array(RAIN_COUNT*3);
+  for(var i=0;i<RAIN_COUNT;i++){
+    positions[i*3]=(Math.random()-0.5)*RAIN_SPAN;
+    positions[i*3+1]=Math.random()*RAIN_TOP;
+    positions[i*3+2]=(Math.random()-0.5)*RAIN_SPAN;
+  }
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  var mat=new THREE.PointsMaterial({
+    map:makeRainDropTexture(),color:0xbfe0ff,size:1.8,transparent:true,opacity:0.8,
+    depthWrite:false,sizeAttenuation:true,fog:false,alphaTest:0.02
+  });
+  var pts=new THREE.Points(geo,mat);
+  pts.visible=false;
+  pts.frustumCulled=false;
+  return pts;
+}
+function updateRain(dt){
+  if(!rainSystem||!rainSystem.visible) return;
+  var pos=rainSystem.geometry.attributes.position;
+  var fall=dt*95;
+  for(var i=0;i<RAIN_COUNT;i++){
+    var y=pos.getY(i)-fall;
+    if(y<0) y=RAIN_TOP;
+    pos.setY(i,y);
+  }
+  pos.needsUpdate=true;
+}
 function buildSkyDome(){
   var geo=new THREE.SphereGeometry(480,20,14);
   var topColor=new THREE.Color(0x0c1220), botColor=new THREE.Color(0x3d4f66);
@@ -1807,6 +1892,8 @@ function initTrack3D(round){
     var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x2a3626,roughness:0.95,metalness:0.02}));
     ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene3d.add(ground);
     scene3d.add(buildSkyDome());
+    rainSystem=buildRainSystem();
+    scene3d.add(rainSystem);
 
     carGroup3d=new THREE.Group();
     scene3d.add(carGroup3d);
@@ -1829,8 +1916,14 @@ function initTrack3D(round){
   if(kerbMesh3d){ scene3d.remove(kerbMesh3d); kerbMesh3d.geometry.dispose(); kerbMesh3d.material.dispose(); }
 
   var TRACK_WIDTH=12;
+  var isWet=raceWeather==='WET';
+  // Islak pist: daha düşük roughness + hafif koyulaşan renk, asfaltın
+  // üzerindeki su filminin verdiği parlak/yansıtıcı görünümü taklit eder.
+  if(rainSystem) rainSystem.visible=isWet;
   var trackGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH,400);
-  trackMesh3d=new THREE.Mesh(trackGeo,new THREE.MeshStandardMaterial({color:0x888e96,roughness:0.85,metalness:0.02,side:THREE.DoubleSide}));
+  trackMesh3d=new THREE.Mesh(trackGeo,new THREE.MeshStandardMaterial({
+    color:isWet?0x565e66:0x888e96, roughness:isWet?0.18:0.85, metalness:isWet?0.35:0.02, side:THREE.DoubleSide
+  }));
   trackMesh3d.position.y=0.04; trackMesh3d.receiveShadow=false; scene3d.add(trackMesh3d);
 
   var kerbGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH+1.6,400);
@@ -1871,10 +1964,23 @@ function initTrack3D(round){
   standsGroup3d=buildGrandstands(track3dCurve,TRACK_WIDTH/2);
   scene3d.add(standsGroup3d);
 
+  if(startGantry3d){
+    scene3d.remove(startGantry3d);
+    startGantry3d.traverse(function(o){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
+  }
+  startGantry3d=buildStartGantry3d(track3dCurve,TRACK_WIDTH);
+  var gStart=track3dCurve.getPointAt(0);
+  var gEps=0.004;
+  var gTangent=track3dCurve.getPointAt(gEps).clone().sub(track3dCurve.getPointAt(1-gEps));
+  if(gTangent.lengthSq()<1e-8) gTangent.set(0,0,1); else gTangent.normalize();
+  startGantry3d.position.copy(gStart);
+  startGantry3d.lookAt(gStart.clone().add(gTangent));
+  scene3d.add(startGantry3d);
+
   carGroup3d.clear();
   carMeshes3d={};
   race.cars.forEach(function(c){
-    var mesh=buildCarMesh3d(c.color,c.isPlayer);
+    var mesh=buildCarMesh3d(c.color,c.color2,c.isPlayer);
     if(c.isPlayer && mesh.userData.labelCtx){
       var ctx=mesh.userData.labelCtx;
       ctx.clearRect(0,0,128,48);
@@ -1940,7 +2046,17 @@ function updateFollowCamera(){
   camera3d.lookAt(followLookAt);
 }
 
-function drawCars(){
+function drawCars(dt){
+  updateRain(dt||0.016);
+  // Start portalı — yarışın ilk birkaç saniyesinde 5 kırmızı ışık yanık
+  // durur, gerçek F1 start prosedürünün görsel imzası.
+  if(gantryLights3d.length){
+    var lit=race.raceTime!==undefined && race.raceTime<4;
+    var lc=lit?0xff1c28:0x2a0a0c, li=lit?1.1:0.4;
+    gantryLights3d.forEach(function(L){
+      L.material.color.setHex(lc); L.material.emissive.setHex(lc); L.material.emissiveIntensity=li;
+    });
+  }
   race.cars.forEach(function(c){
     var mesh=carMeshes3d[c.code];
     if(!mesh) return;
@@ -1949,6 +2065,13 @@ function drawCars(){
     mesh.position.y=0.05;
     if(p.tangent.lengthSq()>0.0001) mesh.lookAt(p.pos.clone().add(p.tangent));
     mesh.visible=!c.pitting;
+    // DRS açıkken arka kanat flap'i düzleşip sürtünmeyi azaltır — HUD'daki
+    // DRS rozetiyle aynı koşulu kullanarak 3D modelde de görünür kılınır.
+    var rw=mesh.userData.rearWing;
+    if(rw){
+      var targetRot=carHasDRS(c)?mesh.userData.rearWingBaseRot+0.42:mesh.userData.rearWingBaseRot;
+      rw.rotation.x+=(targetRot-rw.rotation.x)*0.15;
+    }
   });
   if(cameraMode==='follow') updateFollowCamera();
   else if(controls3d) controls3d.update();
@@ -2060,7 +2183,7 @@ function renderAll(dtReal){
     uiAccum=0;
     renderTop(); renderTower(); renderDualTelemetry(); drawMinimap();
   }
-  drawCars();
+  drawCars(dtReal);
 }
 
 /* =========================================================
