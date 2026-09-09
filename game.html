@@ -60,6 +60,9 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
   content:'';position:absolute;left:0;right:0;bottom:0;height:45%;pointer-events:none;
   background:linear-gradient(0deg, rgba(0,240,255,.05), transparent);
 }
+.menu-trackline{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.menu-trackline path{fill:none;stroke:var(--cyan);stroke-width:3;stroke-linecap:round;opacity:.1}
+.menu-flag-corner{position:absolute;right:26px;top:22px;font-size:26px;opacity:.35;z-index:2;transform:rotate(12deg)}
 .menu-wrap{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:34px}
 .menu-brand{display:flex;flex-direction:column;align-items:center;gap:6px}
 .menu-brand .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.4em;color:var(--cyan);text-transform:uppercase}
@@ -149,6 +152,19 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .sponsor-name{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase}
 .sponsor-meta{font-family:var(--f-mono);font-size:11px;color:var(--text-dim)}
 .sponsor-none{color:var(--text-mute);font-size:12.5px}
+.sp-hud{display:flex;flex-direction:column;gap:12px;width:100%}
+.sp-hud-head{display:flex;align-items:center;gap:8px}
+.sp-icon{font-size:16px}
+.sp-name{font-family:var(--f-display);font-weight:800;font-size:15px;text-transform:uppercase;flex:1}
+.sp-badge{font-family:var(--f-mono);font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--green);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);border-radius:99px;padding:3px 9px}
+.sp-hud-stats{display:flex;gap:24px;flex-wrap:wrap}
+.sp-stat{display:flex;flex-direction:column;gap:3px}
+.sp-stat .l{font-size:9px;letter-spacing:.08em;color:var(--text-mute);text-transform:uppercase;font-weight:700}
+.sp-stat .v{font-family:var(--f-mono);font-weight:700;font-size:13px;color:var(--green)}
+.sp-hud-progress{display:flex;align-items:center;gap:10px}
+.sp-bar{flex:1;height:6px;border-radius:99px;background:var(--bg-4);overflow:hidden}
+.sp-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:99px}
+.sp-ptxt{font-family:var(--f-mono);font-size:10.5px;color:var(--text-dim);white-space:nowrap}
 .sponsor-btn{padding:11px 20px;border-radius:4px;background:var(--cyan);color:#04262b;font-family:var(--f-display);font-weight:800;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
 .sponsor-btn:hover{background:#33f5ff}
 
@@ -234,11 +250,36 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .cp-chip[data-c="S"]{color:var(--c-soft)} .cp-chip[data-c="M"]{color:var(--c-medium)} .cp-chip[data-c="H"]{color:var(--c-hard)}
 .cp-chip.is-sel{background:rgba(255,255,255,.06);border-color:currentColor}
 .pr-tyrenote{font-size:11px;color:var(--text-dim);line-height:1.5}
+.pr-actions{display:flex;align-items:center;gap:16px}
 .pr-start{padding:16px 48px;border-radius:4px;background:var(--race-red);color:#fff;font-family:var(--f-display);font-weight:800;
   font-size:16px;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 10px 30px -10px rgba(255,51,75,.7)}
 .pr-start:hover{background:#ff485d}
+.pr-setup-btn{padding:15px 22px;border-radius:4px;background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.pr-setup-btn:hover{color:var(--text);border-color:var(--cyan)}
 .pr-back{font-family:var(--f-mono);font-size:11px;color:var(--text-mute);letter-spacing:.05em}
 .pr-back:hover{color:var(--text-dim)}
+
+.setup-modal{position:fixed;inset:0;z-index:55;background:rgba(4,5,7,.78);display:none;align-items:center;justify-content:center}
+.setup-modal.open{display:flex}
+.setup-box{width:560px;max-width:92vw;background:var(--bg-2);border:1px solid var(--line);border-radius:6px;padding:26px}
+.setup-box h3{font-family:var(--f-display);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+.setup-hint{font-size:11.5px;color:var(--text-dim);line-height:1.55;margin-bottom:20px}
+.setup-sliders{display:flex;flex-direction:column;gap:16px;margin-bottom:20px}
+.setup-slider-row{display:grid;grid-template-columns:130px 1fr 30px;align-items:center;gap:12px}
+.setup-slider-row label{font-size:11.5px;color:var(--text-dim);font-weight:700}
+.setup-slider-row input[type=range]{width:100%;accent-color:var(--cyan)}
+.setup-slider-val{font-family:var(--f-mono);font-weight:800;font-size:13px;text-align:right}
+.setup-drivers{display:flex;gap:14px;margin-bottom:20px}
+.setup-driver{flex:1;background:var(--bg-3);border:1px solid var(--line-soft);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.setup-driver-name{font-family:var(--f-display);font-weight:700;font-size:12px;text-transform:uppercase}
+.setup-sat-bar{height:8px;border-radius:99px;background:var(--bg-4);overflow:hidden}
+.setup-sat-bar i{display:block;height:100%;border-radius:99px}
+.setup-sat-val{font-family:var(--f-mono);font-weight:800;font-size:15px}
+.setup-sat-val.is-low{color:var(--race-red)}
+.setup-sat-val.is-mid{color:var(--amber)}
+.setup-sat-val.is-high{color:var(--green)}
+.setup-close{width:100%;padding:12px;border:1px solid var(--line);border-radius:4px;font-family:var(--f-display);font-weight:700;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;text-align:center;color:var(--text-dim)}
+.setup-close:hover{color:var(--text);border-color:var(--text-dim)}
 
 /* =========================================================
    3b. SIRALAMA TURU (Qualifying)
@@ -332,6 +373,7 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 .dcard-name{font-family:var(--f-display);font-weight:700;font-size:11.5px;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
 .drs-chip{font-family:var(--f-mono);font-size:8px;font-weight:800;color:var(--drs);border:1px solid var(--drs);border-radius:2px;padding:0 4px;animation:drspulse 1s ease-in-out infinite}
 @keyframes drspulse{0%,100%{opacity:1}50%{opacity:.4}}
+.dcard-pit{font-family:var(--f-mono);font-size:8px;font-weight:700;color:var(--text-mute)}
 .dcard-cols{display:grid;grid-template-columns:1fr 1fr 1fr}
 .dcol{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 6px}
 .dcol+.dcol{border-left:1px solid rgba(255,255,255,.07)}
@@ -419,6 +461,10 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
 
   <!-- ============ 1. TITLE SCREEN ============ -->
   <section class="screen active" id="screen-main-menu">
+    <svg class="menu-trackline" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+      <path d="M -50,480 L 220,480 C 300,480 320,440 300,400 C 280,360 220,370 210,330 C 200,280 260,270 340,270 L 700,270 C 780,270 800,230 770,190 C 740,150 650,160 640,120 C 630,70 700,40 800,40 L 1050,40" />
+    </svg>
+    <span class="menu-flag-corner">🏁</span>
     <div class="menu-wrap">
       <div class="menu-brand">
         <span class="eyebrow">Paddock GP</span>
@@ -545,9 +591,38 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
         </div>
       </div>
       <div class="pr-tyrenote" id="pr-tyrenote"></div>
-      <button class="pr-start" id="btn-start-race" type="button">SIRALAMA TURUNA GEÇ</button>
+      <div class="pr-actions">
+        <button class="pr-setup-btn" id="btn-open-setup" type="button">🔧 Araç Ayarları</button>
+        <button class="pr-start" id="btn-start-race" type="button">SIRALAMA TURUNA GEÇ</button>
+      </div>
     </div>
   </section>
+
+  <div class="setup-modal" id="setup-modal">
+    <div class="setup-box">
+      <h3>Araç Ayarları</h3>
+      <p class="setup-hint">Kanat açıları ve süspansiyon sertliği pilotların memnuniyetini belirler — memnun bir pilot sıralama ve yarışta biraz daha hızlıdır. Her pilotun tercihi farklıdır; ikisini de tam memnun etmek zordur.</p>
+      <div class="setup-sliders">
+        <div class="setup-slider-row">
+          <label for="setup-fw">Ön Kanat Açısı</label>
+          <input type="range" id="setup-fw" min="1" max="10" step="1">
+          <span class="setup-slider-val" id="setup-fw-val">5</span>
+        </div>
+        <div class="setup-slider-row">
+          <label for="setup-rw">Arka Kanat Açısı</label>
+          <input type="range" id="setup-rw" min="1" max="10" step="1">
+          <span class="setup-slider-val" id="setup-rw-val">5</span>
+        </div>
+        <div class="setup-slider-row">
+          <label for="setup-sus">Süspansiyon Sertliği</label>
+          <input type="range" id="setup-sus" min="1" max="10" step="1">
+          <span class="setup-slider-val" id="setup-sus-val">5</span>
+        </div>
+      </div>
+      <div class="setup-drivers" id="setup-drivers"></div>
+      <button class="setup-close" id="btn-setup-close" type="button">Kapat</button>
+    </div>
+  </div>
 
   <!-- ============ 3c. SIRALAMA TURU (QUALIFYING) ============ -->
   <section class="screen" id="screen-quali">
@@ -805,12 +880,25 @@ function defaultCarSpecs(){
     overall_rating:78,
     categories:categories,
     active_upgrades:[],
+    setup:{front_wing:5,rear_wing:5,suspension:5},
     available_projects:[
       { id:'proj_01', name:'Alt Taban Venturi Tünelleri', category:'aerodynamics', stat:'downforce', cost:300000, dev_time_races:4, gain:'+7 Yere Basma Kuvveti', rating_gain:4 },
       { id:'proj_02', name:'Güçlendirilmiş Şanzıman Gövdesi', category:'durability', stat:'gearbox_reliability', cost:180000, dev_time_races:2, gain:'+6 Şanzıman Güvenilirliği', rating_gain:2 },
       { id:'proj_03', name:'Yüksek Akışlı Soğutma Kanalları', category:'power_unit', stat:'top_speed', cost:140000, dev_time_races:3, gain:'+5 Maksimum Hız', rating_gain:3 }
     ]
   };
+}
+function driverSetupPreference(code){
+  var h=hashSeed(code+'_setup');
+  var rnd=mulberry32(h);
+  return { front_wing:3+Math.floor(rnd()*5), rear_wing:3+Math.floor(rnd()*5), suspension:3+Math.floor(rnd()*5) };
+}
+function setupSatisfaction(code){
+  if(!CAR_SPECS.setup) return 70;
+  var pref=driverSetupPreference(code);
+  var s=CAR_SPECS.setup;
+  var dev=(Math.abs(s.front_wing-pref.front_wing)+Math.abs(s.rear_wing-pref.rear_wing)+Math.abs(s.suspension-pref.suspension))/3;
+  return Math.max(30,Math.min(99,Math.round(96-dev*11)));
 }
 function loadCarSpecs(){
   try{
@@ -931,7 +1019,7 @@ function signSponsor(dealId){
   if(!deal) return;
   CAREER.budget+=deal.signing_bonus;
   saveCareer();
-  SPONSOR.activeDeal={ id:deal.id, name:deal.name, income_per_race:deal.income_per_race, races_remaining:deal.contract_races, bonus_per_point:deal.bonus_per_point };
+  SPONSOR.activeDeal={ id:deal.id, name:deal.name, income_per_race:deal.income_per_race, races_remaining:deal.contract_races, contract_length:deal.contract_races, bonus_per_point:deal.bonus_per_point };
   saveSponsor(SPONSOR);
 }
 
@@ -1001,12 +1089,18 @@ function mulberry32(a){
 function generateProceduralWaypoints(seed,pointCount,baseRadius){
   var rng=mulberry32(seed);
   var radii=[];
-  for(var i=0;i<pointCount;i++) radii.push(baseRadius*(0.62+rng()*0.72));
-  var smoothed=radii.map(function(r,i){
-    var prev=radii[(i-1+pointCount)%pointCount], next=radii[(i+1)%pointCount];
-    return (prev+r*2+next)/4;
-  });
-  var squash=0.68+rng()*0.22;
+  // Dar aralık (0.8-1.14) + iki geçişli yumuşatma: bariyer/çakıl gibi geniş
+  // kenar şeritlerinin dar virajlarda kendi üzerine katlanıp "tünel"
+  // görünümü oluşturmasını önlemek için viraj yarıçapı asla çok küçülmez.
+  for(var i=0;i<pointCount;i++) radii.push(baseRadius*(0.8+rng()*0.34));
+  function smoothPass(arr){
+    return arr.map(function(r,i){
+      var prev=arr[(i-1+pointCount)%pointCount], next=arr[(i+1)%pointCount];
+      return (prev+r*2+next)/4;
+    });
+  }
+  var smoothed=smoothPass(smoothPass(radii));
+  var squash=0.78+rng()*0.12;
   var pts=[];
   for(i=0;i<pointCount;i++){
     var angle=(i/pointCount)*Math.PI*2;
@@ -1092,6 +1186,7 @@ function driverSkill(r){
     skill+=(CAR_SPECS.overall_rating-78)*0.0025;
     var chiefTier=STAFF_TIERS.chief_engineer[STAFF.chief_engineer_tier-1];
     skill+=(chiefTier.bonus||0)*0.0025;
+    skill+=(setupSatisfaction(r.code)-70)*0.0015;
   }
   return Math.max(0.85,Math.min(1.15,skill));
 }
@@ -1194,7 +1289,7 @@ function updateCar(c,dt){
   c.lastPaceRate=paceRate;
   c.trackPosition+=paceRate*dt;
 
-  var wearGain=COMPOUND_INFO[c.compound].wear*(MODE_WEAR[c.mode]||1)*dt*0.0021;
+  var wearGain=COMPOUND_INFO[c.compound].wear*(MODE_WEAR[c.mode]||1)*dt*0.00055;
   c.tireWear=Math.min(1,c.tireWear+wearGain);
 
   if(c.pushActive){ c.ers=Math.max(0,c.ers-dt*9); if(c.ers<=0) c.pushActive=false; }
@@ -1584,6 +1679,23 @@ function initTrack3D(round){
       adjustFollowZoom(e.deltaY*0.02);
     },{passive:false});
 
+    // Takip kamerasında sağa/sola sürükleyerek bakış açısını döndürme —
+    // genel bakışta zaten OrbitControls serbest, burada da manuel bir
+    // yörünge (orbit) kontrolü sağlanır.
+    var dragActive=false, dragLastX=0;
+    renderer3d.domElement.addEventListener('pointerdown',function(e){
+      if(cameraMode!=='follow') return;
+      dragActive=true; dragLastX=e.clientX;
+    });
+    window.addEventListener('pointermove',function(e){
+      if(!dragActive) return;
+      var dx=e.clientX-dragLastX; dragLastX=e.clientX;
+      // Sınırlı bakış açısı — tam tur döndürünce kamera bariyer/tribün
+      // gibi pist kenarı nesnelerine çok yaklaşıp içine girebiliyor.
+      followYaw=Math.max(-1.1,Math.min(1.1,followYaw-dx*0.006));
+    });
+    window.addEventListener('pointerup',function(){ dragActive=false; });
+
     controls3d=new OrbitControls(camera3d,renderer3d.domElement);
     controls3d.target.set(0,4,0);
     controls3d.enableDamping=true; controls3d.dampingFactor=0.08;
@@ -1639,8 +1751,8 @@ function initTrack3D(round){
   // bir şerit. Kerb (üstte, y=-0.01) bu daha geniş ve daha alçak (y=0.006)
   // şeridin iç kısmını kapatır, dışarıda sadece kumlu bant görünür kalır.
   if(gravelMesh3d){ scene3d.remove(gravelMesh3d); gravelMesh3d.geometry.dispose(); gravelMesh3d.material.dispose(); }
-  var barrierOffset=TRACK_WIDTH/2+2.4;
-  var gravelWidth=barrierOffset*2+3;
+  var barrierOffset=TRACK_WIDTH/2+1.6;
+  var gravelWidth=barrierOffset*2+1.4;
   var gravelGeo=buildTrackRibbon(track3dCurve,gravelWidth,400);
   gravelMesh3d=new THREE.Mesh(gravelGeo,new THREE.MeshStandardMaterial({color:0xc9a86a,roughness:1,side:THREE.DoubleSide}));
   gravelMesh3d.position.y=0.006; gravelMesh3d.receiveShadow=true; scene3d.add(gravelMesh3d);
@@ -1688,7 +1800,7 @@ function initTrack3D(round){
    5b. KAMERA — F1 Manager tarzı takip kamerası + genel bakış
    ========================================================= */
 var cameraMode='follow';
-var followDistance=20, followHeight=8.5;
+var followDistance=20, followHeight=8.5, followYaw=0;
 var followLookAt=null;
 function setCameraMode(mode){
   cameraMode=mode;
@@ -1710,14 +1822,19 @@ function adjustFollowZoom(delta){
   followDistance=Math.max(9,Math.min(48,followDistance+delta));
   followHeight=Math.max(3.5,Math.min(20,followHeight+delta*0.4));
 }
+function rotateYaw(vec,angle){
+  var cos=Math.cos(angle), sin=Math.sin(angle);
+  return new THREE.Vector3(vec.x*cos+vec.z*sin, vec.y, -vec.x*sin+vec.z*cos);
+}
 function updateFollowCamera(){
   var c=getCar(selectedDriver);
   if(!c) return;
   var p=pointAt(c.trackPosition);
-  var behind=p.tangent.clone().multiplyScalar(-1);
+  var behind=rotateYaw(p.tangent.clone().multiplyScalar(-1),followYaw);
+  var lookDir=rotateYaw(p.tangent,followYaw);
   var desiredPos=p.pos.clone().addScaledVector(behind,followDistance);
   desiredPos.y+=followHeight;
-  var desiredLook=p.pos.clone().addScaledVector(p.tangent,10);
+  var desiredLook=p.pos.clone().addScaledVector(lookDir,10);
   desiredLook.y+=1.4;
   if(!followLookAt){
     // Yeni yarış / pilot değişimi — kamerayı tüm pistten sürükleyip
@@ -1813,16 +1930,19 @@ function driverCardHTML(c){
   var wearPct=Math.round((1-c.tireWear)*100);
   var cVar=COMPOUND_VAR[c.compound]||'var(--c-medium)';
   var modeLabel=c.mode==='ATAK'?'PUSH':(c.mode==='KORUMA'?'KORUMA':'DENGE');
+  var phase=(c.trackPosition*Math.PI*6)+c.throttlePhase;
+  var tireTemp=Math.round(84+c.tireWear*28+(c.mode==='ATAK'?7:c.mode==='KORUMA'?-6:0)+4*Math.sin(phase*0.6));
   return '<div class="dcard'+(c.code===selectedDriver?' is-target':'')+'" data-code="'+c.code+'">'
     +'<div class="dcard-head">'
       +'<span class="dcard-pos">P'+pos+'</span>'
       +'<span class="dcard-badge" style="background:'+c.color+';color:#fff">'+c.code+'</span>'
       +'<span class="dcard-name">'+c.name+'</span>'
       +(drs?'<span class="drs-chip">DRS</span>':'')
+      +'<span class="dcard-pit">'+c.pitStops+' PIT</span>'
     +'</div>'
     +'<div class="dcard-cols">'
       +'<div class="dcol"><span class="dcol-ic">🏎</span><span class="dcol-v mono">'+fmtLapTime(liveTime)+'</span><span class="dcol-sub">'+gapTxt+'</span><span class="dcol-label">TEMPO</span></div>'
-      +'<div class="dcol"><span class="dcol-ic compound" style="background:'+cVar+'">'+c.compound+'</span><span class="dcol-v mono'+(wearPct<25?' is-crit':'')+'">'+wearPct+'%</span><span class="dcol-sub">'+c.pitStops+' PIT</span><span class="dcol-label">LASTİK</span></div>'
+      +'<div class="dcol"><span class="dcol-ic compound" style="background:'+cVar+'">'+c.compound+'</span><span class="dcol-v mono'+(wearPct<25?' is-crit':'')+'">'+wearPct+'%</span><span class="dcol-sub">'+tireTemp+'°C</span><span class="dcol-label">LASTİK</span></div>'
       +'<div class="dcol"><span class="dcol-ic">⚡</span><span class="dcol-v mono">'+Math.round(c.ers)+'%</span><span class="dcol-sub">'+modeLabel+'</span><span class="dcol-label">ERS</span></div>'
     +'</div>'
     +'</div>';
@@ -2004,15 +2124,44 @@ function renderSponsorCard(){
   var el=document.getElementById('sponsor-card');
   var d=SPONSOR.activeDeal;
   if(d){
-    el.innerHTML='<div class="sponsor-info">'
-      +'<span class="sponsor-name">'+d.name+'</span>'
-      +'<span class="sponsor-meta">'+fmtMoney(d.income_per_race)+' / yarış · '+d.races_remaining+' yarış kaldı</span>'
+    var total=d.contract_length||d.races_remaining;
+    var pct=Math.round(((total-d.races_remaining)/total)*100);
+    el.innerHTML='<div class="sp-hud">'
+      +'<div class="sp-hud-head"><span class="sp-icon">🏷️</span><span class="sp-name">'+d.name+'</span><span class="sp-badge">AKTİF</span></div>'
+      +'<div class="sp-hud-stats">'
+        +'<div class="sp-stat"><span class="l">Gelir / Yarış</span><span class="v">'+fmtMoney(d.income_per_race)+'</span></div>'
+        +'<div class="sp-stat"><span class="l">Performans Primi</span><span class="v">+'+fmtMoney(d.bonus_per_point)+' / puan</span></div>'
+      +'</div>'
+      +'<div class="sp-hud-progress"><div class="sp-bar"><i style="width:'+pct+'%"></i></div><span class="sp-ptxt">'+d.races_remaining+' / '+total+' yarış kaldı</span></div>'
       +'</div>';
   } else {
     el.innerHTML='<span class="sponsor-none">Aktif sponsor anlaşması yok — sezon geliri sadece yarış ikramiyesinden geliyor.</span>'
       +'<button class="sponsor-btn" id="btn-open-sponsor" type="button">Sponsor Bul</button>';
     document.getElementById('btn-open-sponsor').addEventListener('click',openSponsorModal);
   }
+}
+function openSetupModal(){
+  if(!CAR_SPECS.setup) CAR_SPECS.setup={front_wing:5,rear_wing:5,suspension:5};
+  document.getElementById('setup-fw').value=CAR_SPECS.setup.front_wing;
+  document.getElementById('setup-rw').value=CAR_SPECS.setup.rear_wing;
+  document.getElementById('setup-sus').value=CAR_SPECS.setup.suspension;
+  renderSetupModal();
+  document.getElementById('setup-modal').classList.add('open');
+}
+function renderSetupModal(){
+  document.getElementById('setup-fw-val').textContent=CAR_SPECS.setup.front_wing;
+  document.getElementById('setup-rw-val').textContent=CAR_SPECS.setup.rear_wing;
+  document.getElementById('setup-sus-val').textContent=CAR_SPECS.setup.suspension;
+  document.getElementById('setup-drivers').innerHTML=PLAYER_DRIVERS.map(function(d){
+    var sat=setupSatisfaction(d.code);
+    var tier=sat>=75?'is-high':(sat>=55?'is-mid':'is-low');
+    var barColor=sat>=75?'var(--green)':(sat>=55?'var(--amber)':'var(--race-red)');
+    return '<div class="setup-driver">'
+      +'<div class="setup-driver-name">'+d.name+'</div>'
+      +'<div class="setup-sat-val '+tier+'">%'+sat+'</div>'
+      +'<div class="setup-sat-bar"><i style="width:'+sat+'%;background:'+barColor+'"></i></div>'
+      +'</div>';
+  }).join('');
 }
 function openSponsorModal(){
   document.getElementById('sponsor-deals').innerHTML=SPONSOR_DEALS.map(function(d){
@@ -2113,7 +2262,7 @@ function startRaceScreen(){
   initRace(round);
   showScreen('screen-race');
   initTrack3D(round);
-  followLookAt=null; followDistance=20; followHeight=8.5;
+  followLookAt=null; followDistance=20; followHeight=8.5; followYaw=0;
   setCameraMode('follow');
   running=true; speedMult=1;
   document.getElementById('btn-playpause').textContent='⏸ Duraklat';
@@ -2219,6 +2368,18 @@ function bindMenu(){
   });
   document.getElementById('btn-sponsor-close').addEventListener('click',function(){
     document.getElementById('sponsor-modal').classList.remove('open');
+  });
+  document.getElementById('btn-open-setup').addEventListener('click',openSetupModal);
+  document.getElementById('btn-setup-close').addEventListener('click',function(){
+    document.getElementById('setup-modal').classList.remove('open');
+  });
+  ['fw','rw','sus'].forEach(function(key){
+    document.getElementById('setup-'+key).addEventListener('input',function(){
+      var field=key==='fw'?'front_wing':(key==='rw'?'rear_wing':'suspension');
+      CAR_SPECS.setup[field]=parseInt(this.value,10);
+      saveCarSpecs(CAR_SPECS);
+      renderSetupModal();
+    });
   });
   document.getElementById('btn-quit').addEventListener('click',function(){ window.close(); });
 
