@@ -1448,7 +1448,10 @@ function buildTrackRibbon(curve,width,segments){
   var indices=[];
   for(i=0;i<segments;i++){
     var a=i*2,b=i*2+1,c2=i*2+2,d=i*2+3;
-    indices.push(a,c2,b, b,c2,d);
+    // Sarma sırası, (0,1,0) yukarı normaline göre doğru yönde olmalı —
+    // ters sarım, DOUBLE_SIDED gölgelendiricide normali aşağı çevirip
+    // pisti simsiyah gösteriyordu (bkz. commit notu).
+    indices.push(a,b,c2, b,d,c2);
   }
   var geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
@@ -1461,10 +1464,9 @@ function buildTrackRibbon(curve,width,segments){
 // hesaplamasını kullanır, ama iki yatay nokta yerine taban+tepe köşesi
 // üreterek eğriyi takip eden dikey bir şerit oluşturur.
 function buildBarrierWall(curve,lateralOffset,height,segments){
-  var positions=[], normals=[], colors=[], up=new THREE.Vector3(0,1,0);
+  var positions=[], normals=[], up=new THREE.Vector3(0,1,0);
   var eps=0.004, lastRight=new THREE.Vector3(1,0,0);
   var sign=lateralOffset>=0?1:-1;
-  var WHITE=[0.92,0.93,0.95], RED=[0.78,0.1,0.14];
   for(var i=0;i<=segments;i++){
     var t=(i/segments)%1;
     var point=curve.getPointAt(t);
@@ -1481,19 +1483,18 @@ function buildBarrierWall(curve,lateralOffset,height,segments){
     positions.push(base.x,base.y+0.02,base.z, base.x,base.y+height,base.z);
     var n=right.clone().multiplyScalar(sign);
     normals.push(n.x,n.y,n.z, n.x,n.y,n.z);
-    // TecPro tarzı kırmızı/beyaz panel deseni — her ~6 segment bir panel
-    var panel=Math.floor(i/6)%2===0?WHITE:RED;
-    colors.push(panel[0],panel[1],panel[2], panel[0],panel[1],panel[2]);
   }
   var indices=[];
   for(i=0;i<segments;i++){
     var a=i*2,b=i*2+1,c2=i*2+2,d=i*2+3;
-    indices.push(a,c2,b, b,c2,d);
+    // Sol/sağ bariyer normali işaretine göre sarım yönü ters düşüyor —
+    // biri doğru sarılırken diğeri normalin tam tersini gösteriyordu.
+    if(sign>0) indices.push(a,c2,b, b,c2,d);
+    else indices.push(a,b,c2, b,d,c2);
   }
   var geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
-  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   geo.setIndex(indices);
   return geo;
 }
@@ -1689,12 +1690,16 @@ function initTrack3D(round){
     camera3d=new THREE.PerspectiveCamera(55,container.clientWidth/Math.max(1,container.clientHeight),0.1,2000);
     camera3d.position.set(0,145,165);
 
-    renderer3d=new THREE.WebGLRenderer({antialias:true});
+    // logarithmicDepthBuffer: pist/kerb/çakıl şeritleri arasındaki 0.01-0.03
+    // birimlik Y farkı, uzak kamera mesafelerinde standart derinlik arabelleğiyle
+    // "z-fighting" (titreşen, benekli renk karışımı) yapıyordu — özellikle küçük
+    // yarıçaplı dairesel pistlerde belirgindi.
+    renderer3d=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
     renderer3d.setPixelRatio(Math.min(window.devicePixelRatio,2));
     renderer3d.shadowMap.enabled=true;
     renderer3d.shadowMap.type=THREE.PCFSoftShadowMap;
     renderer3d.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer3d.toneMappingExposure=1.05;
+    renderer3d.toneMappingExposure=1.35;
     container.appendChild(renderer3d.domElement);
     renderer3d.domElement.addEventListener('wheel',function(e){
       if(cameraMode!=='follow') return;
@@ -1725,8 +1730,8 @@ function initTrack3D(round){
     controls3d.minDistance=20; controls3d.maxDistance=260;
     controls3d.maxPolarAngle=Math.PI*0.49;
 
-    scene3d.add(new THREE.HemisphereLight(0x3a5578,0x0a0d11,0.9));
-    var floodlight=new THREE.DirectionalLight(0xfff2d8,3.2);
+    scene3d.add(new THREE.HemisphereLight(0x5a7aa5,0x141a12,1.15));
+    var floodlight=new THREE.DirectionalLight(0xfff2d8,3.6);
     floodlight.position.set(90,130,40);
     floodlight.castShadow=true;
     floodlight.shadow.mapSize.set(2048,2048);
@@ -1737,7 +1742,7 @@ function initTrack3D(round){
     scene3d.add(new THREE.DirectionalLight(0x3a6fb0,0.5));
     var rim=scene3d.children[scene3d.children.length-1]; rim.position.set(-80,40,-60);
 
-    var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x1c2420,roughness:0.95,metalness:0.02}));
+    var ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshStandardMaterial({color:0x2a3626,roughness:0.95,metalness:0.02}));
     ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene3d.add(ground);
     scene3d.add(buildSkyDome());
 
@@ -1763,22 +1768,24 @@ function initTrack3D(round){
 
   var TRACK_WIDTH=12;
   var trackGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH,400);
-  trackMesh3d=new THREE.Mesh(trackGeo,new THREE.MeshStandardMaterial({color:0x363f4d,roughness:0.75,metalness:0.05,side:THREE.DoubleSide}));
-  trackMesh3d.receiveShadow=true; scene3d.add(trackMesh3d);
+  trackMesh3d=new THREE.Mesh(trackGeo,new THREE.MeshStandardMaterial({color:0x888e96,roughness:0.85,metalness:0.02,side:THREE.DoubleSide}));
+  trackMesh3d.position.y=0.04; trackMesh3d.receiveShadow=false; scene3d.add(trackMesh3d);
 
   var kerbGeo=buildTrackRibbon(track3dCurve,TRACK_WIDTH+1.6,400);
   kerbMesh3d=new THREE.Mesh(kerbGeo,new THREE.MeshStandardMaterial({color:0xb0311f,roughness:0.7,side:THREE.DoubleSide}));
-  kerbMesh3d.position.y=-0.01; kerbMesh3d.receiveShadow=true; scene3d.add(kerbMesh3d);
+  kerbMesh3d.position.y=0.01; kerbMesh3d.receiveShadow=true; scene3d.add(kerbMesh3d);
 
   // Kum/çakıl run-off — kerb'in hemen dışında, bariyere kadar uzanan geniş
-  // bir şerit. Kerb (üstte, y=-0.01) bu daha geniş ve daha alçak (y=0.006)
-  // şeridin iç kısmını kapatır, dışarıda sadece kumlu bant görünür kalır.
+  // bir şerit. En geniş şerit olduğu için en altta olmalı (y=-0.02), yoksa
+  // pist/kerb'in üstüne çıkıp onları tamamen örtüyordu; sıralama artık
+  // pist(0.04) > kerb(0.01) > çakıl(-0.02), aralar da z-fighting'e karşı
+  // genişletildi.
   if(gravelMesh3d){ scene3d.remove(gravelMesh3d); gravelMesh3d.geometry.dispose(); gravelMesh3d.material.dispose(); }
   var barrierOffset=TRACK_WIDTH/2+1.6;
   var gravelWidth=barrierOffset*2+1.4;
   var gravelGeo=buildTrackRibbon(track3dCurve,gravelWidth,400);
   gravelMesh3d=new THREE.Mesh(gravelGeo,new THREE.MeshStandardMaterial({color:0xc9a86a,roughness:1,side:THREE.DoubleSide}));
-  gravelMesh3d.position.y=0.006; gravelMesh3d.receiveShadow=true; scene3d.add(gravelMesh3d);
+  gravelMesh3d.position.y=-0.02; gravelMesh3d.receiveShadow=true; scene3d.add(gravelMesh3d);
 
   // Pist etrafındaki bariyerler ve tribünler — her hafta sonu pist şekli
   // değiştiği için diğer mesh'ler gibi burada yeniden kurulur.
@@ -1786,7 +1793,7 @@ function initTrack3D(round){
     scene3d.remove(barrierGroup3d);
     barrierGroup3d.traverse(function(o){ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose(); });
   }
-  var barrierMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.55});
+  var barrierMat=new THREE.MeshStandardMaterial({color:0xd8dce2,roughness:0.55});
   var barrierL=new THREE.Mesh(buildBarrierWall(track3dCurve,-barrierOffset,1.1,400),barrierMat);
   var barrierR=new THREE.Mesh(buildBarrierWall(track3dCurve,barrierOffset,1.1,400),barrierMat.clone());
   barrierL.castShadow=true; barrierL.receiveShadow=true;
