@@ -1130,32 +1130,77 @@ function archetypeForRound(round){
 // köşe/düzlük dizilişi verilen pist şemasındaki isimlendirilmiş
 // virajlara/sektörlere göre elle çizildi (lazer tarama verisi değil,
 // ama artık soyut bir daire/oval de değil). round.round -> [x,z].
+// Her nokta [x,z,tür] — tür Bézier tutamaç uzunluğunu belirler:
+// 'straight' tutamacı tam komşu doğrultusunda tutup kolu GERÇEKTEN düz
+// gösterir, 'sharp' tutamacı neredeyse sıfıra indirip virajı gerçekten
+// SİVRİLEŞTİRİR (Catmull-Rom gibi yumuşatmaz), 'flow' ise akıcı/organik
+// geçiş verir. Bu, "Karayel Pisti" SVG şemasında kullanılan aynı teknik —
+// tek bir düzgün eğri yerine her noktanın karakterini ayrı ayrı kontrol
+// ediyor, bu yüzden pistler artık yuvarlak/oval bir bulanıklığa dönmüyor.
 var REAL_TRACK_SHAPES={
   // 1. Ankara Şehir Pisti — geniş kavis + ANA DÜZLÜK (uzun pit düzlüğü) +
   // SITTIYE KAVŞAĞI'nın (15-16-18) oluşturduğu hafif çift kıvrım.
-  1:[[0,-100],[60,-98],[95,-70],[100,-30],[85,10],[95,45],[55,60],[65,85],[20,95],[-30,90],[-80,60],[-100,10],[-90,-40],[-55,-80],[-20,-98]],
-  // 2. Kapadokya Kaya Pisti — tünelin oluşturduğu düz "boyun" (neck), üstte
-  // peribacaları arasında dönen geniş bir halka; klasik oval/daireden
-  // KASITLI olarak farklı, "lolipop" (halka + sap) silüeti.
-  2:[[0,-130],[15,-90],[15,-50],[60,-60],[95,-30],[100,15],[70,45],[85,75],[30,90],[-30,85],[-75,50],[-95,10],[-75,-35],[-40,-55],[-15,-90],[-15,-130]],
-  // 3. Karadeniz Virajları Pisti — dağ yamacında geniş genlikli bir
-  // yılanlama (serpantin); her viraj arasında büyük mesafe bırakılarak
-  // dar bir yumak yerine gerçekten "çok virajlı dağ yolu" hissi verir.
-  3:[[0,-115],[75,-95],[45,-45],[115,-25],[85,35],[135,65],[75,100],[25,60],[-25,90],[-60,40],[-115,50],[-90,-10],[-135,-45],[-85,-70],[-105,-105],[-45,-100]],
+  1:[[0,-100,'straight'],[60,-98,'straight'],[95,-70,'flow'],[100,-30,'flow'],[85,10,'flow'],[95,45,'flow'],[55,60,'flow'],[65,85,'flow'],[20,95,'flow'],[-30,90,'flow'],[-80,60,'flow'],[-100,10,'flow'],[-90,-40,'flow'],[-55,-80,'flow'],[-20,-98,'flow']],
+  // 2. Kapadokya Kaya Pisti — tünelin oluşturduğu düz "boyun" (neck) —
+  // GERÇEKTEN düz iki kol — üstte peribacaları arasında dönen geniş bir
+  // halka; klasik oval/daireden KASITLI olarak farklı bir "lolipop" silüeti.
+  2:[[0,-145,'flow'],[22,-90,'straight'],[22,-50,'flow'],[60,-60,'flow'],[95,-30,'flow'],[100,15,'flow'],[75,50,'flow'],[60,80,'flow'],[15,92,'flow'],[-30,85,'flow'],[-75,50,'flow'],[-95,10,'flow'],[-75,-35,'flow'],[-40,-55,'flow'],[-22,-90,'straight'],[-22,-130,'flow']],
+  // 3. Karadeniz Virajları Pisti — dağ yamacında dönüşümlü sivri/akıcı
+  // virajlarla gerçek bir "çok virajlı dağ yolu" ritmi; hepsini sivri
+  // yapmak yerine dönüşümlü bırakmak, güvenlik payını da korur.
+  3:[[0,-115,'flow'],[75,-95,'sharp'],[45,-45,'flow'],[115,-25,'sharp'],[85,35,'flow'],[135,65,'sharp'],[75,100,'flow'],[25,60,'sharp'],[-25,90,'flow'],[-60,40,'sharp'],[-115,50,'flow'],[-90,-10,'sharp'],[-135,-45,'flow'],[-85,-70,'sharp'],[-105,-105,'flow'],[-45,-100,'flow']],
   // 4. Atatürk Barajı Pisti — solda baraj duvarını takip eden tek uzun ve
-  // yumuşak kavis, sağda dar bir viraj kompleksi; oval değil, iki farklı
-  // karaktere bölünmüş asimetrik bir silüet.
-  4:[[0,-110],[80,-100],[130,-60],[125,-10],[100,20],[120,50],[80,70],[95,95],[40,90],[-20,85],[-70,95],[-110,60],[-130,10],[-115,-40],[-70,-85],[-30,-105]]
+  // yumuşak kavis (flow), sağda dar bir viraj kompleksi (sharp); oval
+  // değil, iki farklı karaktere bölünmüş asimetrik bir silüet.
+  4:[[0,-110,'flow'],[80,-100,'flow'],[130,-60,'flow'],[125,-10,'flow'],[100,20,'sharp'],[120,50,'sharp'],[80,70,'sharp'],[95,95,'sharp'],[40,90,'flow'],[-20,85,'flow'],[-70,95,'flow'],[-110,60,'flow'],[-130,10,'flow'],[-115,-40,'flow'],[-70,-85,'flow'],[-30,-105,'flow']]
 };
 // Sarım/kesişim testi başarısız olan bir gerçek pist şeklini bozmadan
 // (topolojisini korukayak) hafifçe yumuşatır — komşu üç noktanın
 // ağırlıklı ortalaması, keskin köşeleri törpüler ama genel silüeti korur.
+// 'k' (tür) etiketi taşınır — konum değişir, karakter değişmez.
 function relaxPoints(pts){
   var n=pts.length;
   return pts.map(function(p,i){
     var prev=pts[(i-1+n)%n], next=pts[(i+1)%n];
-    return new THREE.Vector3((prev.x+p.x*2+next.x)/4,0,(prev.z+p.z*2+next.z)/4);
+    return {x:(prev.x+p.x*2+next.x)/4, z:(prev.z+p.z*2+next.z)/4, k:p.k};
   });
+}
+// "Karayel Pisti" SVG şemasındaki AYNI teknik: her ankor noktasının türüne
+// göre (straight/sharp/flow) kübik Bézier tutamaç uzunluğu ayarlanır ve
+// THREE.CurvePath üzerinde art arda CubicBezierCurve3 segmentleri kurulur.
+// Tek bir Catmull-Rom eğrisi TÜM noktaları aynı şekilde yumuşattığı için
+// (kök sebep buydu) düz kollar ve sivri virajlar ayırt edilemiyordu; bu
+// yöntemde her nokta kendi karakterini korur. CurvePath, CatmullRomCurve3
+// ile aynı arayüzü (getPointAt/getSpacedPoints) sağladığı için track3dCurve
+// olarak kullanılan her yerde doğrudan yerine geçebilir.
+function buildTangentBezierCurve(pts){
+  var n=pts.length;
+  function wrap(i){ return (i+n)%n; }
+  function dist(a,b){ return Math.hypot(a.x-b.x,a.z-b.z); }
+  function tangent(i){
+    var p=pts[i], prev=pts[wrap(i-1)], next=pts[wrap(i+1)];
+    if(p.k==='straight'){
+      var toNext={x:next.x-p.x,z:next.z-p.z}, toPrev={x:p.x-prev.x,z:p.z-prev.z};
+      var l1=Math.hypot(toNext.x,toNext.z)||1, l2=Math.hypot(toPrev.x,toPrev.z)||1;
+      return {x:(toNext.x/l1+toPrev.x/l2)/2, z:(toNext.z/l1+toPrev.z/l2)/2, sharp:false};
+    }
+    var dx=next.x-prev.x, dz=next.z-prev.z, len=Math.hypot(dx,dz)||1;
+    return {x:dx/len, z:dz/len, sharp:p.k==='sharp'};
+  }
+  var tans=pts.map(function(_,i){ return tangent(i); });
+  var path=new THREE.CurvePath();
+  for(var i=0;i<n;i++){
+    var a=pts[i], b=pts[wrap(i+1)];
+    var ta=tans[i], tb=tans[wrap(i+1)];
+    var segLen=dist(a,b);
+    var hA=(ta.sharp?0.22:0.32)*segLen;
+    var hB=(tb.sharp?0.22:0.32)*segLen;
+    var c1=new THREE.Vector3(a.x+ta.x*hA,0,a.z+ta.z*hA);
+    var c2=new THREE.Vector3(b.x-tb.x*hB,0,b.z-tb.z*hB);
+    var p0=new THREE.Vector3(a.x,0,a.z), p3=new THREE.Vector3(b.x,0,b.z);
+    path.add(new THREE.CubicBezierCurve3(p0,c1,c2,p3));
+  }
+  return path;
 }
 
 // Bir eğrinin en dar noktasındaki yaklaşık eğrilik yarıçapı — 3 komşu
@@ -1332,10 +1377,10 @@ function buildTrackCurveForRound(round){
     // prosedürel şekle dönüşebiliyordu. Tüm gerçek şekiller aynı sabit
     // ölçekle büyütülerek mutlak mesafeler güvenlik eşiğinin üstüne
     // çıkarılıyor — oran/silüet birebir korunuyor, sadece boyut büyüyor.
-    var REAL_SHAPE_SCALE=1.55;
-    var pts=realShape.map(function(p){ return new THREE.Vector3(p[0]*REAL_SHAPE_SCALE,0,p[1]*REAL_SHAPE_SCALE); });
+    var REAL_SHAPE_SCALE=1.9;
+    var pts=realShape.map(function(p){ return {x:p[0]*REAL_SHAPE_SCALE, z:p[1]*REAL_SHAPE_SCALE, k:p[2]||'flow'}; });
     for(var relaxPass=0;relaxPass<10;relaxPass++){
-      var curve=new THREE.CatmullRomCurve3(pts,true,'centripetal');
+      var curve=buildTangentBezierCurve(pts);
       if(curveIsSafe(curve)) return curve;
       pts=relaxPoints(pts);
     }
