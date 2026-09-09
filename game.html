@@ -1094,18 +1094,13 @@ var ROSTER=buildRealRoster();
 var PLAYER_DRIVERS=ROSTER.filter(function(r){ return r.isPlayer; });
 
 /* =========================================================
-   2. PİST EĞRİLERİ — Bahreyn (Tur 1) zorunlu SVG çapa noktalarını
-      kullanır; diğer 23 tur için tohumlu (seeded) prosedürel kapalı
-      döngü üretilir — gerçek lazer tarama verisi yok, bu yüzden
-      "gerçek" değil ama her pist görsel olarak birbirinden farklı
-      ve sezon boyunca aynı pist için hep aynı şekil (deterministik).
+   2. PİST EĞRİLERİ — her tur (Tur 1 dahil) GP adına göre seçilen bir
+      arketipten (STREET/SPEED/BALANCED) tohumlu (seeded) prosedürel
+      kapalı döngü olarak üretilir — gerçek lazer tarama verisi yok, bu
+      yüzden "gerçek" değil ama her pist görsel olarak birbirinden
+      farklı, kendisiyle/tribünleriyle çakışmadığı doğrulanmış ve sezon
+      boyunca aynı pist için hep aynı şekil (deterministik).
    ========================================================= */
-var BAHRAIN_SVG_ANCHORS=[
-  [180,480],[480,480],[560,410],[560,380],[500,350],[460,365],[410,330],[410,240],
-  [500,180],[640,180],[720,250],[720,280],[660,330],[620,330],[580,270],[580,140],
-  [480,60],[280,60],[180,140],[180,220],[250,280],[320,280],[380,350],[380,420],[290,480]
-];
-var TRACK3D_CENTER_X=450, TRACK3D_CENTER_Z=270, TRACK3D_SCALE=0.4;
 
 function hashSeed(str){
   var h=0;
@@ -1152,6 +1147,28 @@ function estimateMinCurveRadius(curve,samples){
     if(r<minR) minR=r;
   }
   return minR;
+}
+
+// Eğrilik testi SADECE tek bir noktadaki dönüşü kontrol eder — pistin
+// birbirine bitişik OLMAYAN iki ayrı bölümünün (örn. bir şikan ile ana
+// düzlük) birbirine çok yaklaşmasını YAKALAMAZ, oysa bu durumda her iki
+// bölüm tek başına geniş bir yarıçapa sahip olsa bile tribün/bariyer gibi
+// kenar nesneleri çakışır. Bu yüzden ayrı bir "kendine yakınlık" testi:
+// parametre uzayında (arka arkaya gelen komşular hariç) birbirinden uzak
+// olması gereken her nokta çifti, gerçek uzayda da yeterince ayrık olmalı.
+var MIN_SELF_CLEARANCE=56;
+function hasSelfProximityIssue(curve,samples){
+  samples=samples||160;
+  var pts=[];
+  for(var i=0;i<samples;i++) pts.push(curve.getPointAt(i/samples));
+  var minGapSamples=Math.max(6,Math.round(samples*0.14));
+  for(i=0;i<samples;i++){
+    for(var j=i+minGapSamples;j<=samples-minGapSamples+i;j++){
+      var jj=j%samples;
+      if(pts[i].distanceTo(pts[jj])<MIN_SELF_CLEARANCE) return true;
+    }
+  }
+  return false;
 }
 
 // Açıya göre monotonik ilerleyen, yarıçapı tohumlu şekilde titreşen kapalı
@@ -1265,20 +1282,19 @@ function buildSafeFallbackCurve(seed){
   }
   return new THREE.CatmullRomCurve3(pts,true,'centripetal');
 }
+// Eskiden Bahreyn (Tur 1) için sabit/"zorunlu" el yapımı bir SVG çapa
+// şekli kullanılıyordu; o şeklin sıkışık bir şikanında tribünler pistin
+// karşı tarafına neredeyse dokunacak kadar yaklaşıyordu (takip kamerası
+// oraya girince ekranı tribün duvarına gömüyordu). Artık Tur 1 dahil
+// TÜM turlar aynı arketip + iki güvenlik testinden geçen üretim sistemini
+// kullanıyor — hiçbir pist elle onaylanmış/sabit değil.
 function buildTrackCurveForRound(round){
-  if(round.round===1){
-    // Zorunlu Bahreyn şekli — game.html'in ilk sürümünden beri sabit.
-    var pts=BAHRAIN_SVG_ANCHORS.map(function(p){
-      return new THREE.Vector3((p[0]-TRACK3D_CENTER_X)*TRACK3D_SCALE,0,(p[1]-TRACK3D_CENTER_Z)*TRACK3D_SCALE);
-    });
-    return new THREE.CatmullRomCurve3(pts,true,'centripetal');
-  }
   var archetype=archetypeForRound(round);
   var baseSeed=hashSeed(round.gp_name_tr||('round'+round.round));
-  for(var attempt=0;attempt<8;attempt++){
+  for(var attempt=0;attempt<10;attempt++){
     var attemptPts=generateTrackWaypoints(baseSeed+attempt*97,archetype);
     var curve=new THREE.CatmullRomCurve3(attemptPts,true,'centripetal');
-    if(estimateMinCurveRadius(curve)>=MIN_SAFE_CURVE_RADIUS) return curve;
+    if(estimateMinCurveRadius(curve)>=MIN_SAFE_CURVE_RADIUS && !hasSelfProximityIssue(curve)) return curve;
   }
   return buildSafeFallbackCurve(baseSeed);
 }
