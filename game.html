@@ -660,7 +660,6 @@ button{font-family:inherit;color:inherit;border:none;background:none;cursor:poin
     <header class="topbar">
       <span class="tb-eyebrow">Paddock GP · Canlı Yarış</span>
       <div class="tb-sep"></div>
-      <div class="tb-metric"><span class="l">Bütçe</span><span class="v" id="tb-budget">—</span></div>
       <div class="tb-metric"><span class="l">Süre</span><span class="v" id="tb-clock">00:00</span></div>
       <div class="tb-spacer"></div>
       <div class="tb-hint"><kbd>Space</kbd> Duraklat &nbsp; <kbd>1-4</kbd> Hız &nbsp; <kbd>P</kbd> Pit &nbsp; <kbd>C</kbd> Kamera &nbsp; <kbd>Tekerlek</kbd> Zum</div>
@@ -996,10 +995,15 @@ function resetSeasonSpend(){ try{ localStorage.setItem(SEASON_SPEND_KEY,'0'); }c
    sonunda otomatik gelir, sözleşme süresi dolunca yeniden seçilir.
    ========================================================= */
 var SPONSOR_KEY='paddockGP_sponsor_v1';
+// Gerçek dünyadaki F1 sponsor markaları — 2026 arabalarını gerçek takım
+// isimleriyle eşleştiren f1-2026-data.js ile aynı yaklaşım.
 var SPONSOR_DEALS=[
-  { id:'comet', name:'Comet Lojistik', signing_bonus:300000, income_per_race:40000, contract_races:6, bonus_per_point:8000 },
-  { id:'vertex', name:'Vertex Enerji', signing_bonus:700000, income_per_race:90000, contract_races:8, bonus_per_point:15000 },
-  { id:'novatech', name:'NovaTech Yazılım', signing_bonus:1400000, income_per_race:160000, contract_races:10, bonus_per_point:25000 }
+  { id:'dhl', name:'DHL', signing_bonus:250000, income_per_race:35000, contract_races:6, bonus_per_point:6000 },
+  { id:'heineken', name:'Heineken', signing_bonus:450000, income_per_race:55000, contract_races:6, bonus_per_point:10000 },
+  { id:'pirelli', name:'Pirelli', signing_bonus:700000, income_per_race:90000, contract_races:8, bonus_per_point:15000 },
+  { id:'rolex', name:'Rolex', signing_bonus:1000000, income_per_race:120000, contract_races:8, bonus_per_point:20000 },
+  { id:'tagheuer', name:'TAG Heuer', signing_bonus:1400000, income_per_race:160000, contract_races:10, bonus_per_point:25000 },
+  { id:'oracle', name:'Oracle', signing_bonus:2000000, income_per_race:220000, contract_races:10, bonus_per_point:32000 }
 ];
 function defaultSponsor(){ return { activeDeal:null }; }
 function loadSponsor(){
@@ -1116,16 +1120,49 @@ function mulberry32(a){
     return ((t^t>>>14)>>>0)/4294967296;
   };
 }
-// Açıya göre monotonik ilerleyen, yarıçapı tohumlu şekilde titreşen
-// kapalı bir döngü üretir — kendisiyle kesişme riski olmaz (her
-// noktanın açısı bir öncekinden büyük), gerçek pistlerdeki gibi organik
-// geniş/dar bölümler içerir.
-function generateProceduralWaypoints(seed,pointCount,baseRadius){
+// Pist "arketipi" — gerçek takvimdeki karakteristik güzergahlara göre GP
+// adından seçilir: Monako/Singapur gibi dar/teknik cadde pistleri, ya da
+// Azerbaycan/İtalya/Belçika gibi uzun düzlüklü hızlı pistler. Geri kalan
+// her tur, dengeli/organik "BALANCED" arketipi kullanır.
+function archetypeForRound(round){
+  var name=round.gp_name_tr||'';
+  if(name.indexOf('Monako')!==-1 || name.indexOf('Singapur')!==-1) return 'STREET';
+  if(name.indexOf('Azerbaycan')!==-1 || name.indexOf('İtalya')!==-1 || name.indexOf('Belçika')!==-1) return 'SPEED';
+  return 'BALANCED';
+}
+
+// Bir eğrinin en dar noktasındaki yaklaşık eğrilik yarıçapı — 3 komşu
+// örnek noktanın çevrel çemberi (circumradius) üzerinden hesaplanır.
+// Bariyer/çakıl şeridi bu yarıçaptan daha büyük bir ofset mesafesine
+// sahipse, ofset eğrisi kendi üzerine katlanır ("tünel" hatası) — bu
+// yüzden üretilen her pist, kullanılmadan önce bu eşikten geçmek zorunda.
+var MIN_SAFE_CURVE_RADIUS=17;
+function estimateMinCurveRadius(curve,samples){
+  samples=samples||220;
+  var pts=[], minR=Infinity;
+  for(var i=0;i<samples;i++) pts.push(curve.getPointAt(i/samples));
+  for(i=0;i<samples;i++){
+    var A=pts[(i-1+samples)%samples], B=pts[i], C=pts[(i+1)%samples];
+    var ab=A.distanceTo(B), bc=B.distanceTo(C), ca=C.distanceTo(A);
+    var s=(ab+bc+ca)/2;
+    var areaSq=Math.max(0,s*(s-ab)*(s-bc)*(s-ca));
+    var area=Math.sqrt(areaSq);
+    if(area<1e-6) continue; // neredeyse düz çizgi — güvenli, atla
+    var r=(ab*bc*ca)/(4*area);
+    if(r<minR) minR=r;
+  }
+  return minR;
+}
+
+// Açıya göre monotonik ilerleyen, yarıçapı tohumlu şekilde titreşen kapalı
+// bir döngü üretir (merkez etrafında "yıldız biçimli" — her açıda tek bir
+// yarıçap değeri olduğundan kendisiyle kesişme yapısal olarak imkansızdır).
+// Dengeli/organik pistler (BALANCED) için kullanılır.
+function generateBalancedWaypoints(seed){
   var rng=mulberry32(seed);
+  var pointCount=14+Math.floor(rng()*9);
+  var baseRadius=85+rng()*55;
   var radii=[];
-  // Dar aralık (0.8-1.14) + iki geçişli yumuşatma: bariyer/çakıl gibi geniş
-  // kenar şeritlerinin dar virajlarda kendi üzerine katlanıp "tünel"
-  // görünümü oluşturmasını önlemek için viraj yarıçapı asla çok küçülmez.
   for(var i=0;i<pointCount;i++) radii.push(baseRadius*(0.8+rng()*0.34));
   function smoothPass(arr){
     return arr.map(function(r,i){
@@ -1143,6 +1180,91 @@ function generateProceduralWaypoints(seed,pointCount,baseRadius){
   }
   return pts;
 }
+// Cadde pisti (Monako/Singapur tarzı) — köşe yarıçapı DOĞRUDAN belirlenen
+// (CR, güvenlik eşiğinin rahatça üstünde) yuvarlatılmış bir dikdörtgen:
+// 4 düz kenar + 4 sabit yarıçaplı köşe yayı. Süperelips gibi dolaylı
+// formüllere güvenmek yerine köşe yarıçapını doğrudan sabitlediği için
+// kesişme güvenliği garantilidir, üstelik gerçekten düz kenarlar + belirgin
+// köşeler verir (öncekinden çok daha "kutu/teknik" bir cadde pisti hissi).
+function generateStreetWaypoints(seed){
+  var rng=mulberry32(seed);
+  var W=110+rng()*35, H=75+rng()*25;
+  var CR=Math.min(34+rng()*10, Math.min(W,H)*0.5);
+  var sx=W-CR, sy=H-CR;
+  // NOT: düz kenarlarla köşe yayı arasında nokta YOĞUNLUĞU uyuşmazsa
+  // (örn. kenarda seyrek, yayda sık nokta) Catmull-Rom geçiş noktasında
+  // salınım yapıp nominal köşe yarıçapından çok daha sıkı bir eğri
+  // üretiyor — bu yüzden TÜM çevre boyunca aynı hedef yay-uzunluğu
+  // aralığı (step) kullanılarak nokta sayıları hesaplanıyor.
+  var step=13;
+  var arcLen=CR*Math.PI/2;
+  var arcPtsPerCorner=Math.max(6,Math.round(arcLen/step)+1);
+  var corners=[[sx,sy,0],[-sx,sy,Math.PI/2],[-sx,-sy,Math.PI],[sx,-sy,Math.PI*1.5]];
+  var raw=[];
+  for(var ci=0;ci<4;ci++){
+    var cx=corners[ci][0], cy=corners[ci][1], a0=corners[ci][2];
+    for(var k=0;k<arcPtsPerCorner;k++){
+      var a=a0+(k/(arcPtsPerCorner-1))*(Math.PI/2);
+      raw.push([cx+Math.cos(a)*CR, cy+Math.sin(a)*CR]);
+    }
+    var nc=corners[(ci+1)%4];
+    var startPt=raw[raw.length-1];
+    var endPt=[nc[0]+Math.cos(nc[2])*CR, nc[1]+Math.sin(nc[2])*CR];
+    var edgeLen=Math.hypot(endPt[0]-startPt[0],endPt[1]-startPt[1]);
+    var edgePtsPerSide=Math.max(2,Math.round(edgeLen/step));
+    for(k=1;k<edgePtsPerSide;k++){
+      var t=k/edgePtsPerSide;
+      raw.push([startPt[0]+(endPt[0]-startPt[0])*t, startPt[1]+(endPt[1]-startPt[1])*t]);
+    }
+  }
+  // NOT: jitter büyüklüğü nokta aralığına (step=13) göre KÜÇÜK tutulmalı —
+  // %5 gibi bir oran, birbirine yakın köşe yayı noktalarında rastgele
+  // "testere dişi" sapmalar yaratıp yerel eğrilik yarıçapını gerçek köşe
+  // yarıçapından çok daha sıkı gösteriyordu (asıl kırılma nedeni buydu).
+  return raw.map(function(p){
+    var jitter=1+(rng()-0.5)*0.012;
+    return new THREE.Vector3(p[0]*jitter,0,p[1]*jitter);
+  });
+}
+// Hızlı/düzlük pisti (Azerbaycan/İtalya/Belçika tarzı) — iki uzun düz kenar
+// + iki sabit yarıçaplı ("stadyum") uç virajı. Düz kenarlar matematiksel
+// olarak tam düz (sonsuz yarıçap), uç virajların yarıçapı CR doğrudan
+// belirlendiği için güvenlik marjı garantili.
+function generateSpeedWaypoints(seed){
+  var rng=mulberry32(seed);
+  var L=140+rng()*55, CR=44+rng()*16;
+  var straightInterior=3, arcPts=8, raw=[];
+  // Yarım daireler kendi İKİ sınır noktasını da içerir (k=0..arcPts, 90°'den
+  // -90°'ye TAM kapsar); düzlükler sadece iç noktalarını ekler (sınırlar
+  // zaten bitişik yarım dairede var). Sağ yay 90°→0°→-90° (dışa, +x yönüne
+  // doğru şişerek) sarar; sol yay ASIL KUSUR buradaydı — 90°'den 0°'ye doğru
+  // sararsa merkeze/içe doğru çöküp keskin bir "sıkışma" yaratıyordu, bu
+  // yüzden -90°'den -180°'ye (dışa, -x yönüne doğru) sarmalı.
+  for(var k=0;k<=arcPts;k++){ var a=Math.PI/2-(k/arcPts)*Math.PI; raw.push([L+Math.cos(a)*CR, Math.sin(a)*CR]); }
+  for(k=1;k<=straightInterior;k++){ var t=k/(straightInterior+1); raw.push([L-2*L*t, -CR]); }
+  for(k=0;k<=arcPts;k++){ a=-Math.PI/2-(k/arcPts)*Math.PI; raw.push([-L+Math.cos(a)*CR, Math.sin(a)*CR]); }
+  for(k=1;k<=straightInterior;k++){ t=k/(straightInterior+1); raw.push([-L+2*L*t, CR]); }
+  return raw.map(function(p){
+    var jitter=1+(rng()-0.5)*0.015;
+    return new THREE.Vector3(p[0],0,p[1]*jitter);
+  });
+}
+function generateTrackWaypoints(seed,archetype){
+  if(archetype==='STREET') return generateStreetWaypoints(seed);
+  if(archetype==='SPEED') return generateSpeedWaypoints(seed);
+  return generateBalancedWaypoints(seed);
+}
+// Aşırı nadir güvenlik ağı — hiçbir deneme eşiği geçemezse, sıfır
+// gürültülü düz bir elips döndürülür (her yerde büyük eğrilik yarıçapı,
+// kesişme ihtimali yok).
+function buildSafeFallbackCurve(seed){
+  var rng=mulberry32(seed), pointCount=16, baseRadius=100+rng()*20, pts=[];
+  for(var i=0;i<pointCount;i++){
+    var angle=(i/pointCount)*Math.PI*2;
+    pts.push(new THREE.Vector3(Math.cos(angle)*baseRadius,0,Math.sin(angle)*baseRadius*0.75));
+  }
+  return new THREE.CatmullRomCurve3(pts,true,'centripetal');
+}
 function buildTrackCurveForRound(round){
   if(round.round===1){
     // Zorunlu Bahreyn şekli — game.html'in ilk sürümünden beri sabit.
@@ -1151,11 +1273,14 @@ function buildTrackCurveForRound(round){
     });
     return new THREE.CatmullRomCurve3(pts,true,'centripetal');
   }
-  var seed=hashSeed(round.gp_name_tr||('round'+round.round));
-  var pointCount=14+Math.floor(mulberry32(seed+1)()*9); // 14-22 arası
-  var baseRadius=85+mulberry32(seed+2)()*55;
-  var pts=generateProceduralWaypoints(seed,pointCount,baseRadius);
-  return new THREE.CatmullRomCurve3(pts,true,'centripetal');
+  var archetype=archetypeForRound(round);
+  var baseSeed=hashSeed(round.gp_name_tr||('round'+round.round));
+  for(var attempt=0;attempt<8;attempt++){
+    var attemptPts=generateTrackWaypoints(baseSeed+attempt*97,archetype);
+    var curve=new THREE.CatmullRomCurve3(attemptPts,true,'centripetal');
+    if(estimateMinCurveRadius(curve)>=MIN_SAFE_CURVE_RADIUS) return curve;
+  }
+  return buildSafeFallbackCurve(baseSeed);
 }
 var track3dCurve=buildTrackCurveForRound(CAL[0]);
 function pointAt(frac){
@@ -2118,7 +2243,6 @@ function renderTop(){
   flagEl.className='v ov-flag'+(race.flag==='SC'||race.flag==='VSC'?' is-caution':race.flag==='BAYRAK'?' is-finish':'');
   var speedKmh=(leader.lastPaceRate||0)*TRACK_LENGTH_KM*3600*1.42;
   document.getElementById('speedtrap-v').textContent=Math.round(speedKmh);
-  document.getElementById('tb-budget').textContent=fmtMoney(CAREER.budget);
   var m=Math.floor(race.raceTime/60), s=Math.floor(race.raceTime%60);
   document.getElementById('tb-clock').textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
 }

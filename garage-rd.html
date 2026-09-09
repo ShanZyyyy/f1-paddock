@@ -419,10 +419,28 @@ function matchZoneForUpgrade(upg){
 }
 
 function buildBodyOutline(){
-  var levels=[[18,268],[30,268],[34,190],[70,115],[95,110],[140,115],[160,170],[175,195],[230,202],[290,190],[350,160],[400,140],[430,120],[460,115],[470,190],[478,265],[486,265]];
+  // [y, sağ kenar x] — merkez hattı x=170; her değer kesinlikle >170 olmalı,
+  // yoksa sağ/sol kenarlar birbirini geçip "kelebek" görünümü oluşturuyordu
+  // (önceki hatanın kök nedeni). Değerler gerçek bir F1 aracının kuşbakışı
+  // silüetini izler: geniş ön kanat → sıkışık burun ucu → şasi → şişkin
+  // sidepod'lar → "kola şişesi" daralması → şanzıman → geniş arka kanat.
+  var levels=[
+    [8,268],[26,264],          // ön kanat (geniş)
+    [42,190],[60,196],         // burun ucu (sıkışık, kanattan hemen sonra)
+    [100,206],[130,204],       // ön süspansiyon / şasi burnu
+    [168,200],                 // kokpit/halo genişliği
+    [195,214],[210,242],       // sidepod girişine doğru genişleme
+    [258,264],[285,252],       // sidepod / motor kapağı (en geniş nokta)
+    [308,227],[340,212],       // ERS/soğutma sonrası daralma
+    [358,204],[400,196],       // "kola şişesi" alt taban daralması
+    [420,194],[460,192],       // şanzıman
+    [478,196],                 // arka kanat direği
+    [492,260],[506,254]        // arka kanat (geniş)
+  ];
   var pts=levels.map(function(p){ return p[1]+','+p[0]; });
-  pts.push('170,508');
+  pts.push('170,518');
   for(var i=levels.length-1;i>=0;i--){ pts.push((340-levels[i][1])+','+levels[i][0]); }
+  pts.push('170,2');
   return pts.join(' ');
 }
 
