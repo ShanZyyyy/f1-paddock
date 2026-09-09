@@ -1565,47 +1565,70 @@ function buildCarMesh3d(color,isPlayer){
   var darkMat=new THREE.MeshStandardMaterial({color:0x0e1116,roughness:0.5,metalness:0.3});
   var wingMat=new THREE.MeshStandardMaterial({color:isPlayer?0xeef3f8:0xc7d0da,roughness:0.4});
 
-  var body=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.55,4.4),bodyMat);
-  body.position.y=0.5; body.castShadow=true; group.add(body);
+  // Ana gövde ("Coke bottle" hattı) — ön tarafta geniş, arkaya doğru
+  // daralan iki kutu ile taklit edilir; tek düz kutudan çok daha
+  // gerçekçi bir F1 şasi silüeti verir.
+  var tub=new THREE.Mesh(new THREE.BoxGeometry(1.55,0.5,2.6),bodyMat);
+  tub.position.set(0,0.48,0.6); tub.castShadow=true; group.add(tub);
+  var rearDeck=new THREE.Mesh(new THREE.BoxGeometry(1.05,0.42,1.9),bodyMat);
+  rearDeck.position.set(0,0.46,-1.55); rearDeck.castShadow=true; group.add(rearDeck);
 
-  var nose=new THREE.Mesh(new THREE.ConeGeometry(0.42,1.6,8),bodyMat);
-  nose.rotation.x=Math.PI/2; nose.position.set(0,0.4,2.7); nose.castShadow=true; group.add(nose);
+  // İki kademeli sivri burun — kalın gövdeden ince bir uca daralır.
+  var noseBase=new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.22,1.0,10),bodyMat);
+  noseBase.rotation.x=Math.PI/2; noseBase.position.set(0,0.4,2.35); noseBase.castShadow=true; group.add(noseBase);
+  var noseTip=new THREE.Mesh(new THREE.ConeGeometry(0.22,1.1,10),bodyMat);
+  noseTip.rotation.x=Math.PI/2; noseTip.position.set(0,0.4,3.4); noseTip.castShadow=true; group.add(noseTip);
 
-  [[-1.15,0.15],[1.15,0.15]].forEach(function(p){
-    var sidepod=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.4,2.2),bodyMat);
-    sidepod.position.set(p[0],0.4,p[1]); sidepod.castShadow=true; group.add(sidepod);
+  // Oyuklu (undercut) sidepod'lar — üstte geniş, altta içeri kesik.
+  [-1,1].forEach(function(side){
+    var sidepod=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.38,2.1),bodyMat);
+    sidepod.position.set(side*1.12,0.42,0.2); sidepod.castShadow=true; group.add(sidepod);
+    var undercut=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.22,1.7),darkMat);
+    undercut.position.set(side*1.15,0.22,0.15); group.add(undercut);
   });
 
-  var cockpit=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.4,1.3),darkMat);
-  cockpit.position.set(0,0.9,0.1); cockpit.castShadow=true; group.add(cockpit);
+  var cockpit=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.4,1.2),darkMat);
+  cockpit.position.set(0,0.88,0.7); cockpit.castShadow=true; group.add(cockpit);
 
-  var haloRing=new THREE.Mesh(new THREE.TorusGeometry(0.55,0.06,8,12,Math.PI),darkMat);
-  haloRing.rotation.set(0,0,Math.PI); haloRing.position.set(0,1.28,0.55); haloRing.castShadow=true; group.add(haloRing);
-  var haloPylon=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.5,0.08),darkMat);
-  haloPylon.position.set(0,1.0,1.05); group.add(haloPylon);
+  var haloRing=new THREE.Mesh(new THREE.TorusGeometry(0.52,0.055,8,12,Math.PI),darkMat);
+  haloRing.rotation.set(0,0,Math.PI); haloRing.position.set(0,1.24,1.15); haloRing.castShadow=true; group.add(haloRing);
+  var haloPylon=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.46,0.07),darkMat);
+  haloPylon.position.set(0,0.98,1.65); group.add(haloPylon);
 
-  var rearWing=new THREE.Mesh(new THREE.BoxGeometry(2.1,0.12,0.5),darkMat);
-  rearWing.position.set(0,1.05,-2.1); rearWing.castShadow=true; group.add(rearWing);
-  var wingPost=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.5,0.12),darkMat);
-  wingPost.position.set(0,0.75,-2.1); group.add(wingPost);
-  [-1.02,1.02].forEach(function(x){
-    var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.45,0.6),darkMat);
-    endplate.position.set(x,1.0,-2.1); group.add(endplate);
+  // Airbox — halo'nun arkasında motor hava alığı çıkıntısı.
+  var airbox=new THREE.Mesh(new THREE.ConeGeometry(0.26,0.5,6),darkMat);
+  airbox.position.set(0,1.05,0.15); airbox.castShadow=true; group.add(airbox);
+
+  // Arka kanat: ana eleman + alt "beam wing" — 2022+ nesli F1 arabalarının
+  // ayırt edici çift kanat siluetini verir.
+  var rearWing=new THREE.Mesh(new THREE.BoxGeometry(2.05,0.1,0.48),darkMat);
+  rearWing.position.set(0,1.02,-2.55); rearWing.rotation.x=-0.08; rearWing.castShadow=true; group.add(rearWing);
+  var beamWing=new THREE.Mesh(new THREE.BoxGeometry(1.3,0.07,0.32),darkMat);
+  beamWing.position.set(0,0.58,-2.5); beamWing.castShadow=true; group.add(beamWing);
+  var wingPost=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.42,0.1),darkMat);
+  wingPost.position.set(0,0.8,-2.55); group.add(wingPost);
+  [-1.0,1.0].forEach(function(x){
+    var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.5,0.62),darkMat);
+    endplate.position.set(x,0.98,-2.55); group.add(endplate);
   });
 
-  var frontWing=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.08,0.6),wingMat);
-  frontWing.position.set(0,0.2,3.4); frontWing.castShadow=true; group.add(frontWing);
-  [-1.08,1.08].forEach(function(x){
-    var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.3,0.7),wingMat);
-    endplate.position.set(x,0.24,3.4); group.add(endplate);
+  // Ön kanat: iki katmanlı eleman (ana + üst flap) + geniş süpürülmüş
+  // uç plakaları.
+  var frontWingMain=new THREE.Mesh(new THREE.BoxGeometry(2.15,0.06,0.5),wingMat);
+  frontWingMain.position.set(0,0.16,3.75); frontWingMain.castShadow=true; group.add(frontWingMain);
+  var frontWingFlap=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.05,0.3),wingMat);
+  frontWingFlap.position.set(0,0.26,3.65); frontWingFlap.rotation.x=-0.18; frontWingFlap.castShadow=true; group.add(frontWingFlap);
+  [-1.06,1.06].forEach(function(x){
+    var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.34,0.85),wingMat);
+    endplate.position.set(x,0.22,3.7); endplate.rotation.y=x>0?-0.12:0.12; group.add(endplate);
   });
 
-  var diffuser=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.3,0.7),darkMat);
-  diffuser.rotation.x=-0.35; diffuser.position.set(0,0.28,-2.35); diffuser.castShadow=true; group.add(diffuser);
+  var diffuser=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.32,0.75),darkMat);
+  diffuser.rotation.x=-0.4; diffuser.position.set(0,0.26,-2.75); diffuser.castShadow=true; group.add(diffuser);
 
   [-1.2,1.2].forEach(function(x){
     var bargeboard=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.35,0.9),darkMat);
-    bargeboard.position.set(x,0.35,1.4); group.add(bargeboard);
+    bargeboard.position.set(x,0.35,1.75); group.add(bargeboard);
   });
 
   var wheelGeo=new THREE.CylinderGeometry(0.45,0.45,0.4,16);
