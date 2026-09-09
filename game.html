@@ -1140,7 +1140,10 @@ function archetypeForRound(round){
 var REAL_TRACK_SHAPES={
   // 1. Ankara Şehir Pisti — geniş kavis + ANA DÜZLÜK (uzun pit düzlüğü) +
   // SITTIYE KAVŞAĞI'nın (15-16-18) oluşturduğu hafif çift kıvrım.
-  1:[[0,-100,'straight'],[60,-98,'straight'],[95,-70,'flow'],[100,-30,'flow'],[85,10,'flow'],[95,45,'flow'],[55,60,'flow'],[65,85,'flow'],[20,95,'flow'],[-30,90,'flow'],[-80,60,'flow'],[-100,10,'flow'],[-90,-40,'flow'],[-55,-80,'flow'],[-20,-98,'flow']],
+  // Doğrudan "Karayel Pisti" SVG şemasındaki 17 ankor noktanın BİREBİR
+  // aynısı (merkezlenip oyun ölçeğine indirgenmiş) — kullanıcının onayladığı
+  // hairpin + şikan + Esses + uzun düzlük yerleşimi, yeniden tasarlanmadı.
+  1:[[-140,94,'straight'],[66,94,'straight'],[129,71,'flow'],[159,31,'flow'],[146,-13,'sharp'],[178,-47,'straight'],[152,-96,'sharp'],[87,-79,'flow'],[60,-28,'flow'],[-1,-16,'flow'],[-27,-60,'flow'],[-75,-45,'sharp'],[-98,-79,'sharp'],[-132,-56,'flow'],[-157,10,'straight'],[-161,86,'straight'],[-187,136,'flow']],
   // 2. Kapadokya Kaya Pisti — tünelin oluşturduğu düz "boyun" (neck) —
   // GERÇEKTEN düz iki kol — üstte peribacaları arasında dönen geniş bir
   // halka; klasik oval/daireden KASITLI olarak farklı bir "lolipop" silüeti.
