@@ -1574,11 +1574,20 @@ function buildCarMesh3d(color,isPlayer){
   var rearDeck=new THREE.Mesh(new THREE.BoxGeometry(1.05,0.42,1.9),bodyMat);
   rearDeck.position.set(0,0.46,-1.55); rearDeck.castShadow=true; group.add(rearDeck);
 
-  // İki kademeli sivri burun — kalın gövdeden ince bir uca daralır.
-  var noseBase=new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.22,1.0,10),bodyMat);
-  noseBase.rotation.x=Math.PI/2; noseBase.position.set(0,0.4,2.35); noseBase.castShadow=true; group.add(noseBase);
-  var noseTip=new THREE.Mesh(new THREE.ConeGeometry(0.22,1.1,10),bodyMat);
-  noseTip.rotation.x=Math.PI/2; noseTip.position.set(0,0.4,3.4); noseTip.castShadow=true; group.add(noseTip);
+  // Küt burun (2022+ regülasyonu) — eski nesil sivri uçlu koni yerine,
+  // kalından küt bir uca daralan iki kademe + yuvarlatılmış kapak. Burun
+  // ucu artık ön kanatla çakışmıyor, aralarında iki ince payanda (pylon)
+  // ile bağlanan gerçekçi bir boşluk bırakılıyor.
+  var noseBase=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.3,0.85,10),bodyMat);
+  noseBase.rotation.x=Math.PI/2; noseBase.position.set(0,0.42,2.5); noseBase.castShadow=true; group.add(noseBase);
+  var noseTip=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.17,0.55,10),bodyMat);
+  noseTip.rotation.x=Math.PI/2; noseTip.position.set(0,0.42,3.12); noseTip.castShadow=true; group.add(noseTip);
+  var noseCap=new THREE.Mesh(new THREE.SphereGeometry(0.17,8,6),bodyMat);
+  noseCap.position.set(0,0.42,3.4); group.add(noseCap);
+  [-0.16,0.16].forEach(function(x){
+    var pylon=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.22,0.42),darkMat);
+    pylon.position.set(x,0.28,3.58); group.add(pylon);
+  });
 
   // Oyuklu (undercut) sidepod'lar — üstte geniş, altta içeri kesik.
   [-1,1].forEach(function(side){
@@ -1590,6 +1599,12 @@ function buildCarMesh3d(color,isPlayer){
 
   var cockpit=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.4,1.2),darkMat);
   cockpit.position.set(0,0.88,0.7); cockpit.castShadow=true; group.add(cockpit);
+
+  // Yan aynalar — küçük ama F1 silüetini anında tanınır kılan detaylar.
+  [-0.78,0.78].forEach(function(x){
+    var mirror=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.14,0.22),bodyMat);
+    mirror.position.set(x,0.98,1.55); group.add(mirror);
+  });
 
   var haloRing=new THREE.Mesh(new THREE.TorusGeometry(0.52,0.055,8,12,Math.PI),darkMat);
   haloRing.rotation.set(0,0,Math.PI); haloRing.position.set(0,1.24,1.15); haloRing.castShadow=true; group.add(haloRing);
@@ -1612,13 +1627,17 @@ function buildCarMesh3d(color,isPlayer){
     var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.5,0.62),darkMat);
     endplate.position.set(x,0.98,-2.55); group.add(endplate);
   });
+  var rainLight=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.08,0.06),new THREE.MeshStandardMaterial({color:0xd11f2e,roughness:0.3}));
+  rainLight.position.set(0,0.86,-2.72); group.add(rainLight);
 
-  // Ön kanat: iki katmanlı eleman (ana + üst flap) + geniş süpürülmüş
-  // uç plakaları.
+  // Ön kanat: üç katmanlı kademe (ana + iki flap) + geniş süpürülmüş
+  // uç plakaları — modern F1 ön kanatlarındaki yığılmış eleman görünümü.
   var frontWingMain=new THREE.Mesh(new THREE.BoxGeometry(2.15,0.06,0.5),wingMat);
   frontWingMain.position.set(0,0.16,3.75); frontWingMain.castShadow=true; group.add(frontWingMain);
   var frontWingFlap=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.05,0.3),wingMat);
   frontWingFlap.position.set(0,0.26,3.65); frontWingFlap.rotation.x=-0.18; frontWingFlap.castShadow=true; group.add(frontWingFlap);
+  var frontWingFlap2=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.045,0.24),wingMat);
+  frontWingFlap2.position.set(0,0.35,3.58); frontWingFlap2.rotation.x=-0.3; frontWingFlap2.castShadow=true; group.add(frontWingFlap2);
   [-1.06,1.06].forEach(function(x){
     var endplate=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.34,0.85),wingMat);
     endplate.position.set(x,0.22,3.7); endplate.rotation.y=x>0?-0.12:0.12; group.add(endplate);
@@ -1636,6 +1655,11 @@ function buildCarMesh3d(color,isPlayer){
   var wheelMat=new THREE.MeshStandardMaterial({color:0x111213,roughness:0.9});
   var rimGeo=new THREE.CylinderGeometry(0.24,0.24,0.42,10);
   var rimMat=new THREE.MeshStandardMaterial({color:0x3a4048,roughness:0.4,metalness:0.7});
+  // Tekerlek kapağı — 2022+ F1 kurallarının zorunlu kıldığı düz aero kapak;
+  // tekerleğin dış yüzünü örter, tekerlekleri "çıplak jant" yerine modern
+  // F1 arabası gibi gösterir.
+  var coverGeo=new THREE.CylinderGeometry(0.43,0.43,0.03,16);
+  var coverMat=new THREE.MeshStandardMaterial({color:0x1a1d22,roughness:0.5,metalness:0.2});
   [[-1.05,0.45,1.65],[1.05,0.45,1.65],[-1.05,0.45,-1.55],[1.05,0.45,-1.55]].forEach(function(p){
     var wheel=new THREE.Mesh(wheelGeo,wheelMat);
     wheel.rotation.z=Math.PI/2; wheel.position.set(p[0],p[1],p[2]); wheel.castShadow=true;
@@ -1643,6 +1667,10 @@ function buildCarMesh3d(color,isPlayer){
     var rim=new THREE.Mesh(rimGeo,rimMat);
     rim.rotation.z=Math.PI/2; rim.position.set(p[0],p[1],p[2]);
     group.add(rim);
+    var side=p[0]<0?-1:1;
+    var cover=new THREE.Mesh(coverGeo,coverMat);
+    cover.rotation.z=Math.PI/2; cover.position.set(p[0]+side*0.21,p[1],p[2]); cover.castShadow=true;
+    group.add(cover);
   });
 
   if(isPlayer){
