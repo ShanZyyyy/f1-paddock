@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a1119">
+<meta name="color-scheme" content="dark">
+<title>Gaza Bas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a1119;
+    --surface:#16212c;
+    --surface-2:#1f2e3b;
+    --line:rgba(255,255,255,.08);
+    --text:#eef3f6;
+    --text-dim:#8fa2b0;
+    --gold:#f2b705;
+    --gold-dim:#8a6d1f;
+    --red:#e0483e;
+    --track:#2a3038;
+    --stands:#1a2733;
+    --grass:#1f4a34;
+    --font-display:'Chakra Petch',ui-sans-serif,system-ui,sans-serif;
+    --font-body:'Work Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);overflow:hidden;-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;color:inherit;}
+
+  /* ---------- full-viewport app shell ---------- */
+  #shell{
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100dvh;
+    overflow:hidden;
+    background:#0a1119;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  .track-svg{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .car{
+    position:absolute;
+    top:0;left:0;
+    width:13px;height:8px;
+    border-radius:3px 6px 6px 3px;
+    offset-rotate:auto;
+    animation:lap linear infinite;
+    box-shadow:0 0 8px -1px rgba(0,0,0,.7);
+  }
+  .car::after{
+    content:'';
+    position:absolute;
+    right:-2px;top:50%;
+    width:4px;height:4px;
+    transform:translateY(-50%);
+    border-radius:50%;
+    background:rgba(255,255,255,.85);
+  }
+  .car.c1{background:var(--red);animation-duration:30s;}
+  .car.c2{background:#4d8bf0;animation-duration:33s;animation-delay:-9s;}
+  .car.c3{background:var(--gold);animation-duration:27s;animation-delay:-18s;}
+  @keyframes lap{to{offset-distance:100%;}}
+  @media (prefers-reduced-motion:reduce){
+    .car{animation:none;offset-distance:0%;}
+  }
+
+  .vignette{
+    position:absolute;inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% 38%, transparent 40%, rgba(5,9,13,.55) 100%),
+      linear-gradient(180deg, rgba(5,9,13,.65) 0%, transparent 16%, transparent 74%, rgba(5,9,13,.85) 100%);
+  }
+
+  .tap-hint{
+    position:absolute;
+    left:0;right:0;
+    top:44%;
+    text-align:center;
+    font-family:var(--font-display);
+    font-size:11.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:rgba(238,243,246,.5);
+    pointer-events:none;
+    animation:hintfade 2.6s ease-in-out infinite;
+    transition:opacity .3s ease;
+  }
+  @keyframes hintfade{0%,100%{opacity:.35;}50%{opacity:.85;}}
+
+  .float-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .ripple{
+    position:absolute;
+    width:14px;height:14px;
+    margin:-7px 0 0 -7px;
+    border-radius:50%;
+    border:2px solid var(--gold);
+    animation:ripple .55s ease-out forwards;
+  }
+  @keyframes ripple{
+    0%{opacity:.9;transform:scale(.3);}
+    100%{opacity:0;transform:scale(3.6);}
+  }
+  .float-pop{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:16px;
+    color:var(--gold);
+    text-shadow:0 1px 4px rgba(0,0,0,.6);
+    animation:pop .8s ease-out forwards;
+    white-space:nowrap;
+  }
+  @keyframes pop{
+    0%{opacity:0;transform:translate(-50%,-40%) scale(.8);}
+    20%{opacity:1;transform:translate(-50%,-60%) scale(1);}
+    100%{opacity:0;transform:translate(-50%,-130%) scale(1);}
+  }
+
+  /* ---------- HUD chips ---------- */
+  .chip{
+    background:rgba(22,33,44,.62);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:999px;
+  }
+  .hud-top{
+    position:absolute;
+    top:calc(14px + env(safe-area-inset-top));
+    left:14px;right:14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    z-index:5;
+  }
+  .hud-left{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 12px 7px 8px;
+    font-family:var(--font-display);
+    font-size:11.5px;
+    color:var(--text-dim);
+  }
+  .hud-left svg{width:14px;height:14px;color:var(--gold);}
+  .hud-left b{color:var(--text);}
+  .hud-right{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .lap-chip{
+    padding:7px 11px;
+    font-family:var(--font-display);
+    font-size:10.5px;
+    letter-spacing:.05em;
+    color:var(--text-dim);
+  }
+  .lap-chip b{color:var(--gold);font-size:12px;}
+  .icon-btn{
+    all:unset;
+    cursor:pointer;
+    width:34px;height:34px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    background:rgba(22,33,44,.62);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);
+    flex:none;
+  }
+  .icon-btn svg{width:16px;height:16px;}
+
+  .wallet-hud{
+    position:absolute;
+    top:calc(60px + env(safe-area-inset-top));
+    left:14px;
+    z-index:5;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:8px 14px 8px 9px;
+  }
+  .coin-dot{
+    width:20px;height:20px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffe28a, var(--gold) 60%, var(--gold-dim) 100%);
+    flex:none;
+    box-shadow:0 0 8px rgba(242,183,5,.4);
+  }
+  .wallet-text{display:flex;flex-direction:column;gap:1px;}
+  .wallet-amount{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:19px;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  .wallet-sub{
+    font-size:10px;
+    color:var(--text-dim);
+    font-variant-numeric:tabular-nums;
+  }
+  .wallet-sub b{color:var(--text);font-weight:600;}
+
+  .circuit-label{
+    position:absolute;
+    top:calc(14px + env(safe-area-inset-top));
+    left:0;right:0;
+    text-align:center;
+    font-family:var(--font-display);
+    font-size:10px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:rgba(238,243,246,.4);
+    z-index:4;
+  }
+
+  /* ---------- draggable sheet ---------- */
+  .sheet{
+    position:absolute;
+    left:0;right:0;bottom:0;
+    z-index:6;
+    background:linear-gradient(180deg,#16212c 0%,#101a23 100%);
+    border-top:1px solid var(--line);
+    border-radius:22px 22px 0 0;
+    box-shadow:0 -18px 40px -20px rgba(0,0,0,.6);
+    display:flex;
+    flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .sheet-handle{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    padding:10px 0 8px;
+    cursor:grab;
+    flex:none;
+  }
+  .handle-bar{width:36px;height:4px;border-radius:99px;background:var(--line);}
+  .sheet-handle span{
+    font-family:var(--font-display);
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .sheet-body{
+    flex:1;
+    overflow-y:auto;
+    padding:2px 14px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .upgrades{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .card{
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .card-head{display:flex;align-items:center;gap:8px;}
+  .card-icon{
+    width:26px;height:26px;
+    border-radius:8px;
+    background:var(--surface);
+    display:flex;align-items:center;justify-content:center;
+    flex:none;
+  }
+  .card-icon svg{width:15px;height:15px;}
+  .card-name{font-size:12.5px;font-weight:600;line-height:1.15;}
+  .card-sub{font-size:10.5px;color:var(--text-dim);line-height:1.3;}
+  .card-stats{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:11px;color:var(--text-dim);
+  }
+  .card-stats b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .buy-btn{
+    all:unset;cursor:pointer;text-align:center;
+    font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.03em;
+    padding:7px 0;border-radius:9px;background:var(--gold);color:#231a02;
+  }
+  .buy-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+
+  .prestige{
+    background:linear-gradient(135deg,#241b06,#1a2632);
+    border:1px solid var(--gold-dim);
+    border-radius:14px;
+    padding:12px;
+    display:flex;flex-direction:column;gap:8px;
+    flex:none;
+  }
+  .prestige-top{display:flex;justify-content:space-between;align-items:center;}
+  .prestige-title{font-family:var(--font-display);font-size:13px;font-weight:600;}
+  .prestige-title span{color:var(--gold);}
+  .prestige-mult{font-size:11px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .bar-track{height:7px;border-radius:99px;background:var(--surface);overflow:hidden;}
+  .bar-fill{
+    height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--gold-dim),var(--gold));
+    width:0%;transition:width .25s ease;
+  }
+  .prestige-btn{
+    all:unset;cursor:pointer;text-align:center;
+    font-family:var(--font-display);font-weight:700;font-size:12.5px;letter-spacing:.04em;
+    padding:9px 0;border-radius:10px;background:var(--gold);color:#231a02;
+  }
+  .prestige-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+
+  /* ---------- garage overlay panel ---------- */
+  .garage-panel{
+    position:absolute;inset:0;
+    z-index:10;
+    background:linear-gradient(180deg,#101a23,#0a1119);
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    padding:calc(16px + env(safe-area-inset-top)) 16px 16px;
+    overflow-y:auto;
+  }
+  .garage-top{
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--font-display);font-weight:600;font-size:14px;
+  }
+  .garage-car{
+    display:flex;justify-content:center;padding:16px 0 8px;
+    background:linear-gradient(180deg,#1a2632,#101821);
+    border:1px solid var(--line);border-radius:16px;
+  }
+  .pilot-line{display:flex;justify-content:space-between;align-items:baseline;}
+  .pilot-name{font-family:var(--font-display);font-weight:600;font-size:14px;}
+  .pilot-tag{font-size:11px;color:var(--text-dim);}
+  .section-label{
+    font-family:var(--font-display);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .stat-row{display:flex;flex-direction:column;gap:4px;}
+  .stat-label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim);}
+  .stat-label b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .stat-bar-track{height:6px;border-radius:99px;background:var(--surface);overflow:hidden;}
+  .stat-bar-fill{
+    height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--gold-dim),var(--gold));
+    width:0%;transition:width .25s ease;
+  }
+  .history-list{display:flex;flex-direction:column;gap:6px;}
+  .history-row{
+    display:flex;justify-content:space-between;font-size:12px;
+    background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;
+  }
+  .history-row b{color:var(--gold);font-variant-numeric:tabular-nums;}
+  .history-empty{
+    font-size:12px;color:var(--text-dim);text-align:center;padding:16px 0;
+    background:var(--surface-2);border:1px dashed var(--line);border-radius:10px;
+  }
+</style>
+</head>
+<body>
+
+  <div id="shell">
+    <svg class="track-svg" viewBox="0 0 320 520" preserveAspectRatio="xMidYMid slice">
+      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--stands)" stroke-width="140"/>
+      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="var(--grass)" stroke="none"/>
+      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--track)" stroke-width="46"/>
+      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.6" stroke-dasharray="6 9"/>
+      <rect x="87" y="150" width="46" height="7" fill="var(--gold)" transform="rotate(-1 110 153)"/>
+    </svg>
+    <div class="car c1" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+    <div class="car c2" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+    <div class="car c3" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+
+    <div class="vignette"></div>
+    <div class="circuit-label">Ankara Pisti</div>
+    <div class="tap-hint" id="tap-hint">Ekrana dokun, gaz kazan</div>
+    <div class="float-layer" id="float-layer"></div>
+
+    <div class="hud-top">
+      <div class="hud-left chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 13l7-8 9 2-2 9-8 7-6-4z"/></svg>
+        <span>S<b id="season-num">1</b> · <b id="prestige-pts">0</b>P</span>
+      </div>
+      <div class="hud-right">
+        <div class="lap-chip chip">TUR <b id="lap-num">1</b></div>
+        <button class="icon-btn" id="garage-open" aria-label="Garajı aç">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V10l9-6 9 6v11"/><path d="M8 21v-6h8v6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="wallet-hud chip">
+      <span class="coin-dot"></span>
+      <div class="wallet-text">
+        <span class="wallet-amount" id="wallet">0 ₺</span>
+        <span class="wallet-sub"><b id="idle-rate">0</b>/sn · ×<span id="mult-rate">1.0</span></span>
+      </div>
+    </div>
+
+    <div class="sheet" id="sheet">
+      <div class="sheet-handle" id="sheet-handle">
+        <div class="handle-bar"></div>
+        <span id="sheet-caption">Yükseltmeler — çekip yukarı kaydır</span>
+      </div>
+      <div class="sheet-body">
+        <div class="upgrades" id="upgrades"></div>
+        <div class="prestige">
+          <div class="prestige-top">
+            <div class="prestige-title">Yeni <span>Sezon</span></div>
+            <div class="prestige-mult" id="prestige-preview">+0 puan</div>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="prestige-bar"></div></div>
+          <button class="prestige-btn" id="prestige-btn" disabled>50.000 ₺ gerekli</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="garage-panel" id="garage-panel" hidden>
+      <div class="garage-top">
+        <button class="icon-btn" id="garage-close" aria-label="Kapat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span>Garaj</span>
+      </div>
+      <div class="garage-car">
+        <svg viewBox="0 0 200 90" width="170" height="76">
+          <rect x="20" y="38" width="30" height="10" rx="4" fill="var(--gold)"/>
+          <rect x="40" y="30" width="120" height="26" rx="10" fill="var(--red)"/>
+          <rect x="90" y="20" width="22" height="16" rx="4" fill="#0e1620"/>
+          <rect x="140" y="26" width="34" height="6" rx="3" fill="var(--gold)"/>
+          <rect x="150" y="32" width="14" height="20" rx="3" fill="var(--gold)"/>
+          <circle cx="55" cy="60" r="10" fill="#0e1420"/>
+          <circle cx="145" cy="60" r="10" fill="#0e1420"/>
+          <circle cx="55" cy="28" r="9" fill="#0e1420"/>
+          <circle cx="145" cy="28" r="9" fill="#0e1420"/>
+        </svg>
+      </div>
+      <div class="pilot-line">
+        <span class="pilot-name">Sen · Takım Kaptanı</span>
+        <span class="pilot-tag" id="garage-mult">Çarpan ×1.0</span>
+      </div>
+      <div class="section-label">Araba İstatistikleri</div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Hız (Slipstream)</span><b id="stat-speed-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-speed-bar"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Geçiş Gücü</span><b id="stat-overtake-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-overtake-bar"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Sponsor Değeri</span><b id="stat-sponsor-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-sponsor-bar"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Tribün Kapasitesi</span><b id="stat-capacity-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-capacity-bar"></div></div>
+      </div>
+      <div class="section-label">Sezon Geçmişi</div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">Henüz tamamlanmış sezon yok.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  /* =========================================================
+     STATE — tek kaynak, tüm oyun verisi burada
+     ========================================================= */
+  var STORAGE_KEY = 'gazabas_v1';
+  var PRESTIGE_THRESHOLD = 50000;
+  var LAP_SECONDS = 30;
+  var STAT_MAX_LEVEL = 15;
+
+  // Telifsiz, kurgusal sponsorlar (App Store / Play Store yayını için
+  // gerçek marka isimleri kullanılmıyor — sadece F1 sponsorluğu hissi veriyor).
+  var SPONSORS = ['FLASH Kargo', 'VELOCE Lastik', 'CHRONOS Saat', 'APEX Saat', 'AURUM İçecek', 'NEXUS Bulut'];
+
+  var UP = {
+    overtaking:{ name:'Geçiş', sub:'Dokunuş kazancı +', base:12, growth:1.16, effect:1 },
+    slipstream:{ name:'Slipstream', sub:'Saniyede gelir +', base:20, growth:1.17, effect:2 },
+    sponsorship:{ name:'Sponsorluk', sub:'10 sn de bir bonus', base:35, growth:1.18, effect:14 },
+    bleachers:{ name:'Tribünler', sub:'Genel çarpan +%', base:60, growth:1.22, effect:4 }
+  };
+
+  function defaultState(){
+    return {
+      coins:0, season:1, prestigePts:0, lap:1,
+      levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
+      sponsorTimer:0,
+      history:[]
+    };
+  }
+  function loadLocal(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      var parsed = JSON.parse(raw);
+      if(parsed && parsed.levels) return parsed;
+    }catch(e){}
+    return null;
+  }
+  function saveLocal(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+
+  var state = defaultState();
+
+  /* =========================================================
+     ECONOMY — tüm hesaplamalar burada, State'i sadece okur/yazar
+     ========================================================= */
+  var Economy = {
+    cost: function(key){ var u = UP[key], lvl = state.levels[key]; return Math.round(u.base * Math.pow(u.growth, lvl)); },
+    mult: function(){ return 1 + state.prestigePts*0.1; },
+    tapValue: function(){ return Math.round((1 + state.levels.overtaking*UP.overtaking.effect) * this.mult()); },
+    idlePerSec: function(){ return Math.round(state.levels.slipstream*UP.slipstream.effect * (1 + this.bleachersBonusPct()/100) * this.mult()); },
+    sponsorPayout: function(){ return Math.round(state.levels.sponsorship*UP.sponsorship.effect * (1 + this.bleachersBonusPct()/100) * this.mult()); },
+    lapBonus: function(){ return Math.max(5, Math.round(30 * (1 + this.bleachersBonusPct()/100) * this.mult())); },
+    bleachersBonusPct: function(){ return state.levels.bleachers*UP.bleachers.effect; },
+    buy: function(key){
+      var c = this.cost(key);
+      if(state.coins < c) return false;
+      state.coins -= c;
+      state.levels[key] += 1;
+      return true;
+    },
+    canPrestige: function(){ return state.coins >= PRESTIGE_THRESHOLD; },
+    prestigeGain: function(){ return Math.max(1, Math.floor(Math.sqrt(state.coins/1000))); },
+    prestige: function(){
+      if(!this.canPrestige()) return false;
+      var gained = this.prestigeGain();
+      state.history = state.history || [];
+      state.history.unshift({season:state.season, coins:state.coins, gained:gained});
+      state.history = state.history.slice(0, 8);
+      state.prestigePts += gained;
+      state.season += 1;
+      state.coins = 0;
+      state.levels = {overtaking:0, slipstream:0, sponsorship:0, bleachers:0};
+      state.sponsorTimer = 0;
+      return true;
+    }
+  };
+
+  var ICONS = {
+    overtaking:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l6 5-6 5"/><path d="M12 7l6 5-6 5"/></svg>',
+    slipstream:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><path d="M3 8h13M3 12h17M3 16h10"/></svg>',
+    sponsorship:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"><path d="M4 13l7-8 9 2-2 9-8 7-6-4z"/><circle cx="9" cy="9" r="1.4" fill="var(--gold)" stroke="none"/></svg>',
+    bleachers:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"><path d="M4 20V13l4-4 4 4 4-6 4 6v7"/></svg>'
+  };
+
+  function formatNum(n){
+    n = Math.round(n);
+    if(n >= 1000000) return (n/1000000).toFixed(2).replace(/\.00$/,'') + 'M';
+    if(n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'K';
+    return String(n);
+  }
+
+  /* =========================================================
+     VIEW — DOM'a çizen kısım, State'i asla değiştirmez
+     ========================================================= */
+  var View = {
+    buildCards: function(){
+      var wrap = document.getElementById('upgrades');
+      wrap.innerHTML = '';
+      Object.keys(UP).forEach(function(key){
+        var u = UP[key];
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML =
+          '<div class="card-head"><div class="card-icon">'+ICONS[key]+'</div><div><div class="card-name">'+u.name+'</div></div></div>' +
+          '<div class="card-sub" data-role="sub"></div>' +
+          '<div class="card-stats"><span>Seviye <b data-role="lvl">0</b></span><span data-role="cost"></span></div>' +
+          '<button class="buy-btn" data-role="buy">Satın al</button>';
+        wrap.appendChild(card);
+        card.querySelector('[data-role="buy"]').addEventListener('click', function(ev){ ev.stopPropagation(); Input.buy(key); });
+        card._key = key;
+      });
+    },
+    spawnTapFx: function(x, y, text){
+      var layer = document.getElementById('float-layer');
+      var ripple = document.createElement('div');
+      ripple.className = 'ripple';
+      ripple.style.left = x+'px'; ripple.style.top = y+'px';
+      layer.appendChild(ripple);
+      setTimeout(function(){ ripple.remove(); }, 600);
+
+      var pop = document.createElement('div');
+      pop.className = 'float-pop';
+      pop.textContent = text;
+      pop.style.left = x+'px'; pop.style.top = y+'px';
+      layer.appendChild(pop);
+      setTimeout(function(){ pop.remove(); }, 800);
+    },
+    renderGarage: function(){
+      document.getElementById('garage-mult').textContent = 'Çarpan ×' + Economy.mult().toFixed(1);
+      var stats = [['speed', state.levels.slipstream],['overtake', state.levels.overtaking],['sponsor', state.levels.sponsorship],['capacity', state.levels.bleachers]];
+      stats.forEach(function(pair){
+        var key = pair[0], lvl = pair[1];
+        var pct = Math.min(100, (lvl/STAT_MAX_LEVEL)*100);
+        document.getElementById('stat-'+key+'-val').textContent = lvl;
+        document.getElementById('stat-'+key+'-bar').style.width = pct + '%';
+      });
+      var list = document.getElementById('history-list');
+      var hist = state.history || [];
+      if(hist.length === 0){
+        list.innerHTML = '<div class="history-empty">Henüz tamamlanmış sezon yok.</div>';
+        return;
+      }
+      list.innerHTML = hist.map(function(row){
+        return '<div class="history-row"><span>Sezon '+row.season+' · '+formatNum(row.coins)+' ₺</span><b>+'+row.gained+' puan</b></div>';
+      }).join('');
+    },
+    render: function(){
+      document.getElementById('wallet').textContent = formatNum(state.coins) + ' ₺';
+      document.getElementById('season-num').textContent = state.season;
+      document.getElementById('prestige-pts').textContent = state.prestigePts;
+      document.getElementById('lap-num').textContent = state.lap;
+      document.getElementById('idle-rate').textContent = formatNum(Economy.idlePerSec());
+      document.getElementById('mult-rate').textContent = Economy.mult().toFixed(1);
+
+      var cards = document.querySelectorAll('#upgrades .card');
+      cards.forEach(function(card){
+        var key = card._key, u = UP[key], lvl = state.levels[key], c = Economy.cost(key);
+        var effectText;
+        if(key === 'overtaking') effectText = u.sub + (1+lvl*u.effect);
+        else if(key === 'slipstream') effectText = u.sub + (lvl*u.effect) + '/sn';
+        else if(key === 'sponsorship') effectText = u.sub + ' (' + formatNum(lvl*u.effect) + ' ₺)';
+        else effectText = u.sub + Economy.bleachersBonusPct() + '%';
+        card.querySelector('[data-role="sub"]').textContent = effectText;
+        card.querySelector('[data-role="lvl"]').textContent = lvl;
+        card.querySelector('[data-role="cost"]').textContent = formatNum(c) + ' ₺';
+        var buyBtn = card.querySelector('[data-role="buy"]');
+        buyBtn.disabled = state.coins < c;
+        buyBtn.textContent = state.coins < c ? 'Yetersiz' : 'Satın al';
+      });
+
+      var pct = Math.min(100, (state.coins/PRESTIGE_THRESHOLD)*100);
+      document.getElementById('prestige-bar').style.width = pct + '%';
+      var pBtn = document.getElementById('prestige-btn');
+      var ready = Economy.canPrestige();
+      pBtn.disabled = !ready;
+      pBtn.textContent = ready ? 'Yeni Sezona Geç' : formatNum(PRESTIGE_THRESHOLD - state.coins) + ' ₺ kaldı';
+      document.getElementById('prestige-preview').textContent = '+' + Economy.prestigeGain() + ' puan';
+
+      if(!document.getElementById('garage-panel').hidden) this.renderGarage();
+    }
+  };
+
+  /* =========================================================
+     INPUT — dokunma, sürükleme, satın alma, prestij tetikleyicileri
+     ========================================================= */
+  var Input = {
+    tap: function(x, y){
+      var v = Economy.tapValue();
+      state.coins += v;
+      View.spawnTapFx(x, y, '+' + formatNum(v));
+      document.getElementById('tap-hint').style.opacity = '0';
+      saveLocal(); View.render();
+    },
+    buy: function(key){
+      if(Economy.buy(key)){ saveLocal(); View.render(); }
+    },
+    prestige: function(){
+      if(Economy.prestige()){ saveLocal(); View.render(); }
+    },
+    tick: function(){
+      var idle = Economy.idlePerSec();
+      if(idle > 0) state.coins += idle;
+      state.sponsorTimer = (state.sponsorTimer||0) + 1;
+      if(state.sponsorTimer >= 10){
+        state.sponsorTimer = 0;
+        var payout = Economy.sponsorPayout();
+        if(payout > 0){
+          var sponsor = SPONSORS[Math.floor(Math.random()*SPONSORS.length)];
+          state.coins += payout;
+          var rect = document.getElementById('shell').getBoundingClientRect();
+          View.spawnTapFx(rect.width*0.5, rect.height*0.3, sponsor + ' +' + formatNum(payout));
+        }
+      }
+      saveLocal(); View.render();
+    },
+    lapComplete: function(){
+      state.lap = state.lap >= 999 ? 1 : state.lap + 1;
+      var bonus = Economy.lapBonus();
+      state.coins += bonus;
+      var rect = document.getElementById('shell').getBoundingClientRect();
+      View.spawnTapFx(rect.width*0.5, rect.height*0.16, 'TUR BONUSU +' + formatNum(bonus));
+      saveLocal(); View.render();
+    }
+  };
+
+  document.getElementById('shell').addEventListener('click', function(e){
+    if(e.target.closest('.chip, .icon-btn, .sheet, .garage-panel')) return;
+    var rect = e.currentTarget.getBoundingClientRect();
+    Input.tap(e.clientX - rect.left, e.clientY - rect.top);
+  });
+  document.getElementById('prestige-btn').addEventListener('click', function(ev){ ev.stopPropagation(); Input.prestige(); });
+  document.getElementById('garage-open').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    document.getElementById('garage-panel').hidden = false;
+    View.renderGarage();
+  });
+  document.getElementById('garage-close').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    document.getElementById('garage-panel').hidden = true;
+  });
+
+  /* ---------- draggable bottom sheet ---------- */
+  var sheet = document.getElementById('sheet');
+  var handle = document.getElementById('sheet-handle');
+  var shell = document.getElementById('shell');
+  var peekH = 54, collapsedT = 0, dragging = false, startY = 0, startT = 0, curT = 0, expanded = false;
+
+  function layoutSheet(){
+    var shellH = shell.clientHeight;
+    var expandedH = Math.round(shellH * 0.52);
+    sheet.style.height = expandedH + 'px';
+    collapsedT = expandedH - peekH;
+    curT = expanded ? 0 : collapsedT;
+    sheet.style.transform = 'translateY(' + curT + 'px)';
+  }
+  function setSheetCaption(){
+    document.getElementById('sheet-caption').textContent = expanded ? 'Yükseltmeler — aşağı it, pisti gör' : 'Yükseltmeler — çekip yukarı kaydır';
+  }
+  handle.addEventListener('pointerdown', function(e){
+    dragging = true; startY = e.clientY; startT = curT;
+    sheet.style.transition = 'none';
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var dy = e.clientY - startY;
+    curT = Math.max(0, Math.min(collapsedT, startT + dy));
+    sheet.style.transform = 'translateY(' + curT + 'px)';
+  });
+  function endDrag(){
+    if(!dragging) return;
+    dragging = false;
+    sheet.style.transition = '';
+    var moved = Math.abs(curT - startT);
+    if(moved < 4){ expanded = !expanded; }
+    else{ expanded = curT < collapsedT/2; }
+    curT = expanded ? 0 : collapsedT;
+    sheet.style.transform = 'translateY(' + curT + 'px)';
+    setSheetCaption();
+  }
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+
+  /* ---------- 30 saniyelik tur bonusu (öndeki arabanın CSS animasyonuyla senkron) ---------- */
+  setInterval(function(){ Input.lapComplete(); }, LAP_SECONDS*1000);
+
+  /* =========================================================
+     BOOT
+     ========================================================= */
+  function start(){
+    state = Object.assign(defaultState(), loadLocal() || {});
+    View.buildCards();
+    View.render();
+    layoutSheet();
+    setSheetCaption();
+    setInterval(Input.tick, 1000);
+    window.addEventListener('resize', layoutSheet);
+  }
+  start();
+})();
+</script>
+</body>
+</html>
