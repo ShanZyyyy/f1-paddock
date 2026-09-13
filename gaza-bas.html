@@ -164,6 +164,8 @@
     color:var(--text-dim);
   }
   .lap-chip b{color:var(--gold);font-size:12px;}
+  .lap-ghost{margin-left:5px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .lap-ghost.ahead{color:var(--gold);font-weight:700;}
   .icon-btn{
     all:unset;
     cursor:pointer;
@@ -460,7 +462,7 @@
         <span>S<b id="season-num">1</b> · <b id="prestige-pts">0</b>P</span>
       </div>
       <div class="hud-right">
-        <div class="lap-chip chip">TUR <b id="lap-num">1</b></div>
+        <div class="lap-chip chip">TUR <b id="lap-num">1</b><span class="lap-ghost" id="lap-ghost"></span></div>
         <button class="icon-btn" id="sound-toggle" aria-label="Sesi aç/kapat">
           <svg id="sound-icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>
           <svg id="sound-icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
@@ -528,6 +530,9 @@
       <div class="pilot-line">
         <span class="pilot-name">Sen · Takım Kaptanı</span>
         <span class="pilot-tag" id="garage-mult">Çarpan ×1.0</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>👻 En İyi Tur Kazancı (bu pist)</span><b id="best-lap-val">—</b></div>
       </div>
       <div class="section-label">Araba İstatistikleri</div>
       <div class="stat-row">
@@ -641,6 +646,7 @@
       coins:0, gems:0, season:1, prestigePts:0, lap:1, soundOn:true,
       levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
       sponsorTimer:0, managerTimer:0, managerHired:false,
+      lapEarnings:0, bestLap:{},
       history:[],
       daily: defaultDaily(todayKey()),
       lifetime: {earned:0, taps:0, buys:0},
@@ -744,6 +750,7 @@
     state.coins += amount;
     state.daily.earned += amount;
     state.lifetime.earned += amount;
+    state.lapEarnings = (state.lapEarnings||0) + amount;
   }
   var BADGE_GEM_REWARD = 5;
   function checkBadges(){
@@ -833,6 +840,7 @@
       document.documentElement.style.setProperty('--grass', cfg.grass);
       document.getElementById('circuit-label').textContent = cfg.name;
 
+      state.lapEarnings = 0;
       if(lapIntervalId) clearInterval(lapIntervalId);
       lapIntervalId = setInterval(function(){ Input.lapComplete(); }, cfg.lap*1000);
     },
@@ -881,6 +889,9 @@
     },
     renderGarage: function(){
       document.getElementById('garage-mult').textContent = 'Çarpan ×' + Economy.mult().toFixed(1);
+      var gTrackName = TRACKS[Tracks.indexForSeason()].name;
+      var gBest = state.bestLap[gTrackName];
+      document.getElementById('best-lap-val').textContent = gBest ? formatNum(gBest) + ' ₺' : '—';
       var hireBtn = document.getElementById('manager-hire');
       if(state.managerHired){
         document.getElementById('manager-status').textContent = 'Aktif';
@@ -920,6 +931,17 @@
       document.getElementById('season-num').textContent = state.season;
       document.getElementById('prestige-pts').textContent = state.prestigePts;
       document.getElementById('lap-num').textContent = state.lap;
+      var ghostEl = document.getElementById('lap-ghost');
+      var curTrackName = TRACKS[Tracks.indexForSeason()].name;
+      var curBest = state.bestLap[curTrackName] || 0;
+      if(curBest > 0){
+        var ghostPct = Math.min(999, Math.round((state.lapEarnings/curBest)*100));
+        ghostEl.textContent = '👻' + ghostPct + '%';
+        ghostEl.classList.toggle('ahead', ghostPct >= 100);
+      } else {
+        ghostEl.textContent = '';
+        ghostEl.classList.remove('ahead');
+      }
       document.getElementById('idle-rate').textContent = formatNum(Economy.idlePerSec());
       document.getElementById('mult-rate').textContent = Economy.mult().toFixed(1);
 
@@ -1073,9 +1095,22 @@
       state.daily.laps += 1;
       var bonus = Economy.lapBonus();
       addCoins(bonus);
-      Sound.lapBonus(); Haptics.medium();
+
+      var trackName = TRACKS[Tracks.indexForSeason()].name;
+      var prevBest = state.bestLap[trackName] || 0;
+      var lapTotal = state.lapEarnings;
+      var isRecord = lapTotal > prevBest;
+      if(isRecord) state.bestLap[trackName] = lapTotal;
+      state.lapEarnings = 0;
+
       var rect = document.getElementById('shell').getBoundingClientRect();
-      View.spawnTapFx(rect.width*0.5, rect.height*0.16, 'TUR BONUSU +' + formatNum(bonus));
+      if(isRecord && prevBest > 0){
+        Sound.badge(); Haptics.strong();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.16, '👻 YENİ REKOR TUR! ' + formatNum(lapTotal) + ' ₺');
+      } else {
+        Sound.lapBonus(); Haptics.medium();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.16, 'TUR BONUSU +' + formatNum(bonus));
+      }
       saveLocal(); View.render();
     },
     claimMission: function(id){
