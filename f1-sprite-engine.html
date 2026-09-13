@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F1 Sprite Engine</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0e12;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;}
+  canvas{display:block;background:#12181d;box-shadow:0 20px 50px -20px rgba(0,0,0,.7);max-width:100%;height:auto;}
+  #status{position:fixed;top:10px;left:10px;color:#8fa2b0;font-size:12px;font-family:ui-monospace,monospace;}
+</style>
+</head>
+<body>
+<div id="status">Görseller yükleniyor…</div>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     1. ASSET LOADER
+     PNG'leri Image() ile yükler. onload VE onerror ikisi de
+     "settled" sayılır — bir görsel bulunamazsa oyun donmaz,
+     fallback (renkli kare) çizimine düşer. Game loop, hepsi
+     yüklenene/başarısız olana kadar başlamaz.
+     ========================================================= */
+  var Assets = (function(){
+    var images = {};
+    var total = 0, settled = 0;
+    var onReadyCb = null;
+
+    function load(name, src){
+      total++;
+      var img = new Image();
+      img.onload = function(){ settled++; checkDone(); };
+      img.onerror = function(){
+        img.failed = true; // render() bu bayrağa bakıp fallback çizer
+        settled++; checkDone();
+      };
+      img.src = src;
+      images[name] = img;
+      return img;
+    }
+    function checkDone(){
+      if(settled >= total && onReadyCb) onReadyCb();
+    }
+    function ready(fn){
+      onReadyCb = fn;
+      if(settled >= total) fn();
+    }
+    function isUsable(img){
+      return !!img && img.complete && !img.failed && img.naturalWidth > 0;
+    }
+    return { load:load, ready:ready, isUsable:isUsable };
+  })();
+
+  // --- Buraya kendi PNG'lerini koyacaksın; isimler/yollar dokunulmadan kalabilir ---
+  var trackBg    = Assets.load('trackBg',   'track.png');
+  var playerCar  = Assets.load('playerCar', 'car_red.png');
+  var rivalCar   = Assets.load('rivalCar',  'car_blue.png');
+
+  /* =========================================================
+     2. WAYPOINTS — pistin görünmez rotası
+     ========================================================= */
+  var waypoints = [
+    {x:120, y:520},
+    {x:120, y:160},
+    {x:260, y:70},
+    {x:540, y:70},
+    {x:680, y:190},
+    {x:680, y:340},
+    {x:520, y:460},
+    {x:420, y:340},
+    {x:300, y:420},
+    {x:200, y:520}
+  ];
+
+  /* =========================================================
+     3. CAR — waypoint takibi + atan2 rotasyonu + merkezden pivot
+     ========================================================= */
+  function Car(opts){
+    this.image = opts.image;
+    this.fallbackColor = opts.fallbackColor;
+    this.width = opts.width || 26;
+    this.height = opts.height || 14;
+    this.speed = opts.speed;
+    var start = waypoints[opts.startIndex];
+    this.x = start.x;
+    this.y = start.y;
+    this.currentWaypointIndex = (opts.startIndex + 1) % waypoints.length;
+    this.angle = 0;
+  }
+
+  Car.prototype.update = function(){
+    var target = waypoints[this.currentWaypointIndex];
+    var dx = target.x - this.x;
+    var dy = target.y - this.y;
+    var dist = Math.hypot(dx, dy);
+
+    this.angle = Math.atan2(dy, dx);
+
+    if(dist < 5){
+      this.currentWaypointIndex = (this.currentWaypointIndex + 1) % waypoints.length; // tur tamamlandığında başa döner
+      return;
+    }
+
+    this.x += (dx / dist) * this.speed;
+    this.y += (dy / dist) * this.speed;
+  };
+
+  Car.prototype.render = function(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+
+    if(Assets.isUsable(this.image)){
+      ctx.drawImage(this.image, -this.width/2, -this.height/2, this.width, this.height);
+    } else {
+      this.renderFallback(ctx);
+    }
+    ctx.restore();
+  };
+
+  // PNG henüz yoksa/bulunamadıysa: renkli kare + burun işareti (rotasyonun
+  // doğru çalıştığını görebilmek için — düz bir kare dönünce belli olmaz).
+  Car.prototype.renderFallback = function(ctx){
+    var w = this.width, h = this.height;
+    ctx.fillStyle = this.fallbackColor;
+    ctx.fillRect(-w/2, -h/2, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,.65)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-w/2, -h/2, w, h);
+    ctx.beginPath();
+    ctx.moveTo(w/2, 0);
+    ctx.lineTo(w/2 - 6, -4);
+    ctx.lineTo(w/2 - 6, 4);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fill();
+  };
+
+  /* =========================================================
+     4. GAME LOOP
+     ========================================================= */
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var statusEl = document.getElementById('status');
+
+  var cars = [
+    new Car({ image:playerCar, fallbackColor:'#e0483e', startIndex:0, speed:2.6, width:26, height:14 }),
+    new Car({ image:rivalCar,  fallbackColor:'#4d8bf0', startIndex:4, speed:2.1, width:26, height:14 })
+  ];
+
+  function drawTrackBackground(){
+    if(Assets.isUsable(trackBg)){
+      ctx.drawImage(trackBg, 0, 0, canvas.width, canvas.height);
+      return;
+    }
+    // Fallback: pist PNG'i yokken rotayı çizgiyle göster, boş siyah ekran olmasın
+    ctx.fillStyle = '#182018';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(255,255,255,.22)';
+    ctx.lineWidth = 30;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    waypoints.forEach(function(p, i){ i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y); });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.4)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8,7]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function update(){
+    cars.forEach(function(car){ car.update(); });
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawTrackBackground();
+    cars.forEach(function(car){ car.render(ctx); });
+  }
+
+  function gameLoop(){
+    update();
+    render();
+    requestAnimationFrame(gameLoop);
+  }
+
+  Assets.ready(function(){
+    statusEl.textContent = trackBg.failed || playerCar.failed || rivalCar.failed
+      ? 'Bazı PNG\'ler bulunamadı — fallback (renkli kare) çiziliyor. track.png / car_red.png / car_blue.png dosyalarını bu dosyayla aynı klasöre koy.'
+      : 'Tüm görseller yüklendi.';
+    gameLoop();
+  });
+})();
+</script>
+</body>
+</html>
