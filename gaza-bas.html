@@ -210,6 +210,29 @@
   }
   .wallet-sub b{color:var(--text);font-weight:600;}
 
+  .gems-hud{
+    position:absolute;
+    top:calc(60px + env(safe-area-inset-top));
+    right:14px;
+    z-index:5;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 13px 8px 10px;
+  }
+  .gem-dot{
+    width:14px;height:14px;
+    background:linear-gradient(135deg,#8ee8ff,#3fa8e0 60%,#1e6fa8);
+    clip-path:polygon(50% 0%,100% 38%,80% 100%,20% 100%,0% 38%);
+    flex:none;
+  }
+  .gems-amount{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:14px;
+    font-variant-numeric:tabular-nums;
+  }
+
   .circuit-label{
     position:absolute;
     top:calc(14px + env(safe-area-inset-top));
@@ -298,6 +321,15 @@
     padding:7px 0;border-radius:9px;background:var(--gold);color:#231a02;
   }
   .buy-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+  .card-btn-row{display:flex;gap:6px;}
+  .card-btn-row .buy-btn{flex:1;}
+  .gem-btn{
+    all:unset;cursor:pointer;text-align:center;flex:none;width:44px;
+    font-family:var(--font-display);font-weight:600;font-size:10.5px;
+    padding:7px 0;border-radius:9px;
+    background:linear-gradient(135deg,#8ee8ff,#3fa8e0);color:#062033;
+  }
+  .gem-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
 
   .prestige{
     background:linear-gradient(135deg,#241b06,#1a2632);
@@ -446,6 +478,11 @@
       </div>
     </div>
 
+    <div class="gems-hud chip">
+      <span class="gem-dot"></span>
+      <span class="gems-amount" id="gems">0</span>
+    </div>
+
     <div class="sheet" id="sheet">
       <div class="sheet-handle" id="sheet-handle">
         <div class="handle-bar"></div>
@@ -505,6 +542,13 @@
         <div class="stat-label"><span>Tribün Kapasitesi</span><b id="stat-capacity-val">0</b></div>
         <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-capacity-bar"></div></div>
       </div>
+      <div class="section-label">Menajer</div>
+      <div class="mission-row">
+        <div class="mission-top"><b id="manager-status">İşe alınmadı</b><span class="mission-reward" id="manager-cost">💎25</span></div>
+        <div class="mission-progress-text" id="manager-desc">Arka planda otomatik en ucuz yükseltmeyi satın alır — dokunmana gerek kalmaz.</div>
+        <button class="claim-btn" id="manager-hire">İşe Al</button>
+      </div>
+
       <div class="section-label">Sezon Geçmişi</div>
       <div class="history-list" id="history-list">
         <div class="history-empty">Henüz tamamlanmış sezon yok.</div>
@@ -590,9 +634,9 @@
 
   function defaultState(){
     return {
-      coins:0, season:1, prestigePts:0, lap:1,
+      coins:0, gems:0, season:1, prestigePts:0, lap:1,
       levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
-      sponsorTimer:0,
+      sponsorTimer:0, managerTimer:0, managerHired:false,
       history:[],
       daily: defaultDaily(todayKey()),
       lifetime: {earned:0, taps:0, buys:0},
@@ -629,6 +673,28 @@
       state.coins -= c;
       state.levels[key] += 1;
       return true;
+    },
+    GEM_UPGRADE_COST: 3,
+    MANAGER_COST: 25,
+    buyWithGems: function(key){
+      if(state.gems < this.GEM_UPGRADE_COST) return false;
+      state.gems -= this.GEM_UPGRADE_COST;
+      state.levels[key] += 1;
+      return true;
+    },
+    hireManager: function(){
+      if(state.managerHired || state.gems < this.MANAGER_COST) return false;
+      state.gems -= this.MANAGER_COST;
+      state.managerHired = true;
+      return true;
+    },
+    cheapestAffordableUpgrade: function(){
+      var best = null, bestCost = Infinity;
+      Object.keys(UP).forEach(function(key){
+        var c = Economy.cost(key);
+        if(c <= state.coins && c < bestCost){ best = key; bestCost = c; }
+      });
+      return best;
     },
     canPrestige: function(){ return state.coins >= PRESTIGE_THRESHOLD; },
     prestigeGain: function(){ return Math.max(1, Math.floor(Math.sqrt(state.coins/1000))); },
@@ -675,12 +741,14 @@
     state.daily.earned += amount;
     state.lifetime.earned += amount;
   }
+  var BADGE_GEM_REWARD = 5;
   function checkBadges(){
     BADGES.forEach(function(b){
       if(state.badges.indexOf(b.id) === -1 && b.cond()){
         state.badges.push(b.id);
+        state.gems += BADGE_GEM_REWARD;
         var rect = document.getElementById('shell').getBoundingClientRect();
-        View.spawnTapFx(rect.width*0.5, rect.height*0.22, 'ROZET: ' + b.name.toLocaleUpperCase('tr'));
+        View.spawnTapFx(rect.width*0.5, rect.height*0.22, 'ROZET: ' + b.name.toLocaleUpperCase('tr') + ' +' + BADGE_GEM_REWARD + '💎');
       }
     });
   }
@@ -731,9 +799,13 @@
           '<div class="card-head"><div class="card-icon">'+ICONS[key]+'</div><div><div class="card-name">'+u.name+'</div></div></div>' +
           '<div class="card-sub" data-role="sub"></div>' +
           '<div class="card-stats"><span>Seviye <b data-role="lvl">0</b></span><span data-role="cost"></span></div>' +
-          '<button class="buy-btn" data-role="buy">Satın al</button>';
+          '<div class="card-btn-row">' +
+            '<button class="buy-btn" data-role="buy">Satın al</button>' +
+            '<button class="gem-btn" data-role="gembuy" title="Elmasla anında yükselt">💎' + Economy.GEM_UPGRADE_COST + '</button>' +
+          '</div>';
         wrap.appendChild(card);
         card.querySelector('[data-role="buy"]').addEventListener('click', function(ev){ ev.stopPropagation(); Input.buy(key); });
+        card.querySelector('[data-role="gembuy"]').addEventListener('click', function(ev){ ev.stopPropagation(); Input.buyWithGems(key); });
         card._key = key;
       });
     },
@@ -754,6 +826,20 @@
     },
     renderGarage: function(){
       document.getElementById('garage-mult').textContent = 'Çarpan ×' + Economy.mult().toFixed(1);
+      var hireBtn = document.getElementById('manager-hire');
+      if(state.managerHired){
+        document.getElementById('manager-status').textContent = 'Aktif';
+        document.getElementById('manager-cost').textContent = '';
+        document.getElementById('manager-desc').textContent = 'Menajer her 6 saniyede bir en ucuz uygun yükseltmeyi otomatik satın alıyor.';
+        hireBtn.disabled = true;
+        hireBtn.textContent = 'İşe Alındı ✓';
+      } else {
+        document.getElementById('manager-status').textContent = 'İşe alınmadı';
+        document.getElementById('manager-cost').textContent = '💎' + Economy.MANAGER_COST;
+        document.getElementById('manager-desc').textContent = 'Arka planda otomatik en ucuz yükseltmeyi satın alır — dokunmana gerek kalmaz.';
+        hireBtn.disabled = state.gems < Economy.MANAGER_COST;
+        hireBtn.textContent = 'İşe Al';
+      }
       var stats = [['speed', state.levels.slipstream],['overtake', state.levels.overtaking],['sponsor', state.levels.sponsorship],['capacity', state.levels.bleachers]];
       stats.forEach(function(pair){
         var key = pair[0], lvl = pair[1];
@@ -773,6 +859,7 @@
     },
     render: function(){
       document.getElementById('wallet').textContent = formatNum(state.coins) + ' ₺';
+      document.getElementById('gems').textContent = formatNum(state.gems);
       document.getElementById('season-num').textContent = state.season;
       document.getElementById('prestige-pts').textContent = state.prestigePts;
       document.getElementById('lap-num').textContent = state.lap;
@@ -793,6 +880,7 @@
         var buyBtn = card.querySelector('[data-role="buy"]');
         buyBtn.disabled = state.coins < c;
         buyBtn.textContent = state.coins < c ? 'Yetersiz' : 'Satın al';
+        card.querySelector('[data-role="gembuy"]').disabled = state.gems < Economy.GEM_UPGRADE_COST;
       });
 
       var pct = Math.min(100, (state.coins/PRESTIGE_THRESHOLD)*100);
@@ -866,11 +954,34 @@
       ensureDaily();
       if(Economy.prestige()){
         state.daily.prestiges += 1;
+        state.gems += 2;
         saveLocal(); View.render();
         Tracks.applyForCurrentSeason();
         var cfg = TRACKS[Tracks.indexForSeason()];
         var rect = document.getElementById('shell').getBoundingClientRect();
-        View.spawnTapFx(rect.width*0.5, rect.height*0.45, 'YENİ PİST: ' + cfg.name.toLocaleUpperCase('tr'));
+        View.spawnTapFx(rect.width*0.5, rect.height*0.45, 'YENİ PİST: ' + cfg.name.toLocaleUpperCase('tr') + ' +2💎');
+      }
+    },
+    buyWithGems: function(key){
+      if(Economy.buyWithGems(key)){ saveLocal(); View.render(); }
+    },
+    hireManager: function(){
+      if(Economy.hireManager()){
+        saveLocal(); View.render();
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.3, 'MENAJER İŞE ALINDI');
+      }
+    },
+    managerTick: function(){
+      if(!state.managerHired) return;
+      state.managerTimer = (state.managerTimer||0) + 1;
+      if(state.managerTimer >= 6){
+        state.managerTimer = 0;
+        var key = Economy.cheapestAffordableUpgrade();
+        if(key && Economy.buy(key)){
+          state.daily.buys += 1; state.lifetime.buys += 1;
+          saveLocal(); View.render();
+        }
       }
     },
     tick: function(){
@@ -888,6 +999,7 @@
           View.spawnTapFx(rect.width*0.5, rect.height*0.3, sponsor + ' +' + formatNum(payout));
         }
       }
+      Input.managerTick();
       saveLocal(); View.render();
     },
     lapComplete: function(){
@@ -939,6 +1051,11 @@
   document.getElementById('missions-close').addEventListener('click', function(ev){
     ev.stopPropagation();
     document.getElementById('missions-panel').hidden = true;
+  });
+  document.getElementById('manager-hire').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    Input.hireManager();
+    View.renderGarage();
   });
 
   /* ---------- draggable bottom sheet ---------- */
