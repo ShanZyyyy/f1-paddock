@@ -46,31 +46,6 @@
   .view-2d{position:absolute;inset:0;}
   .track-svg{position:absolute;inset:0;width:100%;height:100%;display:block;}
   .gl-canvas{position:absolute;inset:0;width:100%;height:100%;display:none;}
-  .car{
-    position:absolute;
-    top:0;left:0;
-    width:13px;height:8px;
-    border-radius:3px 6px 6px 3px;
-    offset-rotate:auto;
-    animation:lap linear infinite;
-    box-shadow:0 0 8px -1px rgba(0,0,0,.7);
-  }
-  .car::after{
-    content:'';
-    position:absolute;
-    right:-2px;top:50%;
-    width:4px;height:4px;
-    transform:translateY(-50%);
-    border-radius:50%;
-    background:rgba(255,255,255,.85);
-  }
-  .car.c1{background:var(--red);animation-duration:30s;}
-  .car.c2{background:#4d8bf0;animation-duration:33s;animation-delay:-9s;}
-  .car.c3{background:var(--gold);animation-duration:27s;animation-delay:-18s;}
-  @keyframes lap{to{offset-distance:100%;}}
-  @media (prefers-reduced-motion:reduce){
-    .car{animation:none;offset-distance:0%;}
-  }
 
   .vignette{
     position:absolute;inset:0;
@@ -498,15 +473,12 @@
   <div id="shell">
     <div class="view-2d" id="view-2d">
       <svg class="track-svg" viewBox="0 0 320 520" preserveAspectRatio="xMidYMid slice">
-        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--stands)" stroke-width="140"/>
-        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="var(--grass)" stroke="none"/>
-        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--track)" stroke-width="46"/>
-        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.6" stroke-dasharray="6 9"/>
-        <rect id="start-line" x="87" y="150" width="46" height="7" fill="var(--gold)"/>
+        <path class="track-layer" fill="none" stroke="var(--stands)" stroke-width="42" stroke-linejoin="round"/>
+        <path class="track-layer" fill="var(--grass)" stroke="none"/>
+        <path class="track-layer" fill="none" stroke="var(--track)" stroke-width="26" stroke-linejoin="round"/>
+        <path class="track-layer" id="track-centerline" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.3" stroke-dasharray="5 7"/>
+        <line id="start-line" stroke="var(--gold)" stroke-width="4"/>
       </svg>
-      <div class="car c1" id="car-c1" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
-      <div class="car c2" id="car-c2" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
-      <div class="car c3" id="car-c3" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
     </div>
     <canvas class="gl-canvas" id="gl-canvas"></canvas>
 
@@ -681,15 +653,156 @@
     bleachers:{ name:'Tribünler', sub:'Genel çarpan +%', base:60, growth:1.22, effect:4 }
   };
 
-  // 4 mini pist — her sezon bir sonrakine geçiliyor. r = viraj (cap) yarıçapı,
-  // h = düzlüğün merkeze uzaklığı; ikisi de aynı stadyum şablonunu besliyor,
-  // sadece oranları değiştirerek 4 farklı silüet elde ediyoruz.
+  // 4 mini pist — her sezon bir sonrakine geçiliyor. Her pist gerçek bir
+  // waypoint (koordinat noktası) dizisiyle tanımlanıyor: 'straight' düz bir
+  // uzatılmış tanjant, 'sharp' keskin/dar bir viraj veya şikan/firkete,
+  // 'flow' ise akıcı orta hızlı bir dönüş üretir. h/r sadece 3D görünümün
+  // stadyum yaklaşıklaması için kaba bir kapsama kutusu.
   var TRACKS = [
-    { name:'Ankara Gece Pisti',      r:50, h:120, lap:26, track:'#2a2038', stands:'#1a1524', grass:'#3a2d52' },
-    { name:'Kapadokya Vadi Pisti',   r:62, h:95,  lap:24, track:'#4a3324', stands:'#2e2018', grass:'#caa06a' },
-    { name:'Karadeniz Rıhtım Pisti', r:36, h:150, lap:34, track:'#213640', stands:'#152128', grass:'#1f6b78' },
-    { name:'Toros Rampa Pisti',      r:46, h:108, lap:29, track:'#33372f', stands:'#20231d', grass:'#3f6b3f' }
+    { name:'Ankara Gece Pisti', lap:26, track:'#2a2038', stands:'#1a1524', grass:'#3a2d52', h:210, r:125,
+      points:[
+        {x:160,y:470,k:'straight'},{x:160,y:360,k:'straight'},{x:225,y:320,k:'sharp'},
+        {x:255,y:250,k:'flow'},{x:235,y:175,k:'flow'},{x:265,y:110,k:'sharp'},
+        {x:215,y:70,k:'sharp'},{x:170,y:85,k:'sharp'},{x:120,y:55,k:'flow'},
+        {x:70,y:75,k:'flow'},{x:45,y:150,k:'flow'},{x:20,y:225,k:'sharp'},
+        {x:65,y:250,k:'flow'},{x:90,y:320,k:'flow'},{x:55,y:390,k:'sharp'},{x:100,y:440,k:'flow'}
+      ]
+    },
+    { name:'Kapadokya Vadi Pisti', lap:24, track:'#4a3324', stands:'#2e2018', grass:'#caa06a', h:210, r:125,
+      points:[
+        {x:160,y:470,k:'straight'},{x:160,y:360,k:'straight'},{x:95,y:320,k:'sharp'},
+        {x:65,y:250,k:'flow'},{x:85,y:175,k:'flow'},{x:55,y:110,k:'sharp'},
+        {x:105,y:70,k:'sharp'},{x:150,y:85,k:'sharp'},{x:200,y:55,k:'flow'},
+        {x:250,y:75,k:'flow'},{x:275,y:150,k:'flow'},{x:300,y:225,k:'sharp'},
+        {x:255,y:250,k:'flow'},{x:230,y:320,k:'flow'},{x:265,y:390,k:'sharp'},{x:220,y:440,k:'flow'}
+      ]
+    },
+    { name:'Karadeniz Rıhtım Pisti', lap:34, track:'#213640', stands:'#152128', grass:'#1f6b78', h:190, r:133,
+      points:[
+        {x:160,y:480,k:'straight'},{x:160,y:400,k:'straight'},{x:230,y:370,k:'flow'},
+        {x:270,y:300,k:'flow'},{x:260,y:220,k:'flow'},{x:290,y:150,k:'sharp'},
+        {x:230,y:110,k:'sharp'},{x:180,y:125,k:'sharp'},{x:110,y:100,k:'flow'},
+        {x:55,y:140,k:'flow'},{x:25,y:210,k:'sharp'},{x:75,y:235,k:'flow'},
+        {x:110,y:300,k:'flow'},{x:70,y:370,k:'flow'},{x:110,y:440,k:'flow'}
+      ]
+    },
+    { name:'Toros Rampa Pisti', lap:29, track:'#33372f', stands:'#20231d', grass:'#3f6b3f', h:145, r:88,
+      points:[
+        {x:160,y:460,k:'straight'},{x:160,y:395,k:'straight'},{x:205,y:365,k:'sharp'},
+        {x:215,y:300,k:'sharp'},{x:175,y:255,k:'sharp'},{x:215,y:200,k:'sharp'},
+        {x:170,y:180,k:'sharp'},{x:120,y:210,k:'sharp'},{x:75,y:170,k:'flow'},
+        {x:40,y:220,k:'sharp'},{x:85,y:245,k:'flow'},{x:65,y:310,k:'sharp'},
+        {x:105,y:350,k:'sharp'},{x:80,y:410,k:'sharp'},{x:120,y:445,k:'flow'}
+      ]
+    }
   ];
+
+  // Waypoint dizisinden pürüzsüz, kapalı bir SVG pist yolu üretir. Basit
+  // yaylar yerine her noktanın teğetini (straight/sharp/flow etiketine göre)
+  // hesaplayıp kübik Bézier segmentleri zincirler — ana Paddock GP oyununun
+  // 3D pist üretiminde kullanılan aynı, kanıtlanmış teknik.
+  function buildTangentBezierSvgPath(pts){
+    var n = pts.length;
+    function wrap(i){ return (i+n)%n; }
+    function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+    function tangent(i){
+      var p=pts[i], prev=pts[wrap(i-1)], next=pts[wrap(i+1)];
+      if(p.k==='straight'){
+        var toNext={x:next.x-p.x,y:next.y-p.y}, toPrev={x:p.x-prev.x,y:p.y-prev.y};
+        var l1=Math.hypot(toNext.x,toNext.y)||1, l2=Math.hypot(toPrev.x,toPrev.y)||1;
+        return {x:(toNext.x/l1+toPrev.x/l2)/2, y:(toNext.y/l1+toPrev.y/l2)/2, sharp:false};
+      }
+      var dx=next.x-prev.x, dy=next.y-prev.y, len=Math.hypot(dx,dy)||1;
+      return {x:dx/len, y:dy/len, sharp:p.k==='sharp'};
+    }
+    var tans = pts.map(function(_,i){ return tangent(i); });
+    var d = '';
+    for(var i=0;i<n;i++){
+      var a=pts[i], b=pts[wrap(i+1)];
+      var ta=tans[i], tb=tans[wrap(i+1)];
+      var segLen = dist(a,b);
+      var hA=(ta.sharp?0.22:0.32)*segLen;
+      var hB=(tb.sharp?0.22:0.32)*segLen;
+      var c1x=a.x+ta.x*hA, c1y=a.y+ta.y*hA;
+      var c2x=b.x-tb.x*hB, c2y=b.y-tb.y*hB;
+      if(i===0) d += 'M'+a.x.toFixed(1)+','+a.y.toFixed(1)+' ';
+      d += 'C'+c1x.toFixed(1)+','+c1y.toFixed(1)+' '+c2x.toFixed(1)+','+c2y.toFixed(1)+' '+b.x.toFixed(1)+','+b.y.toFixed(1)+' ';
+    }
+    d += 'Z';
+    return d;
+  }
+
+  /* =========================================================
+     TRACK2D — gerçek F1 şasili arabaları, üretilen pist yolu
+     üzerinde SVG getPointAtLength ile her karede konumlandıran
+     rAF döngüsü (CSS animasyonuna güvenmiyor).
+     ========================================================= */
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs){
+    var el = document.createElementNS(SVG_NS, tag);
+    for(var k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function buildCarGroup(color){
+    var g = svgEl('g', {'class':'f1car'});
+    g.appendChild(svgEl('rect', {x:-6,y:9.4,width:1.3,height:4,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:4.7,y:9.4,width:1.3,height:4,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:-6,y:9.8,width:12,height:1.5,fill:'#111'}));
+    g.appendChild(svgEl('path', {
+      d:'M0,-12 L2,-9 L2.6,-4.5 L5.2,-1.5 L5.2,4 L2.8,6 L2.8,9.2 L-2.8,9.2 L-2.8,6 L-5.2,4 L-5.2,-1.5 L-2.6,-4.5 L-2,-9 Z',
+      fill:color, stroke:'rgba(255,255,255,.5)', 'stroke-width':0.5
+    }));
+    g.appendChild(svgEl('rect', {x:-1.4,y:-3,width:2.8,height:3.4,rx:0.6,fill:'#0c0f13'}));
+    g.appendChild(svgEl('rect', {x:-6.4,y:-9.6,width:2,height:1.3,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:4.4,y:-9.6,width:2,height:1.3,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:-6.4,y:-9.2,width:12.8,height:1.2,fill:'#111'}));
+    return g;
+  }
+  var Track2D = {
+    ready:false, running:false, totalLen:0, cars:[],
+    init: function(){
+      var svg = document.querySelector('.track-svg');
+      var colors = ['#e0483e','#4d8bf0','#f2b705'];
+      this.cars = colors.map(function(color, idx){
+        var g = buildCarGroup(color);
+        svg.appendChild(g);
+        return {el:g, t:idx/3, speed:1/30};
+      });
+      this.pathEl = document.getElementById('track-centerline');
+      this._boundLoop = this._loop.bind(this);
+      this.ready = true;
+    },
+    refreshPath: function(){
+      this.totalLen = this.pathEl.getTotalLength();
+    },
+    setSpeeds: function(lapSec){
+      var durations = [lapSec, lapSec+3, lapSec-2];
+      this.cars.forEach(function(car, idx){ car.speed = 1/durations[idx]; });
+    },
+    setActive: function(on){
+      if(on && this.ready && !this.running){
+        this.running = true;
+        this.lastT = performance.now();
+        requestAnimationFrame(this._boundLoop);
+      } else if(!on){
+        this.running = false;
+      }
+    },
+    _loop: function(now){
+      if(!this.running) return;
+      var dt = Math.min(0.05, (now-this.lastT)/1000); this.lastT = now;
+      var total = this.totalLen || 1;
+      this.cars.forEach(function(car){
+        car.t = (car.t + dt*car.speed) % 1;
+        var len = car.t*total;
+        var p = Track2D.pathEl.getPointAtLength(len);
+        var p2 = Track2D.pathEl.getPointAtLength((len+0.8) % total);
+        var angle = Math.atan2(p2.y-p.y, p2.x-p.x)*180/Math.PI + 90;
+        car.el.setAttribute('transform', 'translate('+p.x.toFixed(1)+','+p.y.toFixed(1)+') rotate('+angle.toFixed(1)+')');
+      });
+      requestAnimationFrame(this._boundLoop);
+    }
+  };
 
   function todayKey(){ var d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
   function hashSeed(str){ var h = 0; for(var i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i))|0; } return Math.abs(h); }
@@ -1094,25 +1207,23 @@
     indexForSeason: function(){ return (state.season - 1) % TRACKS.length; },
     apply: function(idx){
       var cfg = TRACKS[idx];
-      var Cx = 160, Cy = 260;
-      var Lx = Cx - cfg.r, Rx = Cx + cfg.r, Ty = Cy - cfg.h, By = Cy + cfg.h;
-      var d = 'M'+Lx+','+Ty+' A'+cfg.r+','+cfg.r+' 0 0 1 '+Rx+','+Ty+' L'+Rx+','+By+' A'+cfg.r+','+cfg.r+' 0 0 1 '+Lx+','+By+' L'+Lx+','+Ty+' Z';
+      var d = buildTangentBezierSvgPath(cfg.points);
+      document.querySelectorAll('.track-svg path.track-layer').forEach(function(p){ p.setAttribute('d', d); });
 
-      document.querySelectorAll('.track-svg path').forEach(function(p){ p.setAttribute('d', d); });
+      var p0 = cfg.points[0], p1 = cfg.points[1];
+      var dx = p1.x-p0.x, dy = p1.y-p0.y, len = Math.hypot(dx,dy)||1;
+      var nx = -dy/len, ny = dx/len, half = 15;
       var startLine = document.getElementById('start-line');
-      startLine.setAttribute('x', Lx - 23);
-      startLine.setAttribute('y', Ty + 10);
-
-      ['car-c1','car-c2','car-c3'].forEach(function(id, i){
-        var el = document.getElementById(id);
-        el.style.offsetPath = "path('" + d + "')";
-        el.style.animationDuration = (cfg.lap + [0,3,-2][i]) + 's';
-      });
+      startLine.setAttribute('x1', p0.x+nx*half); startLine.setAttribute('y1', p0.y+ny*half);
+      startLine.setAttribute('x2', p0.x-nx*half); startLine.setAttribute('y2', p0.y-ny*half);
 
       document.documentElement.style.setProperty('--track', cfg.track);
       document.documentElement.style.setProperty('--stands', cfg.stands);
       document.documentElement.style.setProperty('--grass', cfg.grass);
       document.getElementById('circuit-label').textContent = cfg.name;
+
+      Track2D.setSpeeds(cfg.lap);
+      if(Track2D.ready) Track2D.refreshPath();
 
       state.lapEarnings = 0;
       if(lapIntervalId) clearInterval(lapIntervalId);
@@ -1426,9 +1537,9 @@
       if(view3dLoading) return;
       if(state.viewMode === '3d'){
         state.viewMode = '2d';
-        View3D.setActive(false);
         document.getElementById('view-2d').style.display = '';
         document.getElementById('gl-canvas').style.display = 'none';
+        onPanelsVisibilityChanged();
         saveLocal(); View.render();
         return;
       }
@@ -1438,8 +1549,7 @@
         document.getElementById('gl-canvas').style.display = 'block';
         if(!View3D.ready) View3D.init(TRACKS[Tracks.indexForSeason()]);
         View3D.resize();
-        var panelsClosed = document.getElementById('garage-panel').hidden && document.getElementById('missions-panel').hidden && document.getElementById('settings-panel').hidden;
-        if(panelsClosed) View3D.setActive(true);
+        onPanelsVisibilityChanged();
         view3dLoading = false;
         saveLocal(); View.render();
       };
@@ -1527,7 +1637,14 @@
   }
   function onPanelsVisibilityChanged(){
     var anyOpen = !document.getElementById('garage-panel').hidden || !document.getElementById('missions-panel').hidden || !document.getElementById('settings-panel').hidden;
-    if(state.viewMode === '3d' && View3D.ready) View3D.setActive(!anyOpen && !document.hidden);
+    var canRun = !anyOpen && !document.hidden;
+    if(state.viewMode === '3d'){
+      if(View3D.ready) View3D.setActive(canRun);
+      Track2D.setActive(false);
+    } else {
+      Track2D.setActive(canRun);
+      if(View3D.ready) View3D.setActive(false);
+    }
   }
   document.getElementById('garage-open').addEventListener('click', function(ev){
     ev.stopPropagation();
@@ -1634,8 +1751,9 @@
     state.weatherTimer = 0;
     ensureDaily();
     View.buildCards();
-    View.render();
+    Track2D.init();
     Tracks.applyForCurrentSeason();
+    View.render();
     layoutSheet();
     setSheetCaption();
     setInterval(Input.tick, 1000);
@@ -1647,14 +1765,17 @@
       loadThreeAndInit(function(){
         View3D.init(TRACKS[Tracks.indexForSeason()]);
         View3D.resize();
-        View3D.setActive(true);
+        onPanelsVisibilityChanged();
         View.render();
       }, function(){
         state.viewMode = '2d';
         document.getElementById('view-2d').style.display = '';
         document.getElementById('gl-canvas').style.display = 'none';
+        onPanelsVisibilityChanged();
         saveLocal(); View.render();
       });
+    } else {
+      onPanelsVisibilityChanged();
     }
   }
   start();
