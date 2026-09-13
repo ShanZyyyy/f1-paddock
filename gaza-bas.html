@@ -77,6 +77,40 @@
       linear-gradient(180deg, rgba(5,9,13,.65) 0%, transparent 16%, transparent 74%, rgba(5,9,13,.85) 100%);
   }
 
+  .rain-overlay{
+    position:absolute;inset:0;
+    pointer-events:none;
+    z-index:2;
+    opacity:0;
+    transition:opacity .4s ease;
+    background:repeating-linear-gradient(115deg, rgba(170,205,255,.22) 0 2px, transparent 2px 15px);
+    background-size:160% 160%;
+    animation:rainmove .55s linear infinite;
+  }
+  #shell.wet .rain-overlay{opacity:1;}
+  #shell.wet .vignette{background:
+      radial-gradient(ellipse at 50% 38%, transparent 30%, rgba(8,14,22,.6) 100%),
+      linear-gradient(180deg, rgba(8,14,22,.7) 0%, rgba(20,35,50,.15) 16%, rgba(20,35,50,.15) 74%, rgba(8,14,22,.9) 100%);
+  }
+  @keyframes rainmove{ from{background-position:0 0;} to{background-position:-30px 50px;} }
+  @media (prefers-reduced-motion:reduce){ .rain-overlay{animation:none;} }
+
+  .weather-chip{
+    position:absolute;
+    top:calc(46px + env(safe-area-inset-top));
+    left:50%;
+    transform:translateX(-50%);
+    z-index:5;
+    padding:6px 14px;
+    font-family:var(--font-display);
+    font-size:10.5px;
+    letter-spacing:.03em;
+    color:#bfe4ff;
+    background:rgba(30,58,88,.6);
+    border-color:rgba(160,205,255,.3);
+  }
+  .weather-chip b, .weather-chip span{font-variant-numeric:tabular-nums;color:#eaf6ff;font-weight:700;}
+
   .tap-hint{
     position:absolute;
     left:0;right:0;
@@ -451,8 +485,10 @@
     <div class="car c2" id="car-c2" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
     <div class="car c3" id="car-c3" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
 
+    <div class="rain-overlay" id="rain-overlay"></div>
     <div class="vignette"></div>
     <div class="circuit-label" id="circuit-label">Ankara Gece Pisti</div>
+    <div class="chip weather-chip" id="weather-chip" hidden>🌧 <span id="weather-time">60</span>sn · ×1.5 Kazanç</div>
     <div class="tap-hint" id="tap-hint">Ekrana dokun, gaz kazan</div>
     <div class="float-layer" id="float-layer"></div>
 
@@ -646,7 +682,7 @@
       coins:0, gems:0, season:1, prestigePts:0, lap:1, soundOn:true,
       levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
       sponsorTimer:0, managerTimer:0, managerHired:false,
-      lapEarnings:0, bestLap:{},
+      lapEarnings:0, bestLap:{}, weatherTimer:0,
       history:[],
       daily: defaultDaily(todayKey()),
       lifetime: {earned:0, taps:0, buys:0},
@@ -670,12 +706,14 @@
      ECONOMY — tüm hesaplamalar burada, State'i sadece okur/yazar
      ========================================================= */
   var Economy = {
+    WEATHER_MULT: 1.5,
     cost: function(key){ var u = UP[key], lvl = state.levels[key]; return Math.round(u.base * Math.pow(u.growth, lvl)); },
     mult: function(){ return 1 + state.prestigePts*0.1; },
-    tapValue: function(){ return Math.round((1 + state.levels.overtaking*UP.overtaking.effect) * this.mult()); },
-    idlePerSec: function(){ return Math.round(state.levels.slipstream*UP.slipstream.effect * (1 + this.bleachersBonusPct()/100) * this.mult()); },
-    sponsorPayout: function(){ return Math.round(state.levels.sponsorship*UP.sponsorship.effect * (1 + this.bleachersBonusPct()/100) * this.mult()); },
-    lapBonus: function(){ return Math.max(5, Math.round(30 * (1 + this.bleachersBonusPct()/100) * this.mult())); },
+    weatherMult: function(){ return state.weatherTimer > 0 ? this.WEATHER_MULT : 1; },
+    tapValue: function(){ return Math.round((1 + state.levels.overtaking*UP.overtaking.effect) * this.mult() * this.weatherMult()); },
+    idlePerSec: function(){ return Math.round(state.levels.slipstream*UP.slipstream.effect * (1 + this.bleachersBonusPct()/100) * this.mult() * this.weatherMult()); },
+    sponsorPayout: function(){ return Math.round(state.levels.sponsorship*UP.sponsorship.effect * (1 + this.bleachersBonusPct()/100) * this.mult() * this.weatherMult()); },
+    lapBonus: function(){ return Math.max(5, Math.round(30 * (1 + this.bleachersBonusPct()/100) * this.mult() * this.weatherMult())); },
     bleachersBonusPct: function(){ return state.levels.bleachers*UP.bleachers.effect; },
     buy: function(key){
       var c = this.cost(key);
@@ -802,7 +840,9 @@
     lapBonus: function(){ this.chime([[523,0,0.1,'triangle',0.13],[659,0.09,0.1,'triangle',0.13],[784,0.18,0.16,'triangle',0.14]]); },
     prestige: function(){ this.chime([[523,0,0.12,'sawtooth',0.11],[659,0.1,0.12,'sawtooth',0.11],[784,0.2,0.12,'sawtooth',0.11],[1046,0.3,0.22,'sawtooth',0.13]]); },
     badge: function(){ this.chime([[784,0,0.08,'triangle',0.12],[988,0.07,0.08,'triangle',0.12],[1175,0.14,0.08,'triangle',0.12],[1568,0.21,0.2,'triangle',0.14]]); },
-    mission: function(){ this.chime([[740,0,0.07,'sine',0.11],[988,0.06,0.12,'sine',0.11]]); }
+    mission: function(){ this.chime([[740,0,0.07,'sine',0.11],[988,0.06,0.12,'sine',0.11]]); },
+    weatherStart: function(){ this.chime([[660,0,0.1,'sine',0.1],[440,0.08,0.16,'sine',0.09]]); },
+    weatherEnd: function(){ this.chime([[440,0,0.08,'sine',0.08],[330,0.06,0.1,'sine',0.07]]); }
   };
   var Haptics = {
     fire: function(pattern){
@@ -814,6 +854,22 @@
     medium: function(){ this.fire([15,40,15]); },
     strong: function(){ this.fire([20,50,20,50,30]); }
   };
+
+  var WEATHER_DURATION = 60;
+  var WEATHER_CHANCE = 0.2;
+  function startWeather(){
+    state.weatherTimer = WEATHER_DURATION;
+    document.getElementById('shell').classList.add('wet');
+    document.getElementById('weather-chip').hidden = false;
+    Sound.weatherStart(); Haptics.medium();
+    var rect = document.getElementById('shell').getBoundingClientRect();
+    View.spawnTapFx(rect.width*0.5, rect.height*0.12, '🌧 ISLAK PİST! ×' + Economy.WEATHER_MULT + ' KAZANÇ');
+  }
+  function endWeather(){
+    document.getElementById('shell').classList.remove('wet');
+    document.getElementById('weather-chip').hidden = true;
+    Sound.weatherEnd();
+  }
 
   var lapIntervalId = null;
   var Tracks = {
@@ -941,6 +997,9 @@
       } else {
         ghostEl.textContent = '';
         ghostEl.classList.remove('ahead');
+      }
+      if(state.weatherTimer > 0){
+        document.getElementById('weather-time').textContent = state.weatherTimer;
       }
       document.getElementById('idle-rate').textContent = formatNum(Economy.idlePerSec());
       document.getElementById('mult-rate').textContent = Economy.mult().toFixed(1);
@@ -1072,6 +1131,10 @@
     },
     tick: function(){
       ensureDaily();
+      if(state.weatherTimer > 0){
+        state.weatherTimer -= 1;
+        if(state.weatherTimer <= 0) endWeather();
+      }
       var idle = Economy.idlePerSec();
       if(idle > 0) addCoins(idle);
       state.sponsorTimer = (state.sponsorTimer||0) + 1;
@@ -1111,6 +1174,7 @@
         Sound.lapBonus(); Haptics.medium();
         View.spawnTapFx(rect.width*0.5, rect.height*0.16, 'TUR BONUSU +' + formatNum(bonus));
       }
+      if(state.weatherTimer <= 0 && Math.random() < WEATHER_CHANCE) startWeather();
       saveLocal(); View.render();
     },
     claimMission: function(id){
@@ -1216,6 +1280,7 @@
      ========================================================= */
   function start(){
     state = Object.assign(defaultState(), loadLocal() || {});
+    state.weatherTimer = 0;
     ensureDaily();
     View.buildCards();
     View.render();
