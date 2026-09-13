@@ -461,6 +461,10 @@
       </div>
       <div class="hud-right">
         <div class="lap-chip chip">TUR <b id="lap-num">1</b></div>
+        <button class="icon-btn" id="sound-toggle" aria-label="Sesi aç/kapat">
+          <svg id="sound-icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>
+          <svg id="sound-icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+        </button>
         <button class="icon-btn" id="missions-open" aria-label="Görevleri aç">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         </button>
@@ -634,7 +638,7 @@
 
   function defaultState(){
     return {
-      coins:0, gems:0, season:1, prestigePts:0, lap:1,
+      coins:0, gems:0, season:1, prestigePts:0, lap:1, soundOn:true,
       levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
       sponsorTimer:0, managerTimer:0, managerHired:false,
       history:[],
@@ -747,11 +751,62 @@
       if(state.badges.indexOf(b.id) === -1 && b.cond()){
         state.badges.push(b.id);
         state.gems += BADGE_GEM_REWARD;
+        Sound.badge(); Haptics.medium();
         var rect = document.getElementById('shell').getBoundingClientRect();
         View.spawnTapFx(rect.width*0.5, rect.height*0.22, 'ROZET: ' + b.name.toLocaleUpperCase('tr') + ' +' + BADGE_GEM_REWARD + '💎');
       }
     });
   }
+
+  /* =========================================================
+     AUDIO — Web Audio ile prosedürel sentezlenen ses efektleri,
+     dış ses dosyası yok.
+     ========================================================= */
+  var Sound = {
+    ctx: null,
+    ensureCtx: function(){
+      if(!this.ctx){
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if(!Ctx) return null;
+        this.ctx = new Ctx();
+      }
+      if(this.ctx.state === 'suspended') this.ctx.resume();
+      return this.ctx;
+    },
+    note: function(freq, delay, dur, type, vol){
+      if(!state.soundOn) return;
+      var ctx = this.ensureCtx();
+      if(!ctx) return;
+      var t0 = ctx.currentTime + (delay||0);
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = type || 'square';
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(vol||0.14, t0+0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0+(dur||0.12));
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0+(dur||0.12)+0.02);
+    },
+    chime: function(notes){ var self=this; notes.forEach(function(n){ self.note(n[0], n[1], n[2], n[3], n[4]); }); },
+    tap: function(){ this.note(760 + Math.random()*60, 0, 0.05, 'square', 0.09); },
+    buy: function(){ this.chime([[660,0,0.06,'triangle',0.12],[880,0.05,0.08,'triangle',0.12]]); },
+    sponsor: function(){ this.chime([[1046,0,0.07,'sine',0.1],[1318,0.06,0.09,'sine',0.1]]); },
+    lapBonus: function(){ this.chime([[523,0,0.1,'triangle',0.13],[659,0.09,0.1,'triangle',0.13],[784,0.18,0.16,'triangle',0.14]]); },
+    prestige: function(){ this.chime([[523,0,0.12,'sawtooth',0.11],[659,0.1,0.12,'sawtooth',0.11],[784,0.2,0.12,'sawtooth',0.11],[1046,0.3,0.22,'sawtooth',0.13]]); },
+    badge: function(){ this.chime([[784,0,0.08,'triangle',0.12],[988,0.07,0.08,'triangle',0.12],[1175,0.14,0.08,'triangle',0.12],[1568,0.21,0.2,'triangle',0.14]]); },
+    mission: function(){ this.chime([[740,0,0.07,'sine',0.11],[988,0.06,0.12,'sine',0.11]]); }
+  };
+  var Haptics = {
+    fire: function(pattern){
+      if(!state.soundOn) return;
+      if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} }
+    },
+    tap: function(){ this.fire(8); },
+    light: function(){ this.fire(15); },
+    medium: function(){ this.fire([15,40,15]); },
+    strong: function(){ this.fire([20,50,20,50,30]); }
+  };
 
   var lapIntervalId = null;
   var Tracks = {
@@ -860,6 +915,8 @@
     render: function(){
       document.getElementById('wallet').textContent = formatNum(state.coins) + ' ₺';
       document.getElementById('gems').textContent = formatNum(state.gems);
+      document.getElementById('sound-icon-on').hidden = !state.soundOn;
+      document.getElementById('sound-icon-off').hidden = state.soundOn;
       document.getElementById('season-num').textContent = state.season;
       document.getElementById('prestige-pts').textContent = state.prestigePts;
       document.getElementById('lap-num').textContent = state.lap;
@@ -941,12 +998,14 @@
       state.daily.taps += 1; state.lifetime.taps += 1;
       View.spawnTapFx(x, y, '+' + formatNum(v));
       document.getElementById('tap-hint').style.opacity = '0';
+      Sound.tap(); Haptics.tap();
       saveLocal(); View.render();
     },
     buy: function(key){
       ensureDaily();
       if(Economy.buy(key)){
         state.daily.buys += 1; state.lifetime.buys += 1;
+        Sound.buy(); Haptics.light();
         saveLocal(); View.render();
       }
     },
@@ -955,6 +1014,7 @@
       if(Economy.prestige()){
         state.daily.prestiges += 1;
         state.gems += 2;
+        Sound.prestige(); Haptics.strong();
         saveLocal(); View.render();
         Tracks.applyForCurrentSeason();
         var cfg = TRACKS[Tracks.indexForSeason()];
@@ -963,10 +1023,14 @@
       }
     },
     buyWithGems: function(key){
-      if(Economy.buyWithGems(key)){ saveLocal(); View.render(); }
+      if(Economy.buyWithGems(key)){
+        Sound.buy(); Haptics.light();
+        saveLocal(); View.render();
+      }
     },
     hireManager: function(){
       if(Economy.hireManager()){
+        Sound.prestige(); Haptics.medium();
         saveLocal(); View.render();
         var rect = document.getElementById('shell').getBoundingClientRect();
         View.spawnTapFx(rect.width*0.5, rect.height*0.3, 'MENAJER İŞE ALINDI');
@@ -995,6 +1059,7 @@
         if(payout > 0){
           var sponsor = SPONSORS[Math.floor(Math.random()*SPONSORS.length)];
           addCoins(payout);
+          Sound.sponsor(); Haptics.light();
           var rect = document.getElementById('shell').getBoundingClientRect();
           View.spawnTapFx(rect.width*0.5, rect.height*0.3, sponsor + ' +' + formatNum(payout));
         }
@@ -1008,6 +1073,7 @@
       state.daily.laps += 1;
       var bonus = Economy.lapBonus();
       addCoins(bonus);
+      Sound.lapBonus(); Haptics.medium();
       var rect = document.getElementById('shell').getBoundingClientRect();
       View.spawnTapFx(rect.width*0.5, rect.height*0.16, 'TUR BONUSU +' + formatNum(bonus));
       saveLocal(); View.render();
@@ -1021,6 +1087,12 @@
       if(progress < mission.target) return;
       addCoins(mission.reward);
       state.daily.claimed.push(id);
+      Sound.mission(); Haptics.light();
+      saveLocal(); View.render();
+    },
+    toggleSound: function(){
+      state.soundOn = !state.soundOn;
+      if(state.soundOn) Sound.ensureCtx();
       saveLocal(); View.render();
     }
   };
@@ -1051,6 +1123,10 @@
   document.getElementById('missions-close').addEventListener('click', function(ev){
     ev.stopPropagation();
     document.getElementById('missions-panel').hidden = true;
+  });
+  document.getElementById('sound-toggle').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    Input.toggleSound();
   });
   document.getElementById('manager-hire').addEventListener('click', function(ev){
     ev.stopPropagation();
