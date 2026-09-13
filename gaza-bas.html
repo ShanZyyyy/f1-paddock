@@ -27,6 +27,7 @@
     --font-body:'Work Sans',ui-sans-serif,system-ui,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
+  [hidden]{display:none!important;}
   html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);overflow:hidden;-webkit-font-smoothing:antialiased;}
   button{font-family:inherit;color:inherit;}
 
@@ -42,7 +43,9 @@
     user-select:none;
     -webkit-user-select:none;
   }
+  .view-2d{position:absolute;inset:0;}
   .track-svg{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .gl-canvas{position:absolute;inset:0;width:100%;height:100%;display:none;}
   .car{
     position:absolute;
     top:0;left:0;
@@ -469,21 +472,43 @@
   .badge-icon svg{width:17px;height:17px;color:var(--gold);}
   .badge-name{font-family:var(--font-display);font-size:10px;font-weight:600;line-height:1.25;}
   .badge-desc{font-size:9px;color:var(--text-dim);line-height:1.3;}
+
+  /* ---------- settings switches ---------- */
+  .switch-row{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  }
+  .switch-label{font-size:13px;font-weight:600;}
+  .switch-desc{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.4;}
+  .switch-track{
+    width:44px;height:26px;border-radius:99px;background:var(--surface);
+    position:relative;cursor:pointer;flex:none;transition:background .2s ease;
+  }
+  .switch-track.on{background:var(--gold);}
+  .switch-track.loading{background:var(--surface);opacity:.6;cursor:default;}
+  .switch-knob{
+    position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+    background:#fff;transition:left .2s ease;box-shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  .switch-track.on .switch-knob{left:21px;}
 </style>
 </head>
 <body>
 
   <div id="shell">
-    <svg class="track-svg" viewBox="0 0 320 520" preserveAspectRatio="xMidYMid slice">
-      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--stands)" stroke-width="140"/>
-      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="var(--grass)" stroke="none"/>
-      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--track)" stroke-width="46"/>
-      <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.6" stroke-dasharray="6 9"/>
-      <rect id="start-line" x="87" y="150" width="46" height="7" fill="var(--gold)"/>
-    </svg>
-    <div class="car c1" id="car-c1" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
-    <div class="car c2" id="car-c2" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
-    <div class="car c3" id="car-c3" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+    <div class="view-2d" id="view-2d">
+      <svg class="track-svg" viewBox="0 0 320 520" preserveAspectRatio="xMidYMid slice">
+        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--stands)" stroke-width="140"/>
+        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="var(--grass)" stroke="none"/>
+        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--track)" stroke-width="46"/>
+        <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.6" stroke-dasharray="6 9"/>
+        <rect id="start-line" x="87" y="150" width="46" height="7" fill="var(--gold)"/>
+      </svg>
+      <div class="car c1" id="car-c1" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+      <div class="car c2" id="car-c2" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+      <div class="car c3" id="car-c3" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+    </div>
+    <canvas class="gl-canvas" id="gl-canvas"></canvas>
 
     <div class="rain-overlay" id="rain-overlay"></div>
     <div class="vignette"></div>
@@ -499,9 +524,8 @@
       </div>
       <div class="hud-right">
         <div class="lap-chip chip">TUR <b id="lap-num">1</b><span class="lap-ghost" id="lap-ghost"></span></div>
-        <button class="icon-btn" id="sound-toggle" aria-label="Sesi aç/kapat">
-          <svg id="sound-icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg>
-          <svg id="sound-icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+        <button class="icon-btn" id="settings-open" aria-label="Ayarları aç">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.37 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
         </button>
         <button class="icon-btn" id="missions-open" aria-label="Görevleri aç">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -612,6 +636,29 @@
       <div class="section-label">Rozetler</div>
       <div class="badges-grid" id="badges-grid"></div>
     </div>
+
+    <div class="garage-panel" id="settings-panel" hidden>
+      <div class="garage-top">
+        <button class="icon-btn" id="settings-close" aria-label="Kapat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span>Ayarlar</span>
+      </div>
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">Ses ve Titreşim</div>
+          <div class="switch-desc">Dokunuş, ödül ve tur seslerini aç/kapat.</div>
+        </div>
+        <div class="switch-track" id="sound-switch"><div class="switch-knob"></div></div>
+      </div>
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">3D Sinematik Görünüm</div>
+          <div class="switch-desc" id="view-switch-desc">Pist etrafında dönen kamera ile 3D mod. Sürükle: çevir, sıkıştır/tekerlek: yakınlaştır.</div>
+        </div>
+        <div class="switch-track" id="view-switch"><div class="switch-knob"></div></div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -679,7 +726,7 @@
 
   function defaultState(){
     return {
-      coins:0, gems:0, season:1, prestigePts:0, lap:1, soundOn:true,
+      coins:0, gems:0, season:1, prestigePts:0, lap:1, soundOn:true, viewMode:'2d',
       levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
       sponsorTimer:0, managerTimer:0, managerHired:false,
       lapEarnings:0, bestLap:{}, weatherTimer:0,
@@ -871,6 +918,177 @@
     Sound.weatherEnd();
   }
 
+  /* =========================================================
+     VIEW3D — isteğe bağlı 3D sinematik görünüm. Three.js sadece
+     kullanıcı ilk kez 3D'ye geçtiğinde indirilir (lazy-load).
+     Aynı State/Economy'yi kullanır, sadece pist görselini değiştirir.
+     ========================================================= */
+  var THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  function loadThreeAndInit(onReady, onError){
+    if(window.THREE){ onReady(); return; }
+    var s = document.createElement('script');
+    s.src = THREE_CDN;
+    s.onload = onReady;
+    s.onerror = onError;
+    document.head.appendChild(s);
+  }
+
+  var AZ_CENTER = Math.PI/2;
+  var View3D = {
+    ready:false, running:false,
+    azimuth:AZ_CENTER, radius:168,
+    AZ_MIN:AZ_CENTER-1.15, AZ_MAX:AZ_CENTER+1.15, MIN_RADIUS:85, MAX_RADIUS:260, HEIGHT:118,
+    halfLen:70, capR:39,
+    cars:[], trackMeshes:[], centerLine:null, gantry:null,
+
+    trackPointAt: function(t){
+      var hl = this.halfLen, r = this.capR;
+      t = ((t % 1) + 1) % 1;
+      var straight = 2*hl, cap = Math.PI*r, total = 2*straight + 2*cap;
+      var f1 = straight/total, f2 = f1 + cap/total, f3 = f2 + straight/total;
+      var x, z;
+      if(t < f1){ var s = t/f1; x = -hl + s*2*hl; z = r; }
+      else if(t < f2){ var a = (t-f1)/(f2-f1)*Math.PI - Math.PI/2; x = hl + Math.cos(a)*r; z = Math.sin(a)*r; }
+      else if(t < f3){ var s2 = (t-f2)/(f3-f2); x = hl - s2*2*hl; z = -r; }
+      else { var a2 = (t-f3)/(1-f3)*Math.PI + Math.PI/2; x = -hl + Math.cos(a2)*r; z = Math.sin(a2)*r; }
+      return {x:x, z:z};
+    },
+    stadiumShape: function(hl, r){
+      var shape = new THREE.Shape();
+      shape.moveTo(-hl, r); shape.lineTo(hl, r);
+      shape.absarc(hl, 0, r, Math.PI/2, -Math.PI/2, true);
+      shape.lineTo(-hl, -r);
+      shape.absarc(-hl, 0, r, -Math.PI/2, Math.PI/2, true);
+      return shape;
+    },
+    init: function(cfg){
+      var canvas = document.getElementById('gl-canvas');
+      this.renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:true});
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+      this.scene = new THREE.Scene();
+      this.scene.background = new THREE.Color(0x0a1119);
+      this.scene.fog = new THREE.Fog(0x0a1119, 220, 430);
+      this.camera = new THREE.PerspectiveCamera(42, 1, 1, 1000);
+      this.scene.add(new THREE.HemisphereLight(0x8fa2c8, 0x0a1119, 0.9));
+      var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+      sun.position.set(120, 180, 90);
+      this.scene.add(sun);
+      var ground = new THREE.Mesh(new THREE.PlaneGeometry(1200,1200), new THREE.MeshStandardMaterial({color:0x0d151d, roughness:1}));
+      ground.rotation.x = -Math.PI/2; ground.position.y = -0.6;
+      this.scene.add(ground);
+      this._boundLoop = this._loop.bind(this);
+      this.ready = true;
+      this.buildTrack(cfg);
+      this.resize();
+    },
+    buildTrack: function(cfg){
+      var self = this;
+      this.trackMeshes.forEach(function(m){ self.scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+      this.trackMeshes = [];
+      if(this.centerLine){ this.scene.remove(this.centerLine); this.centerLine.geometry.dispose(); this.centerLine.material.dispose(); this.centerLine = null; }
+      if(this.gantry){ this.scene.remove(this.gantry); this.gantry.geometry.dispose(); this.gantry.material.dispose(); this.gantry = null; }
+      this.standMeshes = this.standMeshes || [];
+      this.standMeshes.forEach(function(m){ self.scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+      this.standMeshes = [];
+      this.cars.forEach(function(c){ self.scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh.material.dispose(); });
+      this.cars = [];
+
+      var hl = cfg.h, r = cfg.r;
+      this.halfLen = hl; this.capR = r;
+
+      var extent = hl + r;
+      this.radius = extent * 1.54;
+      this.HEIGHT = this.radius * 0.7;
+      this.MIN_RADIUS = extent * 0.78;
+      this.MAX_RADIUS = extent * 2.39;
+      this.azimuth = AZ_CENTER;
+      this.AZ_MIN = AZ_CENTER - 1.15;
+      this.AZ_MAX = AZ_CENTER + 1.15;
+
+      function addLayer(hlA, rA, color, y){
+        var geo = new THREE.ShapeGeometry(self.stadiumShape(hlA, rA));
+        var mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:new THREE.Color(color), roughness:0.9, side:THREE.DoubleSide}));
+        mesh.rotation.x = -Math.PI/2; mesh.position.y = y;
+        self.scene.add(mesh);
+        self.trackMeshes.push(mesh);
+      }
+      addLayer(hl+8, r+11, cfg.stands, 0);
+      addLayer(hl+2, Math.max(4,r-3), cfg.track, 0.03);
+      addLayer(Math.max(4,hl-7), Math.max(3,r-15), cfg.grass, 0.06);
+
+      var pts = [];
+      for(var i=0;i<=64;i++){ var p = this.trackPointAt(i/64); pts.push(new THREE.Vector3(p.x, 0.1, p.z)); }
+      var centerGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      this.centerLine = new THREE.LineLoop(centerGeo, new THREE.LineDashedMaterial({color:0xffffff, transparent:true, opacity:0.35, dashSize:3, gapSize:2.4}));
+      this.centerLine.computeLineDistances();
+      this.scene.add(this.centerLine);
+
+      this.gantry = new THREE.Mesh(new THREE.BoxGeometry(2,3,10), new THREE.MeshStandardMaterial({color:0xf2b705, emissive:0x3a2900, emissiveIntensity:0.4}));
+      this.gantry.position.set(-hl, 1.6, r);
+      this.scene.add(this.gantry);
+
+      var STAND_COUNT = 16;
+      for(var s=0;s<STAND_COUNT;s++){
+        var sp = this.trackPointAt(s/STAND_COUNT + 0.02);
+        var outward = 1.25;
+        var box = new THREE.Mesh(
+          new THREE.BoxGeometry(9,5.5,4),
+          new THREE.MeshStandardMaterial({color: s%5===0 ? 0x2a3a48 : 0x1c2732, roughness:0.95})
+        );
+        box.position.set(sp.x*outward, 2.7, sp.z*outward);
+        box.lookAt(0, 2.7, 0);
+        this.scene.add(box);
+        this.standMeshes.push(box);
+      }
+
+      var lapSec = cfg.lap || 30;
+      var CAR_COLORS = [0xe0483e, 0x4d8bf0, 0xf2b705];
+      var CAR_SPEEDS = [1/lapSec, 1/(lapSec+3), 1/(lapSec-2)];
+      this.cars = CAR_COLORS.map(function(color, idx){
+        var mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(3.2,1.3,1.8),
+          new THREE.MeshStandardMaterial({color:color, roughness:0.5, metalness:0.3})
+        );
+        mesh.position.y = 0.9;
+        self.scene.add(mesh);
+        return {mesh:mesh, t: idx/3, speed: CAR_SPEEDS[idx]};
+      });
+    },
+    resize: function(){
+      if(!this.ready) return;
+      var shellEl = document.getElementById('shell');
+      var w = shellEl.clientWidth, h = shellEl.clientHeight;
+      if(w < 1 || h < 1) return;
+      this.renderer.setSize(w, h, false);
+      this.camera.aspect = w/h;
+      this.camera.updateProjectionMatrix();
+    },
+    setActive: function(on){
+      if(on && this.ready && !this.running){
+        this.running = true;
+        this.lastT = performance.now();
+        requestAnimationFrame(this._boundLoop);
+      } else if(!on){
+        this.running = false;
+      }
+    },
+    _loop: function(now){
+      if(!this.running) return;
+      var dt = Math.min(0.05, (now - this.lastT)/1000); this.lastT = now;
+      this.camera.position.set(Math.cos(this.azimuth)*this.radius, this.HEIGHT, Math.sin(this.azimuth)*this.radius);
+      this.camera.lookAt(0, 4, 0);
+      this.cars.forEach(function(car){
+        car.t += dt*car.speed;
+        var p = View3D.trackPointAt(car.t);
+        var p2 = View3D.trackPointAt(car.t + 0.01);
+        car.mesh.position.set(p.x, 0.9, p.z);
+        car.mesh.lookAt(p2.x, 0.9, p2.z);
+      });
+      this.renderer.render(this.scene, this.camera);
+      requestAnimationFrame(this._boundLoop);
+    }
+  };
+
   var lapIntervalId = null;
   var Tracks = {
     indexForSeason: function(){ return (state.season - 1) % TRACKS.length; },
@@ -899,6 +1117,8 @@
       state.lapEarnings = 0;
       if(lapIntervalId) clearInterval(lapIntervalId);
       lapIntervalId = setInterval(function(){ Input.lapComplete(); }, cfg.lap*1000);
+
+      if(View3D.ready) View3D.buildTrack(cfg);
     },
     applyForCurrentSeason: function(){ this.apply(this.indexForSeason()); }
   };
@@ -982,8 +1202,6 @@
     render: function(){
       document.getElementById('wallet').textContent = formatNum(state.coins) + ' ₺';
       document.getElementById('gems').textContent = formatNum(state.gems);
-      document.getElementById('sound-icon-on').hidden = !state.soundOn;
-      document.getElementById('sound-icon-off').hidden = state.soundOn;
       document.getElementById('season-num').textContent = state.season;
       document.getElementById('prestige-pts').textContent = state.prestigePts;
       document.getElementById('lap-num').textContent = state.lap;
@@ -1031,7 +1249,17 @@
 
       if(!document.getElementById('garage-panel').hidden) this.renderGarage();
       if(!document.getElementById('missions-panel').hidden) this.renderMissions();
+      if(!document.getElementById('settings-panel').hidden) this.renderSettings();
       checkBadges();
+    },
+    renderSettings: function(){
+      document.getElementById('sound-switch').classList.toggle('on', state.soundOn);
+      var viewSwitch = document.getElementById('view-switch');
+      viewSwitch.classList.toggle('on', state.viewMode === '3d');
+      viewSwitch.classList.toggle('loading', view3dLoading);
+      document.getElementById('view-switch-desc').textContent = view3dLoading
+        ? 'Yükleniyor…'
+        : 'Pist etrafında dönen kamera ile 3D mod. Sürükle: çevir, sıkıştır/tekerlek: yakınlaştır.';
     },
     renderMissions: function(){
       var list = document.getElementById('missions-list');
@@ -1193,39 +1421,162 @@
       state.soundOn = !state.soundOn;
       if(state.soundOn) Sound.ensureCtx();
       saveLocal(); View.render();
+    },
+    toggleViewMode: function(){
+      if(view3dLoading) return;
+      if(state.viewMode === '3d'){
+        state.viewMode = '2d';
+        View3D.setActive(false);
+        document.getElementById('view-2d').style.display = '';
+        document.getElementById('gl-canvas').style.display = 'none';
+        saveLocal(); View.render();
+        return;
+      }
+      var showThreeD = function(){
+        state.viewMode = '3d';
+        document.getElementById('view-2d').style.display = 'none';
+        document.getElementById('gl-canvas').style.display = 'block';
+        if(!View3D.ready) View3D.init(TRACKS[Tracks.indexForSeason()]);
+        View3D.resize();
+        var panelsClosed = document.getElementById('garage-panel').hidden && document.getElementById('missions-panel').hidden && document.getElementById('settings-panel').hidden;
+        if(panelsClosed) View3D.setActive(true);
+        view3dLoading = false;
+        saveLocal(); View.render();
+      };
+      if(window.THREE){ showThreeD(); return; }
+      view3dLoading = true;
+      View.render();
+      loadThreeAndInit(showThreeD, function(){
+        view3dLoading = false;
+        state.viewMode = '2d';
+        View.render();
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.3, '3D yüklenemedi, 2D moda dönüldü');
+      });
     }
   };
+  var view3dLoading = false;
 
-  document.getElementById('shell').addEventListener('click', function(e){
-    if(e.target.closest('.chip, .icon-btn, .sheet, .garage-panel')) return;
-    var rect = e.currentTarget.getBoundingClientRect();
-    Input.tap(e.clientX - rect.left, e.clientY - rect.top);
-  });
+  (function(){
+    var shellEl = document.getElementById('shell');
+    var pointers = {};
+    var drag = {active:false, startX:0, startAz:0, moved:false};
+    var pinch = {active:false, startDist:0, startRadius:0};
+    function pointerDist(){
+      var ids = Object.keys(pointers);
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      return Math.hypot(a.x-b.x, a.y-b.y);
+    }
+    shellEl.addEventListener('pointerdown', function(e){
+      if(e.target.closest('.chip, .icon-btn, .sheet, .garage-panel')) return;
+      pointers[e.pointerId] = {x:e.clientX, y:e.clientY};
+      shellEl.setPointerCapture(e.pointerId);
+      var ids = Object.keys(pointers);
+      if(ids.length === 2 && state.viewMode === '3d' && View3D.ready){
+        drag.active = false;
+        pinch.active = true;
+        pinch.startDist = pointerDist();
+        pinch.startRadius = View3D.radius;
+      } else if(ids.length === 1){
+        drag.active = true; drag.startX = e.clientX; drag.startAz = View3D.azimuth; drag.moved = false;
+      }
+    });
+    shellEl.addEventListener('pointermove', function(e){
+      if(!(e.pointerId in pointers)) return;
+      pointers[e.pointerId] = {x:e.clientX, y:e.clientY};
+      var ids = Object.keys(pointers);
+      if(pinch.active && ids.length === 2){
+        var d = pointerDist();
+        var scale = d / (pinch.startDist||1);
+        View3D.radius = Math.max(View3D.MIN_RADIUS, Math.min(View3D.MAX_RADIUS, pinch.startRadius/scale));
+        return;
+      }
+      if(drag.active && ids.length === 1){
+        var dx = e.clientX - drag.startX;
+        if(Math.abs(dx) > 4) drag.moved = true;
+        if(state.viewMode === '3d' && View3D.ready){
+          View3D.azimuth = Math.max(View3D.AZ_MIN, Math.min(View3D.AZ_MAX, drag.startAz + dx*0.0062));
+        }
+      }
+    });
+    function release(e){
+      delete pointers[e.pointerId];
+      var ids = Object.keys(pointers);
+      if(ids.length < 2) pinch.active = false;
+      if(ids.length === 0 && drag.active){
+        if(!drag.moved){
+          var rect = shellEl.getBoundingClientRect();
+          Input.tap(e.clientX - rect.left, e.clientY - rect.top);
+        }
+        drag.active = false;
+      }
+    }
+    shellEl.addEventListener('pointerup', release);
+    shellEl.addEventListener('pointercancel', release);
+    shellEl.addEventListener('wheel', function(e){
+      if(state.viewMode !== '3d' || !View3D.ready) return;
+      e.preventDefault();
+      View3D.radius = Math.max(View3D.MIN_RADIUS, Math.min(View3D.MAX_RADIUS, View3D.radius + e.deltaY*0.25));
+    }, {passive:false});
+  })();
   document.getElementById('prestige-btn').addEventListener('click', function(ev){ ev.stopPropagation(); Input.prestige(); });
+  function closeAllPanels(){
+    document.getElementById('garage-panel').hidden = true;
+    document.getElementById('missions-panel').hidden = true;
+    document.getElementById('settings-panel').hidden = true;
+  }
+  function onPanelsVisibilityChanged(){
+    var anyOpen = !document.getElementById('garage-panel').hidden || !document.getElementById('missions-panel').hidden || !document.getElementById('settings-panel').hidden;
+    if(state.viewMode === '3d' && View3D.ready) View3D.setActive(!anyOpen && !document.hidden);
+  }
   document.getElementById('garage-open').addEventListener('click', function(ev){
     ev.stopPropagation();
-    document.getElementById('missions-panel').hidden = true;
+    closeAllPanels();
     document.getElementById('garage-panel').hidden = false;
     View.renderGarage();
+    onPanelsVisibilityChanged();
   });
   document.getElementById('garage-close').addEventListener('click', function(ev){
     ev.stopPropagation();
     document.getElementById('garage-panel').hidden = true;
+    onPanelsVisibilityChanged();
   });
   document.getElementById('missions-open').addEventListener('click', function(ev){
     ev.stopPropagation();
     ensureDaily();
-    document.getElementById('garage-panel').hidden = true;
+    closeAllPanels();
     document.getElementById('missions-panel').hidden = false;
     View.renderMissions();
+    onPanelsVisibilityChanged();
   });
   document.getElementById('missions-close').addEventListener('click', function(ev){
     ev.stopPropagation();
     document.getElementById('missions-panel').hidden = true;
+    onPanelsVisibilityChanged();
   });
-  document.getElementById('sound-toggle').addEventListener('click', function(ev){
+  document.getElementById('settings-open').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    closeAllPanels();
+    document.getElementById('settings-panel').hidden = false;
+    View.renderSettings();
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('settings-close').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    document.getElementById('settings-panel').hidden = true;
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('sound-switch').addEventListener('click', function(ev){
     ev.stopPropagation();
     Input.toggleSound();
+  });
+  document.getElementById('view-switch').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    Input.toggleViewMode();
+    onPanelsVisibilityChanged();
+  });
+  document.addEventListener('visibilitychange', function(){
+    onPanelsVisibilityChanged();
   });
   document.getElementById('manager-hire').addEventListener('click', function(ev){
     ev.stopPropagation();
@@ -1288,7 +1639,23 @@
     layoutSheet();
     setSheetCaption();
     setInterval(Input.tick, 1000);
-    window.addEventListener('resize', layoutSheet);
+    window.addEventListener('resize', function(){ layoutSheet(); View3D.resize(); });
+
+    if(state.viewMode === '3d'){
+      document.getElementById('view-2d').style.display = 'none';
+      document.getElementById('gl-canvas').style.display = 'block';
+      loadThreeAndInit(function(){
+        View3D.init(TRACKS[Tracks.indexForSeason()]);
+        View3D.resize();
+        View3D.setActive(true);
+        View.render();
+      }, function(){
+        state.viewMode = '2d';
+        document.getElementById('view-2d').style.display = '';
+        document.getElementById('gl-canvas').style.display = 'none';
+        saveLocal(); View.render();
+      });
+    }
   }
   start();
 })();
