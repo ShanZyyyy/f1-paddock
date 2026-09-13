@@ -370,6 +370,37 @@
     font-size:12px;color:var(--text-dim);text-align:center;padding:16px 0;
     background:var(--surface-2);border:1px dashed var(--line);border-radius:10px;
   }
+
+  /* ---------- missions & badges panel ---------- */
+  .mission-row{
+    background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+    padding:11px 12px;display:flex;flex-direction:column;gap:7px;
+  }
+  .mission-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;gap:8px;}
+  .mission-top b{color:var(--text);font-weight:600;}
+  .mission-reward{font-size:11px;color:var(--gold);font-variant-numeric:tabular-nums;flex:none;}
+  .mission-progress-text{font-size:10.5px;color:var(--text-dim);text-align:right;}
+  .claim-btn{
+    all:unset;cursor:pointer;text-align:center;width:100%;
+    font-family:var(--font-display);font-weight:600;font-size:11.5px;letter-spacing:.03em;
+    padding:7px 0;border-radius:9px;background:var(--gold);color:#231a02;
+  }
+  .claim-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+
+  .badges-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .badge{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:12px 6px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+    text-align:center;
+  }
+  .badge.locked{opacity:.38;}
+  .badge-icon{
+    width:34px;height:34px;border-radius:50%;background:var(--surface);
+    display:flex;align-items:center;justify-content:center;flex:none;
+  }
+  .badge-icon svg{width:17px;height:17px;color:var(--gold);}
+  .badge-name{font-family:var(--font-display);font-size:10px;font-weight:600;line-height:1.25;}
+  .badge-desc{font-size:9px;color:var(--text-dim);line-height:1.3;}
 </style>
 </head>
 <body>
@@ -398,6 +429,9 @@
       </div>
       <div class="hud-right">
         <div class="lap-chip chip">TUR <b id="lap-num">1</b></div>
+        <button class="icon-btn" id="missions-open" aria-label="Görevleri aç">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </button>
         <button class="icon-btn" id="garage-open" aria-label="Garajı aç">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V10l9-6 9 6v11"/><path d="M8 21v-6h8v6"/></svg>
         </button>
@@ -476,6 +510,19 @@
         <div class="history-empty">Henüz tamamlanmış sezon yok.</div>
       </div>
     </div>
+
+    <div class="garage-panel" id="missions-panel" hidden>
+      <div class="garage-top">
+        <button class="icon-btn" id="missions-close" aria-label="Kapat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span>Görevler</span>
+      </div>
+      <div class="section-label">Günlük Görevler</div>
+      <div id="missions-list"></div>
+      <div class="section-label">Rozetler</div>
+      <div class="badges-grid" id="badges-grid"></div>
+    </div>
   </div>
 
 <script>
@@ -508,12 +555,48 @@
     { name:'Toros Rampa Pisti',      r:46, h:108, lap:29, track:'#33372f', stands:'#20231d', grass:'#3f6b3f' }
   ];
 
+  function todayKey(){ var d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+  function hashSeed(str){ var h = 0; for(var i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i))|0; } return Math.abs(h); }
+  function mulberry32(a){ return function(){ a|=0; a = a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  function seededPick3(seed, poolLen){
+    var idxs = []; for(var i=0;i<poolLen;i++) idxs.push(i);
+    var rng = mulberry32(seed);
+    for(var i2=idxs.length-1;i2>0;i2--){ var j=Math.floor(rng()*(i2+1)); var t=idxs[i2]; idxs[i2]=idxs[j]; idxs[j]=t; }
+    return idxs.slice(0,3);
+  }
+
+  var MISSION_POOL = [
+    { id:'tap40',      type:'taps',      target:40,   reward:150, label:'Ekrana 40 kez dokun' },
+    { id:'buy3',       type:'buys',      target:3,    reward:200, label:'3 yükseltme satın al' },
+    { id:'earn1000',   type:'earned',    target:1000, reward:250, label:'1000 ₺ kazan' },
+    { id:'lap3',       type:'laps',      target:3,    reward:180, label:'3 tur bonusu al' },
+    { id:'prestige1',  type:'prestiges', target:1,    reward:500, label:'1 sezon bitir' }
+  ];
+  var BADGES = [
+    { id:'ilk-viraj',      name:'İlk Viraj',        desc:'İlk sezonunu tamamla',        cond:function(){ return state.season >= 2; } },
+    { id:'sponsor-dostu',  name:'Sponsor Dostu',    desc:'Sponsorluk seviye 5',         cond:function(){ return state.levels.sponsorship >= 5; } },
+    { id:'kalabalik',      name:'Kalabalık Coşkusu',desc:'Tribün seviye 5',             cond:function(){ return state.levels.bleachers >= 5; } },
+    { id:'yaris-kaptani',  name:'Yarış Kaptanı',    desc:'5. sezona ulaş',              cond:function(){ return state.season >= 5; } },
+    { id:'milyoner',       name:'Milyoner',         desc:'Toplamda 1.000.000 ₺ kazan',  cond:function(){ return state.lifetime.earned >= 1000000; } }
+  ];
+
+  function defaultDaily(dateKey){
+    return {
+      date:dateKey, taps:0, buys:0, earned:0, laps:0, prestiges:0,
+      picks: seededPick3(hashSeed(dateKey), MISSION_POOL.length),
+      claimed: []
+    };
+  }
+
   function defaultState(){
     return {
       coins:0, season:1, prestigePts:0, lap:1,
       levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
       sponsorTimer:0,
-      history:[]
+      history:[],
+      daily: defaultDaily(todayKey()),
+      lifetime: {earned:0, taps:0, buys:0},
+      badges: []
     };
   }
   function loadLocal(){
@@ -581,6 +664,27 @@
   /* =========================================================
      TRACKS — sezona göre pist/renk/tur süresi değişimi
      ========================================================= */
+  function ensureDaily(){
+    var today = todayKey();
+    if(!state.daily || state.daily.date !== today){
+      state.daily = defaultDaily(today);
+    }
+  }
+  function addCoins(amount){
+    state.coins += amount;
+    state.daily.earned += amount;
+    state.lifetime.earned += amount;
+  }
+  function checkBadges(){
+    BADGES.forEach(function(b){
+      if(state.badges.indexOf(b.id) === -1 && b.cond()){
+        state.badges.push(b.id);
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.22, 'ROZET: ' + b.name.toLocaleUpperCase('tr'));
+      }
+    });
+  }
+
   var lapIntervalId = null;
   var Tracks = {
     indexForSeason: function(){ return (state.season - 1) % TRACKS.length; },
@@ -700,6 +804,41 @@
       document.getElementById('prestige-preview').textContent = '+' + Economy.prestigeGain() + ' puan';
 
       if(!document.getElementById('garage-panel').hidden) this.renderGarage();
+      if(!document.getElementById('missions-panel').hidden) this.renderMissions();
+      checkBadges();
+    },
+    renderMissions: function(){
+      var list = document.getElementById('missions-list');
+      list.innerHTML = state.daily.picks.map(function(idx){
+        var m = MISSION_POOL[idx];
+        var progress = Math.min(m.target, state.daily[m.type] || 0);
+        var claimed = state.daily.claimed.indexOf(m.id) !== -1;
+        var ready = progress >= m.target;
+        var pct = Math.round((progress/m.target)*100);
+        var btnLabel = claimed ? 'Alındı ✓' : (ready ? 'Ödülü Al' : progress + ' / ' + m.target);
+        return (
+          '<div class="mission-row">' +
+            '<div class="mission-top"><b>' + m.label + '</b><span class="mission-reward">+' + formatNum(m.reward) + ' ₺</span></div>' +
+            '<div class="stat-bar-track"><div class="stat-bar-fill" style="width:' + pct + '%"></div></div>' +
+            '<button class="claim-btn" data-mission="' + m.id + '"' + (claimed || !ready ? ' disabled' : '') + '>' + btnLabel + '</button>' +
+          '</div>'
+        );
+      }).join('');
+      list.querySelectorAll('[data-mission]').forEach(function(btn){
+        btn.addEventListener('click', function(ev){ ev.stopPropagation(); Input.claimMission(btn.getAttribute('data-mission')); });
+      });
+
+      var grid = document.getElementById('badges-grid');
+      grid.innerHTML = BADGES.map(function(b){
+        var unlocked = state.badges.indexOf(b.id) !== -1;
+        return (
+          '<div class="badge' + (unlocked ? '' : ' locked') + '">' +
+            '<div class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg></div>' +
+            '<div class="badge-name">' + b.name + '</div>' +
+            '<div class="badge-desc">' + b.desc + '</div>' +
+          '</div>'
+        );
+      }).join('');
     }
   };
 
@@ -708,17 +847,25 @@
      ========================================================= */
   var Input = {
     tap: function(x, y){
+      ensureDaily();
       var v = Economy.tapValue();
-      state.coins += v;
+      addCoins(v);
+      state.daily.taps += 1; state.lifetime.taps += 1;
       View.spawnTapFx(x, y, '+' + formatNum(v));
       document.getElementById('tap-hint').style.opacity = '0';
       saveLocal(); View.render();
     },
     buy: function(key){
-      if(Economy.buy(key)){ saveLocal(); View.render(); }
+      ensureDaily();
+      if(Economy.buy(key)){
+        state.daily.buys += 1; state.lifetime.buys += 1;
+        saveLocal(); View.render();
+      }
     },
     prestige: function(){
+      ensureDaily();
       if(Economy.prestige()){
+        state.daily.prestiges += 1;
         saveLocal(); View.render();
         Tracks.applyForCurrentSeason();
         var cfg = TRACKS[Tracks.indexForSeason()];
@@ -727,15 +874,16 @@
       }
     },
     tick: function(){
+      ensureDaily();
       var idle = Economy.idlePerSec();
-      if(idle > 0) state.coins += idle;
+      if(idle > 0) addCoins(idle);
       state.sponsorTimer = (state.sponsorTimer||0) + 1;
       if(state.sponsorTimer >= 10){
         state.sponsorTimer = 0;
         var payout = Economy.sponsorPayout();
         if(payout > 0){
           var sponsor = SPONSORS[Math.floor(Math.random()*SPONSORS.length)];
-          state.coins += payout;
+          addCoins(payout);
           var rect = document.getElementById('shell').getBoundingClientRect();
           View.spawnTapFx(rect.width*0.5, rect.height*0.3, sponsor + ' +' + formatNum(payout));
         }
@@ -743,11 +891,24 @@
       saveLocal(); View.render();
     },
     lapComplete: function(){
+      ensureDaily();
       state.lap = state.lap >= 999 ? 1 : state.lap + 1;
+      state.daily.laps += 1;
       var bonus = Economy.lapBonus();
-      state.coins += bonus;
+      addCoins(bonus);
       var rect = document.getElementById('shell').getBoundingClientRect();
       View.spawnTapFx(rect.width*0.5, rect.height*0.16, 'TUR BONUSU +' + formatNum(bonus));
+      saveLocal(); View.render();
+    },
+    claimMission: function(id){
+      ensureDaily();
+      var mission = MISSION_POOL.filter(function(m){ return m.id === id; })[0];
+      if(!mission) return;
+      if(state.daily.claimed.indexOf(id) !== -1) return;
+      var progress = state.daily[mission.type] || 0;
+      if(progress < mission.target) return;
+      addCoins(mission.reward);
+      state.daily.claimed.push(id);
       saveLocal(); View.render();
     }
   };
@@ -760,12 +921,24 @@
   document.getElementById('prestige-btn').addEventListener('click', function(ev){ ev.stopPropagation(); Input.prestige(); });
   document.getElementById('garage-open').addEventListener('click', function(ev){
     ev.stopPropagation();
+    document.getElementById('missions-panel').hidden = true;
     document.getElementById('garage-panel').hidden = false;
     View.renderGarage();
   });
   document.getElementById('garage-close').addEventListener('click', function(ev){
     ev.stopPropagation();
     document.getElementById('garage-panel').hidden = true;
+  });
+  document.getElementById('missions-open').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    ensureDaily();
+    document.getElementById('garage-panel').hidden = true;
+    document.getElementById('missions-panel').hidden = false;
+    View.renderMissions();
+  });
+  document.getElementById('missions-close').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    document.getElementById('missions-panel').hidden = true;
   });
 
   /* ---------- draggable bottom sheet ---------- */
@@ -815,6 +988,7 @@
      ========================================================= */
   function start(){
     state = Object.assign(defaultState(), loadLocal() || {});
+    ensureDaily();
     View.buildCards();
     View.render();
     Tracks.applyForCurrentSeason();
