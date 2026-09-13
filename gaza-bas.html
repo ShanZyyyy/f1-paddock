@@ -380,14 +380,14 @@
       <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="var(--grass)" stroke="none"/>
       <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="var(--track)" stroke-width="46"/>
       <path d="M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.6" stroke-dasharray="6 9"/>
-      <rect x="87" y="150" width="46" height="7" fill="var(--gold)" transform="rotate(-1 110 153)"/>
+      <rect id="start-line" x="87" y="150" width="46" height="7" fill="var(--gold)"/>
     </svg>
-    <div class="car c1" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
-    <div class="car c2" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
-    <div class="car c3" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+    <div class="car c1" id="car-c1" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+    <div class="car c2" id="car-c2" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
+    <div class="car c3" id="car-c3" style="offset-path:path('M110,140 A50,50 0 0 1 210,140 L210,380 A50,50 0 0 1 110,380 L110,140 Z')"></div>
 
     <div class="vignette"></div>
-    <div class="circuit-label">Ankara Pisti</div>
+    <div class="circuit-label" id="circuit-label">Ankara Gece Pisti</div>
     <div class="tap-hint" id="tap-hint">Ekrana dokun, gaz kazan</div>
     <div class="float-layer" id="float-layer"></div>
 
@@ -485,7 +485,6 @@
      ========================================================= */
   var STORAGE_KEY = 'gazabas_v1';
   var PRESTIGE_THRESHOLD = 50000;
-  var LAP_SECONDS = 30;
   var STAT_MAX_LEVEL = 15;
 
   // Telifsiz, kurgusal sponsorlar (App Store / Play Store yayını için
@@ -498,6 +497,16 @@
     sponsorship:{ name:'Sponsorluk', sub:'10 sn de bir bonus', base:35, growth:1.18, effect:14 },
     bleachers:{ name:'Tribünler', sub:'Genel çarpan +%', base:60, growth:1.22, effect:4 }
   };
+
+  // 4 mini pist — her sezon bir sonrakine geçiliyor. r = viraj (cap) yarıçapı,
+  // h = düzlüğün merkeze uzaklığı; ikisi de aynı stadyum şablonunu besliyor,
+  // sadece oranları değiştirerek 4 farklı silüet elde ediyoruz.
+  var TRACKS = [
+    { name:'Ankara Gece Pisti',      r:50, h:120, lap:26, track:'#2a2038', stands:'#1a1524', grass:'#3a2d52' },
+    { name:'Kapadokya Vadi Pisti',   r:62, h:95,  lap:24, track:'#4a3324', stands:'#2e2018', grass:'#caa06a' },
+    { name:'Karadeniz Rıhtım Pisti', r:36, h:150, lap:34, track:'#213640', stands:'#152128', grass:'#1f6b78' },
+    { name:'Toros Rampa Pisti',      r:46, h:108, lap:29, track:'#33372f', stands:'#20231d', grass:'#3f6b3f' }
+  ];
 
   function defaultState(){
     return {
@@ -568,6 +577,40 @@
     if(n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'K';
     return String(n);
   }
+
+  /* =========================================================
+     TRACKS — sezona göre pist/renk/tur süresi değişimi
+     ========================================================= */
+  var lapIntervalId = null;
+  var Tracks = {
+    indexForSeason: function(){ return (state.season - 1) % TRACKS.length; },
+    apply: function(idx){
+      var cfg = TRACKS[idx];
+      var Cx = 160, Cy = 260;
+      var Lx = Cx - cfg.r, Rx = Cx + cfg.r, Ty = Cy - cfg.h, By = Cy + cfg.h;
+      var d = 'M'+Lx+','+Ty+' A'+cfg.r+','+cfg.r+' 0 0 1 '+Rx+','+Ty+' L'+Rx+','+By+' A'+cfg.r+','+cfg.r+' 0 0 1 '+Lx+','+By+' L'+Lx+','+Ty+' Z';
+
+      document.querySelectorAll('.track-svg path').forEach(function(p){ p.setAttribute('d', d); });
+      var startLine = document.getElementById('start-line');
+      startLine.setAttribute('x', Lx - 23);
+      startLine.setAttribute('y', Ty + 10);
+
+      ['car-c1','car-c2','car-c3'].forEach(function(id, i){
+        var el = document.getElementById(id);
+        el.style.offsetPath = "path('" + d + "')";
+        el.style.animationDuration = (cfg.lap + [0,3,-2][i]) + 's';
+      });
+
+      document.documentElement.style.setProperty('--track', cfg.track);
+      document.documentElement.style.setProperty('--stands', cfg.stands);
+      document.documentElement.style.setProperty('--grass', cfg.grass);
+      document.getElementById('circuit-label').textContent = cfg.name;
+
+      if(lapIntervalId) clearInterval(lapIntervalId);
+      lapIntervalId = setInterval(function(){ Input.lapComplete(); }, cfg.lap*1000);
+    },
+    applyForCurrentSeason: function(){ this.apply(this.indexForSeason()); }
+  };
 
   /* =========================================================
      VIEW — DOM'a çizen kısım, State'i asla değiştirmez
@@ -675,7 +718,13 @@
       if(Economy.buy(key)){ saveLocal(); View.render(); }
     },
     prestige: function(){
-      if(Economy.prestige()){ saveLocal(); View.render(); }
+      if(Economy.prestige()){
+        saveLocal(); View.render();
+        Tracks.applyForCurrentSeason();
+        var cfg = TRACKS[Tracks.indexForSeason()];
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.45, 'YENİ PİST: ' + cfg.name.toLocaleUpperCase('tr'));
+      }
     },
     tick: function(){
       var idle = Economy.idlePerSec();
@@ -761,9 +810,6 @@
   handle.addEventListener('pointerup', endDrag);
   handle.addEventListener('pointercancel', endDrag);
 
-  /* ---------- 30 saniyelik tur bonusu (öndeki arabanın CSS animasyonuyla senkron) ---------- */
-  setInterval(function(){ Input.lapComplete(); }, LAP_SECONDS*1000);
-
   /* =========================================================
      BOOT
      ========================================================= */
@@ -771,6 +817,7 @@
     state = Object.assign(defaultState(), loadLocal() || {});
     View.buildCards();
     View.render();
+    Tracks.applyForCurrentSeason();
     layoutSheet();
     setSheetCaption();
     setInterval(Input.tick, 1000);
