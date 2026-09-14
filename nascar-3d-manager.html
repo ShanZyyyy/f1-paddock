@@ -605,7 +605,10 @@
      etrafında bankaja göre yatıyor (roll) — pistin eğimine
      "yapışmış" gibi duruyor.
      ========================================================= */
-  var _rotDummy = new THREE.Object3D(); // hedef quaternion hesaplamak için tek seferlik yardımcı obje
+  var _rollQuatTmp = new THREE.Quaternion();
+  var _yawQuatTmp = new THREE.Quaternion();
+  var _zAxis = new THREE.Vector3(0,0,1);
+  var _yAxis = new THREE.Vector3(0,1,0);
 
   function makeCar(color){
     var geo = new THREE.BoxGeometry(5.2, 2.6, 10.5); // genişlik, yükseklik, uzunluk
@@ -622,7 +625,7 @@
     var p1 = pointAt((t + 0.0015) % 1);
     var tangent = new THREE.Vector3(p1.x - p0.x, 0, p1.z - p0.z).normalize();
     var side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0,1,0)).normalize();
-    return { x: p0.x, z: p0.z, side: side, bank: bankAt(t) };
+    return { x: p0.x, z: p0.z, side: side, tangent: tangent, bank: bankAt(t) };
   }
 
   // Merkez çizgiden "laneOffset" kadar yana kaymış, banking'e göre
@@ -699,22 +702,26 @@
     if(lapped) car.lapsCompleted++;
 
     var pos = laneOffsetPosition(car.t, car.lane);
-    var aheadPos = laneOffsetPosition((car.t + 0.01) % 1, car.laneTarget);
-
     car.mesh.position.set(pos.x, pos.y, pos.z);
 
-    // Hedef dönüşü bir yardımcı (dummy) obje üzerinde hesaplıyoruz —
-    // lookAt() + banking roll — ama bunu arabaya DOĞRUDAN atamıyoruz.
-    // Bunun yerine arabanın MEVCUT quaternion'ından bu hedefe doğru
-    // Quaternion.slerp ile yumuşakça geçiyoruz; böylece viraja girerken
-    // direksiyon akıcı çevriliyormuş gibi süzülüyor, asla ani 'snap' olmuyor.
-    _rotDummy.position.copy(car.mesh.position);
-    _rotDummy.up.set(0,1,0);
-    _rotDummy.lookAt(aheadPos.x, pos.y, aheadPos.z);
-    _rotDummy.rotateZ(-pos.bank);
+    // ÜÇÜNCÜ VE KESİN DÜZELTME: yaw'ı da ARTIK GECİKMESİZ (lerp'siz) alıyoruz.
+    // Önceki iki denemede yaw hâlâ (bir şekilde) gecikiyordu — ya lookAt'ın
+    // içine sızan banking yüksekliğinden (1. deneme), ya da saf açı olsa bile
+    // LERP'in kendisi birkaç karelik bir gecikme bıraktığından (2. deneme,
+    // sayısal testte hâlâ yüzlerce "gömülme" anı vardı). Roll HER ZAMAN o
+    // anki banking'e bağlı olduğu ve banking t'nin (dolayısıyla pozisyonun)
+    // bir fonksiyonu olduğu için, yaw'ın da t'nin AYNI ANKİ değerine bağlı
+    // olması gerekiyor — aksi halde roll'ün döndüğü eksen (yaw'ın belirlediği
+    // yerel Z) o karenin GERÇEK teğetinden az da olsa sapıyor, kutu eğik
+    // yüzeye tam oturamıyor. pointAt/bankAt zaten matematiksel olarak sürekli
+    // (C1) olduğu için (bu projede daha önce ayrıca doğrulandı) ANINDA
+    // atamak görsel bir "snap" yaratmıyor — eğri zaten kendiliğinden yumuşak.
+    var frame = trackFrameAt(car.t);
+    car.heading = Math.atan2(frame.tangent.x, frame.tangent.z);
 
-    var slerpT = 1 - Math.exp(-dt*7); // dt'den bağımsız, üstel yumuşatma
-    car.mesh.quaternion.slerp(_rotDummy.quaternion, slerpT);
+    var yawQuat = _yawQuatTmp.setFromAxisAngle(_yAxis, car.heading);
+    var rollQuat = _rollQuatTmp.setFromAxisAngle(_zAxis, -pos.bank);
+    car.mesh.quaternion.copy(yawQuat).multiply(rollQuat);
 
     return lapped;
   }
@@ -788,18 +795,20 @@
     return {
       mesh: makeCar(def.color), color: def.color, name: def.name, isPlayer: def.isPlayer,
       t: def.t, prevT: def.t, tSpeed: def.tSpeed, lapsCompleted: 0,
-      lane: def.lane, laneTarget: def.lane, boosting:false, boostUntil:0, nextAiCheck:0
+      lane: def.lane, laneTarget: def.lane, boosting:false, boostUntil:0, nextAiCheck:0,
+      heading: 0 // dünya Y ekseni etrafında SKALER yön açısı — roll'den tamamen ayrı
     };
   });
   cars.forEach(function(c){
-    // Başlangıçta arabayı hemen doğru yöne çevir — yoksa ilk karede kimliğin
-    // (identity) varsayılan yönünden hedefe doğru görünür bir "spin-up" olur.
+    // Başlangıçta arabayı hemen doğru yöne çevir — yoksa ilk karede sıfır
+    // açıdan hedefe doğru görünür bir "spin-up" olur.
     var p0 = laneOffsetPosition(c.t, c.lane);
-    var ahead0 = laneOffsetPosition((c.t+0.01)%1, c.laneTarget);
+    var frame0 = trackFrameAt(c.t);
+    c.heading = Math.atan2(frame0.tangent.x, frame0.tangent.z);
     c.mesh.position.set(p0.x, p0.y, p0.z);
-    c.mesh.up.set(0,1,0);
-    c.mesh.lookAt(ahead0.x, p0.y, ahead0.z);
-    c.mesh.rotateZ(-p0.bank);
+    var yawQuat0 = new THREE.Quaternion().setFromAxisAngle(_yAxis, c.heading);
+    var rollQuat0 = new THREE.Quaternion().setFromAxisAngle(_zAxis, -p0.bank);
+    c.mesh.quaternion.copy(yawQuat0).multiply(rollQuat0);
     scene.add(c.mesh);
   });
 
