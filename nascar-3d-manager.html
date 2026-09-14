@@ -417,8 +417,38 @@
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    var mat = new THREE.MeshLambertMaterial({color:0x35383b, side:THREE.DoubleSide});
-    return { mesh:new THREE.Mesh(geo, mat), curve:curve };
+    // Daha AÇIK bir asfalt tonu — koyu gri (0x35383b) uzaktan/tepeden çime
+    // karışıp gerçek bir "çatlak/hata" gibi okunuyordu. Gerçek pit yollarındaki
+    // gibi net BEYAZ kenar çizgileri de ekleyerek bunun bir YOL olduğu
+    // görsel olarak hiç şüpheye yer bırakmayacak şekilde belli oluyor.
+    var mat = new THREE.MeshLambertMaterial({color:0x54585c, side:THREE.DoubleSide});
+    var group = new THREE.Group();
+    group.add(new THREE.Mesh(geo, mat));
+
+    var lineMat = new THREE.MeshBasicMaterial({color:0xf2f2f2, side:THREE.DoubleSide});
+    [-1,1].forEach(function(edgeSide){
+      var linePositions = [];
+      for(var i=0;i<pts.length;i++){
+        var p = pts[i];
+        var next = pts[Math.min(i+1, pts.length-1)];
+        var tangent = new THREE.Vector3().subVectors(next, p).normalize();
+        var side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0,1,0)).normalize();
+        var base = p.clone().addScaledVector(side, edgeSide*(halfW-0.55));
+        var a = base.clone().addScaledVector(side, -0.35), b = base.clone().addScaledVector(side, 0.35);
+        linePositions.push(a.x, a.y+0.01, a.z, b.x, b.y+0.01, b.z);
+      }
+      var lineIndices = [];
+      for(var s2=0;s2<pts.length-1;s2++){
+        var j0=s2*2, j1=s2*2+1, j2=(s2+1)*2, j3=(s2+1)*2+1;
+        lineIndices.push(j0,j2,j1, j1,j2,j3);
+      }
+      var lineGeo = new THREE.BufferGeometry();
+      lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions,3));
+      lineGeo.setIndex(lineIndices);
+      group.add(new THREE.Mesh(lineGeo, lineMat));
+    });
+
+    return { mesh:group, curve:curve };
   }
 
   // Start/finish üzerinde basit bir kule (gerçek NASCAR pistlerindeki gibi) —
@@ -524,7 +554,14 @@
   function buildInfield(){
     var boundaryOffset = TRACK_WIDTH/2 + APRON_WIDTH;
     var shape = new THREE.Shape();
-    for(var i=0;i<=SEGMENTS;i++){
+    // NOT: döngü i<SEGMENTS (i<=SEGMENTS DEĞİL) — son nokta (i=SEGMENTS,
+    // t=(SEGMENTS/SEGMENTS)%1=0) başlangıç noktasıyla (i=0, t=0) BİREBİR
+    // AYNIYDI. Bu yinelenen kapanış noktası THREE'nin earcut tabanlı
+    // ShapeGeometry üçgenlemesini bozup çimin içinde çapraz kesen bir
+    // "çatlak" (self-intersecting sliver) üretiyordu — gördüğümüz asıl hata
+    // buydu, z-fighting değil. Shape zaten son noktadan ilk noktaya
+    // otomatik kapanıyor, elle tekrar eklemeye gerek yok.
+    for(var i=0;i<SEGMENTS;i++){
       var t=(i/SEGMENTS)%1;
       var p0=pointAt(t);
       var p1=pointAt((t+0.0015)%1);
