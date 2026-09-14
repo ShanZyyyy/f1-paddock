@@ -353,7 +353,7 @@
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    var mat = new THREE.MeshLambertMaterial({color:0x2b2f33, side:THREE.DoubleSide});
+    var mat = new THREE.MeshLambertMaterial({color:0x4a4e53, side:THREE.DoubleSide});
     var mesh = new THREE.Mesh(geo, mat);
 
     return {mesh:mesh, outerRing:outerRing, infieldLine:infieldLine};
