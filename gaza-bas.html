@@ -1,0 +1,1785 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a1119">
+<meta name="color-scheme" content="dark">
+<title>Gaza Bas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a1119;
+    --surface:#16212c;
+    --surface-2:#1f2e3b;
+    --line:rgba(255,255,255,.08);
+    --text:#eef3f6;
+    --text-dim:#8fa2b0;
+    --gold:#f2b705;
+    --gold-dim:#8a6d1f;
+    --red:#e0483e;
+    --track:#2a3038;
+    --stands:#1a2733;
+    --grass:#1f4a34;
+    --font-display:'Chakra Petch',ui-sans-serif,system-ui,sans-serif;
+    --font-body:'Work Sans',ui-sans-serif,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  [hidden]{display:none!important;}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);overflow:hidden;-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;color:inherit;}
+
+  /* ---------- full-viewport app shell ---------- */
+  #shell{
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100dvh;
+    overflow:hidden;
+    background:#0a1119;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  .view-2d{position:absolute;inset:0;}
+  .track-svg{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .gl-canvas{position:absolute;inset:0;width:100%;height:100%;display:none;}
+
+  .vignette{
+    position:absolute;inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% 38%, transparent 40%, rgba(5,9,13,.55) 100%),
+      linear-gradient(180deg, rgba(5,9,13,.65) 0%, transparent 16%, transparent 74%, rgba(5,9,13,.85) 100%);
+  }
+
+  .rain-overlay{
+    position:absolute;inset:0;
+    pointer-events:none;
+    z-index:2;
+    opacity:0;
+    transition:opacity .4s ease;
+    background:repeating-linear-gradient(115deg, rgba(170,205,255,.22) 0 2px, transparent 2px 15px);
+    background-size:160% 160%;
+    animation:rainmove .55s linear infinite;
+  }
+  #shell.wet .rain-overlay{opacity:1;}
+  #shell.wet .vignette{background:
+      radial-gradient(ellipse at 50% 38%, transparent 30%, rgba(8,14,22,.6) 100%),
+      linear-gradient(180deg, rgba(8,14,22,.7) 0%, rgba(20,35,50,.15) 16%, rgba(20,35,50,.15) 74%, rgba(8,14,22,.9) 100%);
+  }
+  @keyframes rainmove{ from{background-position:0 0;} to{background-position:-30px 50px;} }
+  @media (prefers-reduced-motion:reduce){ .rain-overlay{animation:none;} }
+
+  .weather-chip{
+    position:absolute;
+    top:calc(46px + env(safe-area-inset-top));
+    left:50%;
+    transform:translateX(-50%);
+    z-index:5;
+    padding:6px 14px;
+    font-family:var(--font-display);
+    font-size:10.5px;
+    letter-spacing:.03em;
+    color:#bfe4ff;
+    background:rgba(30,58,88,.6);
+    border-color:rgba(160,205,255,.3);
+  }
+  .weather-chip b, .weather-chip span{font-variant-numeric:tabular-nums;color:#eaf6ff;font-weight:700;}
+
+  .tap-hint{
+    position:absolute;
+    left:0;right:0;
+    top:44%;
+    text-align:center;
+    font-family:var(--font-display);
+    font-size:11.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:rgba(238,243,246,.5);
+    pointer-events:none;
+    animation:hintfade 2.6s ease-in-out infinite;
+    transition:opacity .3s ease;
+  }
+  @keyframes hintfade{0%,100%{opacity:.35;}50%{opacity:.85;}}
+
+  .float-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .ripple{
+    position:absolute;
+    width:14px;height:14px;
+    margin:-7px 0 0 -7px;
+    border-radius:50%;
+    border:2px solid var(--gold);
+    animation:ripple .55s ease-out forwards;
+  }
+  @keyframes ripple{
+    0%{opacity:.9;transform:scale(.3);}
+    100%{opacity:0;transform:scale(3.6);}
+  }
+  .float-pop{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:16px;
+    color:var(--gold);
+    text-shadow:0 1px 4px rgba(0,0,0,.6);
+    animation:pop .8s ease-out forwards;
+    white-space:nowrap;
+  }
+  @keyframes pop{
+    0%{opacity:0;transform:translate(-50%,-40%) scale(.8);}
+    20%{opacity:1;transform:translate(-50%,-60%) scale(1);}
+    100%{opacity:0;transform:translate(-50%,-130%) scale(1);}
+  }
+
+  /* ---------- HUD chips ---------- */
+  .chip{
+    background:rgba(22,33,44,.62);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:999px;
+  }
+  .hud-top{
+    position:absolute;
+    top:calc(14px + env(safe-area-inset-top));
+    left:14px;right:14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    z-index:5;
+  }
+  .hud-left{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 12px 7px 8px;
+    font-family:var(--font-display);
+    font-size:11.5px;
+    color:var(--text-dim);
+  }
+  .hud-left svg{width:14px;height:14px;color:var(--gold);}
+  .hud-left b{color:var(--text);}
+  .hud-right{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .lap-chip{
+    padding:7px 11px;
+    font-family:var(--font-display);
+    font-size:10.5px;
+    letter-spacing:.05em;
+    color:var(--text-dim);
+  }
+  .lap-chip b{color:var(--gold);font-size:12px;}
+  .lap-ghost{margin-left:5px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .lap-ghost.ahead{color:var(--gold);font-weight:700;}
+  .icon-btn{
+    all:unset;
+    cursor:pointer;
+    width:34px;height:34px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    background:rgba(22,33,44,.62);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.1);
+    color:var(--text);
+    flex:none;
+  }
+  .icon-btn svg{width:16px;height:16px;}
+
+  .wallet-hud{
+    position:absolute;
+    top:calc(60px + env(safe-area-inset-top));
+    left:14px;
+    z-index:5;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:8px 14px 8px 9px;
+  }
+  .coin-dot{
+    width:20px;height:20px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffe28a, var(--gold) 60%, var(--gold-dim) 100%);
+    flex:none;
+    box-shadow:0 0 8px rgba(242,183,5,.4);
+  }
+  .wallet-text{display:flex;flex-direction:column;gap:1px;}
+  .wallet-amount{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:19px;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  .wallet-sub{
+    font-size:10px;
+    color:var(--text-dim);
+    font-variant-numeric:tabular-nums;
+  }
+  .wallet-sub b{color:var(--text);font-weight:600;}
+
+  .gems-hud{
+    position:absolute;
+    top:calc(60px + env(safe-area-inset-top));
+    right:14px;
+    z-index:5;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 13px 8px 10px;
+  }
+  .gem-dot{
+    width:14px;height:14px;
+    background:linear-gradient(135deg,#8ee8ff,#3fa8e0 60%,#1e6fa8);
+    clip-path:polygon(50% 0%,100% 38%,80% 100%,20% 100%,0% 38%);
+    flex:none;
+  }
+  .gems-amount{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:14px;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .circuit-label{
+    position:absolute;
+    top:calc(14px + env(safe-area-inset-top));
+    left:0;right:0;
+    text-align:center;
+    font-family:var(--font-display);
+    font-size:10px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:rgba(238,243,246,.4);
+    z-index:4;
+  }
+
+  /* ---------- draggable sheet ---------- */
+  .sheet{
+    position:absolute;
+    left:0;right:0;bottom:0;
+    z-index:6;
+    background:linear-gradient(180deg,#16212c 0%,#101a23 100%);
+    border-top:1px solid var(--line);
+    border-radius:22px 22px 0 0;
+    box-shadow:0 -18px 40px -20px rgba(0,0,0,.6);
+    display:flex;
+    flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .sheet-handle{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    padding:10px 0 8px;
+    cursor:grab;
+    flex:none;
+  }
+  .handle-bar{width:36px;height:4px;border-radius:99px;background:var(--line);}
+  .sheet-handle span{
+    font-family:var(--font-display);
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .sheet-body{
+    flex:1;
+    overflow-y:auto;
+    padding:2px 14px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .upgrades{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .card{
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .card-head{display:flex;align-items:center;gap:8px;}
+  .card-icon{
+    width:26px;height:26px;
+    border-radius:8px;
+    background:var(--surface);
+    display:flex;align-items:center;justify-content:center;
+    flex:none;
+  }
+  .card-icon svg{width:15px;height:15px;}
+  .card-name{font-size:12.5px;font-weight:600;line-height:1.15;}
+  .card-sub{font-size:10.5px;color:var(--text-dim);line-height:1.3;}
+  .card-stats{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:11px;color:var(--text-dim);
+  }
+  .card-stats b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .buy-btn{
+    all:unset;cursor:pointer;text-align:center;
+    font-family:var(--font-display);font-weight:600;font-size:12px;letter-spacing:.03em;
+    padding:7px 0;border-radius:9px;background:var(--gold);color:#231a02;
+  }
+  .buy-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+  .card-btn-row{display:flex;gap:6px;}
+  .card-btn-row .buy-btn{flex:1;}
+  .gem-btn{
+    all:unset;cursor:pointer;text-align:center;flex:none;width:44px;
+    font-family:var(--font-display);font-weight:600;font-size:10.5px;
+    padding:7px 0;border-radius:9px;
+    background:linear-gradient(135deg,#8ee8ff,#3fa8e0);color:#062033;
+  }
+  .gem-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+
+  .prestige{
+    background:linear-gradient(135deg,#241b06,#1a2632);
+    border:1px solid var(--gold-dim);
+    border-radius:14px;
+    padding:12px;
+    display:flex;flex-direction:column;gap:8px;
+    flex:none;
+  }
+  .prestige-top{display:flex;justify-content:space-between;align-items:center;}
+  .prestige-title{font-family:var(--font-display);font-size:13px;font-weight:600;}
+  .prestige-title span{color:var(--gold);}
+  .prestige-mult{font-size:11px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .bar-track{height:7px;border-radius:99px;background:var(--surface);overflow:hidden;}
+  .bar-fill{
+    height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--gold-dim),var(--gold));
+    width:0%;transition:width .25s ease;
+  }
+  .prestige-btn{
+    all:unset;cursor:pointer;text-align:center;
+    font-family:var(--font-display);font-weight:700;font-size:12.5px;letter-spacing:.04em;
+    padding:9px 0;border-radius:10px;background:var(--gold);color:#231a02;
+  }
+  .prestige-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+
+  /* ---------- garage overlay panel ---------- */
+  .garage-panel{
+    position:absolute;inset:0;
+    z-index:10;
+    background:linear-gradient(180deg,#101a23,#0a1119);
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    padding:calc(16px + env(safe-area-inset-top)) 16px 16px;
+    overflow-y:auto;
+  }
+  .garage-top{
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--font-display);font-weight:600;font-size:14px;
+  }
+  .garage-car{
+    display:flex;justify-content:center;padding:16px 0 8px;
+    background:linear-gradient(180deg,#1a2632,#101821);
+    border:1px solid var(--line);border-radius:16px;
+  }
+  .pilot-line{display:flex;justify-content:space-between;align-items:baseline;}
+  .pilot-name{font-family:var(--font-display);font-weight:600;font-size:14px;}
+  .pilot-tag{font-size:11px;color:var(--text-dim);}
+  .section-label{
+    font-family:var(--font-display);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .stat-row{display:flex;flex-direction:column;gap:4px;}
+  .stat-label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim);}
+  .stat-label b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600;}
+  .stat-bar-track{height:6px;border-radius:99px;background:var(--surface);overflow:hidden;}
+  .stat-bar-fill{
+    height:100%;border-radius:99px;
+    background:linear-gradient(90deg,var(--gold-dim),var(--gold));
+    width:0%;transition:width .25s ease;
+  }
+  .history-list{display:flex;flex-direction:column;gap:6px;}
+  .history-row{
+    display:flex;justify-content:space-between;font-size:12px;
+    background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;
+  }
+  .history-row b{color:var(--gold);font-variant-numeric:tabular-nums;}
+  .history-empty{
+    font-size:12px;color:var(--text-dim);text-align:center;padding:16px 0;
+    background:var(--surface-2);border:1px dashed var(--line);border-radius:10px;
+  }
+
+  /* ---------- missions & badges panel ---------- */
+  .mission-row{
+    background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+    padding:11px 12px;display:flex;flex-direction:column;gap:7px;
+  }
+  .mission-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;gap:8px;}
+  .mission-top b{color:var(--text);font-weight:600;}
+  .mission-reward{font-size:11px;color:var(--gold);font-variant-numeric:tabular-nums;flex:none;}
+  .mission-progress-text{font-size:10.5px;color:var(--text-dim);text-align:right;}
+  .claim-btn{
+    all:unset;cursor:pointer;text-align:center;width:100%;
+    font-family:var(--font-display);font-weight:600;font-size:11.5px;letter-spacing:.03em;
+    padding:7px 0;border-radius:9px;background:var(--gold);color:#231a02;
+  }
+  .claim-btn[disabled]{background:var(--surface);color:var(--text-dim);cursor:default;}
+
+  .badges-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .badge{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:12px 6px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+    text-align:center;
+  }
+  .badge.locked{opacity:.38;}
+  .badge-icon{
+    width:34px;height:34px;border-radius:50%;background:var(--surface);
+    display:flex;align-items:center;justify-content:center;flex:none;
+  }
+  .badge-icon svg{width:17px;height:17px;color:var(--gold);}
+  .badge-name{font-family:var(--font-display);font-size:10px;font-weight:600;line-height:1.25;}
+  .badge-desc{font-size:9px;color:var(--text-dim);line-height:1.3;}
+
+  /* ---------- settings switches ---------- */
+  .switch-row{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  }
+  .switch-label{font-size:13px;font-weight:600;}
+  .switch-desc{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.4;}
+  .switch-track{
+    width:44px;height:26px;border-radius:99px;background:var(--surface);
+    position:relative;cursor:pointer;flex:none;transition:background .2s ease;
+  }
+  .switch-track.on{background:var(--gold);}
+  .switch-track.loading{background:var(--surface);opacity:.6;cursor:default;}
+  .switch-knob{
+    position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+    background:#fff;transition:left .2s ease;box-shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  .switch-track.on .switch-knob{left:21px;}
+</style>
+</head>
+<body>
+
+  <div id="shell">
+    <div class="view-2d" id="view-2d">
+      <svg class="track-svg" viewBox="0 0 320 520" preserveAspectRatio="xMidYMid slice">
+        <path class="track-layer" fill="none" stroke="var(--stands)" stroke-width="42" stroke-linejoin="round"/>
+        <path class="track-layer" fill="var(--grass)" stroke="none"/>
+        <path class="track-layer" fill="none" stroke="var(--track)" stroke-width="26" stroke-linejoin="round"/>
+        <path class="track-layer" id="track-centerline" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.3" stroke-dasharray="5 7"/>
+        <line id="start-line" stroke="var(--gold)" stroke-width="4"/>
+      </svg>
+    </div>
+    <canvas class="gl-canvas" id="gl-canvas"></canvas>
+
+    <div class="rain-overlay" id="rain-overlay"></div>
+    <div class="vignette"></div>
+    <div class="circuit-label" id="circuit-label">Ankara Gece Pisti</div>
+    <div class="chip weather-chip" id="weather-chip" hidden>🌧 <span id="weather-time">60</span>sn · ×1.5 Kazanç</div>
+    <div class="tap-hint" id="tap-hint">Ekrana dokun, gaz kazan</div>
+    <div class="float-layer" id="float-layer"></div>
+
+    <div class="hud-top">
+      <div class="hud-left chip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 13l7-8 9 2-2 9-8 7-6-4z"/></svg>
+        <span>S<b id="season-num">1</b> · <b id="prestige-pts">0</b>P</span>
+      </div>
+      <div class="hud-right">
+        <div class="lap-chip chip">TUR <b id="lap-num">1</b><span class="lap-ghost" id="lap-ghost"></span></div>
+        <button class="icon-btn" id="settings-open" aria-label="Ayarları aç">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.37 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="icon-btn" id="missions-open" aria-label="Görevleri aç">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </button>
+        <button class="icon-btn" id="garage-open" aria-label="Garajı aç">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V10l9-6 9 6v11"/><path d="M8 21v-6h8v6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="wallet-hud chip">
+      <span class="coin-dot"></span>
+      <div class="wallet-text">
+        <span class="wallet-amount" id="wallet">0 ₺</span>
+        <span class="wallet-sub"><b id="idle-rate">0</b>/sn · ×<span id="mult-rate">1.0</span></span>
+      </div>
+    </div>
+
+    <div class="gems-hud chip">
+      <span class="gem-dot"></span>
+      <span class="gems-amount" id="gems">0</span>
+    </div>
+
+    <div class="sheet" id="sheet">
+      <div class="sheet-handle" id="sheet-handle">
+        <div class="handle-bar"></div>
+        <span id="sheet-caption">Yükseltmeler — çekip yukarı kaydır</span>
+      </div>
+      <div class="sheet-body">
+        <div class="upgrades" id="upgrades"></div>
+        <div class="prestige">
+          <div class="prestige-top">
+            <div class="prestige-title">Yeni <span>Sezon</span></div>
+            <div class="prestige-mult" id="prestige-preview">+0 puan</div>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="prestige-bar"></div></div>
+          <button class="prestige-btn" id="prestige-btn" disabled>50.000 ₺ gerekli</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="garage-panel" id="garage-panel" hidden>
+      <div class="garage-top">
+        <button class="icon-btn" id="garage-close" aria-label="Kapat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span>Garaj</span>
+      </div>
+      <div class="garage-car">
+        <svg viewBox="0 0 200 90" width="170" height="76">
+          <rect x="20" y="38" width="30" height="10" rx="4" fill="var(--gold)"/>
+          <rect x="40" y="30" width="120" height="26" rx="10" fill="var(--red)"/>
+          <rect x="90" y="20" width="22" height="16" rx="4" fill="#0e1620"/>
+          <rect x="140" y="26" width="34" height="6" rx="3" fill="var(--gold)"/>
+          <rect x="150" y="32" width="14" height="20" rx="3" fill="var(--gold)"/>
+          <circle cx="55" cy="60" r="10" fill="#0e1420"/>
+          <circle cx="145" cy="60" r="10" fill="#0e1420"/>
+          <circle cx="55" cy="28" r="9" fill="#0e1420"/>
+          <circle cx="145" cy="28" r="9" fill="#0e1420"/>
+        </svg>
+      </div>
+      <div class="pilot-line">
+        <span class="pilot-name">Sen · Takım Kaptanı</span>
+        <span class="pilot-tag" id="garage-mult">Çarpan ×1.0</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>👻 En İyi Tur Kazancı (bu pist)</span><b id="best-lap-val">—</b></div>
+      </div>
+      <div class="section-label">Araba İstatistikleri</div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Hız (Slipstream)</span><b id="stat-speed-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-speed-bar"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Geçiş Gücü</span><b id="stat-overtake-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-overtake-bar"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Sponsor Değeri</span><b id="stat-sponsor-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-sponsor-bar"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>Tribün Kapasitesi</span><b id="stat-capacity-val">0</b></div>
+        <div class="stat-bar-track"><div class="stat-bar-fill" id="stat-capacity-bar"></div></div>
+      </div>
+      <div class="section-label">Menajer</div>
+      <div class="mission-row">
+        <div class="mission-top"><b id="manager-status">İşe alınmadı</b><span class="mission-reward" id="manager-cost">💎25</span></div>
+        <div class="mission-progress-text" id="manager-desc">Arka planda otomatik en ucuz yükseltmeyi satın alır — dokunmana gerek kalmaz.</div>
+        <button class="claim-btn" id="manager-hire">İşe Al</button>
+      </div>
+
+      <div class="section-label">Sezon Geçmişi</div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">Henüz tamamlanmış sezon yok.</div>
+      </div>
+    </div>
+
+    <div class="garage-panel" id="missions-panel" hidden>
+      <div class="garage-top">
+        <button class="icon-btn" id="missions-close" aria-label="Kapat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span>Görevler</span>
+      </div>
+      <div class="section-label">Günlük Görevler</div>
+      <div id="missions-list"></div>
+      <div class="section-label">Rozetler</div>
+      <div class="badges-grid" id="badges-grid"></div>
+    </div>
+
+    <div class="garage-panel" id="settings-panel" hidden>
+      <div class="garage-top">
+        <button class="icon-btn" id="settings-close" aria-label="Kapat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <span>Ayarlar</span>
+      </div>
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">Ses ve Titreşim</div>
+          <div class="switch-desc">Dokunuş, ödül ve tur seslerini aç/kapat.</div>
+        </div>
+        <div class="switch-track" id="sound-switch"><div class="switch-knob"></div></div>
+      </div>
+      <div class="switch-row">
+        <div>
+          <div class="switch-label">3D Sinematik Görünüm</div>
+          <div class="switch-desc" id="view-switch-desc">Pist etrafında dönen kamera ile 3D mod. Sürükle: çevir, sıkıştır/tekerlek: yakınlaştır.</div>
+        </div>
+        <div class="switch-track" id="view-switch"><div class="switch-knob"></div></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  /* =========================================================
+     STATE — tek kaynak, tüm oyun verisi burada
+     ========================================================= */
+  var STORAGE_KEY = 'gazabas_v1';
+  var PRESTIGE_THRESHOLD = 50000;
+  var STAT_MAX_LEVEL = 15;
+
+  // Telifsiz, kurgusal sponsorlar (App Store / Play Store yayını için
+  // gerçek marka isimleri kullanılmıyor — sadece F1 sponsorluğu hissi veriyor).
+  var SPONSORS = ['FLASH Kargo', 'VELOCE Lastik', 'CHRONOS Saat', 'APEX Saat', 'AURUM İçecek', 'NEXUS Bulut'];
+
+  var UP = {
+    overtaking:{ name:'Geçiş', sub:'Dokunuş kazancı +', base:12, growth:1.16, effect:1 },
+    slipstream:{ name:'Slipstream', sub:'Saniyede gelir +', base:20, growth:1.17, effect:2 },
+    sponsorship:{ name:'Sponsorluk', sub:'10 sn de bir bonus', base:35, growth:1.18, effect:14 },
+    bleachers:{ name:'Tribünler', sub:'Genel çarpan +%', base:60, growth:1.22, effect:4 }
+  };
+
+  // 4 mini pist — her sezon bir sonrakine geçiliyor. Her pist gerçek bir
+  // waypoint (koordinat noktası) dizisiyle tanımlanıyor: 'straight' düz bir
+  // uzatılmış tanjant, 'sharp' keskin/dar bir viraj veya şikan/firkete,
+  // 'flow' ise akıcı orta hızlı bir dönüş üretir. h/r sadece 3D görünümün
+  // stadyum yaklaşıklaması için kaba bir kapsama kutusu.
+  var TRACKS = [
+    { name:'Ankara Gece Pisti', lap:26, track:'#2a2038', stands:'#1a1524', grass:'#3a2d52', h:210, r:125,
+      points:[
+        {x:160,y:470,k:'straight'},{x:160,y:360,k:'straight'},{x:225,y:320,k:'sharp'},
+        {x:255,y:250,k:'flow'},{x:235,y:175,k:'flow'},{x:265,y:110,k:'sharp'},
+        {x:215,y:70,k:'sharp'},{x:170,y:85,k:'sharp'},{x:120,y:55,k:'flow'},
+        {x:70,y:75,k:'flow'},{x:45,y:150,k:'flow'},{x:20,y:225,k:'sharp'},
+        {x:65,y:250,k:'flow'},{x:90,y:320,k:'flow'},{x:55,y:390,k:'sharp'},{x:100,y:440,k:'flow'}
+      ]
+    },
+    { name:'Kapadokya Vadi Pisti', lap:24, track:'#4a3324', stands:'#2e2018', grass:'#caa06a', h:210, r:125,
+      points:[
+        {x:160,y:470,k:'straight'},{x:160,y:360,k:'straight'},{x:95,y:320,k:'sharp'},
+        {x:65,y:250,k:'flow'},{x:85,y:175,k:'flow'},{x:55,y:110,k:'sharp'},
+        {x:105,y:70,k:'sharp'},{x:150,y:85,k:'sharp'},{x:200,y:55,k:'flow'},
+        {x:250,y:75,k:'flow'},{x:275,y:150,k:'flow'},{x:300,y:225,k:'sharp'},
+        {x:255,y:250,k:'flow'},{x:230,y:320,k:'flow'},{x:265,y:390,k:'sharp'},{x:220,y:440,k:'flow'}
+      ]
+    },
+    { name:'Karadeniz Rıhtım Pisti', lap:34, track:'#213640', stands:'#152128', grass:'#1f6b78', h:190, r:133,
+      points:[
+        {x:160,y:480,k:'straight'},{x:160,y:400,k:'straight'},{x:230,y:370,k:'flow'},
+        {x:270,y:300,k:'flow'},{x:260,y:220,k:'flow'},{x:290,y:150,k:'sharp'},
+        {x:230,y:110,k:'sharp'},{x:180,y:125,k:'sharp'},{x:110,y:100,k:'flow'},
+        {x:55,y:140,k:'flow'},{x:25,y:210,k:'sharp'},{x:75,y:235,k:'flow'},
+        {x:110,y:300,k:'flow'},{x:70,y:370,k:'flow'},{x:110,y:440,k:'flow'}
+      ]
+    },
+    { name:'Toros Rampa Pisti', lap:29, track:'#33372f', stands:'#20231d', grass:'#3f6b3f', h:145, r:88,
+      points:[
+        {x:160,y:460,k:'straight'},{x:160,y:395,k:'straight'},{x:205,y:365,k:'sharp'},
+        {x:215,y:300,k:'sharp'},{x:175,y:255,k:'sharp'},{x:215,y:200,k:'sharp'},
+        {x:170,y:180,k:'sharp'},{x:120,y:210,k:'sharp'},{x:75,y:170,k:'flow'},
+        {x:40,y:220,k:'sharp'},{x:85,y:245,k:'flow'},{x:65,y:310,k:'sharp'},
+        {x:105,y:350,k:'sharp'},{x:80,y:410,k:'sharp'},{x:120,y:445,k:'flow'}
+      ]
+    }
+  ];
+
+  // Waypoint dizisinden pürüzsüz, kapalı bir SVG pist yolu üretir. Basit
+  // yaylar yerine her noktanın teğetini (straight/sharp/flow etiketine göre)
+  // hesaplayıp kübik Bézier segmentleri zincirler — ana Paddock GP oyununun
+  // 3D pist üretiminde kullanılan aynı, kanıtlanmış teknik.
+  function buildTangentBezierSvgPath(pts){
+    var n = pts.length;
+    function wrap(i){ return (i+n)%n; }
+    function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+    function tangent(i){
+      var p=pts[i], prev=pts[wrap(i-1)], next=pts[wrap(i+1)];
+      if(p.k==='straight'){
+        var toNext={x:next.x-p.x,y:next.y-p.y}, toPrev={x:p.x-prev.x,y:p.y-prev.y};
+        var l1=Math.hypot(toNext.x,toNext.y)||1, l2=Math.hypot(toPrev.x,toPrev.y)||1;
+        return {x:(toNext.x/l1+toPrev.x/l2)/2, y:(toNext.y/l1+toPrev.y/l2)/2, sharp:false};
+      }
+      var dx=next.x-prev.x, dy=next.y-prev.y, len=Math.hypot(dx,dy)||1;
+      return {x:dx/len, y:dy/len, sharp:p.k==='sharp'};
+    }
+    var tans = pts.map(function(_,i){ return tangent(i); });
+    var d = '';
+    for(var i=0;i<n;i++){
+      var a=pts[i], b=pts[wrap(i+1)];
+      var ta=tans[i], tb=tans[wrap(i+1)];
+      var segLen = dist(a,b);
+      var hA=(ta.sharp?0.22:0.32)*segLen;
+      var hB=(tb.sharp?0.22:0.32)*segLen;
+      var c1x=a.x+ta.x*hA, c1y=a.y+ta.y*hA;
+      var c2x=b.x-tb.x*hB, c2y=b.y-tb.y*hB;
+      if(i===0) d += 'M'+a.x.toFixed(1)+','+a.y.toFixed(1)+' ';
+      d += 'C'+c1x.toFixed(1)+','+c1y.toFixed(1)+' '+c2x.toFixed(1)+','+c2y.toFixed(1)+' '+b.x.toFixed(1)+','+b.y.toFixed(1)+' ';
+    }
+    d += 'Z';
+    return d;
+  }
+
+  /* =========================================================
+     TRACK2D — gerçek F1 şasili arabaları, üretilen pist yolu
+     üzerinde SVG getPointAtLength ile her karede konumlandıran
+     rAF döngüsü (CSS animasyonuna güvenmiyor).
+     ========================================================= */
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs){
+    var el = document.createElementNS(SVG_NS, tag);
+    for(var k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function buildCarGroup(color){
+    var g = svgEl('g', {'class':'f1car'});
+    g.appendChild(svgEl('rect', {x:-6,y:9.4,width:1.3,height:4,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:4.7,y:9.4,width:1.3,height:4,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:-6,y:9.8,width:12,height:1.5,fill:'#111'}));
+    g.appendChild(svgEl('path', {
+      d:'M0,-12 L2,-9 L2.6,-4.5 L5.2,-1.5 L5.2,4 L2.8,6 L2.8,9.2 L-2.8,9.2 L-2.8,6 L-5.2,4 L-5.2,-1.5 L-2.6,-4.5 L-2,-9 Z',
+      fill:color, stroke:'rgba(255,255,255,.5)', 'stroke-width':0.5
+    }));
+    g.appendChild(svgEl('rect', {x:-1.4,y:-3,width:2.8,height:3.4,rx:0.6,fill:'#0c0f13'}));
+    g.appendChild(svgEl('rect', {x:-6.4,y:-9.6,width:2,height:1.3,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:4.4,y:-9.6,width:2,height:1.3,fill:'#111'}));
+    g.appendChild(svgEl('rect', {x:-6.4,y:-9.2,width:12.8,height:1.2,fill:'#111'}));
+    return g;
+  }
+  var Track2D = {
+    ready:false, running:false, totalLen:0, cars:[],
+    init: function(){
+      var svg = document.querySelector('.track-svg');
+      var colors = ['#e0483e','#4d8bf0','#f2b705'];
+      this.cars = colors.map(function(color, idx){
+        var g = buildCarGroup(color);
+        svg.appendChild(g);
+        return {el:g, t:idx/3, speed:1/30};
+      });
+      this.pathEl = document.getElementById('track-centerline');
+      this._boundLoop = this._loop.bind(this);
+      this.ready = true;
+    },
+    refreshPath: function(){
+      this.totalLen = this.pathEl.getTotalLength();
+    },
+    setSpeeds: function(lapSec){
+      var durations = [lapSec, lapSec+3, lapSec-2];
+      this.cars.forEach(function(car, idx){ car.speed = 1/durations[idx]; });
+    },
+    setActive: function(on){
+      if(on && this.ready && !this.running){
+        this.running = true;
+        this.lastT = performance.now();
+        requestAnimationFrame(this._boundLoop);
+      } else if(!on){
+        this.running = false;
+      }
+    },
+    _loop: function(now){
+      if(!this.running) return;
+      var dt = Math.min(0.05, (now-this.lastT)/1000); this.lastT = now;
+      var total = this.totalLen || 1;
+      this.cars.forEach(function(car){
+        car.t = (car.t + dt*car.speed) % 1;
+        var len = car.t*total;
+        var p = Track2D.pathEl.getPointAtLength(len);
+        var p2 = Track2D.pathEl.getPointAtLength((len+0.8) % total);
+        var angle = Math.atan2(p2.y-p.y, p2.x-p.x)*180/Math.PI + 90;
+        car.el.setAttribute('transform', 'translate('+p.x.toFixed(1)+','+p.y.toFixed(1)+') rotate('+angle.toFixed(1)+')');
+      });
+      requestAnimationFrame(this._boundLoop);
+    }
+  };
+
+  function todayKey(){ var d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+  function hashSeed(str){ var h = 0; for(var i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i))|0; } return Math.abs(h); }
+  function mulberry32(a){ return function(){ a|=0; a = a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  function seededPick3(seed, poolLen){
+    var idxs = []; for(var i=0;i<poolLen;i++) idxs.push(i);
+    var rng = mulberry32(seed);
+    for(var i2=idxs.length-1;i2>0;i2--){ var j=Math.floor(rng()*(i2+1)); var t=idxs[i2]; idxs[i2]=idxs[j]; idxs[j]=t; }
+    return idxs.slice(0,3);
+  }
+
+  var MISSION_POOL = [
+    { id:'tap40',      type:'taps',      target:40,   reward:150, label:'Ekrana 40 kez dokun' },
+    { id:'buy3',       type:'buys',      target:3,    reward:200, label:'3 yükseltme satın al' },
+    { id:'earn1000',   type:'earned',    target:1000, reward:250, label:'1000 ₺ kazan' },
+    { id:'lap3',       type:'laps',      target:3,    reward:180, label:'3 tur bonusu al' },
+    { id:'prestige1',  type:'prestiges', target:1,    reward:500, label:'1 sezon bitir' }
+  ];
+  var BADGES = [
+    { id:'ilk-viraj',      name:'İlk Viraj',        desc:'İlk sezonunu tamamla',        cond:function(){ return state.season >= 2; } },
+    { id:'sponsor-dostu',  name:'Sponsor Dostu',    desc:'Sponsorluk seviye 5',         cond:function(){ return state.levels.sponsorship >= 5; } },
+    { id:'kalabalik',      name:'Kalabalık Coşkusu',desc:'Tribün seviye 5',             cond:function(){ return state.levels.bleachers >= 5; } },
+    { id:'yaris-kaptani',  name:'Yarış Kaptanı',    desc:'5. sezona ulaş',              cond:function(){ return state.season >= 5; } },
+    { id:'milyoner',       name:'Milyoner',         desc:'Toplamda 1.000.000 ₺ kazan',  cond:function(){ return state.lifetime.earned >= 1000000; } }
+  ];
+
+  function defaultDaily(dateKey){
+    return {
+      date:dateKey, taps:0, buys:0, earned:0, laps:0, prestiges:0,
+      picks: seededPick3(hashSeed(dateKey), MISSION_POOL.length),
+      claimed: []
+    };
+  }
+
+  function defaultState(){
+    return {
+      coins:0, gems:0, season:1, prestigePts:0, lap:1, soundOn:true, viewMode:'2d',
+      levels:{overtaking:0, slipstream:0, sponsorship:0, bleachers:0},
+      sponsorTimer:0, managerTimer:0, managerHired:false,
+      lapEarnings:0, bestLap:{}, weatherTimer:0,
+      history:[],
+      daily: defaultDaily(todayKey()),
+      lifetime: {earned:0, taps:0, buys:0},
+      badges: []
+    };
+  }
+  function loadLocal(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      var parsed = JSON.parse(raw);
+      if(parsed && parsed.levels) return parsed;
+    }catch(e){}
+    return null;
+  }
+  function saveLocal(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+
+  var state = defaultState();
+
+  /* =========================================================
+     ECONOMY — tüm hesaplamalar burada, State'i sadece okur/yazar
+     ========================================================= */
+  var Economy = {
+    WEATHER_MULT: 1.5,
+    cost: function(key){ var u = UP[key], lvl = state.levels[key]; return Math.round(u.base * Math.pow(u.growth, lvl)); },
+    mult: function(){ return 1 + state.prestigePts*0.1; },
+    weatherMult: function(){ return state.weatherTimer > 0 ? this.WEATHER_MULT : 1; },
+    tapValue: function(){ return Math.round((1 + state.levels.overtaking*UP.overtaking.effect) * this.mult() * this.weatherMult()); },
+    idlePerSec: function(){ return Math.round(state.levels.slipstream*UP.slipstream.effect * (1 + this.bleachersBonusPct()/100) * this.mult() * this.weatherMult()); },
+    sponsorPayout: function(){ return Math.round(state.levels.sponsorship*UP.sponsorship.effect * (1 + this.bleachersBonusPct()/100) * this.mult() * this.weatherMult()); },
+    lapBonus: function(){ return Math.max(5, Math.round(30 * (1 + this.bleachersBonusPct()/100) * this.mult() * this.weatherMult())); },
+    bleachersBonusPct: function(){ return state.levels.bleachers*UP.bleachers.effect; },
+    buy: function(key){
+      var c = this.cost(key);
+      if(state.coins < c) return false;
+      state.coins -= c;
+      state.levels[key] += 1;
+      return true;
+    },
+    GEM_UPGRADE_COST: 3,
+    MANAGER_COST: 25,
+    buyWithGems: function(key){
+      if(state.gems < this.GEM_UPGRADE_COST) return false;
+      state.gems -= this.GEM_UPGRADE_COST;
+      state.levels[key] += 1;
+      return true;
+    },
+    hireManager: function(){
+      if(state.managerHired || state.gems < this.MANAGER_COST) return false;
+      state.gems -= this.MANAGER_COST;
+      state.managerHired = true;
+      return true;
+    },
+    cheapestAffordableUpgrade: function(){
+      var best = null, bestCost = Infinity;
+      Object.keys(UP).forEach(function(key){
+        var c = Economy.cost(key);
+        if(c <= state.coins && c < bestCost){ best = key; bestCost = c; }
+      });
+      return best;
+    },
+    canPrestige: function(){ return state.coins >= PRESTIGE_THRESHOLD; },
+    prestigeGain: function(){ return Math.max(1, Math.floor(Math.sqrt(state.coins/1000))); },
+    prestige: function(){
+      if(!this.canPrestige()) return false;
+      var gained = this.prestigeGain();
+      state.history = state.history || [];
+      state.history.unshift({season:state.season, coins:state.coins, gained:gained});
+      state.history = state.history.slice(0, 8);
+      state.prestigePts += gained;
+      state.season += 1;
+      state.coins = 0;
+      state.levels = {overtaking:0, slipstream:0, sponsorship:0, bleachers:0};
+      state.sponsorTimer = 0;
+      return true;
+    }
+  };
+
+  var ICONS = {
+    overtaking:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l6 5-6 5"/><path d="M12 7l6 5-6 5"/></svg>',
+    slipstream:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><path d="M3 8h13M3 12h17M3 16h10"/></svg>',
+    sponsorship:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"><path d="M4 13l7-8 9 2-2 9-8 7-6-4z"/><circle cx="9" cy="9" r="1.4" fill="var(--gold)" stroke="none"/></svg>',
+    bleachers:'<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"><path d="M4 20V13l4-4 4 4 4-6 4 6v7"/></svg>'
+  };
+
+  function formatNum(n){
+    n = Math.round(n);
+    if(n >= 1000000) return (n/1000000).toFixed(2).replace(/\.00$/,'') + 'M';
+    if(n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,'') + 'K';
+    return String(n);
+  }
+
+  /* =========================================================
+     TRACKS — sezona göre pist/renk/tur süresi değişimi
+     ========================================================= */
+  function ensureDaily(){
+    var today = todayKey();
+    if(!state.daily || state.daily.date !== today){
+      state.daily = defaultDaily(today);
+    }
+  }
+  function addCoins(amount){
+    state.coins += amount;
+    state.daily.earned += amount;
+    state.lifetime.earned += amount;
+    state.lapEarnings = (state.lapEarnings||0) + amount;
+  }
+  var BADGE_GEM_REWARD = 5;
+  function checkBadges(){
+    BADGES.forEach(function(b){
+      if(state.badges.indexOf(b.id) === -1 && b.cond()){
+        state.badges.push(b.id);
+        state.gems += BADGE_GEM_REWARD;
+        Sound.badge(); Haptics.medium();
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.22, 'ROZET: ' + b.name.toLocaleUpperCase('tr') + ' +' + BADGE_GEM_REWARD + '💎');
+      }
+    });
+  }
+
+  /* =========================================================
+     AUDIO — Web Audio ile prosedürel sentezlenen ses efektleri,
+     dış ses dosyası yok.
+     ========================================================= */
+  var Sound = {
+    ctx: null,
+    ensureCtx: function(){
+      if(!this.ctx){
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if(!Ctx) return null;
+        this.ctx = new Ctx();
+      }
+      if(this.ctx.state === 'suspended') this.ctx.resume();
+      return this.ctx;
+    },
+    note: function(freq, delay, dur, type, vol){
+      if(!state.soundOn) return;
+      var ctx = this.ensureCtx();
+      if(!ctx) return;
+      var t0 = ctx.currentTime + (delay||0);
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = type || 'square';
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(vol||0.14, t0+0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0+(dur||0.12));
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0+(dur||0.12)+0.02);
+    },
+    chime: function(notes){ var self=this; notes.forEach(function(n){ self.note(n[0], n[1], n[2], n[3], n[4]); }); },
+    tap: function(){ this.note(760 + Math.random()*60, 0, 0.05, 'square', 0.09); },
+    buy: function(){ this.chime([[660,0,0.06,'triangle',0.12],[880,0.05,0.08,'triangle',0.12]]); },
+    sponsor: function(){ this.chime([[1046,0,0.07,'sine',0.1],[1318,0.06,0.09,'sine',0.1]]); },
+    lapBonus: function(){ this.chime([[523,0,0.1,'triangle',0.13],[659,0.09,0.1,'triangle',0.13],[784,0.18,0.16,'triangle',0.14]]); },
+    prestige: function(){ this.chime([[523,0,0.12,'sawtooth',0.11],[659,0.1,0.12,'sawtooth',0.11],[784,0.2,0.12,'sawtooth',0.11],[1046,0.3,0.22,'sawtooth',0.13]]); },
+    badge: function(){ this.chime([[784,0,0.08,'triangle',0.12],[988,0.07,0.08,'triangle',0.12],[1175,0.14,0.08,'triangle',0.12],[1568,0.21,0.2,'triangle',0.14]]); },
+    mission: function(){ this.chime([[740,0,0.07,'sine',0.11],[988,0.06,0.12,'sine',0.11]]); },
+    weatherStart: function(){ this.chime([[660,0,0.1,'sine',0.1],[440,0.08,0.16,'sine',0.09]]); },
+    weatherEnd: function(){ this.chime([[440,0,0.08,'sine',0.08],[330,0.06,0.1,'sine',0.07]]); }
+  };
+  var Haptics = {
+    fire: function(pattern){
+      if(!state.soundOn) return;
+      if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} }
+    },
+    tap: function(){ this.fire(8); },
+    light: function(){ this.fire(15); },
+    medium: function(){ this.fire([15,40,15]); },
+    strong: function(){ this.fire([20,50,20,50,30]); }
+  };
+
+  var WEATHER_DURATION = 60;
+  var WEATHER_CHANCE = 0.2;
+  function startWeather(){
+    state.weatherTimer = WEATHER_DURATION;
+    document.getElementById('shell').classList.add('wet');
+    document.getElementById('weather-chip').hidden = false;
+    Sound.weatherStart(); Haptics.medium();
+    var rect = document.getElementById('shell').getBoundingClientRect();
+    View.spawnTapFx(rect.width*0.5, rect.height*0.12, '🌧 ISLAK PİST! ×' + Economy.WEATHER_MULT + ' KAZANÇ');
+  }
+  function endWeather(){
+    document.getElementById('shell').classList.remove('wet');
+    document.getElementById('weather-chip').hidden = true;
+    Sound.weatherEnd();
+  }
+
+  /* =========================================================
+     VIEW3D — isteğe bağlı 3D sinematik görünüm. Three.js sadece
+     kullanıcı ilk kez 3D'ye geçtiğinde indirilir (lazy-load).
+     Aynı State/Economy'yi kullanır, sadece pist görselini değiştirir.
+     ========================================================= */
+  var THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+  function loadThreeAndInit(onReady, onError){
+    if(window.THREE){ onReady(); return; }
+    var s = document.createElement('script');
+    s.src = THREE_CDN;
+    s.onload = onReady;
+    s.onerror = onError;
+    document.head.appendChild(s);
+  }
+
+  var AZ_CENTER = Math.PI/2;
+  var View3D = {
+    ready:false, running:false,
+    azimuth:AZ_CENTER, radius:168,
+    AZ_MIN:AZ_CENTER-1.15, AZ_MAX:AZ_CENTER+1.15, MIN_RADIUS:85, MAX_RADIUS:260, HEIGHT:118,
+    halfLen:70, capR:39,
+    cars:[], trackMeshes:[], centerLine:null, gantry:null,
+
+    trackPointAt: function(t){
+      var hl = this.halfLen, r = this.capR;
+      t = ((t % 1) + 1) % 1;
+      var straight = 2*hl, cap = Math.PI*r, total = 2*straight + 2*cap;
+      var f1 = straight/total, f2 = f1 + cap/total, f3 = f2 + straight/total;
+      var x, z;
+      if(t < f1){ var s = t/f1; x = -hl + s*2*hl; z = r; }
+      else if(t < f2){ var a = (t-f1)/(f2-f1)*Math.PI - Math.PI/2; x = hl + Math.cos(a)*r; z = Math.sin(a)*r; }
+      else if(t < f3){ var s2 = (t-f2)/(f3-f2); x = hl - s2*2*hl; z = -r; }
+      else { var a2 = (t-f3)/(1-f3)*Math.PI + Math.PI/2; x = -hl + Math.cos(a2)*r; z = Math.sin(a2)*r; }
+      return {x:x, z:z};
+    },
+    stadiumShape: function(hl, r){
+      var shape = new THREE.Shape();
+      shape.moveTo(-hl, r); shape.lineTo(hl, r);
+      shape.absarc(hl, 0, r, Math.PI/2, -Math.PI/2, true);
+      shape.lineTo(-hl, -r);
+      shape.absarc(-hl, 0, r, -Math.PI/2, Math.PI/2, true);
+      return shape;
+    },
+    init: function(cfg){
+      var canvas = document.getElementById('gl-canvas');
+      this.renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:true});
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+      this.scene = new THREE.Scene();
+      this.scene.background = new THREE.Color(0x0a1119);
+      this.scene.fog = new THREE.Fog(0x0a1119, 220, 430);
+      this.camera = new THREE.PerspectiveCamera(42, 1, 1, 1000);
+      this.scene.add(new THREE.HemisphereLight(0x8fa2c8, 0x0a1119, 0.9));
+      var sun = new THREE.DirectionalLight(0xffffff, 0.85);
+      sun.position.set(120, 180, 90);
+      this.scene.add(sun);
+      var ground = new THREE.Mesh(new THREE.PlaneGeometry(1200,1200), new THREE.MeshStandardMaterial({color:0x0d151d, roughness:1}));
+      ground.rotation.x = -Math.PI/2; ground.position.y = -0.6;
+      this.scene.add(ground);
+      this._boundLoop = this._loop.bind(this);
+      this.ready = true;
+      this.buildTrack(cfg);
+      this.resize();
+    },
+    buildTrack: function(cfg){
+      var self = this;
+      this.trackMeshes.forEach(function(m){ self.scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+      this.trackMeshes = [];
+      if(this.centerLine){ this.scene.remove(this.centerLine); this.centerLine.geometry.dispose(); this.centerLine.material.dispose(); this.centerLine = null; }
+      if(this.gantry){ this.scene.remove(this.gantry); this.gantry.geometry.dispose(); this.gantry.material.dispose(); this.gantry = null; }
+      this.standMeshes = this.standMeshes || [];
+      this.standMeshes.forEach(function(m){ self.scene.remove(m); m.geometry.dispose(); m.material.dispose(); });
+      this.standMeshes = [];
+      this.cars.forEach(function(c){ self.scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh.material.dispose(); });
+      this.cars = [];
+
+      var hl = cfg.h, r = cfg.r;
+      this.halfLen = hl; this.capR = r;
+
+      var extent = hl + r;
+      this.radius = extent * 1.54;
+      this.HEIGHT = this.radius * 0.7;
+      this.MIN_RADIUS = extent * 0.78;
+      this.MAX_RADIUS = extent * 2.39;
+      this.azimuth = AZ_CENTER;
+      this.AZ_MIN = AZ_CENTER - 1.15;
+      this.AZ_MAX = AZ_CENTER + 1.15;
+
+      function addLayer(hlA, rA, color, y){
+        var geo = new THREE.ShapeGeometry(self.stadiumShape(hlA, rA));
+        var mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:new THREE.Color(color), roughness:0.9, side:THREE.DoubleSide}));
+        mesh.rotation.x = -Math.PI/2; mesh.position.y = y;
+        self.scene.add(mesh);
+        self.trackMeshes.push(mesh);
+      }
+      addLayer(hl+8, r+11, cfg.stands, 0);
+      addLayer(hl+2, Math.max(4,r-3), cfg.track, 0.03);
+      addLayer(Math.max(4,hl-7), Math.max(3,r-15), cfg.grass, 0.06);
+
+      var pts = [];
+      for(var i=0;i<=64;i++){ var p = this.trackPointAt(i/64); pts.push(new THREE.Vector3(p.x, 0.1, p.z)); }
+      var centerGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      this.centerLine = new THREE.LineLoop(centerGeo, new THREE.LineDashedMaterial({color:0xffffff, transparent:true, opacity:0.35, dashSize:3, gapSize:2.4}));
+      this.centerLine.computeLineDistances();
+      this.scene.add(this.centerLine);
+
+      this.gantry = new THREE.Mesh(new THREE.BoxGeometry(2,3,10), new THREE.MeshStandardMaterial({color:0xf2b705, emissive:0x3a2900, emissiveIntensity:0.4}));
+      this.gantry.position.set(-hl, 1.6, r);
+      this.scene.add(this.gantry);
+
+      var STAND_COUNT = 16;
+      for(var s=0;s<STAND_COUNT;s++){
+        var sp = this.trackPointAt(s/STAND_COUNT + 0.02);
+        var outward = 1.25;
+        var box = new THREE.Mesh(
+          new THREE.BoxGeometry(9,5.5,4),
+          new THREE.MeshStandardMaterial({color: s%5===0 ? 0x2a3a48 : 0x1c2732, roughness:0.95})
+        );
+        box.position.set(sp.x*outward, 2.7, sp.z*outward);
+        box.lookAt(0, 2.7, 0);
+        this.scene.add(box);
+        this.standMeshes.push(box);
+      }
+
+      var lapSec = cfg.lap || 30;
+      var CAR_COLORS = [0xe0483e, 0x4d8bf0, 0xf2b705];
+      var CAR_SPEEDS = [1/lapSec, 1/(lapSec+3), 1/(lapSec-2)];
+      this.cars = CAR_COLORS.map(function(color, idx){
+        var mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(3.2,1.3,1.8),
+          new THREE.MeshStandardMaterial({color:color, roughness:0.5, metalness:0.3})
+        );
+        mesh.position.y = 0.9;
+        self.scene.add(mesh);
+        return {mesh:mesh, t: idx/3, speed: CAR_SPEEDS[idx]};
+      });
+    },
+    resize: function(){
+      if(!this.ready) return;
+      var shellEl = document.getElementById('shell');
+      var w = shellEl.clientWidth, h = shellEl.clientHeight;
+      if(w < 1 || h < 1) return;
+      this.renderer.setSize(w, h, false);
+      this.camera.aspect = w/h;
+      this.camera.updateProjectionMatrix();
+    },
+    setActive: function(on){
+      if(on && this.ready && !this.running){
+        this.running = true;
+        this.lastT = performance.now();
+        requestAnimationFrame(this._boundLoop);
+      } else if(!on){
+        this.running = false;
+      }
+    },
+    _loop: function(now){
+      if(!this.running) return;
+      var dt = Math.min(0.05, (now - this.lastT)/1000); this.lastT = now;
+      this.camera.position.set(Math.cos(this.azimuth)*this.radius, this.HEIGHT, Math.sin(this.azimuth)*this.radius);
+      this.camera.lookAt(0, 4, 0);
+      this.cars.forEach(function(car){
+        car.t += dt*car.speed;
+        var p = View3D.trackPointAt(car.t);
+        var p2 = View3D.trackPointAt(car.t + 0.01);
+        car.mesh.position.set(p.x, 0.9, p.z);
+        car.mesh.lookAt(p2.x, 0.9, p2.z);
+      });
+      this.renderer.render(this.scene, this.camera);
+      requestAnimationFrame(this._boundLoop);
+    }
+  };
+
+  var lapIntervalId = null;
+  var Tracks = {
+    indexForSeason: function(){ return (state.season - 1) % TRACKS.length; },
+    apply: function(idx){
+      var cfg = TRACKS[idx];
+      var d = buildTangentBezierSvgPath(cfg.points);
+      document.querySelectorAll('.track-svg path.track-layer').forEach(function(p){ p.setAttribute('d', d); });
+
+      var p0 = cfg.points[0], p1 = cfg.points[1];
+      var dx = p1.x-p0.x, dy = p1.y-p0.y, len = Math.hypot(dx,dy)||1;
+      var nx = -dy/len, ny = dx/len, half = 15;
+      var startLine = document.getElementById('start-line');
+      startLine.setAttribute('x1', p0.x+nx*half); startLine.setAttribute('y1', p0.y+ny*half);
+      startLine.setAttribute('x2', p0.x-nx*half); startLine.setAttribute('y2', p0.y-ny*half);
+
+      document.documentElement.style.setProperty('--track', cfg.track);
+      document.documentElement.style.setProperty('--stands', cfg.stands);
+      document.documentElement.style.setProperty('--grass', cfg.grass);
+      document.getElementById('circuit-label').textContent = cfg.name;
+
+      Track2D.setSpeeds(cfg.lap);
+      if(Track2D.ready) Track2D.refreshPath();
+
+      state.lapEarnings = 0;
+      if(lapIntervalId) clearInterval(lapIntervalId);
+      lapIntervalId = setInterval(function(){ Input.lapComplete(); }, cfg.lap*1000);
+
+      if(View3D.ready) View3D.buildTrack(cfg);
+    },
+    applyForCurrentSeason: function(){ this.apply(this.indexForSeason()); }
+  };
+
+  /* =========================================================
+     VIEW — DOM'a çizen kısım, State'i asla değiştirmez
+     ========================================================= */
+  var View = {
+    buildCards: function(){
+      var wrap = document.getElementById('upgrades');
+      wrap.innerHTML = '';
+      Object.keys(UP).forEach(function(key){
+        var u = UP[key];
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML =
+          '<div class="card-head"><div class="card-icon">'+ICONS[key]+'</div><div><div class="card-name">'+u.name+'</div></div></div>' +
+          '<div class="card-sub" data-role="sub"></div>' +
+          '<div class="card-stats"><span>Seviye <b data-role="lvl">0</b></span><span data-role="cost"></span></div>' +
+          '<div class="card-btn-row">' +
+            '<button class="buy-btn" data-role="buy">Satın al</button>' +
+            '<button class="gem-btn" data-role="gembuy" title="Elmasla anında yükselt">💎' + Economy.GEM_UPGRADE_COST + '</button>' +
+          '</div>';
+        wrap.appendChild(card);
+        card.querySelector('[data-role="buy"]').addEventListener('click', function(ev){ ev.stopPropagation(); Input.buy(key); });
+        card.querySelector('[data-role="gembuy"]').addEventListener('click', function(ev){ ev.stopPropagation(); Input.buyWithGems(key); });
+        card._key = key;
+      });
+    },
+    spawnTapFx: function(x, y, text){
+      var layer = document.getElementById('float-layer');
+      var ripple = document.createElement('div');
+      ripple.className = 'ripple';
+      ripple.style.left = x+'px'; ripple.style.top = y+'px';
+      layer.appendChild(ripple);
+      setTimeout(function(){ ripple.remove(); }, 600);
+
+      var pop = document.createElement('div');
+      pop.className = 'float-pop';
+      pop.textContent = text;
+      pop.style.left = x+'px'; pop.style.top = y+'px';
+      layer.appendChild(pop);
+      setTimeout(function(){ pop.remove(); }, 800);
+    },
+    renderGarage: function(){
+      document.getElementById('garage-mult').textContent = 'Çarpan ×' + Economy.mult().toFixed(1);
+      var gTrackName = TRACKS[Tracks.indexForSeason()].name;
+      var gBest = state.bestLap[gTrackName];
+      document.getElementById('best-lap-val').textContent = gBest ? formatNum(gBest) + ' ₺' : '—';
+      var hireBtn = document.getElementById('manager-hire');
+      if(state.managerHired){
+        document.getElementById('manager-status').textContent = 'Aktif';
+        document.getElementById('manager-cost').textContent = '';
+        document.getElementById('manager-desc').textContent = 'Menajer her 6 saniyede bir en ucuz uygun yükseltmeyi otomatik satın alıyor.';
+        hireBtn.disabled = true;
+        hireBtn.textContent = 'İşe Alındı ✓';
+      } else {
+        document.getElementById('manager-status').textContent = 'İşe alınmadı';
+        document.getElementById('manager-cost').textContent = '💎' + Economy.MANAGER_COST;
+        document.getElementById('manager-desc').textContent = 'Arka planda otomatik en ucuz yükseltmeyi satın alır — dokunmana gerek kalmaz.';
+        hireBtn.disabled = state.gems < Economy.MANAGER_COST;
+        hireBtn.textContent = 'İşe Al';
+      }
+      var stats = [['speed', state.levels.slipstream],['overtake', state.levels.overtaking],['sponsor', state.levels.sponsorship],['capacity', state.levels.bleachers]];
+      stats.forEach(function(pair){
+        var key = pair[0], lvl = pair[1];
+        var pct = Math.min(100, (lvl/STAT_MAX_LEVEL)*100);
+        document.getElementById('stat-'+key+'-val').textContent = lvl;
+        document.getElementById('stat-'+key+'-bar').style.width = pct + '%';
+      });
+      var list = document.getElementById('history-list');
+      var hist = state.history || [];
+      if(hist.length === 0){
+        list.innerHTML = '<div class="history-empty">Henüz tamamlanmış sezon yok.</div>';
+        return;
+      }
+      list.innerHTML = hist.map(function(row){
+        return '<div class="history-row"><span>Sezon '+row.season+' · '+formatNum(row.coins)+' ₺</span><b>+'+row.gained+' puan</b></div>';
+      }).join('');
+    },
+    render: function(){
+      document.getElementById('wallet').textContent = formatNum(state.coins) + ' ₺';
+      document.getElementById('gems').textContent = formatNum(state.gems);
+      document.getElementById('season-num').textContent = state.season;
+      document.getElementById('prestige-pts').textContent = state.prestigePts;
+      document.getElementById('lap-num').textContent = state.lap;
+      var ghostEl = document.getElementById('lap-ghost');
+      var curTrackName = TRACKS[Tracks.indexForSeason()].name;
+      var curBest = state.bestLap[curTrackName] || 0;
+      if(curBest > 0){
+        var ghostPct = Math.min(999, Math.round((state.lapEarnings/curBest)*100));
+        ghostEl.textContent = '👻' + ghostPct + '%';
+        ghostEl.classList.toggle('ahead', ghostPct >= 100);
+      } else {
+        ghostEl.textContent = '';
+        ghostEl.classList.remove('ahead');
+      }
+      if(state.weatherTimer > 0){
+        document.getElementById('weather-time').textContent = state.weatherTimer;
+      }
+      document.getElementById('idle-rate').textContent = formatNum(Economy.idlePerSec());
+      document.getElementById('mult-rate').textContent = Economy.mult().toFixed(1);
+
+      var cards = document.querySelectorAll('#upgrades .card');
+      cards.forEach(function(card){
+        var key = card._key, u = UP[key], lvl = state.levels[key], c = Economy.cost(key);
+        var effectText;
+        if(key === 'overtaking') effectText = u.sub + (1+lvl*u.effect);
+        else if(key === 'slipstream') effectText = u.sub + (lvl*u.effect) + '/sn';
+        else if(key === 'sponsorship') effectText = u.sub + ' (' + formatNum(lvl*u.effect) + ' ₺)';
+        else effectText = u.sub + Economy.bleachersBonusPct() + '%';
+        card.querySelector('[data-role="sub"]').textContent = effectText;
+        card.querySelector('[data-role="lvl"]').textContent = lvl;
+        card.querySelector('[data-role="cost"]').textContent = formatNum(c) + ' ₺';
+        var buyBtn = card.querySelector('[data-role="buy"]');
+        buyBtn.disabled = state.coins < c;
+        buyBtn.textContent = state.coins < c ? 'Yetersiz' : 'Satın al';
+        card.querySelector('[data-role="gembuy"]').disabled = state.gems < Economy.GEM_UPGRADE_COST;
+      });
+
+      var pct = Math.min(100, (state.coins/PRESTIGE_THRESHOLD)*100);
+      document.getElementById('prestige-bar').style.width = pct + '%';
+      var pBtn = document.getElementById('prestige-btn');
+      var ready = Economy.canPrestige();
+      pBtn.disabled = !ready;
+      pBtn.textContent = ready ? 'Yeni Sezona Geç' : formatNum(PRESTIGE_THRESHOLD - state.coins) + ' ₺ kaldı';
+      document.getElementById('prestige-preview').textContent = '+' + Economy.prestigeGain() + ' puan';
+
+      if(!document.getElementById('garage-panel').hidden) this.renderGarage();
+      if(!document.getElementById('missions-panel').hidden) this.renderMissions();
+      if(!document.getElementById('settings-panel').hidden) this.renderSettings();
+      checkBadges();
+    },
+    renderSettings: function(){
+      document.getElementById('sound-switch').classList.toggle('on', state.soundOn);
+      var viewSwitch = document.getElementById('view-switch');
+      viewSwitch.classList.toggle('on', state.viewMode === '3d');
+      viewSwitch.classList.toggle('loading', view3dLoading);
+      document.getElementById('view-switch-desc').textContent = view3dLoading
+        ? 'Yükleniyor…'
+        : 'Pist etrafında dönen kamera ile 3D mod. Sürükle: çevir, sıkıştır/tekerlek: yakınlaştır.';
+    },
+    renderMissions: function(){
+      var list = document.getElementById('missions-list');
+      list.innerHTML = state.daily.picks.map(function(idx){
+        var m = MISSION_POOL[idx];
+        var progress = Math.min(m.target, state.daily[m.type] || 0);
+        var claimed = state.daily.claimed.indexOf(m.id) !== -1;
+        var ready = progress >= m.target;
+        var pct = Math.round((progress/m.target)*100);
+        var btnLabel = claimed ? 'Alındı ✓' : (ready ? 'Ödülü Al' : progress + ' / ' + m.target);
+        return (
+          '<div class="mission-row">' +
+            '<div class="mission-top"><b>' + m.label + '</b><span class="mission-reward">+' + formatNum(m.reward) + ' ₺</span></div>' +
+            '<div class="stat-bar-track"><div class="stat-bar-fill" style="width:' + pct + '%"></div></div>' +
+            '<button class="claim-btn" data-mission="' + m.id + '"' + (claimed || !ready ? ' disabled' : '') + '>' + btnLabel + '</button>' +
+          '</div>'
+        );
+      }).join('');
+      list.querySelectorAll('[data-mission]').forEach(function(btn){
+        btn.addEventListener('click', function(ev){ ev.stopPropagation(); Input.claimMission(btn.getAttribute('data-mission')); });
+      });
+
+      var grid = document.getElementById('badges-grid');
+      grid.innerHTML = BADGES.map(function(b){
+        var unlocked = state.badges.indexOf(b.id) !== -1;
+        return (
+          '<div class="badge' + (unlocked ? '' : ' locked') + '">' +
+            '<div class="badge-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg></div>' +
+            '<div class="badge-name">' + b.name + '</div>' +
+            '<div class="badge-desc">' + b.desc + '</div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+  };
+
+  /* =========================================================
+     INPUT — dokunma, sürükleme, satın alma, prestij tetikleyicileri
+     ========================================================= */
+  var Input = {
+    tap: function(x, y){
+      ensureDaily();
+      var v = Economy.tapValue();
+      addCoins(v);
+      state.daily.taps += 1; state.lifetime.taps += 1;
+      View.spawnTapFx(x, y, '+' + formatNum(v));
+      document.getElementById('tap-hint').style.opacity = '0';
+      Sound.tap(); Haptics.tap();
+      saveLocal(); View.render();
+    },
+    buy: function(key){
+      ensureDaily();
+      if(Economy.buy(key)){
+        state.daily.buys += 1; state.lifetime.buys += 1;
+        Sound.buy(); Haptics.light();
+        saveLocal(); View.render();
+      }
+    },
+    prestige: function(){
+      ensureDaily();
+      if(Economy.prestige()){
+        state.daily.prestiges += 1;
+        state.gems += 2;
+        Sound.prestige(); Haptics.strong();
+        saveLocal(); View.render();
+        Tracks.applyForCurrentSeason();
+        var cfg = TRACKS[Tracks.indexForSeason()];
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.45, 'YENİ PİST: ' + cfg.name.toLocaleUpperCase('tr') + ' +2💎');
+      }
+    },
+    buyWithGems: function(key){
+      if(Economy.buyWithGems(key)){
+        Sound.buy(); Haptics.light();
+        saveLocal(); View.render();
+      }
+    },
+    hireManager: function(){
+      if(Economy.hireManager()){
+        Sound.prestige(); Haptics.medium();
+        saveLocal(); View.render();
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.3, 'MENAJER İŞE ALINDI');
+      }
+    },
+    managerTick: function(){
+      if(!state.managerHired) return;
+      state.managerTimer = (state.managerTimer||0) + 1;
+      if(state.managerTimer >= 6){
+        state.managerTimer = 0;
+        var key = Economy.cheapestAffordableUpgrade();
+        if(key && Economy.buy(key)){
+          state.daily.buys += 1; state.lifetime.buys += 1;
+          saveLocal(); View.render();
+        }
+      }
+    },
+    tick: function(){
+      ensureDaily();
+      if(state.weatherTimer > 0){
+        state.weatherTimer -= 1;
+        if(state.weatherTimer <= 0) endWeather();
+      }
+      var idle = Economy.idlePerSec();
+      if(idle > 0) addCoins(idle);
+      state.sponsorTimer = (state.sponsorTimer||0) + 1;
+      if(state.sponsorTimer >= 10){
+        state.sponsorTimer = 0;
+        var payout = Economy.sponsorPayout();
+        if(payout > 0){
+          var sponsor = SPONSORS[Math.floor(Math.random()*SPONSORS.length)];
+          addCoins(payout);
+          Sound.sponsor(); Haptics.light();
+          var rect = document.getElementById('shell').getBoundingClientRect();
+          View.spawnTapFx(rect.width*0.5, rect.height*0.3, sponsor + ' +' + formatNum(payout));
+        }
+      }
+      Input.managerTick();
+      saveLocal(); View.render();
+    },
+    lapComplete: function(){
+      ensureDaily();
+      state.lap = state.lap >= 999 ? 1 : state.lap + 1;
+      state.daily.laps += 1;
+      var bonus = Economy.lapBonus();
+      addCoins(bonus);
+
+      var trackName = TRACKS[Tracks.indexForSeason()].name;
+      var prevBest = state.bestLap[trackName] || 0;
+      var lapTotal = state.lapEarnings;
+      var isRecord = lapTotal > prevBest;
+      if(isRecord) state.bestLap[trackName] = lapTotal;
+      state.lapEarnings = 0;
+
+      var rect = document.getElementById('shell').getBoundingClientRect();
+      if(isRecord && prevBest > 0){
+        Sound.badge(); Haptics.strong();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.16, '👻 YENİ REKOR TUR! ' + formatNum(lapTotal) + ' ₺');
+      } else {
+        Sound.lapBonus(); Haptics.medium();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.16, 'TUR BONUSU +' + formatNum(bonus));
+      }
+      if(state.weatherTimer <= 0 && Math.random() < WEATHER_CHANCE) startWeather();
+      saveLocal(); View.render();
+    },
+    claimMission: function(id){
+      ensureDaily();
+      var mission = MISSION_POOL.filter(function(m){ return m.id === id; })[0];
+      if(!mission) return;
+      if(state.daily.claimed.indexOf(id) !== -1) return;
+      var progress = state.daily[mission.type] || 0;
+      if(progress < mission.target) return;
+      addCoins(mission.reward);
+      state.daily.claimed.push(id);
+      Sound.mission(); Haptics.light();
+      saveLocal(); View.render();
+    },
+    toggleSound: function(){
+      state.soundOn = !state.soundOn;
+      if(state.soundOn) Sound.ensureCtx();
+      saveLocal(); View.render();
+    },
+    toggleViewMode: function(){
+      if(view3dLoading) return;
+      if(state.viewMode === '3d'){
+        state.viewMode = '2d';
+        document.getElementById('view-2d').style.display = '';
+        document.getElementById('gl-canvas').style.display = 'none';
+        onPanelsVisibilityChanged();
+        saveLocal(); View.render();
+        return;
+      }
+      var showThreeD = function(){
+        state.viewMode = '3d';
+        document.getElementById('view-2d').style.display = 'none';
+        document.getElementById('gl-canvas').style.display = 'block';
+        if(!View3D.ready) View3D.init(TRACKS[Tracks.indexForSeason()]);
+        View3D.resize();
+        onPanelsVisibilityChanged();
+        view3dLoading = false;
+        saveLocal(); View.render();
+      };
+      if(window.THREE){ showThreeD(); return; }
+      view3dLoading = true;
+      View.render();
+      loadThreeAndInit(showThreeD, function(){
+        view3dLoading = false;
+        state.viewMode = '2d';
+        View.render();
+        var rect = document.getElementById('shell').getBoundingClientRect();
+        View.spawnTapFx(rect.width*0.5, rect.height*0.3, '3D yüklenemedi, 2D moda dönüldü');
+      });
+    }
+  };
+  var view3dLoading = false;
+
+  (function(){
+    var shellEl = document.getElementById('shell');
+    var pointers = {};
+    var drag = {active:false, startX:0, startAz:0, moved:false};
+    var pinch = {active:false, startDist:0, startRadius:0};
+    function pointerDist(){
+      var ids = Object.keys(pointers);
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      return Math.hypot(a.x-b.x, a.y-b.y);
+    }
+    shellEl.addEventListener('pointerdown', function(e){
+      if(e.target.closest('.chip, .icon-btn, .sheet, .garage-panel')) return;
+      pointers[e.pointerId] = {x:e.clientX, y:e.clientY};
+      shellEl.setPointerCapture(e.pointerId);
+      var ids = Object.keys(pointers);
+      if(ids.length === 2 && state.viewMode === '3d' && View3D.ready){
+        drag.active = false;
+        pinch.active = true;
+        pinch.startDist = pointerDist();
+        pinch.startRadius = View3D.radius;
+      } else if(ids.length === 1){
+        drag.active = true; drag.startX = e.clientX; drag.startAz = View3D.azimuth; drag.moved = false;
+      }
+    });
+    shellEl.addEventListener('pointermove', function(e){
+      if(!(e.pointerId in pointers)) return;
+      pointers[e.pointerId] = {x:e.clientX, y:e.clientY};
+      var ids = Object.keys(pointers);
+      if(pinch.active && ids.length === 2){
+        var d = pointerDist();
+        var scale = d / (pinch.startDist||1);
+        View3D.radius = Math.max(View3D.MIN_RADIUS, Math.min(View3D.MAX_RADIUS, pinch.startRadius/scale));
+        return;
+      }
+      if(drag.active && ids.length === 1){
+        var dx = e.clientX - drag.startX;
+        if(Math.abs(dx) > 4) drag.moved = true;
+        if(state.viewMode === '3d' && View3D.ready){
+          View3D.azimuth = Math.max(View3D.AZ_MIN, Math.min(View3D.AZ_MAX, drag.startAz + dx*0.0062));
+        }
+      }
+    });
+    function release(e){
+      delete pointers[e.pointerId];
+      var ids = Object.keys(pointers);
+      if(ids.length < 2) pinch.active = false;
+      if(ids.length === 0 && drag.active){
+        if(!drag.moved){
+          var rect = shellEl.getBoundingClientRect();
+          Input.tap(e.clientX - rect.left, e.clientY - rect.top);
+        }
+        drag.active = false;
+      }
+    }
+    shellEl.addEventListener('pointerup', release);
+    shellEl.addEventListener('pointercancel', release);
+    shellEl.addEventListener('wheel', function(e){
+      if(state.viewMode !== '3d' || !View3D.ready) return;
+      e.preventDefault();
+      View3D.radius = Math.max(View3D.MIN_RADIUS, Math.min(View3D.MAX_RADIUS, View3D.radius + e.deltaY*0.25));
+    }, {passive:false});
+  })();
+  document.getElementById('prestige-btn').addEventListener('click', function(ev){ ev.stopPropagation(); Input.prestige(); });
+  function closeAllPanels(){
+    document.getElementById('garage-panel').hidden = true;
+    document.getElementById('missions-panel').hidden = true;
+    document.getElementById('settings-panel').hidden = true;
+  }
+  function onPanelsVisibilityChanged(){
+    var anyOpen = !document.getElementById('garage-panel').hidden || !document.getElementById('missions-panel').hidden || !document.getElementById('settings-panel').hidden;
+    var canRun = !anyOpen && !document.hidden;
+    if(state.viewMode === '3d'){
+      if(View3D.ready) View3D.setActive(canRun);
+      Track2D.setActive(false);
+    } else {
+      Track2D.setActive(canRun);
+      if(View3D.ready) View3D.setActive(false);
+    }
+  }
+  document.getElementById('garage-open').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    closeAllPanels();
+    document.getElementById('garage-panel').hidden = false;
+    View.renderGarage();
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('garage-close').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    document.getElementById('garage-panel').hidden = true;
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('missions-open').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    ensureDaily();
+    closeAllPanels();
+    document.getElementById('missions-panel').hidden = false;
+    View.renderMissions();
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('missions-close').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    document.getElementById('missions-panel').hidden = true;
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('settings-open').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    closeAllPanels();
+    document.getElementById('settings-panel').hidden = false;
+    View.renderSettings();
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('settings-close').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    document.getElementById('settings-panel').hidden = true;
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('sound-switch').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    Input.toggleSound();
+  });
+  document.getElementById('view-switch').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    Input.toggleViewMode();
+    onPanelsVisibilityChanged();
+  });
+  document.addEventListener('visibilitychange', function(){
+    onPanelsVisibilityChanged();
+  });
+  document.getElementById('manager-hire').addEventListener('click', function(ev){
+    ev.stopPropagation();
+    Input.hireManager();
+    View.renderGarage();
+  });
+
+  /* ---------- draggable bottom sheet ---------- */
+  var sheet = document.getElementById('sheet');
+  var handle = document.getElementById('sheet-handle');
+  var shell = document.getElementById('shell');
+  var peekH = 54, collapsedT = 0, dragging = false, startY = 0, startT = 0, curT = 0, expanded = false;
+
+  function layoutSheet(){
+    var shellH = shell.clientHeight;
+    var expandedH = Math.round(shellH * 0.52);
+    sheet.style.height = expandedH + 'px';
+    collapsedT = expandedH - peekH;
+    curT = expanded ? 0 : collapsedT;
+    sheet.style.transform = 'translateY(' + curT + 'px)';
+  }
+  function setSheetCaption(){
+    document.getElementById('sheet-caption').textContent = expanded ? 'Yükseltmeler — aşağı it, pisti gör' : 'Yükseltmeler — çekip yukarı kaydır';
+  }
+  handle.addEventListener('pointerdown', function(e){
+    dragging = true; startY = e.clientY; startT = curT;
+    sheet.style.transition = 'none';
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var dy = e.clientY - startY;
+    curT = Math.max(0, Math.min(collapsedT, startT + dy));
+    sheet.style.transform = 'translateY(' + curT + 'px)';
+  });
+  function endDrag(){
+    if(!dragging) return;
+    dragging = false;
+    sheet.style.transition = '';
+    var moved = Math.abs(curT - startT);
+    if(moved < 4){ expanded = !expanded; }
+    else{ expanded = curT < collapsedT/2; }
+    curT = expanded ? 0 : collapsedT;
+    sheet.style.transform = 'translateY(' + curT + 'px)';
+    setSheetCaption();
+  }
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+
+  /* =========================================================
+     BOOT
+     ========================================================= */
+  function start(){
+    state = Object.assign(defaultState(), loadLocal() || {});
+    state.weatherTimer = 0;
+    ensureDaily();
+    View.buildCards();
+    Track2D.init();
+    Tracks.applyForCurrentSeason();
+    View.render();
+    layoutSheet();
+    setSheetCaption();
+    setInterval(Input.tick, 1000);
+    window.addEventListener('resize', function(){ layoutSheet(); View3D.resize(); });
+
+    if(state.viewMode === '3d'){
+      document.getElementById('view-2d').style.display = 'none';
+      document.getElementById('gl-canvas').style.display = 'block';
+      loadThreeAndInit(function(){
+        View3D.init(TRACKS[Tracks.indexForSeason()]);
+        View3D.resize();
+        onPanelsVisibilityChanged();
+        View.render();
+      }, function(){
+        state.viewMode = '2d';
+        document.getElementById('view-2d').style.display = '';
+        document.getElementById('gl-canvas').style.display = 'none';
+        onPanelsVisibilityChanged();
+        saveLocal(); View.render();
+      });
+    } else {
+      onPanelsVisibilityChanged();
+    }
+  }
+  start();
+})();
+</script>
+</body>
+</html>

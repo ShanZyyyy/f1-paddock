@@ -1,0 +1,17 @@
+{
+  "name": "paddock-gp",
+  "productName": "Paddock GP",
+  "version": "1.0.0",
+  "description": "Paddock GP - F1 Menajerlik Oyunu (Masaüstü Uygulaması)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack:win": "electron-packager . \"Paddock GP\" --platform=win32 --arch=x64 --out=dist --overwrite --asar"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-packager": "^17.1.2"
+  }
+}

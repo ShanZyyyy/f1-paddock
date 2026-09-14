@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F1 Sprite Engine</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0e12;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;}
+  canvas{display:block;background:#12181d;box-shadow:0 20px 50px -20px rgba(0,0,0,.7);max-width:100%;height:auto;}
+  #status{position:fixed;top:10px;left:10px;color:#8fa2b0;font-size:12px;font-family:ui-monospace,monospace;}
+</style>
+</head>
+<body>
+<div id="status">Görseller yükleniyor…</div>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     1. ASSET LOADER
+     PNG'leri Image() ile yükler. onload VE onerror ikisi de
+     "settled" sayılır — bir görsel bulunamazsa oyun donmaz,
+     fallback (renkli kare) çizimine düşer. Game loop, hepsi
+     yüklenene/başarısız olana kadar başlamaz.
+     ========================================================= */
+  var Assets = (function(){
+    var images = {};
+    var total = 0, settled = 0;
+    var onReadyCb = null;
+
+    function load(name, src){
+      total++;
+      var img = new Image();
+      img.onload = function(){ settled++; checkDone(); };
+      img.onerror = function(){
+        img.failed = true; // render() bu bayrağa bakıp fallback çizer
+        settled++; checkDone();
+      };
+      img.src = src;
+      images[name] = img;
+      return img;
+    }
+    function checkDone(){
+      if(settled >= total && onReadyCb) onReadyCb();
+    }
+    function ready(fn){
+      onReadyCb = fn;
+      if(settled >= total) fn();
+    }
+    function isUsable(img){
+      return !!img && img.complete && !img.failed && img.naturalWidth > 0;
+    }
+    return { load:load, ready:ready, isUsable:isUsable };
+  })();
+
+  // --- Buraya kendi PNG'lerini koyacaksın; isimler/yollar dokunulmadan kalabilir ---
+  var trackBg    = Assets.load('trackBg',   'track.png');
+  var playerCar  = Assets.load('playerCar', 'car_red.png');
+  var rivalCar   = Assets.load('rivalCar',  'car_blue.png');
+
+  /* =========================================================
+     2. PİST GEOMETRİSİ — Imola karakterinde az sayıda kontrol
+     noktası (uzun start/finish düzlüğü, akıcı S virajları, hızlı
+     bir şikan, yavaş bir firkete). Her nokta bir tip taşıyor:
+       'straight' -> düzlük, teğet tam komşular arasında sabit
+       'flow'     -> orta hızlı akıcı viraj
+       'sharp'    -> şikan/firkete gibi dar, keskin viraj
+     Bu tipler CONTROL_POINTS'i pürüzsüz bir yarış çizgisine
+     (RACING_LINE) çeviren teğet tabanlı Bézier üretecini besliyor.
+     ========================================================= */
+  var CONTROL_POINTS = [
+    {x:150, y:540, k:'straight'}, // start/finish düzlüğü başı
+    {x:150, y:200, k:'straight'}, // uzun düzlüğün sonu (~340px)
+    {x:230, y:110, k:'flow'},     // Tamburello benzeri hızlı sağ kink
+    {x:340, y:80,  k:'flow'},     // akıcı S virajı 1. yarı
+    {x:460, y:110, k:'flow'},     // akıcı S virajı 2. yarı
+    {x:540, y:190, k:'flow'},     // şikana giriş
+    {x:500, y:250, k:'sharp'},    // ŞİKAN A (sola kırılım)
+    {x:565, y:295, k:'sharp'},    // ŞİKAN B (sağa kırılım)
+    {x:660, y:265, k:'flow'},     // şikandan çıkış, akıcı sağ
+    {x:705, y:350, k:'flow'},     // geniş sağ süpürme
+    {x:655, y:430, k:'sharp'},    // orta hızlı viraj
+    {x:560, y:465, k:'flow'},     // akıcı geçiş
+    {x:460, y:500, k:'flow'},     // firketeye yaklaşım
+    {x:390, y:575, k:'sharp'},    // FİRKETE (Rivazza benzeri, yavaş/dar)
+    {x:315, y:495, k:'flow'},     // firketeden çıkış
+    {x:230, y:560, k:'flow'}      // son viraj, düzlüğe dönüş
+  ];
+
+  // Kontrol noktalarını, virajlarda YOĞUN, düzlüklerde SEYREK örneklenen
+  // pürüzsüz bir yarış çizgisine (racing line) çevirir. Basit bir poligon
+  // yerine her segment kübik Bézier ile çizilip örnekleniyor — araçların
+  // köşeli değil akıcı dönmesinin temel sebebi bu yoğunluk farkı.
+  function buildRacingLine(cps){
+    var n = cps.length;
+    function wrap(i){ return (i + n) % n; }
+    function tangent(i){
+      var p = cps[i], prev = cps[wrap(i - 1)], next = cps[wrap(i + 1)];
+      if(p.k === 'straight'){
+        var toNext = {x: next.x - p.x, y: next.y - p.y};
+        var toPrev = {x: p.x - prev.x, y: p.y - prev.y};
+        var l1 = Math.hypot(toNext.x, toNext.y) || 1;
+        var l2 = Math.hypot(toPrev.x, toPrev.y) || 1;
+        return {x: (toNext.x/l1 + toPrev.x/l2)/2, y: (toNext.y/l1 + toPrev.y/l2)/2, sharp:false};
+      }
+      var dx = next.x - prev.x, dy = next.y - prev.y, len = Math.hypot(dx, dy) || 1;
+      return {x: dx/len, y: dy/len, sharp: p.k === 'sharp'};
+    }
+    var tans = cps.map(function(_, i){ return tangent(i); });
+    var line = [];
+    for(var i = 0; i < n; i++){
+      var a = cps[i], b = cps[wrap(i + 1)];
+      var ta = tans[i], tb = tans[wrap(i + 1)];
+      var segLen = Math.hypot(b.x - a.x, b.y - a.y);
+      var hA = (ta.sharp ? 0.22 : 0.32) * segLen;
+      var hB = (tb.sharp ? 0.22 : 0.32) * segLen;
+      var c1 = {x: a.x + ta.x*hA, y: a.y + ta.y*hA};
+      var c2 = {x: b.x - tb.x*hB, y: b.y - tb.y*hB};
+
+      var bothStraightish = (a.k === 'straight' && b.k !== 'sharp');
+      var samples = (a.k === 'sharp' || b.k === 'sharp') ? 26 : (bothStraightish ? 5 : 15);
+
+      for(var s = 0; s < samples; s++){
+        var t = s/samples, mt = 1-t;
+        line.push({
+          x: mt*mt*mt*a.x + 3*mt*mt*t*c1.x + 3*mt*t*t*c2.x + t*t*t*b.x,
+          y: mt*mt*mt*a.y + 3*mt*mt*t*c1.y + 3*mt*t*t*c2.y + t*t*t*b.y
+        });
+      }
+    }
+    return line;
+  }
+
+  // Her yarış çizgisi noktasındaki yerel kıvrımı ölçüp bir "hedef hız"
+  // üretir — düzlükte tam hız, viraj apeksinde yavaş: gerçek bir
+  // sürücünün fren/gaz ritmine benzer bir davranış.
+  function buildCornerSpeeds(line, baseSpeed, minSpeed){
+    var n = line.length;
+    return line.map(function(p, i){
+      var prev = line[(i - 2 + n) % n], next = line[(i + 2) % n];
+      var a1 = Math.atan2(p.y - prev.y, p.x - prev.x);
+      var a2 = Math.atan2(next.y - p.y, next.x - p.x);
+      var diff = Math.abs(a2 - a1);
+      if(diff > Math.PI) diff = Math.PI*2 - diff;
+      var turnFactor = Math.min(1, diff / (Math.PI*0.4));
+      return baseSpeed - turnFactor*(baseSpeed - minSpeed);
+    });
+  }
+
+  var RACING_LINE = buildRacingLine(CONTROL_POINTS);
+  var CORNER_SPEEDS = buildCornerSpeeds(RACING_LINE, 190, 78); // px/sn
+
+  /* =========================================================
+     3. CAR — yoğun yarış çizgisini takip eder, yönünü Math.atan2
+     ile hesaplar ama açıya ASLA anında (snap) atlamaz: her karede
+     mevcut açıdan hedef açıya doğru sınırlı bir hızla (turnRate)
+     döner — direksiyon çeviriyormuş hissi buradan geliyor. Hız da
+     aynı şekilde viraj/düzlük hedefine yumuşakça yaklaşır.
+     ========================================================= */
+  function Car(opts){
+    this.image = opts.image;
+    this.fallbackColor = opts.fallbackColor;
+    this.width = opts.width || 26;
+    this.height = opts.height || 14;
+    this.wpIndex = opts.startIndex;
+    var start = RACING_LINE[this.wpIndex];
+    this.x = start.x;
+    this.y = start.y;
+    this.angle = 0;
+    this.speed = CORNER_SPEEDS[this.wpIndex];
+    this.turnRate = opts.turnRate || 4.4; // rad/sn — direksiyon çevikliği
+    this.accelRate = opts.accelRate || 2.6; // hız geçişinin ne kadar çabuk yumuşayacağı
+  }
+
+  function normalizeAngleDiff(diff){
+    while(diff > Math.PI) diff -= Math.PI*2;
+    while(diff < -Math.PI) diff += Math.PI*2;
+    return diff;
+  }
+
+  Car.prototype.update = function(dt){
+    var n = RACING_LINE.length;
+    var target = RACING_LINE[this.wpIndex];
+    var dx = target.x - this.x, dy = target.y - this.y;
+    var dist = Math.hypot(dx, dy);
+
+    // Hedefe ulaşıldıysa (birden fazla yakın nokta atlanmışsa bile
+    // güvenli şekilde) bir sonraki yarış çizgisi noktasına geç.
+    var guard = 0;
+    while(dist < 14 && guard++ < 4){
+      this.wpIndex = (this.wpIndex + 1) % n; // tur tamamlanınca başa döner
+      target = RACING_LINE[this.wpIndex];
+      dx = target.x - this.x; dy = target.y - this.y;
+      dist = Math.hypot(dx, dy);
+    }
+
+    // --- Rotasyon yumuşatma (LERP): açı hedefe doğru sınırlı hızla döner ---
+    var targetAngle = Math.atan2(dy, dx);
+    var diff = normalizeAngleDiff(targetAngle - this.angle);
+    var maxStep = this.turnRate * dt;
+    this.angle += Math.max(-maxStep, Math.min(maxStep, diff));
+
+    // --- Hız yumuşatma: viraj/düzlük hedef hızına akıcı geçiş ---
+    var targetSpeed = CORNER_SPEEDS[this.wpIndex];
+    this.speed += (targetSpeed - this.speed) * Math.min(1, this.accelRate*dt);
+
+    // Araç, hedefe doğrudan değil KENDİ (yumuşatılmış) açısı yönünde
+    // ilerliyor — gerçek bir aracın direksiyon/gövde eylemsizliği hissi.
+    this.x += Math.cos(this.angle) * this.speed * dt;
+    this.y += Math.sin(this.angle) * this.speed * dt;
+  };
+
+  Car.prototype.render = function(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+
+    if(Assets.isUsable(this.image)){
+      ctx.drawImage(this.image, -this.width/2, -this.height/2, this.width, this.height);
+    } else {
+      this.renderFallback(ctx);
+    }
+    ctx.restore();
+  };
+
+  // PNG henüz yoksa/bulunamadıysa: renkli kare + burun işareti (rotasyonun
+  // doğru çalıştığını görebilmek için — düz bir kare dönünce belli olmaz).
+  Car.prototype.renderFallback = function(ctx){
+    var w = this.width, h = this.height;
+    ctx.fillStyle = this.fallbackColor;
+    ctx.fillRect(-w/2, -h/2, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,.65)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-w/2, -h/2, w, h);
+    ctx.beginPath();
+    ctx.moveTo(w/2, 0);
+    ctx.lineTo(w/2 - 6, -4);
+    ctx.lineTo(w/2 - 6, 4);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fill();
+  };
+
+  /* =========================================================
+     4. GAME LOOP — delta-time tabanlı, LERP'lerin kare hızından
+     bağımsız aynı hissi vermesi için gerekli.
+     ========================================================= */
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var statusEl = document.getElementById('status');
+
+  var cars = [
+    new Car({ image:playerCar, fallbackColor:'#e0483e', startIndex:0 }),
+    new Car({ image:rivalCar,  fallbackColor:'#4d8bf0', startIndex:Math.floor(RACING_LINE.length/2) })
+  ];
+
+  function drawTrackBackground(){
+    if(Assets.isUsable(trackBg)){
+      ctx.drawImage(trackBg, 0, 0, canvas.width, canvas.height);
+      return;
+    }
+    // Fallback: pist PNG'i yokken yarış çizgisini pürüzsüz bir şerit olarak göster
+    ctx.fillStyle = '#182018';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(255,255,255,.22)';
+    ctx.lineWidth = 34;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    RACING_LINE.forEach(function(p, i){ i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y); });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.4)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8,7]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function update(dt){
+    cars.forEach(function(car){ car.update(dt); });
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawTrackBackground();
+    cars.forEach(function(car){ car.render(ctx); });
+  }
+
+  var lastTime = null;
+  function gameLoop(now){
+    var dt = lastTime ? Math.min(0.05, (now - lastTime)/1000) : 1/60;
+    lastTime = now;
+    update(dt);
+    render();
+    requestAnimationFrame(gameLoop);
+  }
+
+  Assets.ready(function(){
+    statusEl.textContent = trackBg.failed || playerCar.failed || rivalCar.failed
+      ? 'Bazı PNG\'ler bulunamadı — fallback (renkli kare) çiziliyor. track.png / car_red.png / car_blue.png dosyalarını bu dosyayla aynı klasöre koy.'
+      : 'Tüm görseller yüklendi.';
+    requestAnimationFrame(gameLoop);
+  });
+})();
+</script>
+</body>
+</html>

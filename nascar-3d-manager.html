@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NASCAR 3D Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0a0e12;font-family:system-ui,sans-serif;}
+  canvas{display:block;}
+  [hidden]{display:none!important;} /* .panel gibi display:flex koyan sınıflar [hidden]'ı ezmesin */
+  #status{position:fixed;top:10px;left:10px;color:#8fa2b0;font-size:12px;font-family:ui-monospace,monospace;z-index:2;}
+
+  #money-hud{
+    position:fixed; top:16px; left:50%; transform:translateX(-50%);
+    z-index:3; display:flex; align-items:center; gap:8px;
+    padding:9px 18px; border-radius:999px;
+    background:rgba(15,20,25,.68); border:1px solid rgba(255,255,255,.12);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    font-family:ui-monospace,monospace; color:#eef3f6;
+    box-shadow:0 10px 24px -12px rgba(0,0,0,.6);
+  }
+  #money-hud .coin{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe28a,#f2b705 60%,#8a6d1f 100%);flex:none;}
+  #money-hud .amount{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;}
+  #money-hud .sub{font-size:10px;color:#8fa2b0;margin-left:2px;}
+
+  #offline-toast{
+    position:fixed; top:64px; left:50%; transform:translateX(-50%);
+    z-index:3; padding:8px 16px; border-radius:12px;
+    background:rgba(242,183,5,.14); border:1px solid rgba(242,183,5,.4);
+    color:#ffe28a; font-family:ui-monospace,monospace; font-size:12px;
+    opacity:0; transition:opacity .4s ease; pointer-events:none; text-align:center; max-width:88vw;
+  }
+  #offline-toast.show{opacity:1;}
+
+  .lap-pop{
+    position:fixed; z-index:3; transform:translate(-50%,-50%);
+    font-family:ui-monospace,monospace; font-weight:700; font-size:15px;
+    color:#ffe28a; text-shadow:0 1px 4px rgba(0,0,0,.7);
+    animation:lapPop .8s ease-out forwards; pointer-events:none;
+  }
+  @keyframes lapPop{
+    0%{opacity:0; transform:translate(-50%,-40%) scale(.8);}
+    18%{opacity:1; transform:translate(-50%,-60%) scale(1);}
+    100%{opacity:0; transform:translate(-50%,-130%) scale(1);}
+  }
+  .lap-pop.overtake{color:#8ee8ff;}
+
+  /* ---------- sıralama tablosu (standings) ---------- */
+  #standings{
+    position:fixed; top:66px; right:14px; z-index:3;
+    display:flex; flex-direction:column; gap:4px;
+    padding:8px; border-radius:12px;
+    background:rgba(15,20,25,.68); border:1px solid rgba(255,255,255,.12);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    font-family:ui-monospace,monospace; min-width:120px;
+    box-shadow:0 10px 24px -12px rgba(0,0,0,.6);
+  }
+  .stand-row{display:flex; align-items:center; gap:7px; font-size:11.5px; color:#c7d0d6; padding:1px 2px;}
+  .stand-row .pos{width:14px; color:#8fa2b0; font-weight:700;}
+  .stand-row .dot{width:9px; height:9px; border-radius:50%; flex:none;}
+  .stand-row.me{color:#ffe28a; font-weight:700;}
+
+  /* ---------- ayarlar (önceki oyundan taşınan arayüz dili) ---------- */
+  .icon-btn{
+    position:fixed; top:16px; left:14px; z-index:3;
+    width:34px; height:34px; border:1px solid rgba(255,255,255,.12); border-radius:50%;
+    background:rgba(15,20,25,.68); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    color:#eef3f6; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .icon-btn svg{width:16px; height:16px;}
+  .panel{
+    position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; gap:14px;
+    padding:18px; background:linear-gradient(180deg,#101a23,#0a1119); color:#eef3f6;
+    font-family:system-ui,sans-serif;
+  }
+  .panel-top{display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px;}
+  .switch-row{
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+    background:#1f2e3b; border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:12px 14px;
+  }
+  .switch-label{font-size:13px; font-weight:600;}
+  .switch-desc{font-size:11px; color:#8fa2b0; margin-top:2px;}
+  .switch-track{width:44px; height:26px; border-radius:99px; background:#16212c; position:relative; cursor:pointer; flex:none; transition:background .2s ease;}
+  .switch-track.on{background:#f2b705;}
+  .switch-knob{position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left .2s ease; box-shadow:0 1px 3px rgba(0,0,0,.4);}
+  .switch-track.on .switch-knob{left:21px;}
+</style>
+</head>
+<body>
+<div id="status">Sahne kuruluyor…</div>
+<div id="money-hud"><span class="coin"></span><span class="amount" id="money-amount">0 ₺</span><span class="sub">/tur <span id="lap-reward">0</span></span></div>
+<div id="offline-toast"></div>
+<div id="standings"></div>
+<button class="icon-btn" id="settings-open" aria-label="Ayarlar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.37 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
+</button>
+<div class="panel" id="settings-panel" hidden>
+  <div class="panel-top">
+    <button class="icon-btn" id="settings-close" style="position:static;" aria-label="Kapat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <span>Ayarlar</span>
+  </div>
+  <div class="switch-row">
+    <div>
+      <div class="switch-label">Ses</div>
+      <div class="switch-desc">Tur ve geçiş seslerini aç/kapat.</div>
+    </div>
+    <div class="switch-track" id="sound-switch"><div class="switch-knob"></div></div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     0. GÜVENİLİR SAAT (Anti-Cheat) — tek bir client-side dosyada
+     "gerçek" bir hile koruması yapılamaz (kullanıcı kendi
+     tarayıcısının/localStorage'ının efendisidir), ama iki standart
+     ve dürüst önlemle kandırmayı anlamsız hale getiriyoruz:
+
+     1) OTURUM İÇİ tespiti: performance.now() işletim sistemi saatinden
+        bağımsız, monotonik (hep ileri) akar. Duvar saati (Date.now())
+        ile bu monotonik sayaç arasında birkaç saniyeden büyük bir
+        sapma oluşursa, kullanıcı oyun AÇIKKEN saati/tarihi oynatmış
+        demektir — bu durumda duvar saatine değil monotonik tahmine
+        güveniyoruz.
+     2) KAPALIYKEN geçen süre için gerçek "hile tespiti" imkansız
+        (performance.now() her sayfa yüklemesinde sıfırlanır), o yüzden
+        onun yerine standart idle-oyun önlemini uyguluyoruz: çevrimdışı
+        kazanç ne kadar süre iddia edilirse edilsin MAX_OFFLINE_SECONDS
+        ile sınırlanıyor — saati 1 ay ileri almak, telefonu 12 saat
+        kapalı tutmaktan fazla ödül vermiyor.
+     ========================================================= */
+  var TrustedClock = (function(){
+    var anchorEpoch = Date.now();
+    var anchorPerf = performance.now();
+    var TAMPER_TOLERANCE_MS = 3000;
+    return {
+      now: function(){
+        var perfDelta = performance.now() - anchorPerf;
+        var wallDelta = Date.now() - anchorEpoch;
+        if(Math.abs(wallDelta - perfDelta) > TAMPER_TOLERANCE_MS){
+          return { time: anchorEpoch + perfDelta, tampered: true };
+        }
+        return { time: Date.now(), tampered: false };
+      }
+    };
+  })();
+
+  /* =========================================================
+     0b. EKONOMİ — para, dev sayı formatlama, çevrimdışı kazanç
+     ========================================================= */
+  var STORAGE_KEY = 'nascar3d_v1';
+  var LAP_REWARD = 250;                 // her tamamlanan tur için ₺
+  var MAX_OFFLINE_SECONDS = 12*3600;    // çevrimdışı kazanç tavanı (12 sa)
+
+  function formatMoney(n){
+    n = Math.max(0, Math.floor(n));
+    var units = [
+      {v:1e12, s:'T'}, {v:1e9, s:'B'}, {v:1e6, s:'M'}, {v:1e3, s:'K'}
+    ];
+    for(var i=0;i<units.length;i++){
+      var scaled = n/units[i].v;
+      var rounded = Math.round(scaled*10)/10;
+      if(rounded >= 1){
+        // Yuvarlama tam sınırı aşırsa (999.96K gibi) bir üst birime taş —
+        // yoksa "1000K ₺" gibi yanlış bir gösterim çıkar.
+        if(rounded >= 1000 && i > 0){
+          i -= 1;
+          rounded = Math.round((n/units[i].v)*10)/10;
+        }
+        return rounded.toFixed(1).replace(/\.0$/,'') + units[i].s + ' ₺';
+      }
+    }
+    return n + ' ₺';
+  }
+
+  function defaultState(){
+    return { money: 0, lastSeenAt: TrustedClock.now().time, soundOn: true };
+  }
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      var parsed = JSON.parse(raw);
+      if(parsed && typeof parsed.money === 'number' && typeof parsed.lastSeenAt === 'number') return parsed;
+    }catch(e){}
+    return null;
+  }
+  function saveState(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  var state = Object.assign(defaultState(), loadState() || {});
+
+  // Çevrimdışı kazanç: kapalı kaldığı süreyi tur ödülüne çevirir,
+  // ama saat ileri alınsa bile MAX_OFFLINE_SECONDS'ı asla aşmaz.
+  function creditOfflineEarnings(){
+    var nowInfo = TrustedClock.now();
+    var rawElapsed = (nowInfo.time - state.lastSeenAt) / 1000;
+
+    if(rawElapsed <= 1){
+      state.lastSeenAt = nowInfo.time;
+      return null; // yeni oyun ya da saat geri alınmış — kazanç yok, ceza da yok
+    }
+
+    var credited = Math.min(rawElapsed, MAX_OFFLINE_SECONDS);
+    var wasCapped = rawElapsed > MAX_OFFLINE_SECONDS;
+    var lapsDuringOffline = credited / (1/cars0Speed());
+    var earned = Math.round(lapsDuringOffline * LAP_REWARD);
+
+    state.money += earned;
+    state.lastSeenAt = nowInfo.time;
+    saveState();
+
+    return { earned: earned, seconds: credited, capped: wasCapped };
+  }
+
+  // Oyuncu arabasının tur süresini (sn) döndürür — çevrimdışı kazancı
+  // canlı ekonomiyle aynı orana göre hesaplamak için.
+  function cars0Speed(){ return (typeof cars !== 'undefined' && cars[0]) ? cars[0].tSpeed : (1/14); }
+
+  /* =========================================================
+     0c. SES — önceki oyundan taşınan prosedürel Web Audio sentezi,
+     dış ses dosyası yok. Ayarlar panelindeki anahtarla açık/kapalı.
+     ========================================================= */
+  var Sound = {
+    ctx:null,
+    ensureCtx:function(){
+      if(!this.ctx){ var Ctx = window.AudioContext||window.webkitAudioContext; if(!Ctx) return null; this.ctx = new Ctx(); }
+      if(this.ctx.state==='suspended') this.ctx.resume();
+      return this.ctx;
+    },
+    note:function(freq, delay, dur, type, vol){
+      if(!state.soundOn) return;
+      var ctx = this.ensureCtx(); if(!ctx) return;
+      var t0 = ctx.currentTime + (delay||0);
+      var osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = type||'square';
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(vol||0.12, t0+0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0+(dur||0.12));
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0+(dur||0.12)+0.02);
+    },
+    chime:function(notes){ var self=this; notes.forEach(function(n){ self.note(n[0],n[1],n[2],n[3],n[4]); }); },
+    lap:function(){ this.chime([[523,0,0.1,'triangle',0.13],[659,0.09,0.1,'triangle',0.13],[784,0.18,0.16,'triangle',0.14]]); },
+    overtake:function(){ this.chime([[880,0,0.06,'sawtooth',0.09],[1046,0.05,0.09,'sawtooth',0.1]]); }
+  };
+
+  /* =========================================================
+     1. PİST GEOMETRİSİ — Daytona tarzı, eğimli (banked) oval.
+     Merkez hattı 2 düzlük + 2 yarım daire virajdan oluşan bir
+     stadyum eğrisi; virajlarda banking açısı sinüs eğrisiyle
+     0 -> maksimum -> 0 şeklinde yumuşakça değişiyor.
+     ========================================================= */
+  var HALF_LEN = 120;      // düzlüklerin merkeze uzaklığı
+  var CAP_R = 70;          // viraj (cap) yarıçapı
+  var TRACK_WIDTH = 26;
+  var MAX_BANK = THREE.MathUtils.degToRad(30); // Daytona ~31°
+  var SEGMENTS = 160; // daha yoğun örnekleme — eğri daha pürüzsüz
+  var APRON_WIDTH = 12; // pistin iç kenarından itibaren asfalt apron genişliği
+
+  var STRAIGHT = 2*HALF_LEN, CAP = Math.PI*CAP_R, TOTAL = 2*STRAIGHT + 2*CAP;
+  var F1 = STRAIGHT/TOTAL, F2 = F1 + CAP/TOTAL, F3 = F2 + STRAIGHT/TOTAL;
+
+  function pointAt(t){
+    t = ((t % 1) + 1) % 1;
+    var x, z;
+    if(t < F1){ var s = t/F1; x = -HALF_LEN + s*2*HALF_LEN; z = CAP_R; }
+    else if(t < F2){ var u = (t-F1)/(F2-F1); var a = Math.PI/2 - u*Math.PI; x = HALF_LEN + Math.cos(a)*CAP_R; z = Math.sin(a)*CAP_R; }
+    else if(t < F3){ var s2 = (t-F2)/(F3-F2); x = HALF_LEN - s2*2*HALF_LEN; z = -CAP_R; }
+    else { var u2 = (t-F3)/(1-F3); var a2 = -Math.PI/2 - u2*Math.PI; x = -HALF_LEN + Math.cos(a2)*CAP_R; z = Math.sin(a2)*CAP_R; }
+    return {x:x, z:z};
+  }
+  function bankAt(t){
+    t = ((t % 1) + 1) % 1;
+    if(t < F1) return 0;
+    if(t < F2){ var p = (t-F1)/(F2-F1); return MAX_BANK*Math.sin(p*Math.PI); }
+    if(t < F3) return 0;
+    var p2 = (t-F3)/(1-F3); return MAX_BANK*Math.sin(p2*Math.PI);
+  }
+
+  // TEK PARÇA asfalt yüzeyi: gerçek pist (banked) + iç apron TEK bir
+  // BufferGeometry'de, dış (yüksek/banked) kenardan iç apron kenarına kadar
+  // kesintisiz bir şerit olarak kuruluyor. Önceki sürümde pist ve apron AYRI
+  // mesh'lerdi ve dikiş hattında aynı koordinatları üretiyorlardı — bu da
+  // GPU derinlik tamponunda z-fighting'e (lekeli/"yamalı" görüntü) yol
+  // açıyordu. Tek mesh olunca o dikiş hattı hiç var olmuyor, hata yapısal
+  // olarak imkansız hale geliyor.
+  // Banking gerçek NASCAR pistlerine göre: Daytona ~31°, Talladega ~33°,
+  // Bristol (kısa/yüksek banked) 24-28° — burada 30° kullanıldı (Daytona
+  // ölçeğinde bir süperspeedway).
+  function surfaceY(offsetFromCenter, bank, halfW){
+    if(Math.abs(offsetFromCenter) <= halfW + 1e-6){
+      return offsetFromCenter*Math.sin(bank); // gerçek banking yüzeyi
+    }
+    var extra = -offsetFromCenter - halfW; // apron'a ne kadar girildiği
+    var u = Math.min(1, Math.max(0, extra/APRON_WIDTH));
+    var smooth = u*u*(3-2*u);
+    var edgeY = -halfW*Math.sin(bank);
+    var flatY = -0.05;
+    return edgeY + smooth*(flatY-edgeY);
+  }
+
+  function buildTrackSurface(){
+    var halfW = TRACK_WIDTH/2;
+    // Şerit örnekleri: dış kenar -> iç kenar -> apron'un iç ucu, tek dizi.
+    var offsets = [halfW, halfW*0.4, -halfW*0.4, -halfW,
+                   -(halfW+APRON_WIDTH*0.35), -(halfW+APRON_WIDTH*0.75), -(halfW+APRON_WIDTH)];
+    var cols = offsets.length;
+    var positions = [];
+    var indices = [];
+    var outerRing = [];    // bariyer duvarı için
+    var infieldLine = [];  // çimin sınırı — apron'un TAM iç ucundaki noktalar
+    var up = new THREE.Vector3(0,1,0);
+
+    for(var i = 0; i < SEGMENTS; i++){ // NOT: i<SEGMENTS (i<=SEGMENTS DEĞİL) — kapanışta yinelenen nokta earcut/derinlik sorunlarına yol açıyordu
+      var t = i/SEGMENTS;
+      var p0 = pointAt(t);
+      var p1 = pointAt((t + 0.0015) % 1);
+      var tangent = new THREE.Vector3(p1.x-p0.x, 0, p1.z-p0.z).normalize();
+      var side = new THREE.Vector3().crossVectors(tangent, up).normalize();
+      var bank = bankAt(t);
+      var center = new THREE.Vector3(p0.x, 0, p0.z);
+
+      for(var c = 0; c < cols; c++){
+        var off = offsets[c];
+        var y = surfaceY(off, bank, halfW);
+        var cosB = Math.abs(off) <= halfW ? Math.cos(bank) : 1;
+        var x = center.x + side.x*off*cosB;
+        var z = center.z + side.z*off*cosB;
+        positions.push(x, y, z);
+      }
+
+      var outer = new THREE.Vector3(center.x + side.x*halfW*Math.cos(bank), halfW*Math.sin(bank), center.z + side.z*halfW*Math.cos(bank));
+      outerRing.push({center:center, side:side, bank:bank, outer:outer});
+      var lastOff = offsets[cols-1];
+      infieldLine.push({x: center.x+side.x*lastOff, z: center.z+side.z*lastOff});
+    }
+    for(var s = 0; s < SEGMENTS; s++){
+      var sNext = (s+1) % SEGMENTS;
+      for(var c2 = 0; c2 < cols-1; c2++){
+        var i0 = s*cols+c2, i1 = s*cols+c2+1, i2 = sNext*cols+c2, i3 = sNext*cols+c2+1;
+        indices.push(i0, i2, i1,  i1, i2, i3);
+      }
+    }
+
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    var mat = new THREE.MeshLambertMaterial({color:0x4a4e53, side:THREE.DoubleSide});
+    var mesh = new THREE.Mesh(geo, mat);
+
+    return {mesh:mesh, outerRing:outerRing, infieldLine:infieldLine};
+  }
+
+  // Dış kenar boyunca, banking'in DEVAMI yönünde (yani pistle aynı eğimde)
+  // yükselen bir bariyer duvarı — banking'in "kaybolduğu" izometrik açıyı
+  // telafi eden en net görsel ipucu bu duvarın yatışı.
+  function buildBarrierWall(outerRing){
+    var WALL_RISE = 11; // pist yüzeyinin NORMALİ boyunca duvar yüksekliği
+    var positions = [];
+    var indices = [];
+    // ÖNEMLİ DÜZELTME: duvarın "yükselişi" daha önce (halfW+RISE)*cos/sin(bank)
+    // formülüyle YANLIŞ hesaplanıyordu — bu formülde bank=0 (düzlüklerde) duvar
+    // TAMAMEN YASSI (yükseklik=0, yerde yatan bir şerit) oluyordu, virajlarda ise
+    // yatay açılımı bank'a göre tuhaf şekilde büyüyüp pistin ÜZERİNE doğru geniş
+    // bir alanı kaplıyordu — kötü aydınlatılan bu yassı/eğik yüzey neredeyse
+    // siyah görünüp pist+apron'u görsel olarak "yiyormuş" gibi duruyordu.
+    // Doğrusu: duvar HER ZAMAN pist yüzeyinin NORMALİ boyunca yükselir — bank=0'da
+    // dikey (gerçek bir bariyer gibi), banked virajda da yüzeye dik durur (gerçek
+    // NASCAR bariyerleri gibi), asla yamulup pistin üstüne yayılmaz.
+    for(var i = 0; i < outerRing.length; i++){
+      var r = outerRing[i];
+      var normal = r.side.clone().multiplyScalar(-Math.sin(r.bank))
+        .add(new THREE.Vector3(0,1,0).multiplyScalar(Math.cos(r.bank)));
+      var top = r.outer.clone().addScaledVector(normal, WALL_RISE);
+      positions.push(r.outer.x, r.outer.y, r.outer.z);
+      positions.push(top.x, top.y, top.z);
+    }
+    // NOT: outerRing artık (buildTrackSurface'teki earcut/kapanış düzeltmesiyle)
+    // yinelenen kapanış noktası İÇERMİYOR — eski "length-1" döngüsü bu yüzden
+    // halkayı kapatmıyordu (bir dikiş boşluğu bırakıyordu). Modulo ile TAM
+    // kapatıyoruz, pist mesh'iyle aynı yöntem.
+    for(var s = 0; s < outerRing.length; s++){
+      var sNext = (s+1) % outerRing.length;
+      var i0=s*2, i1=s*2+1, i2=sNext*2, i3=sNext*2+1;
+      indices.push(i0,i2,i1, i1,i2,i3);
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    // NOT: duvarın TABANI (r.outer), pist yüzeyinin dış kenar sütunuyla (column 0)
+    // BİREBİR aynı x,y,z'de — bu iki ayrı mesh'in dikişinde, önceki turlarda
+    // apron/çim için de görülen z-fighting'e yol açıyordu (uzak/banked virajlarda
+    // koca bir alan siyah/boş görünüyordu). Aynı polygonOffset çözümü.
+    var mat = new THREE.MeshLambertMaterial({
+      color:0xd8d4c8, side:THREE.DoubleSide,
+      polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
+    });
+    return new THREE.Mesh(geo, mat);
+  }
+
+  // İç alanda (infield), start/finish düzlüğüne paralel sade bir pit yolu
+  // zemini + birkaç pit durağı kutusu.
+  function buildPitLane(scene){
+    var pitLen = HALF_LEN*1.5, pitWidth = 16;
+    var floorGeo = new THREE.PlaneGeometry(pitLen, pitWidth);
+    var floorMat = new THREE.MeshLambertMaterial({color:0x4a4d50});
+    var floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI/2;
+    floor.position.set(0, 0.02, CAP_R*0.42);
+    scene.add(floor);
+
+    var laneLineGeo = new THREE.PlaneGeometry(pitLen, 0.6);
+    var laneLineMat = new THREE.MeshLambertMaterial({color:0xf2b705});
+    var laneLine = new THREE.Mesh(laneLineGeo, laneLineMat);
+    laneLine.rotation.x = -Math.PI/2;
+    laneLine.position.set(0, 0.03, CAP_R*0.42 - pitWidth/2 + 0.8);
+    scene.add(laneLine);
+
+    var STALLS = 6;
+    for(var i=0;i<STALLS;i++){
+      var sx = -pitLen/2 + (i+0.5)*(pitLen/STALLS);
+      var geo = new THREE.BoxGeometry(pitLen/STALLS*0.7, 3.2, 6);
+      var mat = new THREE.MeshLambertMaterial({color: TEAM_COLORS[i % TEAM_COLORS.length]});
+      var box = new THREE.Mesh(geo, mat);
+      box.position.set(sx, 1.6, CAP_R*0.42 + pitWidth/2 - 2.5);
+      scene.add(box);
+    }
+  }
+
+  // Pit yolunun ana pistten AYRILDIĞI ve tekrar BİRLEŞTİĞİ görünür bir
+  // giriş/çıkış rampası — düz (banking'siz), ana pistten daha dar.
+  var PIT_ENTRY_T = 0.03, PIT_EXIT_T = 0.225;
+  function buildPitRoad(){
+    var entryMain = pointAt(PIT_ENTRY_T), exitMain = pointAt(PIT_EXIT_T);
+    var pitZ = CAP_R*0.42;
+    // Gerçek NASCAR pit yolları ana düzlüğe YAKIN ve neredeyse PARALEL akar —
+    // pit şeridinin kendi dış kenarına (pitZ+pitWidth/2 ≈ 37) hemen bitişik,
+    // pistin ta uzağına doğru geniş bir kavis atmaz. Önceki sürüm (+17/+13)
+    // gereğinden fazla infield'e doğru şişiyordu; buradaki daha dar geçiş
+    // gerçek bir pit girişi/çıkışına çok daha yakın duruyor.
+    var curvePts = [
+      new THREE.Vector3(entryMain.x, 0.05, entryMain.z),
+      new THREE.Vector3(entryMain.x+16, 0.05, pitZ+10),
+      new THREE.Vector3(-60, 0.05, pitZ+8),
+      new THREE.Vector3(60, 0.05, pitZ+8),
+      new THREE.Vector3(exitMain.x-16, 0.05, pitZ+10),
+      new THREE.Vector3(exitMain.x, 0.05, exitMain.z)
+    ];
+    var curve = new THREE.CatmullRomCurve3(curvePts);
+    var pts = curve.getPoints(140); // yoğun örnekleme — pürüzsüz eğri
+    var halfW = 5.2;
+    var positions = [], indices = [];
+    for(var i=0;i<pts.length;i++){
+      var p = pts[i];
+      var next = pts[Math.min(i+1, pts.length-1)];
+      var tangent = new THREE.Vector3().subVectors(next, p).normalize();
+      var side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0,1,0)).normalize();
+      var inner = p.clone().addScaledVector(side, -halfW);
+      var outer = p.clone().addScaledVector(side, halfW);
+      positions.push(inner.x, inner.y, inner.z, outer.x, outer.y, outer.z);
+    }
+    for(var s=0;s<pts.length-1;s++){
+      var i0=s*2, i1=s*2+1, i2=(s+1)*2, i3=(s+1)*2+1;
+      indices.push(i0,i2,i1, i1,i2,i3);
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    // Daha AÇIK bir asfalt tonu — koyu gri (0x35383b) uzaktan/tepeden çime
+    // karışıp gerçek bir "çatlak/hata" gibi okunuyordu. Gerçek pit yollarındaki
+    // gibi net BEYAZ kenar çizgileri de ekleyerek bunun bir YOL olduğu
+    // görsel olarak hiç şüpheye yer bırakmayacak şekilde belli oluyor.
+    var mat = new THREE.MeshLambertMaterial({color:0x54585c, side:THREE.DoubleSide});
+    var group = new THREE.Group();
+    group.add(new THREE.Mesh(geo, mat));
+
+    var lineMat = new THREE.MeshBasicMaterial({color:0xf2f2f2, side:THREE.DoubleSide});
+    [-1,1].forEach(function(edgeSide){
+      var linePositions = [];
+      for(var i=0;i<pts.length;i++){
+        var p = pts[i];
+        var next = pts[Math.min(i+1, pts.length-1)];
+        var tangent = new THREE.Vector3().subVectors(next, p).normalize();
+        var side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0,1,0)).normalize();
+        var base = p.clone().addScaledVector(side, edgeSide*(halfW-0.55));
+        var a = base.clone().addScaledVector(side, -0.35), b = base.clone().addScaledVector(side, 0.35);
+        linePositions.push(a.x, a.y+0.01, a.z, b.x, b.y+0.01, b.z);
+      }
+      var lineIndices = [];
+      for(var s2=0;s2<pts.length-1;s2++){
+        var j0=s2*2, j1=s2*2+1, j2=(s2+1)*2, j3=(s2+1)*2+1;
+        lineIndices.push(j0,j2,j1, j1,j2,j3);
+      }
+      var lineGeo = new THREE.BufferGeometry();
+      lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions,3));
+      lineGeo.setIndex(lineIndices);
+      group.add(new THREE.Mesh(lineGeo, lineMat));
+    });
+
+    return { mesh:group, curve:curve };
+  }
+
+  // Start/finish üzerinde basit bir kule (gerçek NASCAR pistlerindeki gibi) —
+  // "çevre faktörü" olarak sahneye atmosfer katıyor.
+  function buildGantry(scene){
+    var p = pointAt(0);
+    var group = new THREE.Group();
+    [-1,1].forEach(function(side){
+      var leg = new THREE.Mesh(new THREE.BoxGeometry(2,26,2), new THREE.MeshLambertMaterial({color:0x2a2f33}));
+      leg.position.set(side*(TRACK_WIDTH/2+6), 13, 0);
+      group.add(leg);
+    });
+    var beam = new THREE.Mesh(new THREE.BoxGeometry(TRACK_WIDTH+16,2.4,2.4), new THREE.MeshLambertMaterial({color:0x2a2f33}));
+    beam.position.set(0, 25, 0);
+    group.add(beam);
+    for(var i=0;i<5;i++){
+      var lx = -((TRACK_WIDTH+16)/2) + 8 + i*((TRACK_WIDTH+16-16)/4);
+      var light = new THREE.Mesh(new THREE.SphereGeometry(1.1,10,10), new THREE.MeshLambertMaterial({color:0xf2b705, emissive:0x3a2900, emissiveIntensity:0.5}));
+      light.position.set(lx, 22.6, 0);
+      group.add(light);
+    }
+    group.position.set(p.x, 0, p.z);
+    group.lookAt(p.x, 0, p.z-1); // düzlük yönünde hizala (x ekseni boyunca düzlük)
+    group.rotation.y = Math.PI/2;
+    scene.add(group);
+  }
+
+  // Tribün üstlerinde küçük renkli noktalar: kalabalık dokusu, ucuz ve
+  // mobilde ağırlık yaratmayan bir "çevre" detayı.
+  function buildCrowd(scene){
+    var geo = new THREE.SphereGeometry(0.45, 5, 4);
+    var colors = [0xe0483e,0xf2b705,0x3f6bd8,0xeef3f6,0x3fae5c];
+    var CROWD_PER_STAND = 10;
+    for(var i=0;i<22;i++){
+      var t = i/22;
+      var p = pointAt(t);
+      var outward = 1.22;
+      for(var c=0;c<CROWD_PER_STAND;c++){
+        var mat = new THREE.MeshLambertMaterial({color: colors[(i+c)%colors.length]});
+        var dot = new THREE.Mesh(geo, mat);
+        var jitterX = (Math.random()-0.5)*13, jitterZ = (Math.random()-0.5)*5.5;
+        dot.position.set(p.x*outward + jitterX, 9.4, p.z*outward + jitterZ);
+        scene.add(dot);
+      }
+    }
+  }
+
+  // Çim (infield): tek parça asfalt yüzeyinin (buildTrackSurface) döndürdüğü
+  // infieldLine sınırını AYNEN kullanıyor — kendi pointAt/side hesabını
+  // TEKRAR yapmıyor. Böylece iki ayrı yerde bağımsızca hesaplanan koordinatlar
+  // arasında ufak bir kayan-nokta farkı yüzünden dikişte boşluk/çakışma
+  // oluşma ihtimali de yapısal olarak ortadan kalkıyor.
+  function buildInfield(infieldLine){
+    var shape = new THREE.Shape();
+    infieldLine.forEach(function(p, i){ i===0 ? shape.moveTo(p.x,p.z) : shape.lineTo(p.x,p.z); });
+    var geo = new THREE.ShapeGeometry(shape);
+    var mat = new THREE.MeshLambertMaterial({
+      color:0x2f6b3f, side:THREE.DoubleSide,
+      polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
+    });
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.y = -0.09;
+    return mesh;
+  }
+
+  function buildGround(){
+    var geo = new THREE.PlaneGeometry(2000, 2000);
+    var mat = new THREE.MeshLambertMaterial({color:0x171c1f});
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.y = -0.6;
+    return mesh;
+  }
+
+  function buildStands(scene){
+    var COUNT = 22;
+    for(var i = 0; i < COUNT; i++){
+      var t = i/COUNT;
+      var p = pointAt(t);
+      var outward = 1.22;
+      var geo = new THREE.BoxGeometry(16, 9, 7);
+      var mat = new THREE.MeshLambertMaterial({color: i%4===0 ? 0x38424a : 0x252d33});
+      var box = new THREE.Mesh(geo, mat);
+      box.position.set(p.x*outward, 4.5, p.z*outward);
+      box.lookAt(0, 4.5, 0);
+      scene.add(box);
+    }
+  }
+
+  /* =========================================================
+     2. ARABALAR — kutu (BoxGeometry) gövde, ağır/geniş stock-car
+     oranları. Her karede pist üzerindeki bir sonraki noktaya
+     lookAt() ile bakıyor (yaw), ayrıca yerel Z (ilerleme) ekseni
+     etrafında bankaja göre yatıyor (roll) — pistin eğimine
+     "yapışmış" gibi duruyor.
+     ========================================================= */
+  var _rollQuatTmp = new THREE.Quaternion();
+  var _yawQuatTmp = new THREE.Quaternion();
+  var _zAxis = new THREE.Vector3(0,0,1);
+  var _yAxis = new THREE.Vector3(0,1,0);
+
+  function makeCar(color){
+    var geo = new THREE.BoxGeometry(5.2, 2.6, 10.5); // genişlik, yükseklik, uzunluk
+    var mat = new THREE.MeshLambertMaterial({color:color});
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = 1.5;
+    return mesh;
+  }
+
+  // Pistin merkez çizgisi üzerindeki bir "t" noktasında yerel çerçeve:
+  // teğet (ilerleme yönü), yanal (side, şerit kaydırmak için) ve banking açısı.
+  function trackFrameAt(t){
+    var p0 = pointAt(t);
+    var p1 = pointAt((t + 0.0015) % 1);
+    var tangent = new THREE.Vector3(p1.x - p0.x, 0, p1.z - p0.z).normalize();
+    var side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0,1,0)).normalize();
+    return { x: p0.x, z: p0.z, side: side, tangent: tangent, bank: bankAt(t) };
+  }
+
+  // Merkez çizgiden "laneOffset" kadar yana kaymış, banking'e göre
+  // yükselmiş/alçalmış bir dünya konumu — geçiş (overtake) manevraları
+  // arabaların pistin farklı şeritlerinde yan yana durmasını sağlıyor.
+  var CAR_Y = 1.5;
+  function laneOffsetPosition(t, laneOffset){
+    var f = trackFrameAt(t);
+    var cosB = Math.cos(f.bank), sinB = Math.sin(f.bank);
+    return {
+      x: f.x + f.side.x*laneOffset*cosB,
+      y: CAR_Y + laneOffset*sinB,
+      z: f.z + f.side.z*laneOffset*cosB,
+      bank: f.bank
+    };
+  }
+
+  // Şerit seçenekleri: iç / merkez / dış — TRACK_WIDTH=26 içinde güvenli payla.
+  var LANES = [-9, -4.5, 0, 4.5, 9]; // 5 şerit — araba pistin tüm genişliğini kullansın
+  var TEAM_COLORS = [0xe0483e, 0x3f6bd8, 0xf2b705, 0x3fae5c, 0xb45cff, 0xeef3f6]; // pit + araba renkleri aynı
+  function pickOtherLane(current){
+    var options = LANES.filter(function(l){ return Math.abs(l-current) > 0.01; });
+    return options[Math.floor(Math.random()*options.length)];
+  }
+
+  // Basit ama etkili geçiş (overtake) yapay zekası: her araba kendi ritminde
+  // (senkronize olmayan aralıklarla) önündeki dar bir mesafe/şerit penceresinde
+  // başka bir araba var mı diye bakar; varsa farklı bir şeride geçmeyi dener
+  // ve geçiş sırasında kısa süreli bir hız artışı (boost) kazanır — gerçek
+  // yarışlardaki "slipstream + sollama" hissini taklit ediyor.
+  var OVERTAKE_GAP_MIN = 0.004, OVERTAKE_GAP_MAX = 0.03;
+  function aiOvertakeCheck(car, allCars, nowMs){
+    if(nowMs < car.nextAiCheck) return;
+    car.nextAiCheck = nowMs + 1000 + Math.random()*900;
+    var myP = car.lapsCompleted + car.t;
+    var blocked = false;
+    for(var i=0;i<allCars.length;i++){
+      var other = allCars[i];
+      if(other === car) continue;
+      var gap = (other.lapsCompleted + other.t) - myP;
+      if(gap > OVERTAKE_GAP_MIN && gap < OVERTAKE_GAP_MAX && Math.abs(other.laneTarget - car.laneTarget) < 3){
+        blocked = true; break;
+      }
+    }
+    if(blocked){
+      car.laneTarget = pickOtherLane(car.laneTarget);
+      car.boosting = true;
+      car.boostUntil = nowMs + 1800 + Math.random()*900;
+    } else {
+      if(car.boosting && nowMs > car.boostUntil) car.boosting = false;
+      // Trafik olmasa bile arabalar arada bir kendiliğinden şerit değiştirsin —
+      // yoksa serbest kaldıklarında başlangıç şeridinde sonsuza dek kalıp
+      // "hep aynı eksende dönüyor" hissi veriyorlar. Pistin tamamını (iç/dış)
+      // kullanan doğal, organik bir çeşitlilik için.
+      if(Math.random() < 0.3){
+        car.laneTarget = LANES[Math.floor(Math.random()*LANES.length)];
+      }
+    }
+  }
+
+  // Araba fiziği: ilerleme (t) + yumuşak şerit geçişi (lane LERP) + banking
+  // roll'ü + tur tamamlama tespiti. Hız her karede aynı değer değil; boost
+  // (geçiş atağı) sırasında geçici olarak artıyor, sonra normale dönüyor.
+  function updateCar(car, dt, nowMs, allCars){
+    aiOvertakeCheck(car, allCars, nowMs);
+
+    // şerit hedefine yumuşak (LERP) yaklaşma — ani "ışınlanma" yok
+    car.lane += (car.laneTarget - car.lane) * Math.min(1, dt*2.6);
+
+    var speedMul = car.boosting ? 1.09 : 1;
+    var prevT = car.t;
+    car.t = (car.t + dt*car.tSpeed*speedMul) % 1;
+    var lapped = prevT > 0.85 && car.t < 0.15;
+    if(lapped) car.lapsCompleted++;
+
+    var pos = laneOffsetPosition(car.t, car.lane);
+    car.mesh.position.set(pos.x, pos.y, pos.z);
+
+    // ÜÇÜNCÜ VE KESİN DÜZELTME: yaw'ı da ARTIK GECİKMESİZ (lerp'siz) alıyoruz.
+    // Önceki iki denemede yaw hâlâ (bir şekilde) gecikiyordu — ya lookAt'ın
+    // içine sızan banking yüksekliğinden (1. deneme), ya da saf açı olsa bile
+    // LERP'in kendisi birkaç karelik bir gecikme bıraktığından (2. deneme,
+    // sayısal testte hâlâ yüzlerce "gömülme" anı vardı). Roll HER ZAMAN o
+    // anki banking'e bağlı olduğu ve banking t'nin (dolayısıyla pozisyonun)
+    // bir fonksiyonu olduğu için, yaw'ın da t'nin AYNI ANKİ değerine bağlı
+    // olması gerekiyor — aksi halde roll'ün döndüğü eksen (yaw'ın belirlediği
+    // yerel Z) o karenin GERÇEK teğetinden az da olsa sapıyor, kutu eğik
+    // yüzeye tam oturamıyor. pointAt/bankAt zaten matematiksel olarak sürekli
+    // (C1) olduğu için (bu projede daha önce ayrıca doğrulandı) ANINDA
+    // atamak görsel bir "snap" yaratmıyor — eğri zaten kendiliğinden yumuşak.
+    var frame = trackFrameAt(car.t);
+    car.heading = Math.atan2(frame.tangent.x, frame.tangent.z);
+
+    var yawQuat = _yawQuatTmp.setFromAxisAngle(_yAxis, car.heading);
+    var rollQuat = _rollQuatTmp.setFromAxisAngle(_zAxis, -pos.bank);
+    car.mesh.quaternion.copy(yawQuat).multiply(rollQuat);
+
+    return lapped;
+  }
+
+  /* =========================================================
+     3. SAHNE, KAMERA (dramatik stadyum açısı), IŞIK
+     ========================================================= */
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0e12);
+  scene.fog = new THREE.Fog(0x0a0e12, 320, 620);
+
+  // İzometrik yerine PerspectiveCamera + daha alçak açı: banking artık
+  // net görünüyor, perspektif derinliği "stadyum" hissini güçlendiriyor.
+  var camera = new THREE.PerspectiveCamera(48, window.innerWidth/window.innerHeight, 1, 2000);
+  var camAz = Math.PI/4;              // 45° yatay
+  var camEl = THREE.MathUtils.degToRad(20); // alçak, dramatik dikey açı (izometrikte 35.264°'ydi)
+  var camDist = 300;
+
+  function updateCameraPosition(){
+    camera.position.set(
+      camDist*Math.cos(camEl)*Math.sin(camAz),
+      camDist*Math.sin(camEl) + 20,
+      camDist*Math.cos(camEl)*Math.cos(camAz)
+    );
+    camera.lookAt(0, 6, 0);
+  }
+  updateCameraPosition();
+
+  function resize(){
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w/h;
+    camera.updateProjectionMatrix();
+  }
+
+  // Hafif, gölgesiz ışıklandırma — mobilde ısıtmayacak seviyede
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.55);
+  sun.position.set(120, 200, 80);
+  sun.castShadow = false;
+  scene.add(sun);
+
+  var renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.shadowMap.enabled = false; // gölgeler kapalı (mobil optimizasyon)
+  document.body.appendChild(renderer.domElement);
+  window.addEventListener('resize', resize);
+
+  var track = buildTrackSurface();
+  scene.add(track.mesh);
+  scene.add(buildInfield(track.infieldLine));
+  scene.add(buildBarrierWall(track.outerRing));
+  scene.add(buildGround());
+  buildStands(scene);
+  buildPitLane(scene);
+  scene.add(buildPitRoad().mesh);
+  buildGantry(scene);
+  buildCrowd(scene);
+
+  // Alan (grid): oyuncu + 5 rakip — farklı renk, hafif farklı temel hız ve
+  // başlangıç şeridiyle dağıtılmış, böylece daha ilk turdan geçişler doğal
+  // şekilde oluşuyor.
+  var CAR_DEFS = [
+    { color:0xe0483e, name:'SEN',  isPlayer:true,  t:0.00, tSpeed:1/14.0, lane:0    },
+    { color:0x3f6bd8, name:'#12',  isPlayer:false, t:0.07, tSpeed:1/14.6, lane:4.5  },
+    { color:0xf2b705, name:'#34',  isPlayer:false, t:0.16, tSpeed:1/13.7, lane:-4.5 },
+    { color:0x3fae5c, name:'#07',  isPlayer:false, t:0.28, tSpeed:1/14.9, lane:9    },
+    { color:0xb45cff, name:'#88',  isPlayer:false, t:0.44, tSpeed:1/14.2, lane:-9   },
+    { color:0xeef3f6, name:'#21',  isPlayer:false, t:0.61, tSpeed:1/15.1, lane:0    }
+  ];
+  var cars = CAR_DEFS.map(function(def){
+    return {
+      mesh: makeCar(def.color), color: def.color, name: def.name, isPlayer: def.isPlayer,
+      t: def.t, prevT: def.t, tSpeed: def.tSpeed, lapsCompleted: 0,
+      lane: def.lane, laneTarget: def.lane, boosting:false, boostUntil:0, nextAiCheck:0,
+      heading: 0 // dünya Y ekseni etrafında SKALER yön açısı — roll'den tamamen ayrı
+    };
+  });
+  cars.forEach(function(c){
+    // Başlangıçta arabayı hemen doğru yöne çevir — yoksa ilk karede sıfır
+    // açıdan hedefe doğru görünür bir "spin-up" olur.
+    var p0 = laneOffsetPosition(c.t, c.lane);
+    var frame0 = trackFrameAt(c.t);
+    c.heading = Math.atan2(frame0.tangent.x, frame0.tangent.z);
+    c.mesh.position.set(p0.x, p0.y, p0.z);
+    var yawQuat0 = new THREE.Quaternion().setFromAxisAngle(_yAxis, c.heading);
+    var rollQuat0 = new THREE.Quaternion().setFromAxisAngle(_zAxis, -p0.bank);
+    c.mesh.quaternion.copy(yawQuat0).multiply(rollQuat0);
+    scene.add(c.mesh);
+  });
+
+  resize();
+
+  /* =========================================================
+     3b. TUR KAZANCI — oyuncunun (kırmızı) arabası start/finish
+     noktasından (t=1 -> 0 sarımı) her geçtiğinde para kazandırır.
+     ========================================================= */
+  var moneyAmountEl = document.getElementById('money-amount');
+  var lapRewardEl = document.getElementById('lap-reward');
+  lapRewardEl.textContent = formatMoney(LAP_REWARD);
+
+  function renderMoney(){
+    moneyAmountEl.textContent = formatMoney(state.money);
+  }
+
+  function spawnLapPop(text){
+    var el = document.createElement('div');
+    el.className = 'lap-pop';
+    el.textContent = text;
+    el.style.left = '50%';
+    el.style.top = '90px';
+    document.body.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 820);
+  }
+
+  function onLapCompleted(){
+    state.money += LAP_REWARD;
+    renderMoney();
+    spawnLapPop('+' + formatMoney(LAP_REWARD) + ' — TUR TAMAMLANDI');
+    Sound.lap();
+    saveState();
+  }
+
+  /* =========================================================
+     3d. SIRALAMA (standings) — toplam mesafeye (tamamlanan tur + t)
+     göre sıralanıyor; bu değer hem doğru sırayı hem de geçiş (gap)
+     hesaplarını turun sarma noktasından etkilenmeden veriyor.
+     ========================================================= */
+  var standingsEl = document.getElementById('standings');
+  var lastPlayerPos = null;
+
+  function computeStandings(){
+    var ranked = cars.slice().sort(function(a,b){
+      return (b.lapsCompleted + b.t) - (a.lapsCompleted + a.t);
+    });
+    return ranked;
+  }
+
+  function renderStandings(ranked){
+    var html = '';
+    for(var i=0;i<ranked.length;i++){
+      var c = ranked[i];
+      html += '<div class="stand-row' + (c.isPlayer?' me':'') + '">' +
+        '<span class="pos">' + (i+1) + '</span>' +
+        '<span class="dot" style="background:#' + c.color.toString(16).padStart(6,'0') + '"></span>' +
+        '<span>' + c.name + '</span></div>';
+    }
+    standingsEl.innerHTML = html;
+  }
+
+  function checkPlayerOvertake(ranked){
+    var pos = ranked.findIndex(function(c){ return c.isPlayer; }) + 1;
+    if(lastPlayerPos !== null && pos < lastPlayerPos){
+      Sound.overtake();
+      var el = document.createElement('div');
+      el.className = 'lap-pop overtake';
+      el.textContent = 'GEÇİŞ! P' + pos;
+      el.style.left = '50%';
+      el.style.top = '90px';
+      document.body.appendChild(el);
+      setTimeout(function(){ el.remove(); }, 820);
+    }
+    lastPlayerPos = pos;
+  }
+
+  /* =========================================================
+     3c. ÇEVRİMDIŞI KAZANÇ — sahne kurulduktan (cars hazır olduktan)
+     sonra hesaplanır, böylece tur süresi/ödül oranıyla tutarlı olur.
+     ========================================================= */
+  (function applyOfflineEarnings(){
+    var result = creditOfflineEarnings();
+    renderMoney();
+    saveState(); // lastSeenAt'i hemen diske yaz — açılışın hemen ardından kapatılsa bile kaybolmasın
+    if(result && result.earned > 0){
+      var toast = document.getElementById('offline-toast');
+      var mins = Math.round(result.seconds/60);
+      toast.textContent = 'Çevrimdışı kazanç: +' + formatMoney(result.earned) +
+        ' (' + mins + ' dk)' + (result.capped ? ' — üst sınıra ulaşıldı' : '');
+      toast.classList.add('show');
+      setTimeout(function(){ toast.classList.remove('show'); }, 4200);
+    }
+  })();
+
+  /* =========================================================
+     3e. AYARLAR PANELİ — önceki oyundan (Gaza Bas) taşınan arayüz
+     dili: dişli düğme, tam ekran panel, tek anahtar (ses aç/kapat).
+     ========================================================= */
+  var settingsOpenBtn = document.getElementById('settings-open');
+  var settingsCloseBtn = document.getElementById('settings-close');
+  var settingsPanel = document.getElementById('settings-panel');
+  var soundSwitch = document.getElementById('sound-switch');
+
+  settingsOpenBtn.addEventListener('click', function(){ settingsPanel.hidden = false; });
+  settingsCloseBtn.addEventListener('click', function(){ settingsPanel.hidden = true; });
+  soundSwitch.classList.toggle('on', state.soundOn);
+  soundSwitch.addEventListener('click', function(){
+    state.soundOn = !state.soundOn;
+    soundSwitch.classList.toggle('on', state.soundOn);
+    saveState();
+    if(state.soundOn) Sound.ensureCtx();
+  });
+
+  // Düzenli kayıt: sekme kapansa/arka plana atılsa bile lastSeenAt güncel
+  // kalsın — bir sonraki açılışta doğru süre hesaplanabilsin.
+  setInterval(saveState, 5000);
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ state.lastSeenAt = TrustedClock.now().time; saveState(); }
+  });
+  window.addEventListener('beforeunload', function(){
+    state.lastSeenAt = TrustedClock.now().time; saveState();
+  });
+
+  /* =========================================================
+     4. GAME LOOP — requestAnimationFrame, delta-time tabanlı
+     ========================================================= */
+  var lastTime = null;
+  var standingsTimer = 0;
+  var STANDINGS_INTERVAL = 280; // ms — her karede DOM'a yazmaya gerek yok
+
+  function loop(now){
+    var dt = lastTime ? Math.min(0.05, (now-lastTime)/1000) : 1/60;
+    lastTime = now;
+
+    cars.forEach(function(c){
+      var lapped = updateCar(c, dt, now, cars);
+      if(c.isPlayer && lapped) onLapCompleted();
+    });
+
+    standingsTimer += dt*1000;
+    if(standingsTimer >= STANDINGS_INTERVAL){
+      standingsTimer = 0;
+      var ranked = computeStandings();
+      renderStandings(ranked);
+      checkPlayerOvertake(ranked);
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+
+  renderStandings(computeStandings());
+  renderMoney();
+  document.getElementById('status').textContent = 'Sahne hazır.';
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
