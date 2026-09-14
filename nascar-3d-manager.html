@@ -505,7 +505,16 @@
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    var mat = new THREE.MeshLambertMaterial({color:0x35383b, side:THREE.DoubleSide});
+    // polygonOffset: pist ile apron'un dikiş hattı birebir aynı x,y,z'de
+    // olduğu için (coincident geometry) GPU derinlik arabelleğinde z-fighting
+    // ("yama" gibi lekeli/titrek görüntü) oluşuyordu — uzak virajlarda daha
+    // belirgindi çünkü z-fighting mesafeyle kötüleşir. polygonOffset, dünya
+    // koordinatını değil doğrudan derinlik tamponunu ittiği için mesafeden
+    // bağımsız çalışır; sabit Y farkından daha güvenilir.
+    var mat = new THREE.MeshLambertMaterial({
+      color:0x35383b, side:THREE.DoubleSide,
+      polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
+    });
     return new THREE.Mesh(geo, mat);
   }
 
@@ -525,10 +534,18 @@
       i===0 ? shape.moveTo(x,z) : shape.lineTo(x,z);
     }
     var geo = new THREE.ShapeGeometry(shape);
-    var mat = new THREE.MeshLambertMaterial({color:0x2f6b3f, side:THREE.DoubleSide});
+    // Çim de apron'un iç ucuyla (y=-0.08) aynı seviyedeydi — aynı z-fighting
+    // riski. NOT: büyük bir polygonOffset (2,2) denendi ama uzak virajlarda
+    // çimi TAMAMEN kaybettirdi (perspektifte küçük derinlik farkları büyütülüp
+    // arka plandaki zemine kaybettiriyordu) — o yüzden apron'la AYNI küçük
+    // değer kullanılıyor, ayrım esas olarak küçük Y farkıyla sağlanıyor.
+    var mat = new THREE.MeshLambertMaterial({
+      color:0x2f6b3f, side:THREE.DoubleSide,
+      polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
+    });
     var mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = -Math.PI/2;
-    mesh.position.y = -0.08;
+    mesh.position.y = -0.09;
     return mesh;
   }
 
