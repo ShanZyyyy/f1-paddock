@@ -363,26 +363,47 @@
   // yükselen bir bariyer duvarı — banking'in "kaybolduğu" izometrik açıyı
   // telafi eden en net görsel ipucu bu duvarın yatışı.
   function buildBarrierWall(outerRing){
-    var WALL_RISE = 11; // pistin dış kenarından "dist" cinsinden ek yükseklik
+    var WALL_RISE = 11; // pist yüzeyinin NORMALİ boyunca duvar yüksekliği
     var positions = [];
     var indices = [];
+    // ÖNEMLİ DÜZELTME: duvarın "yükselişi" daha önce (halfW+RISE)*cos/sin(bank)
+    // formülüyle YANLIŞ hesaplanıyordu — bu formülde bank=0 (düzlüklerde) duvar
+    // TAMAMEN YASSI (yükseklik=0, yerde yatan bir şerit) oluyordu, virajlarda ise
+    // yatay açılımı bank'a göre tuhaf şekilde büyüyüp pistin ÜZERİNE doğru geniş
+    // bir alanı kaplıyordu — kötü aydınlatılan bu yassı/eğik yüzey neredeyse
+    // siyah görünüp pist+apron'u görsel olarak "yiyormuş" gibi duruyordu.
+    // Doğrusu: duvar HER ZAMAN pist yüzeyinin NORMALİ boyunca yükselir — bank=0'da
+    // dikey (gerçek bir bariyer gibi), banked virajda da yüzeye dik durur (gerçek
+    // NASCAR bariyerleri gibi), asla yamulup pistin üstüne yayılmaz.
     for(var i = 0; i < outerRing.length; i++){
       var r = outerRing[i];
-      var halfW = TRACK_WIDTH/2;
-      var top = r.center.clone().addScaledVector(r.side, (halfW+WALL_RISE)*Math.cos(r.bank));
-      top.y += (halfW+WALL_RISE)*Math.sin(r.bank);
+      var normal = r.side.clone().multiplyScalar(-Math.sin(r.bank))
+        .add(new THREE.Vector3(0,1,0).multiplyScalar(Math.cos(r.bank)));
+      var top = r.outer.clone().addScaledVector(normal, WALL_RISE);
       positions.push(r.outer.x, r.outer.y, r.outer.z);
       positions.push(top.x, top.y, top.z);
     }
-    for(var s = 0; s < outerRing.length-1; s++){
-      var i0=s*2, i1=s*2+1, i2=(s+1)*2, i3=(s+1)*2+1;
+    // NOT: outerRing artık (buildTrackSurface'teki earcut/kapanış düzeltmesiyle)
+    // yinelenen kapanış noktası İÇERMİYOR — eski "length-1" döngüsü bu yüzden
+    // halkayı kapatmıyordu (bir dikiş boşluğu bırakıyordu). Modulo ile TAM
+    // kapatıyoruz, pist mesh'iyle aynı yöntem.
+    for(var s = 0; s < outerRing.length; s++){
+      var sNext = (s+1) % outerRing.length;
+      var i0=s*2, i1=s*2+1, i2=sNext*2, i3=sNext*2+1;
       indices.push(i0,i2,i1, i1,i2,i3);
     }
     var geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    var mat = new THREE.MeshLambertMaterial({color:0xd8d4c8, side:THREE.DoubleSide});
+    // NOT: duvarın TABANI (r.outer), pist yüzeyinin dış kenar sütunuyla (column 0)
+    // BİREBİR aynı x,y,z'de — bu iki ayrı mesh'in dikişinde, önceki turlarda
+    // apron/çim için de görülen z-fighting'e yol açıyordu (uzak/banked virajlarda
+    // koca bir alan siyah/boş görünüyordu). Aynı polygonOffset çözümü.
+    var mat = new THREE.MeshLambertMaterial({
+      color:0xd8d4c8, side:THREE.DoubleSide,
+      polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
+    });
     return new THREE.Mesh(geo, mat);
   }
 
@@ -421,12 +442,17 @@
   function buildPitRoad(){
     var entryMain = pointAt(PIT_ENTRY_T), exitMain = pointAt(PIT_EXIT_T);
     var pitZ = CAP_R*0.42;
+    // Gerçek NASCAR pit yolları ana düzlüğe YAKIN ve neredeyse PARALEL akar —
+    // pit şeridinin kendi dış kenarına (pitZ+pitWidth/2 ≈ 37) hemen bitişik,
+    // pistin ta uzağına doğru geniş bir kavis atmaz. Önceki sürüm (+17/+13)
+    // gereğinden fazla infield'e doğru şişiyordu; buradaki daha dar geçiş
+    // gerçek bir pit girişi/çıkışına çok daha yakın duruyor.
     var curvePts = [
       new THREE.Vector3(entryMain.x, 0.05, entryMain.z),
-      new THREE.Vector3(entryMain.x+22, 0.05, pitZ+17),
-      new THREE.Vector3(-65, 0.05, pitZ+13),
-      new THREE.Vector3(65, 0.05, pitZ+13),
-      new THREE.Vector3(exitMain.x-22, 0.05, pitZ+17),
+      new THREE.Vector3(entryMain.x+16, 0.05, pitZ+10),
+      new THREE.Vector3(-60, 0.05, pitZ+8),
+      new THREE.Vector3(60, 0.05, pitZ+8),
+      new THREE.Vector3(exitMain.x-16, 0.05, pitZ+10),
       new THREE.Vector3(exitMain.x, 0.05, exitMain.z)
     ];
     var curve = new THREE.CatmullRomCurve3(curvePts);
