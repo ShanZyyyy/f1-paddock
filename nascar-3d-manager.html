@@ -307,7 +307,11 @@
 
       positions.push(inner.x, inner.y, inner.z);
       positions.push(outer.x, outer.y, outer.z);
-      innerLine.push({x: p0.x - side.x*(halfW*0.94), z: p0.z - side.z*(halfW*0.94)});
+      // Çim sınırı, arabaların erişebileceği en dış şeritten (LANES ±9) belirgin
+      // şekilde İÇERİDE kalacak kadar dar tutuluyor — böylece hiçbir arabanın
+      // konumu banking'de asla çim alanının x/z izdüşümüyle çakışmıyor, "çime
+      // gömülme" görsel hatası kökünden engelleniyor.
+      innerLine.push({x: p0.x - side.x*(halfW*0.34), z: p0.z - side.z*(halfW*0.34)});
       outerRing.push({center:center, side:side, bank:bank, outer:outer});
     }
     for(var s = 0; s < SEGMENTS; s++){
@@ -543,7 +547,7 @@
   }
 
   // Şerit seçenekleri: iç / merkez / dış — TRACK_WIDTH=26 içinde güvenli payla.
-  var LANES = [-7, 0, 7];
+  var LANES = [-9, -4.5, 0, 4.5, 9]; // 5 şerit — araba pistin tüm genişliğini kullansın
   function pickOtherLane(current){
     var options = LANES.filter(function(l){ return Math.abs(l-current) > 0.01; });
     return options[Math.floor(Math.random()*options.length)];
@@ -660,12 +664,12 @@
   // başlangıç şeridiyle dağıtılmış, böylece daha ilk turdan geçişler doğal
   // şekilde oluşuyor.
   var CAR_DEFS = [
-    { color:0xe0483e, name:'SEN',  isPlayer:true,  t:0.00, tSpeed:1/14.0, lane:0  },
-    { color:0x3f6bd8, name:'#12',  isPlayer:false, t:0.07, tSpeed:1/14.6, lane:7  },
-    { color:0xf2b705, name:'#34',  isPlayer:false, t:0.16, tSpeed:1/13.7, lane:-7 },
-    { color:0x3fae5c, name:'#07',  isPlayer:false, t:0.28, tSpeed:1/14.9, lane:0  },
-    { color:0xb45cff, name:'#88',  isPlayer:false, t:0.44, tSpeed:1/14.2, lane:7  },
-    { color:0xeef3f6, name:'#21',  isPlayer:false, t:0.61, tSpeed:1/15.1, lane:-7 }
+    { color:0xe0483e, name:'SEN',  isPlayer:true,  t:0.00, tSpeed:1/14.0, lane:0    },
+    { color:0x3f6bd8, name:'#12',  isPlayer:false, t:0.07, tSpeed:1/14.6, lane:4.5  },
+    { color:0xf2b705, name:'#34',  isPlayer:false, t:0.16, tSpeed:1/13.7, lane:-4.5 },
+    { color:0x3fae5c, name:'#07',  isPlayer:false, t:0.28, tSpeed:1/14.9, lane:9    },
+    { color:0xb45cff, name:'#88',  isPlayer:false, t:0.44, tSpeed:1/14.2, lane:-9   },
+    { color:0xeef3f6, name:'#21',  isPlayer:false, t:0.61, tSpeed:1/15.1, lane:0    }
   ];
   var cars = CAR_DEFS.map(function(def){
     return {
