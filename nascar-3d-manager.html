@@ -597,7 +597,7 @@
 
     car.mesh.position.set(pos.x, pos.y, pos.z);
     car.mesh.lookAt(aheadPos.x, pos.y, aheadPos.z);
-    car.mesh.rotateZ(pos.bank); // banking ile birlikte yatış (roll)
+    car.mesh.rotateZ(-pos.bank); // banking ile birlikte yatış (roll) — pist yüzeyiyle aynı yönde
 
     return lapped;
   }
