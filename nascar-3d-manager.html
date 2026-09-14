@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NASCAR 3D Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0a0e12;font-family:system-ui,sans-serif;}
+  canvas{display:block;}
+  #status{position:fixed;top:10px;left:10px;color:#8fa2b0;font-size:12px;font-family:ui-monospace,monospace;z-index:2;}
+</style>
+</head>
+<body>
+<div id="status">Sahne kuruluyor…</div>
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     1. PİST GEOMETRİSİ — Daytona tarzı, eğimli (banked) oval.
+     Merkez hattı 2 düzlük + 2 yarım daire virajdan oluşan bir
+     stadyum eğrisi; virajlarda banking açısı sinüs eğrisiyle
+     0 -> maksimum -> 0 şeklinde yumuşakça değişiyor.
+     ========================================================= */
+  var HALF_LEN = 120;      // düzlüklerin merkeze uzaklığı
+  var CAP_R = 70;          // viraj (cap) yarıçapı
+  var TRACK_WIDTH = 26;
+  var MAX_BANK = THREE.MathUtils.degToRad(30); // Daytona ~31°
+  var SEGMENTS = 120;
+
+  var STRAIGHT = 2*HALF_LEN, CAP = Math.PI*CAP_R, TOTAL = 2*STRAIGHT + 2*CAP;
+  var F1 = STRAIGHT/TOTAL, F2 = F1 + CAP/TOTAL, F3 = F2 + STRAIGHT/TOTAL;
+
+  function pointAt(t){
+    t = ((t % 1) + 1) % 1;
+    var x, z;
+    if(t < F1){ var s = t/F1; x = -HALF_LEN + s*2*HALF_LEN; z = CAP_R; }
+    else if(t < F2){ var u = (t-F1)/(F2-F1); var a = Math.PI/2 - u*Math.PI; x = HALF_LEN + Math.cos(a)*CAP_R; z = Math.sin(a)*CAP_R; }
+    else if(t < F3){ var s2 = (t-F2)/(F3-F2); x = HALF_LEN - s2*2*HALF_LEN; z = -CAP_R; }
+    else { var u2 = (t-F3)/(1-F3); var a2 = -Math.PI/2 - u2*Math.PI; x = -HALF_LEN + Math.cos(a2)*CAP_R; z = Math.sin(a2)*CAP_R; }
+    return {x:x, z:z};
+  }
+  function bankAt(t){
+    t = ((t % 1) + 1) % 1;
+    if(t < F1) return 0;
+    if(t < F2){ var p = (t-F1)/(F2-F1); return MAX_BANK*Math.sin(p*Math.PI); }
+    if(t < F3) return 0;
+    var p2 = (t-F3)/(1-F3); return MAX_BANK*Math.sin(p2*Math.PI);
+  }
+
+  function buildBankedTrack(){
+    var positions = [];
+    var indices = [];
+    var innerLine = []; // infield şeklini çizmek için (bank'siz, düz)
+    var halfW = TRACK_WIDTH/2;
+    var up = new THREE.Vector3(0,1,0);
+
+    for(var i = 0; i <= SEGMENTS; i++){
+      var t = (i/SEGMENTS) % 1;
+      var p0 = pointAt(t);
+      var p1 = pointAt((t + 0.0015) % 1);
+      var tangent = new THREE.Vector3(p1.x-p0.x, 0, p1.z-p0.z).normalize();
+      var side = new THREE.Vector3().crossVectors(tangent, up).normalize();
+      var bank = bankAt(t);
+
+      var center = new THREE.Vector3(p0.x, 0, p0.z);
+      var outer = center.clone().addScaledVector(side, halfW*Math.cos(bank));
+      outer.y += halfW*Math.sin(bank);
+      var inner = center.clone().addScaledVector(side, -halfW*Math.cos(bank));
+      inner.y -= halfW*Math.sin(bank);
+
+      positions.push(inner.x, inner.y, inner.z);
+      positions.push(outer.x, outer.y, outer.z);
+      innerLine.push({x: p0.x - side.x*(halfW*0.94), z: p0.z - side.z*(halfW*0.94)});
+    }
+    for(var s = 0; s < SEGMENTS; s++){
+      var i0 = s*2, i1 = s*2+1, i2 = (s+1)*2, i3 = (s+1)*2+1;
+      indices.push(i0, i2, i1,  i1, i2, i3);
+    }
+
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    // Kavis yönü/kazanç işareti garanti değil — DoubleSide, hangi taraftan
+    // bakılırsa bakılsın pistin görünmez/siyah kalmasını engelliyor.
+    var mat = new THREE.MeshLambertMaterial({color:0x2b2f33, side:THREE.DoubleSide});
+    var mesh = new THREE.Mesh(geo, mat);
+
+    return {mesh:mesh, innerLine:innerLine};
+  }
+
+  function buildInfield(innerLine){
+    var shape = new THREE.Shape();
+    innerLine.forEach(function(p, i){ i===0 ? shape.moveTo(p.x,p.z) : shape.lineTo(p.x,p.z); });
+    var geo = new THREE.ShapeGeometry(shape);
+    var mat = new THREE.MeshLambertMaterial({color:0x2f6b3f, side:THREE.DoubleSide});
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.y = -0.05;
+    return mesh;
+  }
+
+  function buildGround(){
+    var geo = new THREE.PlaneGeometry(2000, 2000);
+    var mat = new THREE.MeshLambertMaterial({color:0x171c1f});
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.y = -0.6;
+    return mesh;
+  }
+
+  function buildStands(scene){
+    var COUNT = 22;
+    for(var i = 0; i < COUNT; i++){
+      var t = i/COUNT;
+      var p = pointAt(t);
+      var outward = 1.22;
+      var geo = new THREE.BoxGeometry(16, 9, 7);
+      var mat = new THREE.MeshLambertMaterial({color: i%4===0 ? 0x38424a : 0x252d33});
+      var box = new THREE.Mesh(geo, mat);
+      box.position.set(p.x*outward, 4.5, p.z*outward);
+      box.lookAt(0, 4.5, 0);
+      scene.add(box);
+    }
+  }
+
+  /* =========================================================
+     2. ARABALAR — kutu (BoxGeometry) gövde, ağır/geniş stock-car
+     oranları. Her karede pist üzerindeki bir sonraki noktaya
+     lookAt() ile bakıyor (yaw), ayrıca yerel Z (ilerleme) ekseni
+     etrafında bankaja göre yatıyor (roll) — pistin eğimine
+     "yapışmış" gibi duruyor.
+     ========================================================= */
+  function makeCar(color){
+    var geo = new THREE.BoxGeometry(5.2, 2.6, 10.5); // genişlik, yükseklik, uzunluk
+    var mat = new THREE.MeshLambertMaterial({color:color});
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = 1.5;
+    return mesh;
+  }
+
+  function updateCar(car, dt){
+    car.t = (car.t + dt*car.tSpeed) % 1;
+    var p = pointAt(car.t);
+    var ahead = pointAt((car.t + 0.01) % 1);
+    var bank = bankAt(car.t);
+
+    car.mesh.position.set(p.x, 1.5, p.z);
+    car.mesh.lookAt(ahead.x, 1.5, ahead.z);
+    car.mesh.rotateZ(bank); // banking ile birlikte yatış (roll)
+  }
+
+  /* =========================================================
+     3. SAHNE, KAMERA (izometrik diorama), IŞIK
+     ========================================================= */
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0e12);
+
+  var camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 2000);
+  var VIEW_SIZE = 190; // dünya birimi — pisti ekrana sığdırmak için ayarlandı
+
+  function resize(){
+    var w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    var aspect = w/h;
+    camera.left = -VIEW_SIZE*aspect;
+    camera.right = VIEW_SIZE*aspect;
+    camera.top = VIEW_SIZE;
+    camera.bottom = -VIEW_SIZE;
+    camera.updateProjectionMatrix();
+  }
+
+  // Klasik izometrik açı: 45° yatay, ~35.264° dikey (diorama/menajer görünümü)
+  var isoAz = Math.PI/4;
+  var isoEl = Math.atan(1/Math.sqrt(2));
+  var camDist = 500;
+  camera.position.set(
+    camDist*Math.cos(isoEl)*Math.sin(isoAz),
+    camDist*Math.sin(isoEl),
+    camDist*Math.cos(isoEl)*Math.cos(isoAz)
+  );
+  camera.lookAt(0, 0, 0);
+
+  // Hafif, gölgesiz ışıklandırma — mobilde ısıtmayacak seviyede
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.55);
+  sun.position.set(120, 200, 80);
+  sun.castShadow = false;
+  scene.add(sun);
+
+  var renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.shadowMap.enabled = false; // gölgeler kapalı (mobil optimizasyon)
+  document.body.appendChild(renderer.domElement);
+  window.addEventListener('resize', resize);
+
+  var track = buildBankedTrack();
+  scene.add(track.mesh);
+  scene.add(buildInfield(track.innerLine));
+  scene.add(buildGround());
+  buildStands(scene);
+
+  var cars = [
+    Object.assign({ mesh: makeCar(0xe0483e), t: 0,    tSpeed: 1/14 }, {}),
+    Object.assign({ mesh: makeCar(0x3f6bd8), t: 0.5,  tSpeed: 1/16 }, {})
+  ];
+  cars.forEach(function(c){ scene.add(c.mesh); });
+
+  resize();
+
+  /* =========================================================
+     4. GAME LOOP — requestAnimationFrame, delta-time tabanlı
+     ========================================================= */
+  var lastTime = null;
+  function loop(now){
+    var dt = lastTime ? Math.min(0.05, (now-lastTime)/1000) : 1/60;
+    lastTime = now;
+    cars.forEach(function(c){ updateCar(c, dt); });
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+
+  document.getElementById('status').textContent = 'Sahne hazır.';
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
