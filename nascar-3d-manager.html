@@ -286,7 +286,6 @@
   function buildBankedTrack(){
     var positions = [];
     var indices = [];
-    var innerLine = [];  // infield şeklini çizmek için (bank'siz, düz)
     var outerRing = [];  // bariyer duvarı için: her noktada dış kenar + side + bank
     var halfW = TRACK_WIDTH/2;
     var up = new THREE.Vector3(0,1,0);
@@ -307,11 +306,6 @@
 
       positions.push(inner.x, inner.y, inner.z);
       positions.push(outer.x, outer.y, outer.z);
-      // Çim sınırı, arabaların erişebileceği en dış şeritten (LANES ±9) belirgin
-      // şekilde İÇERİDE kalacak kadar dar tutuluyor — böylece hiçbir arabanın
-      // konumu banking'de asla çim alanının x/z izdüşümüyle çakışmıyor, "çime
-      // gömülme" görsel hatası kökünden engelleniyor.
-      innerLine.push({x: p0.x - side.x*(halfW*0.34), z: p0.z - side.z*(halfW*0.34)});
       outerRing.push({center:center, side:side, bank:bank, outer:outer});
     }
     for(var s = 0; s < SEGMENTS; s++){
@@ -328,7 +322,7 @@
     var mat = new THREE.MeshLambertMaterial({color:0x2b2f33, side:THREE.DoubleSide});
     var mesh = new THREE.Mesh(geo, mat);
 
-    return {mesh:mesh, innerLine:innerLine, outerRing:outerRing};
+    return {mesh:mesh, outerRing:outerRing};
   }
 
   // Dış kenar boyunca, banking'in DEVAMI yönünde (yani pistle aynı eğimde)
@@ -380,7 +374,7 @@
     for(var i=0;i<STALLS;i++){
       var sx = -pitLen/2 + (i+0.5)*(pitLen/STALLS);
       var geo = new THREE.BoxGeometry(pitLen/STALLS*0.7, 3.2, 6);
-      var mat = new THREE.MeshLambertMaterial({color: i%2===0 ? 0xe0483e : 0x3f6bd8});
+      var mat = new THREE.MeshLambertMaterial({color: TEAM_COLORS[i % TEAM_COLORS.length]});
       var box = new THREE.Mesh(geo, mat);
       box.position.set(sx, 1.6, CAP_R*0.42 + pitWidth/2 - 2.5);
       scene.add(box);
@@ -471,15 +465,74 @@
     }
   }
 
-  function buildInfield(innerLine){
-    var shape = new THREE.Shape();
-    innerLine.forEach(function(p, i){ i===0 ? shape.moveTo(p.x,p.z) : shape.lineTo(p.x,p.z); });
-    var geo = new THREE.ShapeGeometry(shape);
+  // Çim (infield): görünüm önceki güncellemedeki BÜYÜK yeşil alanla aynı
+  // (dış sınır pistin iç kenarına çok yakın) — ama artık tamamen düz değil.
+  // Kenara yakın dar bir kuşakta çim, pistin banking'ine YUMUŞAKÇA (smoothstep)
+  // geçerek gerçek pist yüksekliğine yaklaşıyor; bu kuşağın iç ucunda tamamen
+  // düzleşip geniş iç çekirdeğe (tek renkli, sabit y) sorunsuz birleşiyor.
+  // Böylece arabalar (iç şeritte, banking'de) artık çimden daha DÜŞÜKTE
+  // kalmıyor — "gömülme" yanılsaması bu yükseklik uyumuyla ortadan kalkıyor,
+  // tek bir dev üçgen yelpazesi kullanılmadığı için de ışık/gölge çatlağı yok.
+  function buildInfield(){
+    var halfW = TRACK_WIDTH/2;
+    var insetWEdge = halfW*0.94;  // dış sınır — önceki görünümle aynı konum
+    var insetWCore = 2;           // bu değerden içeride çim tamamen düz
+    var RINGS = 6;
+    var positions = [], indices = [];
+    var up = new THREE.Vector3(0,1,0);
+
+    for(var ri=0; ri<=RINGS; ri++){
+      var u = ri/RINGS;
+      var insetW = insetWCore + u*(insetWEdge-insetWCore);
+      var smooth = u*u*(3-2*u); // smoothstep — ani yükseklik sıçraması yok
+      for(var i=0;i<=SEGMENTS;i++){
+        var t = (i/SEGMENTS)%1;
+        var p0 = pointAt(t);
+        var p1 = pointAt((t+0.0015)%1);
+        var tangent = new THREE.Vector3(p1.x-p0.x,0,p1.z-p0.z).normalize();
+        var side = new THREE.Vector3().crossVectors(tangent, up).normalize();
+        var bank = bankAt(t);
+        var flatY = -0.05, bankedY = -insetW*Math.sin(bank);
+        var y = flatY + smooth*(bankedY-flatY);
+        positions.push(p0.x-side.x*insetW, y, p0.z-side.z*insetW);
+      }
+    }
+    for(var ri2=0; ri2<RINGS; ri2++){
+      for(var i2=0;i2<SEGMENTS;i2++){
+        var i0=ri2*(SEGMENTS+1)+i2, i1=i0+1, i2b=(ri2+1)*(SEGMENTS+1)+i2, i3=i2b+1;
+        indices.push(i0,i2b,i1, i1,i2b,i3);
+      }
+    }
+
+    // İç çekirdek: insetWCore sınırının içi kalan büyük düz alan — tek
+    // renkli (y=-0.05 sabit) olduğu için merkezden yelpaze güvenli.
+    var coreLine = [];
+    for(var i3=0;i3<=SEGMENTS;i3++){
+      var t3=(i3/SEGMENTS)%1;
+      var q0=pointAt(t3);
+      var q1=pointAt((t3+0.0015)%1);
+      var tan3=new THREE.Vector3(q1.x-q0.x,0,q1.z-q0.z).normalize();
+      var side3=new THREE.Vector3().crossVectors(tan3, up).normalize();
+      coreLine.push({x:q0.x-side3.x*insetWCore, z:q0.z-side3.z*insetWCore});
+    }
+    var cx=0, cz=0;
+    coreLine.forEach(function(p){ cx+=p.x; cz+=p.z; });
+    cx/=coreLine.length; cz/=coreLine.length;
+    var coreCenterIdx = positions.length/3;
+    positions.push(cx,-0.05,cz);
+    var coreStartIdx = positions.length/3;
+    coreLine.forEach(function(p){ positions.push(p.x,-0.05,p.z); });
+    var n = coreLine.length;
+    for(var k=0;k<n;k++){
+      indices.push(coreCenterIdx, coreStartIdx+k, coreStartIdx+((k+1)%n));
+    }
+
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
     var mat = new THREE.MeshLambertMaterial({color:0x2f6b3f, side:THREE.DoubleSide});
-    var mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI/2;
-    mesh.position.y = -0.05;
-    return mesh;
+    return new THREE.Mesh(geo, mat);
   }
 
   function buildGround(){
@@ -548,6 +601,7 @@
 
   // Şerit seçenekleri: iç / merkez / dış — TRACK_WIDTH=26 içinde güvenli payla.
   var LANES = [-9, -4.5, 0, 4.5, 9]; // 5 şerit — araba pistin tüm genişliğini kullansın
+  var TEAM_COLORS = [0xe0483e, 0x3f6bd8, 0xf2b705, 0x3fae5c, 0xb45cff, 0xeef3f6]; // pit + araba renkleri aynı
   function pickOtherLane(current){
     var options = LANES.filter(function(l){ return Math.abs(l-current) > 0.01; });
     return options[Math.floor(Math.random()*options.length)];
@@ -576,8 +630,15 @@
       car.laneTarget = pickOtherLane(car.laneTarget);
       car.boosting = true;
       car.boostUntil = nowMs + 1800 + Math.random()*900;
-    } else if(car.boosting && nowMs > car.boostUntil){
-      car.boosting = false;
+    } else {
+      if(car.boosting && nowMs > car.boostUntil) car.boosting = false;
+      // Trafik olmasa bile arabalar arada bir kendiliğinden şerit değiştirsin —
+      // yoksa serbest kaldıklarında başlangıç şeridinde sonsuza dek kalıp
+      // "hep aynı eksende dönüyor" hissi veriyorlar. Pistin tamamını (iç/dış)
+      // kullanan doğal, organik bir çeşitlilik için.
+      if(Math.random() < 0.3){
+        car.laneTarget = LANES[Math.floor(Math.random()*LANES.length)];
+      }
     }
   }
 
@@ -651,7 +712,7 @@
 
   var track = buildBankedTrack();
   scene.add(track.mesh);
-  scene.add(buildInfield(track.innerLine));
+  scene.add(buildInfield());
   scene.add(buildBarrierWall(track.outerRing));
   scene.add(buildGround());
   buildStands(scene);
