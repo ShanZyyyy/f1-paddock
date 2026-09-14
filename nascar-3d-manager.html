@@ -284,46 +284,79 @@
     var p2 = (t-F3)/(1-F3); return MAX_BANK*Math.sin(p2*Math.PI);
   }
 
-  function buildBankedTrack(){
+  // TEK PARÇA asfalt yüzeyi: gerçek pist (banked) + iç apron TEK bir
+  // BufferGeometry'de, dış (yüksek/banked) kenardan iç apron kenarına kadar
+  // kesintisiz bir şerit olarak kuruluyor. Önceki sürümde pist ve apron AYRI
+  // mesh'lerdi ve dikiş hattında aynı koordinatları üretiyorlardı — bu da
+  // GPU derinlik tamponunda z-fighting'e (lekeli/"yamalı" görüntü) yol
+  // açıyordu. Tek mesh olunca o dikiş hattı hiç var olmuyor, hata yapısal
+  // olarak imkansız hale geliyor.
+  // Banking gerçek NASCAR pistlerine göre: Daytona ~31°, Talladega ~33°,
+  // Bristol (kısa/yüksek banked) 24-28° — burada 30° kullanıldı (Daytona
+  // ölçeğinde bir süperspeedway).
+  function surfaceY(offsetFromCenter, bank, halfW){
+    if(Math.abs(offsetFromCenter) <= halfW + 1e-6){
+      return offsetFromCenter*Math.sin(bank); // gerçek banking yüzeyi
+    }
+    var extra = -offsetFromCenter - halfW; // apron'a ne kadar girildiği
+    var u = Math.min(1, Math.max(0, extra/APRON_WIDTH));
+    var smooth = u*u*(3-2*u);
+    var edgeY = -halfW*Math.sin(bank);
+    var flatY = -0.05;
+    return edgeY + smooth*(flatY-edgeY);
+  }
+
+  function buildTrackSurface(){
+    var halfW = TRACK_WIDTH/2;
+    // Şerit örnekleri: dış kenar -> iç kenar -> apron'un iç ucu, tek dizi.
+    var offsets = [halfW, halfW*0.4, -halfW*0.4, -halfW,
+                   -(halfW+APRON_WIDTH*0.35), -(halfW+APRON_WIDTH*0.75), -(halfW+APRON_WIDTH)];
+    var cols = offsets.length;
     var positions = [];
     var indices = [];
-    var outerRing = [];  // bariyer duvarı için: her noktada dış kenar + side + bank
-    var halfW = TRACK_WIDTH/2;
+    var outerRing = [];    // bariyer duvarı için
+    var infieldLine = [];  // çimin sınırı — apron'un TAM iç ucundaki noktalar
     var up = new THREE.Vector3(0,1,0);
 
-    for(var i = 0; i <= SEGMENTS; i++){
-      var t = (i/SEGMENTS) % 1;
+    for(var i = 0; i < SEGMENTS; i++){ // NOT: i<SEGMENTS (i<=SEGMENTS DEĞİL) — kapanışta yinelenen nokta earcut/derinlik sorunlarına yol açıyordu
+      var t = i/SEGMENTS;
       var p0 = pointAt(t);
       var p1 = pointAt((t + 0.0015) % 1);
       var tangent = new THREE.Vector3(p1.x-p0.x, 0, p1.z-p0.z).normalize();
       var side = new THREE.Vector3().crossVectors(tangent, up).normalize();
       var bank = bankAt(t);
-
       var center = new THREE.Vector3(p0.x, 0, p0.z);
-      var outer = center.clone().addScaledVector(side, halfW*Math.cos(bank));
-      outer.y += halfW*Math.sin(bank);
-      var inner = center.clone().addScaledVector(side, -halfW*Math.cos(bank));
-      inner.y -= halfW*Math.sin(bank);
 
-      positions.push(inner.x, inner.y, inner.z);
-      positions.push(outer.x, outer.y, outer.z);
+      for(var c = 0; c < cols; c++){
+        var off = offsets[c];
+        var y = surfaceY(off, bank, halfW);
+        var cosB = Math.abs(off) <= halfW ? Math.cos(bank) : 1;
+        var x = center.x + side.x*off*cosB;
+        var z = center.z + side.z*off*cosB;
+        positions.push(x, y, z);
+      }
+
+      var outer = new THREE.Vector3(center.x + side.x*halfW*Math.cos(bank), halfW*Math.sin(bank), center.z + side.z*halfW*Math.cos(bank));
       outerRing.push({center:center, side:side, bank:bank, outer:outer});
+      var lastOff = offsets[cols-1];
+      infieldLine.push({x: center.x+side.x*lastOff, z: center.z+side.z*lastOff});
     }
     for(var s = 0; s < SEGMENTS; s++){
-      var i0 = s*2, i1 = s*2+1, i2 = (s+1)*2, i3 = (s+1)*2+1;
-      indices.push(i0, i2, i1,  i1, i2, i3);
+      var sNext = (s+1) % SEGMENTS;
+      for(var c2 = 0; c2 < cols-1; c2++){
+        var i0 = s*cols+c2, i1 = s*cols+c2+1, i2 = sNext*cols+c2, i3 = sNext*cols+c2+1;
+        indices.push(i0, i2, i1,  i1, i2, i3);
+      }
     }
 
     var geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    // Kavis yönü/kazanç işareti garanti değil — DoubleSide, hangi taraftan
-    // bakılırsa bakılsın pistin görünmez/siyah kalmasını engelliyor.
     var mat = new THREE.MeshLambertMaterial({color:0x2b2f33, side:THREE.DoubleSide});
     var mesh = new THREE.Mesh(geo, mat);
 
-    return {mesh:mesh, outerRing:outerRing};
+    return {mesh:mesh, outerRing:outerRing, infieldLine:infieldLine};
   }
 
   // Dış kenar boyunca, banking'in DEVAMI yönünde (yani pistle aynı eğimde)
@@ -496,86 +529,15 @@
     }
   }
 
-  // APRON — pistin iç kenarından (offset=halfW, banking'e TAM uyumlu, dikişsiz
-  // birleşim) başlayıp APRON_WIDTH kadar içeri doğru uzanan, gerçek NASCAR
-  // pistlerindeki gibi DÜZ asfalt şerit. Dış ucu pistle aynı banking'te,
-  // iç ucuna doğru smoothstep ile düzleşiyor — böylece virajın en dar/iç
-  // kısmı artık çimen değil asfalt, ve araba hiçbir banking açısında bu
-  // asfaltın altına/üstüne "gömülmüş" gibi görünmüyor.
-  function buildApron(){
-    var halfW = TRACK_WIDTH/2;
-    var RINGS = 5;
-    var positions = [], indices = [];
-    var up = new THREE.Vector3(0,1,0);
-
-    for(var ri=0; ri<=RINGS; ri++){
-      var u = ri/RINGS;
-      var offset = halfW + u*APRON_WIDTH; // halfW (pist kenarı) -> halfW+APRON_WIDTH (iç uç)
-      var smooth = u*u*(3-2*u);
-      for(var i=0;i<=SEGMENTS;i++){
-        var t = (i/SEGMENTS)%1;
-        var p0 = pointAt(t);
-        var p1 = pointAt((t+0.0015)%1);
-        var tangent = new THREE.Vector3(p1.x-p0.x,0,p1.z-p0.z).normalize();
-        var side = new THREE.Vector3().crossVectors(tangent, up).normalize();
-        var bank = bankAt(t);
-        var edgeY = -halfW*Math.sin(bank);      // pist iç kenarıyla dikişsiz başlangıç
-        var flatY = -0.08;                       // iç uçta düz
-        var y = edgeY + smooth*(flatY-edgeY);
-        positions.push(p0.x-side.x*offset, y, p0.z-side.z*offset);
-      }
-    }
-    for(var ri2=0; ri2<RINGS; ri2++){
-      for(var i2=0;i2<SEGMENTS;i2++){
-        var i0=ri2*(SEGMENTS+1)+i2, i1=i0+1, i2b=(ri2+1)*(SEGMENTS+1)+i2, i3=i2b+1;
-        indices.push(i0,i2b,i1, i1,i2b,i3);
-      }
-    }
-    var geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
-    geo.setIndex(indices);
-    geo.computeVertexNormals();
-    // polygonOffset: pist ile apron'un dikiş hattı birebir aynı x,y,z'de
-    // olduğu için (coincident geometry) GPU derinlik arabelleğinde z-fighting
-    // ("yama" gibi lekeli/titrek görüntü) oluşuyordu — uzak virajlarda daha
-    // belirgindi çünkü z-fighting mesafeyle kötüleşir. polygonOffset, dünya
-    // koordinatını değil doğrudan derinlik tamponunu ittiği için mesafeden
-    // bağımsız çalışır; sabit Y farkından daha güvenilir.
-    var mat = new THREE.MeshLambertMaterial({
-      color:0x35383b, side:THREE.DoubleSide,
-      polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
-    });
-    return new THREE.Mesh(geo, mat);
-  }
-
-  // Çim (infield): apron'un iç ucundan (offset=halfW+APRON_WIDTH, zaten düz)
-  // başlayıp merkeze kadar uzanan sade düz alan — apron bütün banking
-  // geçişini üstlendiği için burada artık dikiş/yükseklik sorunu yok.
-  function buildInfield(){
-    var boundaryOffset = TRACK_WIDTH/2 + APRON_WIDTH;
+  // Çim (infield): tek parça asfalt yüzeyinin (buildTrackSurface) döndürdüğü
+  // infieldLine sınırını AYNEN kullanıyor — kendi pointAt/side hesabını
+  // TEKRAR yapmıyor. Böylece iki ayrı yerde bağımsızca hesaplanan koordinatlar
+  // arasında ufak bir kayan-nokta farkı yüzünden dikişte boşluk/çakışma
+  // oluşma ihtimali de yapısal olarak ortadan kalkıyor.
+  function buildInfield(infieldLine){
     var shape = new THREE.Shape();
-    // NOT: döngü i<SEGMENTS (i<=SEGMENTS DEĞİL) — son nokta (i=SEGMENTS,
-    // t=(SEGMENTS/SEGMENTS)%1=0) başlangıç noktasıyla (i=0, t=0) BİREBİR
-    // AYNIYDI. Bu yinelenen kapanış noktası THREE'nin earcut tabanlı
-    // ShapeGeometry üçgenlemesini bozup çimin içinde çapraz kesen bir
-    // "çatlak" (self-intersecting sliver) üretiyordu — gördüğümüz asıl hata
-    // buydu, z-fighting değil. Shape zaten son noktadan ilk noktaya
-    // otomatik kapanıyor, elle tekrar eklemeye gerek yok.
-    for(var i=0;i<SEGMENTS;i++){
-      var t=(i/SEGMENTS)%1;
-      var p0=pointAt(t);
-      var p1=pointAt((t+0.0015)%1);
-      var tangent=new THREE.Vector3(p1.x-p0.x,0,p1.z-p0.z).normalize();
-      var side=new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0,1,0)).normalize();
-      var x = p0.x - side.x*boundaryOffset, z = p0.z - side.z*boundaryOffset;
-      i===0 ? shape.moveTo(x,z) : shape.lineTo(x,z);
-    }
+    infieldLine.forEach(function(p, i){ i===0 ? shape.moveTo(p.x,p.z) : shape.lineTo(p.x,p.z); });
     var geo = new THREE.ShapeGeometry(shape);
-    // Çim de apron'un iç ucuyla (y=-0.08) aynı seviyedeydi — aynı z-fighting
-    // riski. NOT: büyük bir polygonOffset (2,2) denendi ama uzak virajlarda
-    // çimi TAMAMEN kaybettirdi (perspektifte küçük derinlik farkları büyütülüp
-    // arka plandaki zemine kaybettiriyordu) — o yüzden apron'la AYNI küçük
-    // değer kullanılıyor, ayrım esas olarak küçük Y farkıyla sağlanıyor.
     var mat = new THREE.MeshLambertMaterial({
       color:0x2f6b3f, side:THREE.DoubleSide,
       polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1
@@ -774,10 +736,9 @@
   document.body.appendChild(renderer.domElement);
   window.addEventListener('resize', resize);
 
-  var track = buildBankedTrack();
+  var track = buildTrackSurface();
   scene.add(track.mesh);
-  scene.add(buildApron());
-  scene.add(buildInfield());
+  scene.add(buildInfield(track.infieldLine));
   scene.add(buildBarrierWall(track.outerRing));
   scene.add(buildGround());
   buildStands(scene);
