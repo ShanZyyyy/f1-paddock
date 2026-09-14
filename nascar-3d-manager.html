@@ -261,7 +261,8 @@
   var CAP_R = 70;          // viraj (cap) yarıçapı
   var TRACK_WIDTH = 26;
   var MAX_BANK = THREE.MathUtils.degToRad(30); // Daytona ~31°
-  var SEGMENTS = 120;
+  var SEGMENTS = 160; // daha yoğun örnekleme — eğri daha pürüzsüz
+  var APRON_WIDTH = 12; // pistin iç kenarından itibaren asfalt apron genişliği
 
   var STRAIGHT = 2*HALF_LEN, CAP = Math.PI*CAP_R, TOTAL = 2*STRAIGHT + 2*CAP;
   var F1 = STRAIGHT/TOTAL, F2 = F1 + CAP/TOTAL, F3 = F2 + STRAIGHT/TOTAL;
@@ -396,7 +397,7 @@
       new THREE.Vector3(exitMain.x, 0.05, exitMain.z)
     ];
     var curve = new THREE.CatmullRomCurve3(curvePts);
-    var pts = curve.getPoints(70);
+    var pts = curve.getPoints(140); // yoğun örnekleme — pürüzsüz eğri
     var halfW = 5.2;
     var positions = [], indices = [];
     for(var i=0;i<pts.length;i++){
@@ -465,26 +466,22 @@
     }
   }
 
-  // Çim (infield): görünüm önceki güncellemedeki BÜYÜK yeşil alanla aynı
-  // (dış sınır pistin iç kenarına çok yakın) — ama artık tamamen düz değil.
-  // Kenara yakın dar bir kuşakta çim, pistin banking'ine YUMUŞAKÇA (smoothstep)
-  // geçerek gerçek pist yüksekliğine yaklaşıyor; bu kuşağın iç ucunda tamamen
-  // düzleşip geniş iç çekirdeğe (tek renkli, sabit y) sorunsuz birleşiyor.
-  // Böylece arabalar (iç şeritte, banking'de) artık çimden daha DÜŞÜKTE
-  // kalmıyor — "gömülme" yanılsaması bu yükseklik uyumuyla ortadan kalkıyor,
-  // tek bir dev üçgen yelpazesi kullanılmadığı için de ışık/gölge çatlağı yok.
-  function buildInfield(){
+  // APRON — pistin iç kenarından (offset=halfW, banking'e TAM uyumlu, dikişsiz
+  // birleşim) başlayıp APRON_WIDTH kadar içeri doğru uzanan, gerçek NASCAR
+  // pistlerindeki gibi DÜZ asfalt şerit. Dış ucu pistle aynı banking'te,
+  // iç ucuna doğru smoothstep ile düzleşiyor — böylece virajın en dar/iç
+  // kısmı artık çimen değil asfalt, ve araba hiçbir banking açısında bu
+  // asfaltın altına/üstüne "gömülmüş" gibi görünmüyor.
+  function buildApron(){
     var halfW = TRACK_WIDTH/2;
-    var insetWEdge = halfW*0.94;  // dış sınır — önceki görünümle aynı konum
-    var insetWCore = 2;           // bu değerden içeride çim tamamen düz
-    var RINGS = 6;
+    var RINGS = 5;
     var positions = [], indices = [];
     var up = new THREE.Vector3(0,1,0);
 
     for(var ri=0; ri<=RINGS; ri++){
       var u = ri/RINGS;
-      var insetW = insetWCore + u*(insetWEdge-insetWCore);
-      var smooth = u*u*(3-2*u); // smoothstep — ani yükseklik sıçraması yok
+      var offset = halfW + u*APRON_WIDTH; // halfW (pist kenarı) -> halfW+APRON_WIDTH (iç uç)
+      var smooth = u*u*(3-2*u);
       for(var i=0;i<=SEGMENTS;i++){
         var t = (i/SEGMENTS)%1;
         var p0 = pointAt(t);
@@ -492,9 +489,10 @@
         var tangent = new THREE.Vector3(p1.x-p0.x,0,p1.z-p0.z).normalize();
         var side = new THREE.Vector3().crossVectors(tangent, up).normalize();
         var bank = bankAt(t);
-        var flatY = -0.05, bankedY = -insetW*Math.sin(bank);
-        var y = flatY + smooth*(bankedY-flatY);
-        positions.push(p0.x-side.x*insetW, y, p0.z-side.z*insetW);
+        var edgeY = -halfW*Math.sin(bank);      // pist iç kenarıyla dikişsiz başlangıç
+        var flatY = -0.08;                       // iç uçta düz
+        var y = edgeY + smooth*(flatY-edgeY);
+        positions.push(p0.x-side.x*offset, y, p0.z-side.z*offset);
       }
     }
     for(var ri2=0; ri2<RINGS; ri2++){
@@ -503,36 +501,35 @@
         indices.push(i0,i2b,i1, i1,i2b,i3);
       }
     }
-
-    // İç çekirdek: insetWCore sınırının içi kalan büyük düz alan — tek
-    // renkli (y=-0.05 sabit) olduğu için merkezden yelpaze güvenli.
-    var coreLine = [];
-    for(var i3=0;i3<=SEGMENTS;i3++){
-      var t3=(i3/SEGMENTS)%1;
-      var q0=pointAt(t3);
-      var q1=pointAt((t3+0.0015)%1);
-      var tan3=new THREE.Vector3(q1.x-q0.x,0,q1.z-q0.z).normalize();
-      var side3=new THREE.Vector3().crossVectors(tan3, up).normalize();
-      coreLine.push({x:q0.x-side3.x*insetWCore, z:q0.z-side3.z*insetWCore});
-    }
-    var cx=0, cz=0;
-    coreLine.forEach(function(p){ cx+=p.x; cz+=p.z; });
-    cx/=coreLine.length; cz/=coreLine.length;
-    var coreCenterIdx = positions.length/3;
-    positions.push(cx,-0.05,cz);
-    var coreStartIdx = positions.length/3;
-    coreLine.forEach(function(p){ positions.push(p.x,-0.05,p.z); });
-    var n = coreLine.length;
-    for(var k=0;k<n;k++){
-      indices.push(coreCenterIdx, coreStartIdx+k, coreStartIdx+((k+1)%n));
-    }
-
     var geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
     geo.setIndex(indices);
     geo.computeVertexNormals();
-    var mat = new THREE.MeshLambertMaterial({color:0x2f6b3f, side:THREE.DoubleSide});
+    var mat = new THREE.MeshLambertMaterial({color:0x35383b, side:THREE.DoubleSide});
     return new THREE.Mesh(geo, mat);
+  }
+
+  // Çim (infield): apron'un iç ucundan (offset=halfW+APRON_WIDTH, zaten düz)
+  // başlayıp merkeze kadar uzanan sade düz alan — apron bütün banking
+  // geçişini üstlendiği için burada artık dikiş/yükseklik sorunu yok.
+  function buildInfield(){
+    var boundaryOffset = TRACK_WIDTH/2 + APRON_WIDTH;
+    var shape = new THREE.Shape();
+    for(var i=0;i<=SEGMENTS;i++){
+      var t=(i/SEGMENTS)%1;
+      var p0=pointAt(t);
+      var p1=pointAt((t+0.0015)%1);
+      var tangent=new THREE.Vector3(p1.x-p0.x,0,p1.z-p0.z).normalize();
+      var side=new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0,1,0)).normalize();
+      var x = p0.x - side.x*boundaryOffset, z = p0.z - side.z*boundaryOffset;
+      i===0 ? shape.moveTo(x,z) : shape.lineTo(x,z);
+    }
+    var geo = new THREE.ShapeGeometry(shape);
+    var mat = new THREE.MeshLambertMaterial({color:0x2f6b3f, side:THREE.DoubleSide});
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.y = -0.08;
+    return mesh;
   }
 
   function buildGround(){
@@ -566,6 +563,8 @@
      etrafında bankaja göre yatıyor (roll) — pistin eğimine
      "yapışmış" gibi duruyor.
      ========================================================= */
+  var _rotDummy = new THREE.Object3D(); // hedef quaternion hesaplamak için tek seferlik yardımcı obje
+
   function makeCar(color){
     var geo = new THREE.BoxGeometry(5.2, 2.6, 10.5); // genişlik, yükseklik, uzunluk
     var mat = new THREE.MeshLambertMaterial({color:color});
@@ -661,8 +660,19 @@
     var aheadPos = laneOffsetPosition((car.t + 0.01) % 1, car.laneTarget);
 
     car.mesh.position.set(pos.x, pos.y, pos.z);
-    car.mesh.lookAt(aheadPos.x, pos.y, aheadPos.z);
-    car.mesh.rotateZ(-pos.bank); // banking ile birlikte yatış (roll) — pist yüzeyiyle aynı yönde
+
+    // Hedef dönüşü bir yardımcı (dummy) obje üzerinde hesaplıyoruz —
+    // lookAt() + banking roll — ama bunu arabaya DOĞRUDAN atamıyoruz.
+    // Bunun yerine arabanın MEVCUT quaternion'ından bu hedefe doğru
+    // Quaternion.slerp ile yumuşakça geçiyoruz; böylece viraja girerken
+    // direksiyon akıcı çevriliyormuş gibi süzülüyor, asla ani 'snap' olmuyor.
+    _rotDummy.position.copy(car.mesh.position);
+    _rotDummy.up.set(0,1,0);
+    _rotDummy.lookAt(aheadPos.x, pos.y, aheadPos.z);
+    _rotDummy.rotateZ(-pos.bank);
+
+    var slerpT = 1 - Math.exp(-dt*7); // dt'den bağımsız, üstel yumuşatma
+    car.mesh.quaternion.slerp(_rotDummy.quaternion, slerpT);
 
     return lapped;
   }
@@ -712,6 +722,7 @@
 
   var track = buildBankedTrack();
   scene.add(track.mesh);
+  scene.add(buildApron());
   scene.add(buildInfield());
   scene.add(buildBarrierWall(track.outerRing));
   scene.add(buildGround());
@@ -739,7 +750,17 @@
       lane: def.lane, laneTarget: def.lane, boosting:false, boostUntil:0, nextAiCheck:0
     };
   });
-  cars.forEach(function(c){ scene.add(c.mesh); });
+  cars.forEach(function(c){
+    // Başlangıçta arabayı hemen doğru yöne çevir — yoksa ilk karede kimliğin
+    // (identity) varsayılan yönünden hedefe doğru görünür bir "spin-up" olur.
+    var p0 = laneOffsetPosition(c.t, c.lane);
+    var ahead0 = laneOffsetPosition((c.t+0.01)%1, c.laneTarget);
+    c.mesh.position.set(p0.x, p0.y, p0.z);
+    c.mesh.up.set(0,1,0);
+    c.mesh.lookAt(ahead0.x, p0.y, ahead0.z);
+    c.mesh.rotateZ(-p0.bank);
+    scene.add(c.mesh);
+  });
 
   resize();
 
